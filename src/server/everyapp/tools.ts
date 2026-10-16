@@ -1,5 +1,6 @@
 import { defineTools, everyApp } from "@every-app/sdk/server";
 import { companyTools } from "@/server/everyapp/tools/companies";
+import { contactTools } from "@/server/everyapp/tools/contacts";
 import { fieldTools } from "@/server/everyapp/tools/fields";
 import { workspaceTools } from "@/server/everyapp/tools/workspace";
 
@@ -17,6 +18,7 @@ const INSTRUCTIONS =
 const tools = {
   ...workspaceTools,
   ...companyTools,
+  ...contactTools,
   ...fieldTools,
 };
 
