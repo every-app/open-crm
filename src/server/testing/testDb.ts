@@ -22,7 +22,7 @@ import * as pgSchema from "@/db/pg/schema";
 //   });
 //   vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
 //   vi.mock("@/db", () => ({ db: testDb.db }));
-//   vi.mock("@/db/runBatch", () => ({ runBatch: testDb.runBatch }));
+//   vi.mock("@/db/runBatch", () => testDb.runBatchModule);
 //
 // createPgTestDb is the same against Postgres (PGlite, in-process), for code
 // whose behaviour depends on the dialect: conflict targets, partial indexes,
@@ -44,6 +44,29 @@ function statements(migration: string): string[] {
 
 type TestDatabase = typeof appDb;
 
+const TEST_BATCH_SIZE = 100;
+
+/**
+ * The `@/db/runBatch` module for a test database: its `runBatch`, and an
+ * `executeInBatches` that chunks through it as production does. Mock it whole:
+ * `vi.mock("@/db/runBatch", () => testDb.runBatchModule)`.
+ */
+function runBatchModule(batch: typeof runBatch) {
+  return {
+    DB_BATCH_SIZE: TEST_BATCH_SIZE,
+    runBatch: batch,
+    executeInBatches: async <T>(
+      items: T[],
+      build: (tx: TestDatabase, item: T) => Promise<unknown>,
+    ) => {
+      for (let i = 0; i < items.length; i += TEST_BATCH_SIZE) {
+        const chunk = items.slice(i, i + TEST_BATCH_SIZE);
+        await batch((tx) => chunk.map((item) => build(tx, item)));
+      }
+    },
+  };
+}
+
 /** In-memory SQLite (libsql) with drizzle/sqlite applied. */
 export async function createSqliteTestDb() {
   const client = createClient({ url: "file::memory:" });
@@ -62,6 +85,7 @@ export async function createSqliteTestDb() {
   return {
     db,
     runBatch: batch,
+    runBatchModule: runBatchModule(batch),
     exec: (sql: string) => client.executeMultiple(sql),
     rows: async (sql: string) => (await client.execute(sql)).rows,
     seedTwoOrganizations: async () => {
@@ -86,6 +110,7 @@ export async function createPgTestDb() {
   return {
     db,
     runBatch: batch,
+    runBatchModule: runBatchModule(batch),
     exec: async (sql: string) => {
       await client.exec(sql);
     },

@@ -11,7 +11,7 @@ const { database } = await vi.hoisted(async () => {
 });
 vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
 vi.mock("@/db", () => ({ db: database.db }));
-vi.mock("@/db/runBatch", () => ({ runBatch: database.runBatch }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 
 import { AgentAccountRepository } from "./AgentAccountRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";

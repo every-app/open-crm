@@ -19,7 +19,7 @@ vi.mock("@/db", () => ({
   db: database.db,
   withPgClient: (fn: () => unknown) => fn(),
 }));
-vi.mock("@/db/runBatch", () => ({ runBatch: database.runBatch }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 vi.mock("@/server/lib/provider-access", () => ({
   getContextFetch: vi.fn(async () => null),
   hasContextAccess: vi.fn(async () => false),
