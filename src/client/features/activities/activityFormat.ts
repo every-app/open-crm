@@ -9,8 +9,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { z } from "zod";
-import { STAGE_LABELS } from "@/client/features/companies/companyFormat";
 import { DEAL_STAGES, type ActivityType } from "@/shared/crm-enums";
+import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 import type { getTimeline } from "@/serverFunctions/activities";
 
 // How an activity reads: its icon and name, who wrote it, its headline, and
@@ -49,7 +49,7 @@ function stageChange(entry: ActivityEntry) {
 export function activityHeadline(entry: ActivityEntry): string | null {
   const change = stageChange(entry);
   return change
-    ? `${STAGE_LABELS[change.from]} → ${STAGE_LABELS[change.to]}`
+    ? `${DEAL_STAGE_LABELS[change.from]} → ${DEAL_STAGE_LABELS[change.to]}`
     : entry.subject;
 }
 

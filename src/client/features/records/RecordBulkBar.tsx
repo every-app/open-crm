@@ -15,7 +15,7 @@ import {
 } from "@/client/components/ui/dropdown-menu";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { ownerIdOf, useOwnerOptions } from "@/client/features/records/owners";
-import type { BulkResult } from "@/types/schemas/records";
+import { UNASSIGNED, type BulkResult } from "@/types/schemas/records";
 
 // What a list does to its selected rows: live ones get an owner, the agent,
 // or the archive; archived ones come back or (owners and admins) go for good.
@@ -59,6 +59,7 @@ export function RecordBulkBar({
   canPurge,
   pending,
   onClear,
+  ownerRequired = false,
   onAssignOwner,
   onEnrich,
   onArchive,
@@ -74,6 +75,8 @@ export function RecordBulkBar({
   /** A bulk action is running. */
   pending: boolean;
   onClear: () => void;
+  /** Records that always have an owner (deals) aren't offered "Nobody". */
+  ownerRequired?: boolean;
   onAssignOwner: (ownerId: string | null) => void;
   /** Companies and contacts send the agent; deals have no enrichment. */
   onEnrich?: () => void;
@@ -83,7 +86,9 @@ export function RecordBulkBar({
   /** More actions for live records, such as setting a contact's company. */
   actions?: ReactNode;
 }) {
-  const owners = useOwnerOptions("Nobody");
+  const owners = useOwnerOptions("Nobody").filter(
+    (owner) => !ownerRequired || owner.value !== UNASSIGNED,
+  );
   const [confirming, setConfirming] = useState(false);
 
   return (

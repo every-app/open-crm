@@ -14,8 +14,8 @@ import {
 } from "drizzle-orm";
 import { db } from "@/db";
 import { company, deal, user } from "@/db/schema";
-import { OPEN_STAGES } from "@/server/features/companies/repositories/CompanyRelationsRepository";
 import { countedIn } from "@/server/features/currency/repositories/DealConversionRepository";
+import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 
 // The deal figures behind Home. Money only ever adds up base amounts counted
 // in the reporting currency (DealConversionRepository's countedIn); counts
@@ -48,7 +48,7 @@ async function openByStage(scope: DealScope, base: string) {
         ),
     })
     .from(deal)
-    .where(and(dealsInScope(scope), inArray(deal.stage, OPEN_STAGES)))
+    .where(and(dealsInScope(scope), inArray(deal.stage, OPEN_DEAL_STAGES)))
     .groupBy(deal.stage);
 }
 
@@ -87,7 +87,7 @@ async function closingBetween(
     .where(
       and(
         dealsInScope(scope),
-        inArray(deal.stage, OPEN_STAGES),
+        inArray(deal.stage, OPEN_DEAL_STAGES),
         gte(deal.expectedCloseDate, from),
         lt(deal.expectedCloseDate, to),
         countedIn(base),
@@ -134,7 +134,7 @@ async function biggestOpen(scope: DealScope, base: string, limit: number) {
       ),
     )
     .innerJoin(user, eq(user.id, deal.ownerId))
-    .where(and(dealsInScope(scope), inArray(deal.stage, OPEN_STAGES)))
+    .where(and(dealsInScope(scope), inArray(deal.stage, OPEN_DEAL_STAGES)))
     .orderBy(
       sql`(${value} is null)`,
       desc(value),

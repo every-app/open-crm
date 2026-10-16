@@ -26,7 +26,6 @@ import {
   activityAuthor,
   activityHeadline,
 } from "@/client/features/activities/activityFormat";
-import { STAGE_LABELS } from "@/client/features/companies/companyFormat";
 import {
   formatCount,
   formatMoneyCompact,
@@ -35,6 +34,7 @@ import {
 import { RelativeTime } from "@/client/features/records/LocalDateTime";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import { EmptyValue, EntityLogo } from "@/client/features/records/cells";
+import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 
 // The lists under Home's figures: the deals worth chasing, the viewer's
 // overdue tasks, and what happened last.
@@ -104,7 +104,7 @@ export function DealsInProgress({ summary }: { summary: DashboardSummary }) {
                     {deal.name}
                   </RecordLink>
                   <span className="truncate text-xs text-muted-foreground">
-                    {deal.company.name} · {STAGE_LABELS[deal.stage]}{" "}
+                    {deal.company.name} · {DEAL_STAGE_LABELS[deal.stage]}{" "}
                     <RelativeTime date={deal.stageChangedAt} />
                   </span>
                 </span>

@@ -1,7 +1,9 @@
 import { defineTools, everyApp } from "@every-app/sdk/server";
 import { activityTools } from "@/server/everyapp/tools/activities";
 import { companyTools } from "@/server/everyapp/tools/companies";
+import { contactTools } from "@/server/everyapp/tools/contacts";
 import { dashboardTools } from "@/server/everyapp/tools/dashboard";
+import { dealTools } from "@/server/everyapp/tools/deals";
 import { fieldTools } from "@/server/everyapp/tools/fields";
 import { searchTools } from "@/server/everyapp/tools/search";
 import { workspaceTools } from "@/server/everyapp/tools/workspace";
@@ -21,6 +23,8 @@ const tools = {
   ...workspaceTools,
   ...searchTools,
   ...companyTools,
+  ...contactTools,
+  ...dealTools,
   ...fieldTools,
   ...activityTools,
   ...dashboardTools,

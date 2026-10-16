@@ -1,16 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader } from "@/client/components/PageHeader";
-import { EmptyState } from "@/client/components/EmptyState";
+import { ContactsPage } from "@/client/features/contacts/ContactsPage";
+import { contactListSearchSchema } from "@/client/features/contacts/contactSearch";
 
 export const Route = createFileRoute("/_app/contacts")({
-  component: Page,
+  validateSearch: contactListSearchSchema,
+  component: ContactsPage,
 });
-
-function Page() {
-  return (
-    <div className="space-y-6 px-4 py-4 md:px-6 md:py-6">
-      <PageHeader title="Contacts" />
-      <EmptyState title="Coming in this port" />
-    </div>
-  );
-}

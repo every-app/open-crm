@@ -1,5 +1,4 @@
 import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
-import { OPEN_STAGES } from "@/server/features/companies/repositories/CompanyRelationsRepository";
 import { ConversionService } from "@/server/features/currency/services/ConversionService";
 import {
   DashboardRepository,
@@ -8,6 +7,7 @@ import {
 } from "@/server/features/dashboard/repositories/DashboardRepository";
 import { roundMoney } from "@/shared/currency";
 import type { DealStage } from "@/shared/crm-enums";
+import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 import type { DashboardScope } from "@/types/schemas/dashboard";
 
 // Home: what the viewer (or the whole team) has closed, what is still in
@@ -169,7 +169,7 @@ async function summary(
     ConversionService.unconverted(organizationId, dealsInScope(deals)),
   ]);
 
-  const stages = OPEN_STAGES.map((stage) => {
+  const stages = OPEN_DEAL_STAGES.map((stage) => {
     const row = byStage.find((candidate) => candidate.stage === stage);
     return {
       stage,

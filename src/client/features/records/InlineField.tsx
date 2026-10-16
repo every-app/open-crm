@@ -86,15 +86,18 @@ export function InlineField({
   placeholder,
   type = "text",
   trailing,
+  format,
 }: {
   label: string;
   value: string | null;
   onSave: (next: string) => void;
   saving?: boolean;
   placeholder?: string;
-  type?: "text" | "url" | "email" | "tel";
+  type?: "text" | "url" | "email" | "tel" | "date";
   /** Beside a saved value: a link that opens it, for example. */
   trailing?: (value: string) => ReactNode;
+  /** How a value reads when it isn't being edited: an amount in its currency. */
+  format?: (value: string) => ReactNode;
 }) {
   const id = useId();
   const field = useInlineDraft(value, onSave);
@@ -132,7 +135,7 @@ export function InlineField({
             onClick={field.edit}
           >
             {shown ? (
-              <span className="truncate">{shown}</span>
+              <span className="truncate">{format ? format(shown) : shown}</span>
             ) : (
               <span className="truncate text-muted-foreground">Empty</span>
             )}

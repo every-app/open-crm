@@ -6,7 +6,9 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { companyKeys } from "@/client/features/companies/companyQueries";
+import { contactKeys } from "@/client/features/contacts/contactQueries";
 import { dashboardKeys } from "@/client/features/dashboard/dashboardQueries";
+import { dealKeys } from "@/client/features/deals/dealQueries";
 import {
   completeTask,
   createActivity,
@@ -86,8 +88,7 @@ export const meetingQueryOptions = (id: string) =>
 
 /**
  * What an activity write changes: timelines and tasks, Home, and the last
- * activity every record list and sheet shows. Contacts and deals keep their
- * queries under ["contacts"] and ["deals"], as companies do.
+ * activity every record list and sheet shows.
  */
 function invalidateAfterActivity(queryClient: QueryClient) {
   return Promise.all(
@@ -95,8 +96,8 @@ function invalidateAfterActivity(queryClient: QueryClient) {
       activityKeys.all,
       dashboardKeys.all,
       companyKeys.all,
-      ["contacts"],
-      ["deals"],
+      contactKeys.all,
+      dealKeys.all,
     ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   );
 }

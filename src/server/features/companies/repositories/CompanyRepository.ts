@@ -17,7 +17,7 @@ import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
 import { activity, company, contact, deal, user } from "@/db/schema";
 import type { RecordSource } from "@/shared/crm-enums";
-import { OPEN_STAGES } from "@/server/features/companies/repositories/CompanyRelationsRepository";
+import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 import {
   archivedCondition,
   ownerCondition,
@@ -94,7 +94,7 @@ const contactCount =
   );
 
 const openDealCount =
-  sql<number>`(select count(*) from ${deal} where ${deal.organizationId} = ${company.organizationId} and ${deal.companyId} = ${company.id} and ${deal.archivedAt} is null and ${inArray(deal.stage, OPEN_STAGES)})`.mapWith(
+  sql<number>`(select count(*) from ${deal} where ${deal.organizationId} = ${company.organizationId} and ${deal.companyId} = ${company.id} and ${deal.archivedAt} is null and ${inArray(deal.stage, OPEN_DEAL_STAGES)})`.mapWith(
     Number,
   );
 

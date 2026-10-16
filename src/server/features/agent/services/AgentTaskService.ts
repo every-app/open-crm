@@ -111,7 +111,11 @@ async function workspaceChanged(
   });
 }
 
-/** A contact was added (or a person asked to identify one). */
+/**
+ * A contact was added (or a person asked to identify one: `required`, which
+ * also puts it with the work people asked for, so it runs even where a
+ * first-party deployment holds its scheduled research).
+ */
 async function contactCreated(
   organizationId: string,
   contactId: string,
@@ -124,7 +128,7 @@ async function contactCreated(
       contactId,
       kind: "identify",
       reason,
-      priority: PRIORITY.identify,
+      priority: required ? PRIORITY.requested : PRIORITY.identify,
       budget: 4,
     },
     required,
@@ -177,7 +181,9 @@ const RECORD_COLUMN = {
 
 /**
  * Asks the agent to fill custom fields (`keys`) on each record. A record that
- * already has an open backfill gets the new keys merged into it.
+ * already has an open backfill gets the new keys merged into it. A few
+ * batched queries per chunk of records rather than a few per record, so a
+ * large fill stays inside a Worker invocation's query budget.
  */
 async function fieldBackfillRecords(
   organizationId: string,
@@ -188,47 +194,50 @@ async function fieldBackfillRecords(
 ): Promise<{ queued: number; merged: number }> {
   if (ids.length === 0 || keys.length === 0) return { queued: 0, merged: 0 };
   const column = RECORD_COLUMN[entity];
+  const records = [...new Set(ids)].map((id) => ({
+    record: { [column]: id },
+    subject: taskSubject({ [column]: id }),
+  }));
   let queued = 0;
   let merged = 0;
-  for (const id of new Set(ids)) {
-    const record = { [column]: id };
-    const subject = taskSubject(record);
-    const created = await AgentTaskRepository.insertIfAbsent({
-      organizationId,
-      ...record,
-      subject,
-      kind: "field-backfill",
-      reason,
-      priority: PRIORITY.fieldBackfill,
-      budget: 8,
-      payload: { entity, keys },
-    });
-    if (created) {
-      queued += 1;
-      continue;
-    }
-    const pending = await AgentTaskRepository.findOpen(
+  for (let i = 0; i < records.length; i += BACKFILL_CHUNK) {
+    const chunk = records.slice(i, i + BACKFILL_CHUNK);
+    const open = await AgentTaskRepository.openBySubjects(
       organizationId,
       "field-backfill",
-      subject,
+      chunk.map(({ subject }) => subject),
     );
-    if (!pending) continue;
-    const parsed = fieldBackfillPayloadSchema.safeParse(pending.payload);
-    const priorKeys = parsed.success ? parsed.data.keys : [];
-    const nextKeys = [...new Set([...priorKeys, ...keys])];
-    if (nextKeys.length === priorKeys.length) continue;
-    if (
-      await AgentTaskRepository.replaceOpenPayload(organizationId, pending.id, {
-        entity,
-        keys: nextKeys,
-      })
-    ) {
-      merged += 1;
-    }
+    const openBySubject = new Map(open.map((task) => [task.subject, task]));
+    const fresh = chunk.filter(({ subject }) => !openBySubject.has(subject));
+    const merges = open.flatMap((task) => {
+      const parsed = fieldBackfillPayloadSchema.safeParse(task.payload);
+      const priorKeys = parsed.success ? parsed.data.keys : [];
+      const nextKeys = [...new Set([...priorKeys, ...keys])];
+      return nextKeys.length === priorKeys.length
+        ? []
+        : [{ id: task.id, payload: { entity, keys: nextKeys } }];
+    });
+    await AgentTaskRepository.upsertMany(
+      fresh.map(({ record, subject }) => ({
+        organizationId,
+        ...record,
+        subject,
+        kind: "field-backfill",
+        reason,
+        priority: PRIORITY.fieldBackfill,
+        budget: 8,
+        payload: { entity, keys },
+      })),
+    );
+    await AgentTaskRepository.replaceOpenPayloads(organizationId, merges);
+    queued += fresh.length;
+    merged += merges.length;
   }
   if (queued > 0) pokeDispatcher(organizationId);
   return { queued, merged };
 }
+
+const BACKFILL_CHUNK = 90;
 
 export const AgentTaskService = {
   companyCreated,

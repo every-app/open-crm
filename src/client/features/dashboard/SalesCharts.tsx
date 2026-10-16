@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { cn } from "cn";
@@ -17,10 +18,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/client/components/ui/tooltip";
-import {
-  STAGE_LABELS,
-  formatMoney,
-} from "@/client/features/companies/companyFormat";
+import { formatMoney } from "@/client/features/companies/companyFormat";
 import {
   STAGE_FILL,
   formatCount,
@@ -28,6 +26,7 @@ import {
   monthLabel,
   type DashboardSummary,
 } from "@/client/features/dashboard/dashboardFormat";
+import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 
 // Home's two charts: where the money moved over six months, and where the
 // open pipeline sits now. Each keeps its numbers readable without hovering:
@@ -176,7 +175,7 @@ export function StageBreakdown({
       {slices.length > 0 ? (
         <div className="flex h-3 gap-0.5">
           {slices.map((slice) => {
-            const label = `${STAGE_LABELS[slice.stage]}: ${formatMoney(slice.value, currency)}, ${formatCount(slice.count, "deal")}`;
+            const label = `${DEAL_STAGE_LABELS[slice.stage]}: ${formatMoney(slice.value, currency)}, ${formatCount(slice.count, "deal")}`;
             return (
               <Tooltip key={slice.stage}>
                 <TooltipTrigger
@@ -204,24 +203,31 @@ export function StageBreakdown({
         {pipeline.stages.map((stage) => (
           <li
             key={stage.stage}
-            className="flex items-center gap-2.5 border-t border-border py-2 first:border-t-0"
+            className="border-t border-border first:border-t-0"
           >
-            <span
-              aria-hidden
-              className={cn(
-                "size-2 shrink-0 rounded-[2px]",
-                STAGE_FILL[stage.stage],
-              )}
-            />
-            <span className="min-w-0 flex-1 truncate">
-              {STAGE_LABELS[stage.stage]}
-            </span>
-            <span className="shrink-0 text-muted-foreground tabular-nums">
-              {stage.count}
-            </span>
-            <span className="w-16 shrink-0 text-right font-medium tabular-nums">
-              {formatMoneyCompact(stage.value, currency)}
-            </span>
+            {/* The stage's deals, on the deals list. */}
+            <Link
+              to="/deals"
+              search={{ stage: [stage.stage] }}
+              className="flex items-center gap-2.5 py-2 hover:underline"
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "size-2 shrink-0 rounded-[2px]",
+                  STAGE_FILL[stage.stage],
+                )}
+              />
+              <span className="min-w-0 flex-1 truncate">
+                {DEAL_STAGE_LABELS[stage.stage]}
+              </span>
+              <span className="shrink-0 text-muted-foreground tabular-nums">
+                {stage.count}
+              </span>
+              <span className="w-16 shrink-0 text-right font-medium tabular-nums">
+                {formatMoneyCompact(stage.value, currency)}
+              </span>
+            </Link>
           </li>
         ))}
       </ul>

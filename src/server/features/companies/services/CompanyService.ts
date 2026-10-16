@@ -1,6 +1,7 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { CompanyRelationsRepository } from "@/server/features/companies/repositories/CompanyRelationsRepository";
 import { CompanyRepository } from "@/server/features/companies/repositories/CompanyRepository";
+import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   assertOwner,
   blankToNull,
@@ -124,6 +125,7 @@ async function createCompany(
     domain,
   });
   await AgentTaskService.companyCreated(organizationId, row.id);
+  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", row.id);
   return { id: row.id, name: row.name, domain };
 }
 
@@ -352,6 +354,11 @@ async function companyForEmail(
       organizationId,
       row.id,
       `Created from an email domain (${domain}): it has no name but the domain`,
+    );
+    await FieldsService.queueFillForNewRecord(
+      organizationId,
+      "COMPANY",
+      row.id,
     );
   }
   return row.id;

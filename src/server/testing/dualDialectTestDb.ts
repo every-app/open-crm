@@ -41,6 +41,9 @@ export async function createDualDialectTestDb() {
     });
   }
   const batch: typeof runBatch = (build) => databases[dialect].runBatch(build);
+  const executeInBatches: typeof databases.sqlite.runBatchModule.executeInBatches =
+    (items, build) =>
+      databases[dialect].runBatchModule.executeInBatches(items, build);
 
   return {
     /** Points every mocked module at `next`'s database and returns it. */
@@ -61,7 +64,11 @@ export async function createDualDialectTestDb() {
           return databases[dialect].db;
         },
       },
-      runBatch: { runBatch: batch },
+      runBatch: {
+        DB_BATCH_SIZE: databases.sqlite.runBatchModule.DB_BATCH_SIZE,
+        runBatch: batch,
+        executeInBatches,
+      },
       schema,
     },
   };
