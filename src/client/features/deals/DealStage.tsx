@@ -196,7 +196,8 @@ export function DealStageMenu({
             }}
           >
             {DEAL_STAGE_ORDER.map((option) => (
-              <DropdownMenuRadioItem key={option} value={option}>
+              // A pick is the whole interaction: the menu closes on it.
+              <DropdownMenuRadioItem key={option} value={option} closeOnClick>
                 {DEAL_STAGE_LABELS[option]}
               </DropdownMenuRadioItem>
             ))}
