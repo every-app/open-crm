@@ -1,16 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader } from "@/client/components/PageHeader";
-import { EmptyState } from "@/client/components/EmptyState";
+import { DealsPage } from "@/client/features/deals/DealsPage";
+import { dealListSearchSchema } from "@/client/features/deals/dealSearch";
 
 export const Route = createFileRoute("/_app/deals")({
-  component: Page,
+  validateSearch: dealListSearchSchema,
+  component: DealsPage,
 });
-
-function Page() {
-  return (
-    <div className="space-y-6 px-4 py-4 md:px-6 md:py-6">
-      <PageHeader title="Deals" />
-      <EmptyState title="Coming in this port" />
-    </div>
-  );
-}
