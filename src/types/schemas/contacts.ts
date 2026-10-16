@@ -70,12 +70,10 @@ export const bulkContactCompanySchema = bulkIdsSchema.extend({
   companyId: z.string().min(1).nullable(),
 });
 
-export const FACT_DECISIONS = ["accept", "dismiss"] as const;
-
 /** A person settling one of the agent's suggestions about a contact. */
 export const decideFactSchema = z.object({
   factId: z.string().min(1),
-  decision: z.enum(FACT_DECISIONS),
+  decision: z.enum(["accept", "dismiss"]),
 });
 
 export type DecideFactInput = z.infer<typeof decideFactSchema>;
