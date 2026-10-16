@@ -96,6 +96,10 @@ const companySummary = {
   logoUrl: company.logoUrl,
 };
 
+// Each word binds a pattern per column, and D1 binds at most 100 parameters
+// a statement (the owner filter takes up to 50): six words are plenty.
+const MAX_SEARCH_WORDS = 6;
+
 /**
  * The search: every word must turn up in the first name, last name, email or
  * company name, so "ana acme" finds Ana at Acme.
@@ -111,6 +115,7 @@ function searchWords(q: string): SQL | undefined {
     ...q
       .trim()
       .split(/\s+/)
+      .slice(0, MAX_SEARCH_WORDS)
       .map((word) => searchCondition(word, columns)),
   );
 }
