@@ -73,8 +73,7 @@ export async function createSqliteTestDb() {
 export async function createPgTestDb() {
   const client = new PGlite();
   for (const migration of migrationFiles("drizzle/pg"))
-    for (const statement of statements(migration))
-      await client.exec(statement);
+    for (const statement of statements(migration)) await client.exec(statement);
   const pglite = drizzlePglite(client, { schema: pgSchema });
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the Postgres client stands in for the D1-typed `db`, as in src/db/index.ts (guarded by schema-parity.test.ts)
   const db = pglite as unknown as TestDatabase;
