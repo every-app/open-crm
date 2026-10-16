@@ -4,6 +4,7 @@ import { createClient } from "@libsql/client";
 import { drizzle as drizzleLibsql } from "drizzle-orm/libsql";
 import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
 import { sort } from "remeda";
+import type { db } from "@/db";
 import type { runBatch } from "@/db/runBatch";
 import * as sqliteSchema from "@/db/d1/schema";
 import * as pgSchema from "@/db/pg/schema";
@@ -39,7 +40,7 @@ function statements(migration: string): string[] {
     .filter(Boolean);
 }
 
-type TestDatabase = typeof import("@/db").db;
+type TestDatabase = typeof db;
 
 /** In-memory SQLite (libsql) with drizzle/sqlite applied. */
 export async function createSqliteTestDb() {

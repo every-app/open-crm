@@ -60,7 +60,8 @@
   },
   "overrides": [
     {
-      "files": ["src/db/**"],
+      // The database seam, and the test databases that stand in for it.
+      "files": ["src/db/**", "src/server/testing/**"],
       "rules": {
         "eslint/no-restricted-imports": "off"
       }
