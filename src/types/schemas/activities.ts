@@ -38,7 +38,7 @@ export const ACTIVITY_SUBJECT_MAX = 500;
 export const ACTIVITY_BODY_MAX = 20_000;
 
 /** The record a timeline belongs to. */
-export const recordRefSchema = z.object({
+const recordRefSchema = z.object({
   kind: z.enum(RECORD_KINDS),
   id: z.string().min(1),
 });

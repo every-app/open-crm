@@ -209,8 +209,6 @@ async function summary(
   };
 }
 
-export type DashboardSummary = Awaited<ReturnType<typeof summary>>;
-
 export const DashboardService = {
   summary,
 };

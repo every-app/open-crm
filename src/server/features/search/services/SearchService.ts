@@ -8,7 +8,7 @@ import { QUICK_SEARCH_MIN_LENGTH } from "@/types/schemas/search";
 /** Matches of each kind, at most. */
 const PER_KIND = 5;
 
-export type SearchHit = {
+type SearchHit = {
   kind: RecordKind;
   id: string;
   label: string;

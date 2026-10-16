@@ -111,7 +111,7 @@ export function selectEntries(where: SQL | undefined) {
     .where(where);
 }
 
-export type EntryRow = Awaited<ReturnType<typeof selectEntries>>[number];
+type EntryRow = Awaited<ReturnType<typeof selectEntries>>[number];
 
 function author(row: EntryRow) {
   if (

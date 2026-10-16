@@ -183,7 +183,7 @@ async function recent(
   return rows.map(toEntry);
 }
 
-export type NewActivity = {
+type NewActivity = {
   organizationId: string;
   type: ActivityType;
   subject: string | null;
