@@ -1,0 +1,351 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* shadcn components here are built on Base UI. The shadcn variables below are
+   the source of truth for theme colors. */
+
+@custom-variant dark (&:where([data-theme=openseo-dark], [data-theme=openseo-dark] *));
+
+@theme {
+  --container-8xl: 88rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  /* At --radius 0.5rem this scale equals Tailwind's defaults, so existing
+     rounded-* classes do not change. Fields (rounded-lg) are 0.5rem and cards
+     (rounded-xl) are 0.75rem. */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 3);
+  --radius-4xl: calc(var(--radius) * 4);
+}
+
+:where(:root),
+[data-theme="openseo"] {
+  color-scheme: light;
+  --radius: 0.5rem;
+  --background: oklch(95.5% 0 0);
+  --foreground: oklch(20% 0 0);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(20% 0 0);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(20% 0 0);
+  --primary: oklch(50% 0.12 262);
+  --primary-foreground: oklch(100% 0 0);
+  --secondary: oklch(97% 0 0);
+  --secondary-foreground: oklch(20% 0 0);
+  --muted: oklch(97% 0 0);
+  --muted-foreground: oklch(20% 0 0 / 60%);
+  --accent: oklch(97% 0 0);
+  --accent-foreground: oklch(20% 0 0);
+  --destructive: oklch(65% 0.2 25);
+  --success: oklch(65% 0.18 145);
+  --success-foreground: oklch(100% 0 0);
+  --warning: oklch(80% 0.15 80);
+  --warning-foreground: oklch(25% 0.05 80);
+  --info: oklch(70% 0.15 230);
+  --info-foreground: oklch(100% 0 0);
+  --border: oklch(92% 0 0);
+  --input: oklch(82% 0 0);
+  --ring: oklch(50% 0.12 262);
+  --chart-1: oklch(57.5% 0.163 255.5);
+  --chart-2: oklch(67.1% 0.175 40.6);
+  --chart-3: oklch(66.9% 0.141 162.1);
+  --chart-4: oklch(76.4% 0.161 75.1);
+  --chart-5: oklch(71.6% 0.141 357.4);
+  --sidebar: oklch(91% 0 0);
+  --sidebar-foreground: oklch(20% 0 0);
+  --sidebar-primary: oklch(50% 0.12 262);
+  --sidebar-primary-foreground: oklch(100% 0 0);
+  --sidebar-accent: oklch(20% 0 0 / 8%);
+  --sidebar-accent-foreground: oklch(20% 0 0);
+  --sidebar-border: oklch(86% 0 0);
+  --sidebar-ring: oklch(50% 0.12 262);
+}
+
+[data-theme="openseo-dark"] {
+  color-scheme: dark;
+  --background: oklch(18% 0 0);
+  --foreground: oklch(92% 0 0);
+  --card: oklch(23% 0 0);
+  --card-foreground: oklch(92% 0 0);
+  --popover: oklch(25% 0 0);
+  --popover-foreground: oklch(92% 0 0);
+  --primary: oklch(66% 0.12 262);
+  --primary-foreground: oklch(100% 0 0);
+  --secondary: oklch(28% 0 0);
+  --secondary-foreground: oklch(92% 0 0);
+  --muted: oklch(18% 0 0);
+  --muted-foreground: oklch(92% 0 0 / 60%);
+  --accent: oklch(28% 0 0);
+  --accent-foreground: oklch(92% 0 0);
+  --destructive: oklch(65% 0.2 25);
+  --success: oklch(65% 0.18 145);
+  --success-foreground: oklch(100% 0 0);
+  --warning: oklch(80% 0.15 80);
+  --warning-foreground: oklch(25% 0.05 80);
+  --info: oklch(70% 0.15 230);
+  --info-foreground: oklch(100% 0 0);
+  --border: oklch(30% 0 0);
+  --input: oklch(40% 0 0);
+  --ring: oklch(66% 0.12 262);
+  --chart-1: oklch(62.2% 0.161 255.1);
+  --chart-2: oklch(62.2% 0.173 40.1);
+  --chart-3: oklch(62.1% 0.128 163.1);
+  --chart-4: oklch(67% 0.143 73.2);
+  --chart-5: oklch(62.2% 0.171 0.8);
+  --sidebar: oklch(24% 0 0);
+  --sidebar-foreground: oklch(92% 0 0);
+  --sidebar-primary: oklch(66% 0.12 262);
+  --sidebar-primary-foreground: oklch(100% 0 0);
+  --sidebar-accent: oklch(100% 0 0 / 8%);
+  --sidebar-accent-foreground: oklch(92% 0 0);
+  --sidebar-border: oklch(31% 0 0);
+  --sidebar-ring: oklch(66% 0.12 262);
+}
+
+:root {
+  --trend-grid-color: oklch(56% 0.01 255 / 0.28);
+  --trend-axis-color: oklch(42% 0.01 255 / 0.85);
+  --trend-fill-start-opacity: 0.32;
+  --trend-fill-end-opacity: 0.05;
+  --trend-tooltip-bg: oklch(99% 0.005 255 / 0.96);
+  --trend-tooltip-border: oklch(84% 0.01 255 / 0.7);
+  --trend-tooltip-shadow: oklch(0% 0 0 / 0.1);
+}
+
+html,
+body {
+  @apply m-0 bg-background text-foreground;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Thin scrollbars in the muted text color, in both themes. */
+:root {
+  scrollbar-color: color-mix(in oklch, currentColor 35%, transparent)
+    transparent;
+}
+
+/* Prevent Safari mobile from zooming on input focus (requires 16px minimum).
+   This rule is outside a layer, so it beats every utility. shadcn controls
+   (the ones with data-slot) are left out: they are 16px below md and 14px
+   from md up through their own utilities. */
+input:not([data-slot]),
+textarea:not([data-slot]),
+select:not([data-slot]) {
+  @apply text-base;
+}
+
+/* Safe area utilities for mobile devices */
+@layer utilities {
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0.5rem) + 0.5rem);
+  }
+}
+
+/* Row actions that appear on hover. Keyboard focus inside the row and touch
+   screens (no hover) show them too. Put `group` on the row. */
+@utility reveal-on-hover {
+  @apply opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100;
+}
+
+/* Touch device optimizations */
+@media (pointer: coarse) {
+  html {
+    touch-action: none;
+  }
+  body {
+    touch-action: pan-x pan-y;
+  }
+}
+
+/* Tag chip colors — muted background + readable text in both themes.
+   Text uses darker shades on light theme for contrast, lighter on dark. */
+.tag-chip-slate {
+  background-color: color-mix(in oklab, #64748b 14%, transparent);
+  color: #334155;
+  --tw-ring-color: color-mix(in oklab, #64748b 30%, transparent);
+}
+.tag-chip-rose {
+  background-color: color-mix(in oklab, #f43f5e 14%, transparent);
+  color: #9f1239;
+  --tw-ring-color: color-mix(in oklab, #f43f5e 30%, transparent);
+}
+.tag-chip-amber {
+  background-color: color-mix(in oklab, #f59e0b 16%, transparent);
+  color: #92400e;
+  --tw-ring-color: color-mix(in oklab, #f59e0b 32%, transparent);
+}
+.tag-chip-lime {
+  background-color: color-mix(in oklab, #84cc16 16%, transparent);
+  color: #3f6212;
+  --tw-ring-color: color-mix(in oklab, #84cc16 32%, transparent);
+}
+.tag-chip-emerald {
+  background-color: color-mix(in oklab, #10b981 14%, transparent);
+  color: #065f46;
+  --tw-ring-color: color-mix(in oklab, #10b981 30%, transparent);
+}
+.tag-chip-sky {
+  background-color: color-mix(in oklab, #0ea5e9 14%, transparent);
+  color: #075985;
+  --tw-ring-color: color-mix(in oklab, #0ea5e9 30%, transparent);
+}
+.tag-chip-violet {
+  background-color: color-mix(in oklab, #8b5cf6 16%, transparent);
+  color: #5b21b6;
+  --tw-ring-color: color-mix(in oklab, #8b5cf6 32%, transparent);
+}
+.tag-chip-fuchsia {
+  background-color: color-mix(in oklab, #d946ef 14%, transparent);
+  color: #86198f;
+  --tw-ring-color: color-mix(in oklab, #d946ef 30%, transparent);
+}
+
+html[data-theme="openseo-dark"] .tag-chip-slate {
+  color: #cbd5e1;
+}
+html[data-theme="openseo-dark"] .tag-chip-rose {
+  color: #fda4af;
+}
+html[data-theme="openseo-dark"] .tag-chip-amber {
+  color: #fcd34d;
+}
+html[data-theme="openseo-dark"] .tag-chip-lime {
+  color: #d9f99d;
+}
+html[data-theme="openseo-dark"] .tag-chip-emerald {
+  color: #6ee7b7;
+}
+html[data-theme="openseo-dark"] .tag-chip-sky {
+  color: #7dd3fc;
+}
+html[data-theme="openseo-dark"] .tag-chip-violet {
+  color: #c4b5fd;
+}
+html[data-theme="openseo-dark"] .tag-chip-fuchsia {
+  color: #f5d0fe;
+}
+
+/* Keyword difficulty score badges — muted/transparent style to match tag chips */
+.score-badge {
+  @apply ring-1 ring-inset;
+}
+
+.score-tier-na {
+  background-color: color-mix(in oklab, #94a3b8 12%, transparent);
+  color: #475569;
+  --tw-ring-color: color-mix(in oklab, #94a3b8 28%, transparent);
+}
+
+.score-tier-1 {
+  background-color: color-mix(in oklab, #10b981 15%, transparent);
+  color: #065f46;
+  --tw-ring-color: color-mix(in oklab, #10b981 30%, transparent);
+}
+
+.score-tier-2 {
+  background-color: color-mix(in oklab, #84cc16 15%, transparent);
+  color: #3f6212;
+  --tw-ring-color: color-mix(in oklab, #84cc16 30%, transparent);
+}
+
+.score-tier-3 {
+  background-color: color-mix(in oklab, #eab308 16%, transparent);
+  color: #854d0e;
+  --tw-ring-color: color-mix(in oklab, #eab308 32%, transparent);
+}
+
+.score-tier-4 {
+  background-color: color-mix(in oklab, #f97316 16%, transparent);
+  color: #9a3412;
+  --tw-ring-color: color-mix(in oklab, #f97316 32%, transparent);
+}
+
+.score-tier-5 {
+  background-color: color-mix(in oklab, #ef4444 15%, transparent);
+  color: #991b1b;
+  --tw-ring-color: color-mix(in oklab, #ef4444 30%, transparent);
+}
+
+.score-tier-6 {
+  background-color: color-mix(in oklab, #b91c1c 18%, transparent);
+  color: #7f1d1d;
+  --tw-ring-color: color-mix(in oklab, #b91c1c 32%, transparent);
+}
+
+html[data-theme="openseo-dark"] .score-tier-na {
+  color: #cbd5e1;
+}
+html[data-theme="openseo-dark"] .score-tier-1 {
+  color: #6ee7b7;
+}
+html[data-theme="openseo-dark"] .score-tier-2 {
+  color: #bef264;
+}
+html[data-theme="openseo-dark"] .score-tier-3 {
+  color: #fde047;
+}
+html[data-theme="openseo-dark"] .score-tier-4 {
+  color: #fdba74;
+}
+html[data-theme="openseo-dark"] .score-tier-5 {
+  color: #fca5a5;
+}
+html[data-theme="openseo-dark"] .score-tier-6 {
+  color: #fda4af;
+}
+
+html[data-theme="openseo-dark"] {
+  --trend-grid-color: oklch(78% 0.01 255 / 0.22);
+  --trend-axis-color: oklch(84% 0.01 255 / 0.62);
+  --trend-fill-start-opacity: 0.24;
+  --trend-fill-end-opacity: 0.03;
+  --trend-tooltip-bg: oklch(21% 0.01 255 / 0.95);
+  --trend-tooltip-border: oklch(40% 0.01 255 / 0.65);
+  --trend-tooltip-shadow: oklch(0% 0 0 / 0.35);
+}

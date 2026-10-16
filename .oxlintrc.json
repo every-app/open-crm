@@ -1,0 +1,69 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "plugins": ["typescript", "import", "react", "unicorn", "oxc"],
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    ".output",
+    ".cloudflare",
+    "src/routeTree.gen.ts"
+  ],
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/jsx-uses-react": "off",
+    // Flags mutating .sort(); its suggested .toSorted() fix doesn't compile
+    // here (lib is ES2022) — fix with Remeda's sort/sortBy instead.
+    "unicorn/no-array-sort": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-unsafe-type-assertion": "error",
+    "typescript/no-unnecessary-type-assertion": [
+      "error",
+      { "checkLiteralConstAssertions": false }
+    ],
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-argument": "error",
+    "eslint/no-constant-binary-expression": "error",
+    "eslint/no-self-assign": "error",
+    "eslint/no-unreachable-loop": "error",
+    "eslint/no-unsafe-optional-chaining": "error",
+    "eslint/complexity": ["error", { "max": 40 }],
+    "eslint/max-lines": [
+      "error",
+      { "max": 400, "skipBlankLines": true, "skipComments": true }
+    ],
+    "eslint/max-lines-per-function": [
+      "error",
+      { "max": 320, "skipBlankLines": true, "skipComments": true }
+    ],
+    "eslint/max-depth": ["error", 4],
+    "eslint/max-params": ["error", 5],
+    "import/no-cycle": "error",
+    "eslint/no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@/db/d1", "@/db/d1/*", "@/db/pg", "@/db/pg/*"],
+            "message": "Import the provider-aware `db` from \"@/db\", tables from \"@/db/schema\", and batched writes via \"@/db/runBatch\". Dialect-specific clients/schemas may only be imported by the seam files in src/db, otherwise the code silently bypasses DATABASE_PROVIDER."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/db/**"],
+      "rules": {
+        "eslint/no-restricted-imports": "off"
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "entry": [
+    // Every App manifest and Worker, read by the everyapp CLI and the
+    // Cloudflare Vite plugin
+    "everyapp.config.ts",
+    "cloudflare.config.ts",
+    // Detect Tanstack Start Routes
+    "src/start.ts",
+    "src/router.tsx",
+    "src/routes/**/*.ts",
+    "src/routes/**/*.tsx",
+    // Drizzle configs (plugin disabled due to cloudflare:workers import issues)
+    "drizzle/sqlite.config.ts",
+    "drizzle/pg.config.ts",
+    // DB schema — exports consumed via `import * as schema` / drizzle()
+    "src/db/index.ts",
+    "src/db/schema.ts",
+    "src/db/d1/schema.ts",
+    "src/db/pg/schema.ts",
+    // shadcn components are copied in whole; pages use only some exports
+    "src/client/components/ui/**",
+  ],
+  "project": ["**/*.{js,mjs,ts,tsx}", "!src/routeTree.gen.ts"],
+  // Disable Drizzle plugin - it tries to load the drizzle configs, which import cloudflare:workers
+  "drizzle": false,
+  "ignoreDependencies": [
+    // Tailwindcss used via @tailwindcss/vite plugin
+    "tailwindcss",
+    // Imported by app.css; shadcn is also the component CLI
+    "tw-animate-css",
+    "shadcn",
+    // `cloudflare:workers` is a Workers runtime module that Knip reads as the
+    // (unused) `cloudflare` npm package.
+    "cloudflare",
+    // Linked from an Every App checkout until the SDK is published: Knip
+    // follows the source imports but doesn't credit them as package usage.
+    "@every-app/sdk",
+  ],
+}

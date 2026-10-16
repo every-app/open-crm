@@ -1,0 +1,67 @@
+minimumReleaseAge: 11520
+minimumReleaseAgeExclude:
+  - "@every-app/*"
+  # TEMPORARY (remove after 2026-10-17): the Every App build uses the
+  # Cloudflare CLI and its Vite plugin's 2.0 beta, published 2026-10-09.
+  - "cf@1.0.0-beta.14"
+  - "@cloudflare/vite-plugin@2.0.0-beta.sha-91c870c02"
+  - "miniflare@5.20261006.1-alpha"
+  - "@cloudflare/config@0.24.1"
+  - "@cloudflare/build-output-utils@0.9.0"
+  - "@cloudflare/codemods@0.4.2"
+  - "@cloudflare/runtime-types@0.1.9"
+  # TEMPORARY (remove after 2026-10-08): the TanStack Start release OpenSEO
+  # pins for its security refresh. Exempt only these matching versions.
+  - "@tanstack/react-router@1.170.41"
+  - "@tanstack/react-start-client@1.168.39"
+  - "@tanstack/react-start-rsc@0.1.59"
+  - "@tanstack/react-start-server@1.167.46"
+  - "@tanstack/react-start@1.168.60"
+  - "@tanstack/react-store@0.11.2"
+  - "@tanstack/router-core@1.171.34"
+  - "@tanstack/router-generator@1.167.40"
+  - "@tanstack/router-plugin@1.168.42"
+  - "@tanstack/start-client-core@1.170.34"
+  - "@tanstack/start-plugin-core@1.171.49"
+  - "@tanstack/start-server-core@1.169.39"
+  - "@tanstack/start-storage-context@1.167.36"
+  - "@tanstack/store@0.11.2"
+  # The chat-agent framework (@cloudflare/think 0.17.0, agents 0.22.0) is the
+  # same release OpenSEO's SAM runs on.
+  - "@cloudflare/think"
+  - "agents"
+  # Security releases required to clear current high-severity advisories.
+  - "brace-expansion"
+  - "fast-uri"
+  - "js-yaml"
+  - "dompurify@3.4.16"
+
+# Security floors for transitive dependencies with published advisories,
+# carried over from OpenSEO. Ranges are major-bounded (^) on purpose: an
+# override REPLACES the parent's range, so an open-ended >= floor would let a
+# future major get forced onto a parent that only supports the current one.
+#
+# To prune once a parent catches up: delete the line, run `pnpm install`, and
+# keep it deleted if `pnpm audit` stays clean.
+overrides:
+  "@babel/core": "^7.29.6"
+  brace-expansion: "^5.0.12"
+  defu: "^6.1.5"
+  dompurify: "^3.4.16"
+  fast-uri: "^3.1.6"
+  hono: "^4.13.5"
+  ip-address: "^10.7.1"
+  js-yaml: "^4.3.2"
+  launch-editor: "^2.14.1"
+  postcss: "^8.5.23"
+  qs: "^6.16.0"
+  shell-quote: "^1.8.4"
+  smol-toml: "^1.7.1"
+  undici: "^7.29.1"
+  "@esbuild-kit/core-utils>esbuild": "^0.25.12"
+  "@ai-sdk/provider-utils@4": "^4.0.33"
+  "@hono/node-server@1": "^1.19.15"
+  "body-parser@2": "^2.3.0"
+  browserslist: "^4.28.7"
+  baseline-browser-mapping: "^2.11.0"
+  "nanoid@3": "^3.3.18"

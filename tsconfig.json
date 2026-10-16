@@ -1,0 +1,26 @@
+{
+  "include": ["**/*.ts", "**/*.tsx", ".cloudflare/types/index.d.ts"],
+  "exclude": ["node_modules", ".cloudflare/build/**", "dist"],
+  "compilerOptions": {
+    "strict": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // ES2022 is the browser-support floor: ES2023 array methods (toSorted,
+    // toReversed, findLast, ...) crash Chromium <110. Don't bump this to fix a
+    // missing-method error — use Remeda's sort/sortBy/findLast instead.
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "noEmit": true
+  }
+}

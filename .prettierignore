@@ -1,0 +1,13 @@
+**/build
+**/public
+pnpm-lock.yaml
+# no parser for dotenv files; explicit `prettier <file>` aborts without this
+.env*
+.dev.vars*
+routeTree.gen.ts
+dist/
+.cloudflare/
+.everyapp/
+# generated migrations; the drizzle-kit configs beside them are still formatted
+drizzle/sqlite/
+drizzle/pg/

@@ -1,0 +1,29 @@
+node_modules
+package-lock.json
+yarn.lock
+.dev.vars*
+dist/
+.wrangler
+/tmp
+
+.output/
+.tanstack/
+.DS_Store
+.cache
+.env
+.env.*
+!.env.example
+.logs/
+**/.pnpm-store/
+
+# cf build output, generated types and local dev state
+.cloudflare/
+
+# everyapp's local state: the dev registry, the deploy inputs while a deploy
+# builds, and the first-party deploy's database URL (.everyapp/secrets.env)
+.everyapp/
+
+# Local Claude config (skills are shared)
+.claude/*
+!.claude/skills/
+!.claude/CLAUDE.md
