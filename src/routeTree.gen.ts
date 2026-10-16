@@ -18,6 +18,10 @@ import { Route as AppDealsRouteImport } from './routes/_app/deals'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AppTasksRouteImport } from './routes/_app/tasks'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppSettingsAgentRouteImport } from './routes/_app/settings/agent'
+import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
+import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
+import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -63,6 +67,26 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsAgentRoute = AppSettingsAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsCurrenciesRoute = AppSettingsCurrenciesRouteImport.update({
+  id: '/currencies',
+  path: '/currencies',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsDataRoute = AppSettingsDataRouteImport.update({
+  id: '/data',
+  path: '/data',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -72,6 +96,10 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
   '/tasks': typeof AppTasksRoute
+  '/settings/agent': typeof AppSettingsAgentRoute
+  '/settings/currencies': typeof AppSettingsCurrenciesRoute
+  '/settings/data': typeof AppSettingsDataRoute
+  '/settings/members': typeof AppSettingsMembersRoute
   '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -81,6 +109,10 @@ export interface FileRoutesByTo {
   '/deals': typeof AppDealsRoute
   '/tasks': typeof AppTasksRoute
   '/': typeof AppIndexRoute
+  '/settings/agent': typeof AppSettingsAgentRoute
+  '/settings/currencies': typeof AppSettingsCurrenciesRoute
+  '/settings/data': typeof AppSettingsDataRoute
+  '/settings/members': typeof AppSettingsMembersRoute
   '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -93,6 +125,10 @@ export interface FileRoutesById {
   '/_app/deals': typeof AppDealsRoute
   '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/settings/agent': typeof AppSettingsAgentRoute
+  '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
+  '/_app/settings/data': typeof AppSettingsDataRoute
+  '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -105,6 +141,10 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/deals'
     | '/tasks'
+    | '/settings/agent'
+    | '/settings/currencies'
+    | '/settings/data'
+    | '/settings/members'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -114,6 +154,10 @@ export interface FileRouteTypes {
     | '/deals'
     | '/tasks'
     | '/'
+    | '/settings/agent'
+    | '/settings/currencies'
+    | '/settings/data'
+    | '/settings/members'
     | '/settings'
   id:
     | '__root__'
@@ -125,6 +169,10 @@ export interface FileRouteTypes {
     | '/_app/deals'
     | '/_app/tasks'
     | '/_app/'
+    | '/_app/settings/agent'
+    | '/_app/settings/currencies'
+    | '/_app/settings/data'
+    | '/_app/settings/members'
     | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -198,14 +246,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/agent': {
+      id: '/_app/settings/agent'
+      path: '/agent'
+      fullPath: '/settings/agent'
+      preLoaderRoute: typeof AppSettingsAgentRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/currencies': {
+      id: '/_app/settings/currencies'
+      path: '/currencies'
+      fullPath: '/settings/currencies'
+      preLoaderRoute: typeof AppSettingsCurrenciesRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/data': {
+      id: '/_app/settings/data'
+      path: '/data'
+      fullPath: '/settings/data'
+      preLoaderRoute: typeof AppSettingsDataRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/members': {
+      id: '/_app/settings/members'
+      path: '/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof AppSettingsMembersRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
   }
 }
 
 interface AppSettingsRouteRouteChildren {
+  AppSettingsAgentRoute: typeof AppSettingsAgentRoute
+  AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
+  AppSettingsDataRoute: typeof AppSettingsDataRoute
+  AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
+  AppSettingsAgentRoute: AppSettingsAgentRoute,
+  AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
+  AppSettingsDataRoute: AppSettingsDataRoute,
+  AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
