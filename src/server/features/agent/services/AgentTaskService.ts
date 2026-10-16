@@ -111,7 +111,11 @@ async function workspaceChanged(
   });
 }
 
-/** A contact was added (or a person asked to identify one). */
+/**
+ * A contact was added (or a person asked to identify one: `required`, which
+ * also puts it with the work people asked for, so it runs even where a
+ * first-party deployment holds its scheduled research).
+ */
 async function contactCreated(
   organizationId: string,
   contactId: string,
@@ -124,7 +128,7 @@ async function contactCreated(
       contactId,
       kind: "identify",
       reason,
-      priority: PRIORITY.identify,
+      priority: required ? PRIORITY.requested : PRIORITY.identify,
       budget: 4,
     },
     required,

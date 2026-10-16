@@ -57,6 +57,13 @@ export const PRIORITY = {
   recheck: 0,
 } as const;
 
+/**
+ * Research at or above this priority is work a person asked for (their
+ * workspace's website, an "enrich now"), which runs even where a first-party
+ * deployment holds its scheduled research (deployment-tier.ts).
+ */
+export const ASKED_FOR_PRIORITY = PRIORITY.requested;
+
 /** The subject a task is about: at most one open task of a kind per subject. */
 export function taskSubject(record: {
   contactId?: string | null;
