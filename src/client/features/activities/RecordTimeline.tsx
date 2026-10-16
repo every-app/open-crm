@@ -121,7 +121,11 @@ export function RecordTimeline({ record }: { record: RecordRef }) {
           className="flex-wrap"
         >
           {TABS.map((option) => (
-            <ToggleGroupItem key={option} value={option}>
+            <ToggleGroupItem
+              key={option}
+              value={option}
+              className="aria-pressed:bg-primary/15 aria-pressed:text-primary"
+            >
               {TAB_LABELS[option]}
               {counts.data?.[option] ? (
                 <span className="tabular-nums opacity-60">

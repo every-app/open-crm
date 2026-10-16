@@ -122,6 +122,7 @@ export function ActivityComposer({ record }: { record: RecordRef }) {
                         value={option}
                         aria-label={label}
                         title={label}
+                        className="aria-pressed:bg-primary/15 aria-pressed:text-primary"
                       >
                         <Icon />
                         <span className="max-sm:sr-only">{label}</span>

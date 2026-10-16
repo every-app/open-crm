@@ -42,7 +42,9 @@ export function TaskDue({ dueAt }: { dueAt: string }) {
           overdue ? "bg-destructive" : "bg-info",
         )}
       />
-      {overdue ? "Overdue" : "Due"} <RelativeTime date={dueAt} />
+      <span>
+        {overdue ? "Overdue" : "Due"} <RelativeTime date={dueAt} />
+      </span>
     </span>
   );
 }

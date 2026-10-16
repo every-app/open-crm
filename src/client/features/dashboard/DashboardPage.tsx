@@ -1,15 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
+import { UserRound, Users } from "lucide-react";
 import { cn } from "cn";
 import { z } from "zod";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
+import { SegmentedToggle } from "@/client/components/SegmentedToggle";
 import { SkeletonStatGrid } from "@/client/components/SkeletonPresets";
 import { Skeleton } from "@/client/components/ui/skeleton";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/client/components/ui/toggle-group";
 import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
 import {
   DealsInProgress,
@@ -30,10 +28,10 @@ export const dashboardSearchSchema = z.object({
 
 const routeApi = getRouteApi("/_app/");
 
-const SCOPE_LABELS: Record<DashboardScope, string> = {
-  me: "Me",
-  everyone: "Everyone",
-};
+const SCOPES = [
+  { value: "me" as const, label: "Me", icon: <UserRound /> },
+  { value: "everyone" as const, label: "Everyone", icon: <Users /> },
+];
 
 const DESCRIPTIONS: Record<DashboardScope, string> = {
   me: "What you have closed, what is still in play, and what needs you today.",
@@ -58,29 +56,17 @@ export function DashboardPage() {
           actions={
             <>
               <EnrichmentQueue />
-              <ToggleGroup
-                variant="outline"
-                size="sm"
-                spacing={0}
-                value={[scope]}
-                onValueChange={(next) => {
-                  const picked = DASHBOARD_SCOPES.find(
-                    (value) => value === next[0],
-                  );
-                  if (!picked) return;
+              <SegmentedToggle
+                items={SCOPES}
+                value={scope}
+                onChange={(next) =>
                   void navigate({
-                    search: { scope: picked === "me" ? undefined : picked },
+                    search: { scope: next === "me" ? undefined : next },
                     replace: true,
-                  });
-                }}
-                aria-label="Whose numbers to show"
-              >
-                {DASHBOARD_SCOPES.map((value) => (
-                  <ToggleGroupItem key={value} value={value}>
-                    {SCOPE_LABELS[value]}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+                  })
+                }
+                showLabels
+              />
             </>
           }
         />

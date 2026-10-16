@@ -8,6 +8,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/client/components/ui/dialog";
+import { useSidebar } from "@/client/components/ui/sidebar";
 import { Spinner } from "@/client/components/ui/spinner";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
 import { useOpenRecord } from "@/client/features/records/RecordLink";
@@ -36,6 +37,7 @@ const IS_MAC =
 
 export function QuickSwitcher() {
   const openRecord = useOpenRecord();
+  const { setOpenMobile } = useSidebar();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
@@ -81,6 +83,9 @@ export function QuickSwitcher() {
 
   const go = (hit: Hit) => {
     show(false);
+    // On a phone the sidebar this sits in covers the page: close it too, as
+    // its links do.
+    setOpenMobile(false);
     openRecord({ kind: hit.kind, id: hit.id });
   };
 
@@ -116,7 +121,9 @@ export function QuickSwitcher() {
             itemToStringValue={(hit: Hit) => hit.label}
             // The server already matched the search.
             filter={null}
-            autoHighlight
+            // The matches arrive after the typing: Enter opens the first.
+            autoHighlight="always"
+            keepHighlight
           >
             <div className="flex items-center gap-2 border-b border-border px-3">
               {results.isFetching ? (
@@ -128,6 +135,9 @@ export function QuickSwitcher() {
                 />
               )}
               <Autocomplete.Input
+                // Typing straight after ⌘K lands here, not before the dialog
+                // has moved focus.
+                autoFocus
                 placeholder="Search companies, contacts and deals…"
                 className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
