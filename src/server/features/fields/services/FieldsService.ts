@@ -18,7 +18,7 @@ import type {
   UpdateFieldInput,
 } from "@/types/schemas/fields";
 
-export type FieldCoverage = {
+type FieldCoverage = {
   /** Live records with a value. */
   filled: number;
   /** Live records. */

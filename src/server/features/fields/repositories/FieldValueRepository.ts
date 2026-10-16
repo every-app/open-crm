@@ -22,7 +22,7 @@ import type { FieldEntity, FieldType } from "@/shared/crm-enums";
 import type { FieldValueJson } from "@/shared/fields";
 import type { FieldFilter } from "@/types/schemas/fields";
 
-export type FieldValueRow = typeof fieldValue.$inferSelect;
+type FieldValueRow = typeof fieldValue.$inferSelect;
 
 /** One parsed value for one field; null clears it. */
 export type FieldWrite = {

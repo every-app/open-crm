@@ -79,7 +79,7 @@ export type ValueField = {
   options: readonly { id: string; label: string; archived?: boolean }[];
 };
 
-export type ParsedFieldValue =
+type ParsedFieldValue =
   | { ok: true; value: FieldValueJson }
   | { ok: false; message: string };
 
@@ -99,8 +99,8 @@ const ISO_DATE_TIME =
 /**
  * Checks `input` against the field's type and returns the value as it is
  * stored and read back: trimmed text, a number rounded to 4 decimals, a date
- * as an ISO timestamp (a day is its UTC midnight), a select's option id, a
- * user id. Blank input clears the field, unless it is required. A user id is
+ * as its day's UTC midnight (an ISO timestamp), a select's option id, a user
+ * id. Blank input clears the field, unless it is required. A user id is
  * only checked for shape here; the server checks they work here.
  */
 export function parseFieldValue(
@@ -140,31 +140,24 @@ export function parseFieldValue(
 
     case "NUMBER": {
       const parsed = typeof input === "number" ? input : Number(raw);
+      const rounded = Math.round(parsed * 10_000) / 10_000;
       if (
         typeof input === "boolean" ||
         (typeof input === "string" && !NUMBER.test(raw)) ||
-        !Number.isFinite(parsed)
+        !Number.isFinite(rounded)
       ) {
         return fail(`${field.label} takes a number.`);
       }
-      return { ok: true, value: Math.round(parsed * 10_000) / 10_000 };
+      return { ok: true, value: rounded };
     }
 
     case "DATE": {
-      const dayOnly = ISO_DAY.test(raw);
-      if ((!dayOnly && !ISO_DATE_TIME.test(raw)) || !isCalendarDay(raw)) {
-        return fail(`${field.label} takes a date like 2027-03-31.`);
-      }
-      const zoned = dayOnly
-        ? `${raw}T00:00:00.000Z`
-        : /(Z|[+-]\d{2}:\d{2})$/.test(raw)
-          ? raw
-          : `${raw}Z`;
-      const parsed = new Date(zoned);
-      if (Number.isNaN(parsed.getTime())) {
-        return fail(`${field.label} takes a date like 2027-03-31.`);
-      }
-      return { ok: true, value: parsed.toISOString() };
+      // A date is a day: the one written, at UTC midnight. A time is dropped.
+      const day = raw.slice(0, 10);
+      return (ISO_DAY.test(raw) || ISO_DATE_TIME.test(raw)) &&
+        isCalendarDay(day)
+        ? { ok: true, value: `${day}T00:00:00.000Z` }
+        : fail(`${field.label} takes a date like 2027-03-31.`);
     }
 
     case "SELECT": {
@@ -222,8 +215,8 @@ function parseText(
   }
 }
 
-function isCalendarDay(raw: string): boolean {
-  const day = raw.slice(0, 10);
+/** Whether YYYY-MM-DD is a real day (not February 30th). */
+function isCalendarDay(day: string): boolean {
   const date = new Date(`${day}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(day);
 }

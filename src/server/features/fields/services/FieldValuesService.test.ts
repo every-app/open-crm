@@ -80,7 +80,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         notes: "Line one\nline two",
         runs_on: "  AWS ",
         seats: "12.345678",
-        renewal: "2027-03-31",
+        renewal: "2027-03-31T23:30:00-05:00",
         pilot: true,
         pricing_page: "acme.com/pricing",
         billing_email: "Billing@Acme.com",
