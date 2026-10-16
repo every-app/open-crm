@@ -2,7 +2,6 @@ import { ExternalLink, Star } from "lucide-react";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import {
-  STAGE_LABELS,
   formatMoney,
   fullName,
   type Company,
@@ -25,6 +24,7 @@ import {
 } from "@/client/features/records/RecordSheet";
 import { EmptyValue, PersonAvatar } from "@/client/features/records/cells";
 import { OwnerField } from "@/client/features/records/owners";
+import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 import { safeHttpUrl } from "@/shared/safe-url";
 import type { UpdateCompanyInput } from "@/types/schemas/companies";
 
@@ -337,7 +337,7 @@ function CompanyDeals({ company }: { company: Company }) {
                   )}
                 </span>
                 <Badge variant={deal.open ? "outline" : "secondary"}>
-                  {STAGE_LABELS[deal.stage]}
+                  {DEAL_STAGE_LABELS[deal.stage]}
                 </Badge>
               </div>
             </li>

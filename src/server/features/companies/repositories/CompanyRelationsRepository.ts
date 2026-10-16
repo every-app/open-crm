@@ -1,25 +1,11 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { contact, deal } from "@/db/schema";
-import type { DealStage } from "@/shared/crm-enums";
+import { DEAL_STAGE_ORDER, OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 
 // What a company's sheet reads about the people and deals filed on it: the
 // contacts and deals features own those records; the companies feature only
 // lists them, compactly, and links to them.
-
-// Deal stages in pipeline order, the open ones first. The deals feature owns
-// what the stages mean; companies only count and order a company's deals.
-const STAGE_ORDER = [
-  "DEMO_BOOKED",
-  "QUALIFIED_TO_BUY",
-  "DECISION_MAKER_BOUGHT_IN",
-  "CONTRACT_SENT",
-  "CLOSED_WON",
-  "CLOSED_LOST",
-  "UNQUALIFIED_TO_BUY",
-] as const satisfies readonly DealStage[];
-
-export const OPEN_STAGES: DealStage[] = STAGE_ORDER.slice(0, 4);
 
 /** The company's live contacts, by last name then first name. */
 async function listContacts(organizationId: string, companyId: string) {
@@ -49,7 +35,7 @@ async function listContacts(organizationId: string, companyId: string) {
 }
 
 const stageRank = sql`case ${deal.stage} ${sql.join(
-  STAGE_ORDER.map(
+  DEAL_STAGE_ORDER.map(
     (stage, rank) => sql`when ${stage} then ${sql.raw(String(rank))}`,
   ),
   sql` `,
@@ -83,7 +69,7 @@ async function listDeals(organizationId: string, companyId: string) {
     );
   return rows.map((row) => ({
     ...row,
-    open: OPEN_STAGES.includes(row.stage),
+    open: OPEN_DEAL_STAGES.includes(row.stage),
   }));
 }
 
