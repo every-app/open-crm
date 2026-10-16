@@ -24,7 +24,7 @@ const ownerEmail = z
   .describe("The email of the member who owns the company.");
 
 /** A member's user id from their email, as the tools take owners. */
-async function memberId(organizationId: string, email: string) {
+export async function memberId(organizationId: string, email: string) {
   const members = await AuthRepository.listMembers(organizationId);
   const member = members.find(
     (candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase(),
