@@ -1,6 +1,9 @@
 import { defineTools, everyApp } from "@every-app/sdk/server";
+import { activityTools } from "@/server/everyapp/tools/activities";
 import { companyTools } from "@/server/everyapp/tools/companies";
+import { dashboardTools } from "@/server/everyapp/tools/dashboard";
 import { fieldTools } from "@/server/everyapp/tools/fields";
+import { searchTools } from "@/server/everyapp/tools/search";
 import { workspaceTools } from "@/server/everyapp/tools/workspace";
 
 // The CRM's tools, served by the Every App gateway: its one MCP connector
@@ -16,8 +19,11 @@ const INSTRUCTIONS =
 // with crmTool() and adds its map here.
 const tools = {
   ...workspaceTools,
+  ...searchTools,
   ...companyTools,
   ...fieldTools,
+  ...activityTools,
+  ...dashboardTools,
 };
 
 /**
