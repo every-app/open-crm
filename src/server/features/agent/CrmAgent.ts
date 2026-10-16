@@ -69,6 +69,12 @@ const TERMINAL_SUBMISSIONS = new Set([
   "error",
 ]);
 
+/** The model the organization's workspace runs its agent on. */
+async function modelFor(organizationId: string): Promise<ModelChoice> {
+  const modelId = await AgentProfileRepository.agentModelId(organizationId);
+  return { organizationId, modelId: modelId ?? DEFAULT_AGENT_MODEL.id };
+}
+
 /**
  * The research agent's Durable Object, on Think. One instance per research
  * session (a task the dispatcher started) or per person's conversation about
@@ -148,12 +154,7 @@ export class CrmAgent extends Think {
       if (!session) {
         return { model: staticAssistantModel(GONE_REPLY), activeTools: [] };
       }
-      this.modelChoice = {
-        organizationId: session.organizationId,
-        modelId:
-          (await AgentProfileRepository.agentModelId(session.organizationId)) ??
-          DEFAULT_AGENT_MODEL.id,
-      };
+      this.modelChoice = await modelFor(session.organizationId);
       if (!turn.continuation) await this.openTurn(session);
       const install = await readCapabilities(this.env, session.organizationId);
       const { system, tools } = await prepareTurn(session, {
@@ -161,12 +162,7 @@ export class CrmAgent extends Think {
         capabilities: capabilityList(install),
         spend: this.spender(session),
       });
-      return {
-        system,
-        tools,
-        maxSteps: MAX_STEPS,
-        maxOutputTokens: MAX_OUTPUT_TOKENS,
-      };
+      return { system, tools, maxOutputTokens: MAX_OUTPUT_TOKENS };
     });
   }
 
@@ -186,18 +182,11 @@ export class CrmAgent extends Think {
     });
   }
 
+  // A call outside a turn (a compaction summary) reads the choice itself.
   private async chooseModel(): Promise<ModelChoice | null> {
     if (this.modelChoice) return this.modelChoice;
-    return withPgClient(async () => {
-      const session = await loadAgentSession(this.name);
-      if (!session) return null;
-      return {
-        organizationId: session.organizationId,
-        modelId:
-          (await AgentProfileRepository.agentModelId(session.organizationId)) ??
-          DEFAULT_AGENT_MODEL.id,
-      };
-    });
+    const name = parseSessionName(this.name);
+    return name ? withPgClient(() => modelFor(name.organizationId)) : null;
   }
 
   /**

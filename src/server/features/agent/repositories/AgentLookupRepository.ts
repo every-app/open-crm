@@ -12,6 +12,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { chunk } from "remeda";
 import { db } from "@/db";
 import { company, contact, contactBrief, deal, user } from "@/db/schema";
@@ -32,7 +33,7 @@ const OPEN_STAGES: DealStage[] = [
 const LOST_STAGES: DealStage[] = ["CLOSED_LOST", "UNQUALIFIED_TO_BUY"];
 
 /** Case-insensitive "contains", the same on both dialects. */
-function contains(column: Parameters<typeof sql>[1], term: string): SQL {
+function contains(column: SQLiteColumn, term: string): SQL {
   return sql`lower(${column}) like ${`%${term.toLowerCase()}%`}`;
 }
 
