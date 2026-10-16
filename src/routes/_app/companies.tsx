@@ -1,16 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader } from "@/client/components/PageHeader";
-import { EmptyState } from "@/client/components/EmptyState";
+import { CompaniesPage } from "@/client/features/companies/CompaniesPage";
+import { companyListSearchSchema } from "@/client/features/companies/companySearch";
 
 export const Route = createFileRoute("/_app/companies")({
-  component: Page,
+  validateSearch: companyListSearchSchema,
+  component: CompaniesPage,
 });
-
-function Page() {
-  return (
-    <div className="space-y-6 px-4 py-4 md:px-6 md:py-6">
-      <PageHeader title="Companies" />
-      <EmptyState title="Coming in this port" />
-    </div>
-  );
-}
