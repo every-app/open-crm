@@ -3,6 +3,7 @@ import { ConversionService } from "@/server/features/currency/services/Conversio
 import { DealContactRepository } from "@/server/features/deals/repositories/DealContactRepository";
 import { DealListRepository } from "@/server/features/deals/repositories/DealListRepository";
 import { DealRepository } from "@/server/features/deals/repositories/DealRepository";
+import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   assertOwner,
   blankToNull,
@@ -104,6 +105,7 @@ async function createDeal(organizationId: string, input: CreateDealInput) {
     expectedCloseDate: closeDateOf(input.expectedCloseDate),
   });
   console.log("[deals] created", { organizationId, dealId: row.id, stage });
+  await FieldsService.queueFillForNewRecord(organizationId, "DEAL", row.id);
   return row;
 }
 

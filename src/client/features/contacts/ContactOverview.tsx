@@ -4,10 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { SafeExternalLink } from "@/client/components/SafeExternalLink";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
-import {
-  STAGE_LABELS,
-  formatMoney,
-} from "@/client/features/companies/companyFormat";
+import { formatMoney } from "@/client/features/companies/companyFormat";
 import {
   AgentFound,
   ContactBrief,
@@ -18,6 +15,7 @@ import {
   sameValue,
   type Contact,
 } from "@/client/features/contacts/contactFormat";
+import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 import type { useContactMutations } from "@/client/features/contacts/useContactMutations";
 import { RecordFields } from "@/client/features/fields/RecordFields";
 import {
@@ -374,7 +372,7 @@ function ContactDeals({ contact }: { contact: Contact }) {
                   )}
                 </span>
                 <Badge variant={deal.open ? "outline" : "secondary"}>
-                  {STAGE_LABELS[deal.stage]}
+                  {DEAL_STAGE_LABELS[deal.stage]}
                 </Badge>
               </div>
             </li>

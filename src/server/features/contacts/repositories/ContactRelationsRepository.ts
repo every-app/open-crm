@@ -25,8 +25,8 @@ import {
   emailMessage,
   emailThread,
 } from "@/db/schema";
-import { OPEN_STAGES } from "@/server/features/companies/repositories/CompanyRelationsRepository";
 import { idChunks } from "@/server/features/records/recordRules";
+import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 
 // A contact and the records around them: the company they work at (and
 // moving them to another), the deals they are on, the colleagues filed at
@@ -114,7 +114,7 @@ async function setCompany(
 
 /** The live deals the contact is on, open ones first, soonest close first. */
 async function listDeals(organizationId: string, contactId: string) {
-  const open = inArray(deal.stage, OPEN_STAGES);
+  const open = inArray(deal.stage, OPEN_DEAL_STAGES);
   const rows = await db
     .select({
       id: deal.id,
@@ -148,7 +148,7 @@ async function listDeals(organizationId: string, contactId: string) {
     );
   return rows.map((row) => ({
     ...row,
-    open: OPEN_STAGES.includes(row.stage),
+    open: OPEN_DEAL_STAGES.includes(row.stage),
   }));
 }
 

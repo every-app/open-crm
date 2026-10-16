@@ -34,7 +34,10 @@ export const CLOSED_DEAL_STAGES: DealStage[] = [
  * Outcomes that take a reason: a lost deal with no reason teaches nobody
  * anything.
  */
-const LOSING_DEAL_STAGES: DealStage[] = ["CLOSED_LOST", "UNQUALIFIED_TO_BUY"];
+export const LOSING_DEAL_STAGES: DealStage[] = [
+  "CLOSED_LOST",
+  "UNQUALIFIED_TO_BUY",
+];
 
 export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
   DEMO_BOOKED: "Demo booked",
