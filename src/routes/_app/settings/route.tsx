@@ -7,7 +7,11 @@ export const Route = createFileRoute("/_app/settings")({
 });
 
 const tabs = [
-  { to: "/settings" as const, label: "Workspace", exact: true },
+  { to: "/settings", label: "Workspace", exact: true },
+  { to: "/settings/members", label: "Members", exact: false },
+  { to: "/settings/currencies", label: "Currencies", exact: false },
+  { to: "/settings/agent", label: "Agent", exact: false },
+  { to: "/settings/data", label: "Data", exact: false },
 ] as const;
 
 function SettingsLayout() {

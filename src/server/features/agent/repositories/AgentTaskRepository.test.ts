@@ -28,6 +28,16 @@ vi.mock("@/db", () => ({
 
 import { AgentTaskRepository } from "./AgentTaskRepository";
 
+const task = (organizationId: string) => ({
+  organizationId,
+  kind: "identify",
+  reason: "New contact",
+  priority: 100,
+  budget: 4,
+  subject: "contact:c1",
+  contactId: "c1",
+});
+
 for (const dialect of ["sqlite", "postgres"] as const) {
   describe(`AgentTaskRepository.insertIfAbsent (${dialect})`, () => {
     const database = databases[dialect];
@@ -37,16 +47,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         `DELETE FROM agent_task; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
       );
       await database.seedTwoOrganizations();
-    });
-
-    const task = (organizationId: string) => ({
-      organizationId,
-      kind: "identify",
-      reason: "New contact",
-      priority: 100,
-      budget: 4,
-      subject: "contact:c1",
-      contactId: "c1",
     });
 
     it("keeps one open task of a kind per subject", async () => {

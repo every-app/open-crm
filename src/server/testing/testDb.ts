@@ -4,8 +4,11 @@ import { createClient } from "@libsql/client";
 import { drizzle as drizzleLibsql } from "drizzle-orm/libsql";
 import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
 import { sort } from "remeda";
+import type { db as appDb } from "@/db";
 import type { runBatch } from "@/db/runBatch";
+// oxlint-disable-next-line eslint/no-restricted-imports -- the test databases are built per dialect, from each dialect's own schema
 import * as sqliteSchema from "@/db/d1/schema";
+// oxlint-disable-next-line eslint/no-restricted-imports -- as above
 import * as pgSchema from "@/db/pg/schema";
 
 // Real databases for tests, with every production migration applied, so
@@ -39,7 +42,7 @@ function statements(migration: string): string[] {
     .filter(Boolean);
 }
 
-type TestDatabase = typeof import("@/db").db;
+type TestDatabase = typeof appDb;
 
 /** In-memory SQLite (libsql) with drizzle/sqlite applied. */
 export async function createSqliteTestDb() {
