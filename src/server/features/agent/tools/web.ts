@@ -42,10 +42,11 @@ export const webTools: ToolGroup = () => ({
       url: z.string().url().describe("The page's full http(s) URL."),
     }),
     execute: async ({ url }) => {
+      // A timeout or a refused connection is the same answer as a 404.
       const fetched = await fetchPublic(
         url,
         "text/html,text/plain;q=0.9,*/*;q=0.1",
-      );
+      ).catch(() => null);
       if (!fetched) {
         return {
           read: false as const,

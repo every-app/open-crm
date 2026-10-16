@@ -44,14 +44,34 @@ export function messageText(message: UIMessage | undefined): string {
     .trim();
 }
 
+function lastFrom(
+  messages: readonly UIMessage[],
+  role: UIMessage["role"],
+): UIMessage | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === role) return message;
+  }
+  return undefined;
+}
+
 /** The text of the last message from `role`. */
 export function lastText(
   messages: readonly UIMessage[],
   role: UIMessage["role"],
 ): string {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message?.role === role) return messageText(message);
-  }
-  return "";
+  return messageText(lastFrom(messages, role));
+}
+
+/**
+ * What the agent said once its work was done: the text of the last step of
+ * its last reply, without the narration between earlier tool calls.
+ */
+export function finalText(messages: readonly UIMessage[]): string {
+  const message = lastFrom(messages, "assistant");
+  if (!message) return "";
+  const lastStep = message.parts
+    .map((part) => part.type)
+    .lastIndexOf("step-start");
+  return messageText({ ...message, parts: message.parts.slice(lastStep + 1) });
 }

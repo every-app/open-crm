@@ -15,6 +15,7 @@ vi.mock("@/db/runBatch", () => ({ runBatch: database.runBatch }));
 
 import { AgentAccountRepository } from "./AgentAccountRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";
+import { AgentDealRepository } from "./AgentDealRepository";
 import { AgentEnrichmentRepository } from "./AgentEnrichmentRepository";
 import { AgentEventRepository } from "./AgentEventRepository";
 import { AgentHistoryRepository } from "./AgentHistoryRepository";
@@ -136,7 +137,7 @@ describe("organization isolation", () => {
     expect(await rows("SELECT * FROM activity")).toEqual([]);
   });
 
-  it("AgentHistoryRepository and AgentAccountRepository", async () => {
+  it("AgentHistoryRepository, AgentAccountRepository and AgentDealRepository", async () => {
     expect(
       await AgentHistoryRepository.contactHistory(OWN, "c_a", { threads: 5 }),
     ).toMatchObject({ contact: { fullName: "Paula Marchetti" } });
@@ -156,7 +157,7 @@ describe("organization isolation", () => {
       }),
     ).toBeNull();
     expect(
-      await AgentAccountRepository.dealHistory(OTHER, "d_a", { threads: 5 }),
+      await AgentDealRepository.dealHistory(OTHER, "d_a", { threads: 5 }),
     ).toBeNull();
   });
 

@@ -23,7 +23,7 @@ import { DEFAULT_AGENT_MODEL } from "@/server/lib/openrouter";
 import { capabilityList, readCapabilities } from "./prompt/capabilities";
 import { AgentConversationRepository } from "./repositories/AgentConversationRepository";
 import { AgentProfileRepository } from "./repositories/AgentProfileRepository";
-import { lastText, messageText, recordEvent } from "./runtime/audit";
+import { finalText, lastText, messageText, recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
 import { budgetSpender, type BudgetState, type Spend } from "./runtime/budget";
 import { buildCrmAgentModel, type ModelChoice } from "./runtime/model";
@@ -313,7 +313,7 @@ export class CrmAgent extends Think {
       if (submission.status === "completed") {
         await reportResearch(session, {
           status: "completed",
-          text: lastText(this.messages, "assistant"),
+          text: finalText(this.messages),
         });
       } else if (submission.status === "error") {
         await reportResearch(session, {

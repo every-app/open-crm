@@ -30,9 +30,7 @@ import { runPortrait } from "./visible/portrait";
 export type Defer = (work: Promise<unknown>) => void;
 
 /** Starts a research session for a task: its session id once accepted. */
-type ResearchStart = (
-  task: LeasedTask,
-) => Promise<{ sessionId: string }>;
+type ResearchStart = (task: LeasedTask) => Promise<{ sessionId: string }>;
 
 export const MODEL_UNAVAILABLE_OUTCOME =
   "The agent's model is not available on this install: the Every App gateway holds no OPENROUTER_API_KEY (in local development, set it in .dev.vars).";

@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { AgentAccountRepository } from "../repositories/AgentAccountRepository";
 import { AgentHistoryRepository } from "../repositories/AgentHistoryRepository";
+import { AgentDealRepository } from "../repositories/AgentDealRepository";
 import type { ToolGroup } from "./context";
 
 // The free CRM reads, ported from the CRM's read_crm_history,
@@ -80,7 +81,7 @@ export const historyTools: ToolGroup = (context) => ({
       "Read a deal in full: stage and how long it has been there, value, close date, the whole stage history, who is on it with their contact ids, the correspondence and meetings with those people, and the notes. Free — call it first in a deal session.",
     inputSchema: z.object({ dealId: z.string(), threads }),
     execute: async ({ dealId, threads: threadCount }) => {
-      const history = await AgentAccountRepository.dealHistory(
+      const history = await AgentDealRepository.dealHistory(
         context.organizationId,
         dealId,
         { threads: threadCount },
