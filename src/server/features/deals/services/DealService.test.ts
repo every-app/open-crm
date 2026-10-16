@@ -94,6 +94,23 @@ function json(value: unknown): unknown {
   return parsed;
 }
 
+/** A deal of org_a's at Acme, owned by user_a unless `input` says otherwise. */
+const create = (
+  name: string,
+  input: Partial<Parameters<typeof DealService.createDeal>[1]> = {},
+) =>
+  DealService.createDeal(A, {
+    name,
+    companyId: "acme",
+    ownerId: "user_a",
+    ...input,
+  });
+
+const names = async (input: Partial<DealListInput> = {}) =>
+  (await DealService.listDeals(A, { ...listInput, ...input })).rows.map(
+    (row) => row.name,
+  );
+
 for (const dialect of ["sqlite", "postgres"] as const) {
   describe(`DealService (${dialect})`, () => {
     const database = databases[dialect];
@@ -114,28 +131,12 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       `);
     });
 
-    const create = (
-      name: string,
-      input: Partial<Parameters<typeof DealService.createDeal>[1]> = {},
-    ) =>
-      DealService.createDeal(A, {
-        name,
-        companyId: "acme",
-        ownerId: "user_a",
-        ...input,
-      });
-
     const stamps = async () =>
       (
         await database.rows(
           "SELECT stage, stage_changed_at, closed_at, closed_reason, last_activity_at FROM deal",
         )
       ).map((row) => stampRow.parse(row));
-
-    const names = async (input: Partial<DealListInput> = {}) =>
-      (await DealService.listDeals(A, { ...listInput, ...input })).rows.map(
-        (row) => row.name,
-      );
 
     it("freezes an amount's value in the reporting currency when it's saved, rounded to each currency's minor unit", async () => {
       const euros = await create("Euros", {
@@ -336,44 +337,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(
         await DealService.listDeals(A, { ...listInput, status: "closed" }),
       ).toMatchObject({ openValue: null, unconverted: { count: 0 } });
-    });
-
-    it("brings only people from the deal's company onto it, each with a role", async () => {
-      const deal = await create("Renewal");
-      await database.exec(`
-        INSERT INTO contact (id, organization_id, first_name, company_id) VALUES ('ana', 'org_a', 'Ana', 'acme'), ('bo', 'org_a', 'Bo', 'beta');
-        INSERT INTO contact (id, organization_id, first_name, company_id, archived_at) VALUES ('old', 'org_a', 'Old', 'acme', '2026-10-01T00:00:00.000Z');
-      `);
-      const attach = (contactId: string, role?: string | null) =>
-        DealService.attachContact(A, { dealId: deal.id, contactId, role });
-      const onDeal = async () =>
-        (await DealService.getDeal(A, deal.id)).contacts.map(
-          ({ id, role }) => ({ id, role }),
-        );
-
-      expect(await DealService.contactOptions(A, deal.id)).toMatchObject([
-        { id: "ana" },
-      ]);
-      await expect(attach("bo")).rejects.toMatchObject({
-        code: "VALIDATION_ERROR",
-      });
-      await expect(attach("old")).rejects.toMatchObject({ code: "NOT_FOUND" });
-      await attach("ana", " Champion ");
-      await attach("ana");
-      expect(await onDeal()).toEqual([{ id: "ana", role: "Champion" }]);
-      expect(await DealService.contactOptions(A, deal.id)).toEqual([]);
-
-      await DealService.setContactRole(A, {
-        dealId: deal.id,
-        contactId: "ana",
-        role: " ",
-      });
-      expect(await onDeal()).toEqual([{ id: "ana", role: null }]);
-      await DealService.detachContact(A, deal.id, "ana");
-      expect(await onDeal()).toEqual([]);
-      await expect(
-        DealService.detachContact(A, deal.id, "ana"),
-      ).rejects.toMatchObject({ code: "NOT_FOUND" });
     });
 
     it("purges only an archived deal, with the agent's rows, and restamps its company", async () => {

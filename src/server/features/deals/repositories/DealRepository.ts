@@ -1,31 +1,17 @@
 import {
   and,
-  asc,
-  count,
   eq,
   exists,
-  gte,
   inArray,
   isNotNull,
   isNull,
   lt,
   notExists,
   or,
-  sql,
-  type SQL,
 } from "drizzle-orm";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
 import { activity, company, deal, user } from "@/db/schema";
-import { countedIn } from "@/server/features/currency/repositories/DealConversionRepository";
-import {
-  archivedCondition,
-  ownerCondition,
-  pageWindow,
-  searchCondition,
-  sortOrder,
-  type SortSpec,
-} from "@/server/features/records/listQuery";
 import {
   activityTargets,
   clearAgentRows,
@@ -33,60 +19,15 @@ import {
   recomputeLastActivity,
 } from "@/server/features/records/recordRules";
 import type { DealStage } from "@/shared/crm-enums";
-import { roundMoney } from "@/shared/currency";
-import {
-  CLOSED_DEAL_STAGES,
-  DEAL_STAGE_ORDER,
-  OPEN_DEAL_STAGES,
-  isClosedStage,
-} from "@/shared/deal-stages";
-import type {
-  ClosingWindow,
-  DealListInput,
-  DealSort,
-} from "@/types/schemas/deals";
+import { isClosedStage } from "@/shared/deal-stages";
 
 // Deals: the pipeline's rows. A deal belongs to one company of its
 // organization and is owned by one member. Its stage moves only through
-// moveStage, which files each move on the deal's timeline.
+// moveStage, which files each move on the deal's timeline. The list's
+// query lives in DealListRepository.
 
-const stageRank = sql`case ${deal.stage} ${sql.join(
-  DEAL_STAGE_ORDER.map(
-    (stage, rank) => sql`when ${stage} then ${sql.raw(String(rank))}`,
-  ),
-  sql` `,
-)} end`;
-
-const SORTS = {
-  name: { by: sql`lower(${deal.name})` },
-  company: {
-    by: sql`lower(${company.name})`,
-    ties: [sql`lower(${deal.name})`],
-  },
-  // Pipeline order, the soonest close first within a stage.
-  stage: {
-    by: stageRank,
-    ties: [
-      sql`(${deal.expectedCloseDate} is null)`,
-      asc(deal.expectedCloseDate),
-    ],
-  },
-  // The reporting-currency figure: the only one that compares across
-  // currencies.
-  amount: { by: deal.baseAmount, nullsLast: true },
-  owner: { by: sql`lower(${user.name})`, ties: [sql`lower(${deal.name})`] },
-  expectedCloseDate: { by: deal.expectedCloseDate, nullsLast: true },
-  lastActivity: { by: deal.lastActivityAt, nullsLast: true },
-  createdAt: { by: deal.createdAt },
-} satisfies Record<DealSort, SortSpec>;
-
-const STATUS_STAGES = {
-  all: null,
-  open: OPEN_DEAL_STAGES,
-  closed: CLOSED_DEAL_STAGES,
-};
-
-const companyColumns = {
+/** A deal's company, as lists and sheets show it. */
+export const dealCompanyColumns = {
   id: company.id,
   name: company.name,
   domain: company.domain,
@@ -96,7 +37,7 @@ const companyColumns = {
   iconTone: company.iconTone,
 };
 
-const ownerColumns = {
+export const dealOwnerColumns = {
   id: user.id,
   name: user.name,
   email: user.email,
@@ -104,7 +45,7 @@ const ownerColumns = {
 };
 
 // The deal's company is always its organization's; the join says so too.
-const ofItsCompany = and(
+export const ofItsCompany = and(
   eq(company.id, deal.companyId),
   eq(company.organizationId, deal.organizationId),
 );
@@ -113,144 +54,13 @@ function inOrganization(organizationId: string, id: string) {
   return and(eq(deal.organizationId, organizationId), eq(deal.id, id));
 }
 
-/** The first instant of the UTC month `offset` months after `now`'s. */
-function monthStart(now: Date, offset: number): string {
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1),
-  ).toISOString();
-}
-
-/**
- * Deals expected to close in `window`. A close date is a day, stored as its
- * UTC midnight, so an open deal is overdue once its day has passed.
- */
-function closingCondition(window: ClosingWindow, now: Date): SQL | undefined {
-  const closes = deal.expectedCloseDate;
-  switch (window) {
-    case "overdue": {
-      const today = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-      ).toISOString();
-      return and(lt(closes, today), inArray(deal.stage, OPEN_DEAL_STAGES));
-    }
-    case "this-month":
-      return and(
-        gte(closes, monthStart(now, 0)),
-        lt(closes, monthStart(now, 1)),
-      );
-    case "next-month":
-      return and(
-        gte(closes, monthStart(now, 1)),
-        lt(closes, monthStart(now, 2)),
-      );
-    case "later":
-      return gte(closes, monthStart(now, 2));
-    case "none":
-      return isNull(closes);
-  }
-}
-
-/** A deal whose name, or whose company's name, contains `q`. */
-function searchWhere(organizationId: string, q: string): SQL | undefined {
-  const byCompanyName = searchCondition(q, [company.name]);
-  if (!byCompanyName) return undefined;
-  return or(
-    searchCondition(q, [deal.name]),
-    inArray(
-      deal.companyId,
-      db
-        .select({ id: company.id })
-        .from(company)
-        .where(and(eq(company.organizationId, organizationId), byCompanyName)),
-    ),
-  );
-}
-
-/**
- * The list's view: everything but its page and order. It names only the
- * deal's own columns, so totals over the view need no join.
- */
-function listWhere(organizationId: string, input: DealListInput) {
-  const now = new Date();
-  const statusStages = STATUS_STAGES[input.status];
-  return and(
-    eq(deal.organizationId, organizationId),
-    archivedCondition(deal.archivedAt, input.archived),
-    searchWhere(organizationId, input.q),
-    ownerCondition(deal.ownerId, input.owner),
-    statusStages ? inArray(deal.stage, statusStages) : undefined,
-    input.stage.length > 0 ? inArray(deal.stage, input.stage) : undefined,
-    input.closing.length > 0
-      ? or(...input.closing.map((window) => closingCondition(window, now)))
-      : undefined,
-  );
-}
-
-/** The open deals in the list's view: what its pipeline total adds up. */
-function openInView(organizationId: string, input: DealListInput) {
-  return and(
-    listWhere(organizationId, input),
-    inArray(deal.stage, OPEN_DEAL_STAGES),
-  );
-}
-
-async function list(organizationId: string, input: DealListInput) {
-  const where = listWhere(organizationId, input);
-  const { limit, offset } = pageWindow(input);
-  const [rows, [total]] = await Promise.all([
-    db
-      .select({
-        id: deal.id,
-        name: deal.name,
-        stage: deal.stage,
-        amount: deal.amount,
-        currency: deal.currency,
-        baseAmount: deal.baseAmount,
-        baseCurrency: deal.baseCurrency,
-        expectedCloseDate: deal.expectedCloseDate,
-        closedAt: deal.closedAt,
-        lastActivityAt: deal.lastActivityAt,
-        createdAt: deal.createdAt,
-        archivedAt: deal.archivedAt,
-        company: companyColumns,
-        owner: ownerColumns,
-      })
-      .from(deal)
-      .innerJoin(company, ofItsCompany)
-      .innerJoin(user, eq(user.id, deal.ownerId))
-      .where(where)
-      .orderBy(...sortOrder(SORTS[input.sort], input.dir, deal.id))
-      .limit(limit)
-      .offset(offset),
-    db.select({ value: count() }).from(deal).where(where),
-  ]);
-  return { rows, total: total?.value ?? 0 };
-}
-
-/**
- * What the open deals in the list's view are worth in `base`, rounded to
- * its minor unit: only base amounts converted into `base` count. Null when
- * none does.
- */
-async function openValue(
-  organizationId: string,
-  input: DealListInput,
-  base: string,
-): Promise<number | null> {
-  const [row] = await db
-    .select({ value: sql<number | null>`sum(${deal.baseAmount})` })
-    .from(deal)
-    .where(and(openInView(organizationId, input), countedIn(base)));
-  return row?.value == null ? null : roundMoney(Number(row.value), base);
-}
-
 /** One deal of the organization, with its company and owner. */
 async function findById(organizationId: string, id: string) {
   const [row] = await db
     .select({
       deal,
-      company: { ...companyColumns, industry: company.industry },
-      owner: ownerColumns,
+      company: { ...dealCompanyColumns, industry: company.industry },
+      owner: dealOwnerColumns,
     })
     .from(deal)
     .innerJoin(company, ofItsCompany)
@@ -469,9 +279,6 @@ async function setOwner(
 }
 
 export const DealRepository = {
-  list,
-  openInView,
-  openValue,
   findById,
   insert,
   update,

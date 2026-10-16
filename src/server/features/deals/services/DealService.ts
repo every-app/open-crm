@@ -1,6 +1,7 @@
 import { CompanyRepository } from "@/server/features/companies/repositories/CompanyRepository";
 import { ConversionService } from "@/server/features/currency/services/ConversionService";
 import { DealContactRepository } from "@/server/features/deals/repositories/DealContactRepository";
+import { DealListRepository } from "@/server/features/deals/repositories/DealListRepository";
 import { DealRepository } from "@/server/features/deals/repositories/DealRepository";
 import {
   assertOwner,
@@ -55,11 +56,11 @@ async function listDeals(organizationId: string, input: DealListInput) {
   const reportingCurrency =
     await ConversionService.reportingCurrency(organizationId);
   const [{ rows, total }, openValue, unconverted] = await Promise.all([
-    DealRepository.list(organizationId, input),
-    DealRepository.openValue(organizationId, input, reportingCurrency),
+    DealListRepository.list(organizationId, input),
+    DealListRepository.openValue(organizationId, input, reportingCurrency),
     ConversionService.unconverted(
       organizationId,
-      DealRepository.openInView(organizationId, input),
+      DealListRepository.openInView(organizationId, input),
     ),
   ]);
   return { rows, total, openValue, reportingCurrency, unconverted };

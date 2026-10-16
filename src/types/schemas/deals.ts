@@ -21,7 +21,6 @@ export type DealSort = (typeof DEAL_SORTS)[number];
 
 /** The list's status tabs: every deal, the pipeline, or the outcomes. */
 export const DEAL_STATUSES = ["all", "open", "closed"] as const;
-export type DealStatus = (typeof DEAL_STATUSES)[number];
 
 /** When a deal is expected to close, relative to today (UTC). */
 export const CLOSING_WINDOWS = [
