@@ -54,7 +54,7 @@ type OwnerColumns = {
   ownerImage: string | null;
 };
 
-export type Owner = {
+type Owner = {
   id: string;
   name: string;
   email: string;

@@ -183,7 +183,7 @@ export function clearAgentRows(
   ];
 }
 
-export type ActivityTargets = {
+type ActivityTargets = {
   companyIds: string[];
   contactIds: string[];
   dealIds: string[];

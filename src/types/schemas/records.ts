@@ -9,7 +9,7 @@ import type { ErrorCode } from "@/shared/error-codes";
 export const LIST_PAGE_SIZE = 25;
 
 /** The most records one bulk action takes: a page of selected rows. */
-export const MAX_BULK_IDS = 100;
+const MAX_BULK_IDS = 100;
 
 export const SORT_DIRECTIONS = ["asc", "desc"] as const;
 export type SortDirection = (typeof SORT_DIRECTIONS)[number];
