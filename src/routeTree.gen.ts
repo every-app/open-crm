@@ -23,6 +23,7 @@ import { Route as AppSettingsApiRouteImport } from './routes/_app/settings/api'
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppSettingsTrackingRouteImport } from './routes/_app/settings/tracking'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -93,6 +94,11 @@ const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsTrackingRoute = AppSettingsTrackingRouteImport.update({
+  id: '/tracking',
+  path: '/tracking',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/tracking': typeof AppSettingsTrackingRoute
   '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/tracking': typeof AppSettingsTrackingRoute
   '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/data': typeof AppSettingsDataRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/settings/tracking': typeof AppSettingsTrackingRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/settings/tracking'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/settings/tracking'
     | '/settings'
   id:
     | '__root__'
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/_app/settings/currencies'
     | '/_app/settings/data'
     | '/_app/settings/members'
+    | '/_app/settings/tracking'
     | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -293,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/tracking': {
+      id: '/_app/settings/tracking'
+      path: '/tracking'
+      fullPath: '/settings/tracking'
+      preLoaderRoute: typeof AppSettingsTrackingRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
   }
 }
 
@@ -302,6 +321,7 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
+  AppSettingsTrackingRoute: typeof AppSettingsTrackingRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
@@ -311,6 +331,7 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
+  AppSettingsTrackingRoute: AppSettingsTrackingRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 

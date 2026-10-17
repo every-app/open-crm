@@ -35,6 +35,7 @@ import {
 } from "@/client/features/records/RecordSheet";
 import { EmptyValue } from "@/client/features/records/cells";
 import { OwnerField } from "@/client/features/records/owners";
+import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
 import { safeHttpUrl } from "@/shared/safe-url";
 import type { UpdateContactInput } from "@/types/schemas/contacts";
 
@@ -160,6 +161,7 @@ export function ContactOverview({
 
       {contact.brief ? <ContactBrief brief={contact.brief} /> : null}
       <WeKnowThem contact={contact} />
+      <WebsiteActivity record={{ contactId: contact.id }} />
       <ContactLinks contact={contact} />
       <ContactDeals contact={contact} />
 

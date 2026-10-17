@@ -27,6 +27,7 @@ import { OwnerField } from "@/client/features/records/owners";
 import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 import { safeHttpUrl } from "@/shared/safe-url";
 import type { UpdateCompanyInput } from "@/types/schemas/companies";
+import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
 
 type Mutations = ReturnType<typeof useCompanyMutations>;
 type CompanyPatch = Omit<UpdateCompanyInput, "id">;
@@ -150,6 +151,7 @@ export function CompanyOverview({
       </SheetSection>
 
       <CompanyContacts company={company} mutations={mutations} />
+      <WebsiteActivity record={{ companyId: company.id }} />
       <CompanyDeals company={company} />
 
       <p className="px-5 py-4 text-xs text-muted-foreground">
