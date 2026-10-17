@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
+  fieldFiltersInput,
+  resolveFieldFilters,
+} from "@/server/everyapp/tools/fieldFilters";
+import {
   CompanyService,
   type CompanyDetail,
   type CompanyListRow,
@@ -49,6 +53,7 @@ function summary(row: CompanyListRow) {
     lastActivityAt: row.lastActivityAt,
     enrichment: row.enrichmentStatus,
     archivedAt: row.archivedAt,
+    fields: row.fields,
   };
 }
 
@@ -109,7 +114,7 @@ const companyId = z
 export const companyTools = {
   list_companies: crmTool({
     description:
-      "Search and list the CRM's companies (accounts): domain, industry, location, owner, how many contacts and open deals each has, and when anything last happened. `query` matches part of the name or domain. 25 a page, newest first unless sorted.",
+      "Search and list the CRM's companies (accounts): domain, industry, location, owner, how many contacts and open deals each has, and when anything last happened. `query` matches part of the name or domain; `fields` filters by custom fields, and each company comes with the values of the fields shown as table columns (a select as its label). 25 a page, newest first unless sorted.",
     risk: "read",
     input: z
       .object({
@@ -129,6 +134,7 @@ export const companyTools = {
           .boolean()
           .optional()
           .describe("List archived companies instead of live ones."),
+        fields: fieldFiltersInput,
         sort: z.enum(COMPANY_SORTS).optional(),
         direction: z.enum(SORT_DIRECTIONS).optional(),
         page: z.number().int().min(1).optional(),
@@ -143,6 +149,11 @@ export const companyTools = {
         ),
       );
       const list = companyListSchema.parse({
+        fields: await resolveFieldFilters(
+          context.organizationId,
+          "COMPANY",
+          input.fields,
+        ),
         q: input.query,
         owner: owners,
         archived: input.archived,
