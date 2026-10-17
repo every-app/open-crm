@@ -10,7 +10,7 @@ import {
 } from "@/serverFunctions/tracking";
 import type { WebsiteActivityInput } from "@/types/schemas/tracking";
 
-/** The snippet, switches, allowed domains and totals (owners and admins). */
+/** The snippet, switches, allowed domains and totals (every member). */
 export const trackingSettingsQueryOptions = () =>
   queryOptions({
     queryKey: ["tracking", "settings"],

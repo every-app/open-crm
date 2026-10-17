@@ -129,7 +129,12 @@ async function sources(organizationId: string) {
 const VERIFY_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
 
-type Fetched = { status: number; url: URL; text: string | null };
+/** A page's text, or why it couldn't be read: what Verify installation shows. */
+type Fetched =
+  | { url: URL; text: string }
+  | { url: URL; text: null; detail: string };
+
+const UNREACHABLE = "We could not reach that page.";
 
 async function readPrefix(response: Response): Promise<string> {
   const reader = response.body?.getReader();
@@ -152,11 +157,16 @@ async function readPrefix(response: Response): Promise<string> {
   return text + decoder.decode();
 }
 
-async function fetchPage(url: URL): Promise<Fetched | null> {
+async function fetchPage(url: URL): Promise<Fetched> {
   let target = url;
+  const failed = (detail = UNREACHABLE): Fetched => ({
+    url: target,
+    text: null,
+    detail,
+  });
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     if (target.protocol !== "https:" || target.username || target.password) {
-      return null;
+      return failed();
     }
     let response: Response;
     try {
@@ -169,33 +179,34 @@ async function fetchPage(url: URL): Promise<Fetched | null> {
         },
       });
     } catch {
-      return null;
+      return failed();
     }
     const location = response.headers.get("location");
     if (response.status >= 300 && response.status < 400 && location) {
       await response.body?.cancel();
+      let next: URL;
       try {
-        target = new URL(location, target);
+        next = new URL(location, target);
       } catch {
-        return null;
+        return failed();
       }
+      if (next.protocol === "http:") {
+        return failed("The page redirected to plain http.");
+      }
+      target = next;
       continue;
     }
     if (!response.ok) {
       await response.body?.cancel();
-      return { status: response.status, url: target, text: null };
+      return failed(`The page answered ${response.status}.`);
     }
     try {
-      return {
-        status: response.status,
-        url: target,
-        text: await readPrefix(response),
-      };
+      return { url: target, text: await readPrefix(response) };
     } catch {
-      return null;
+      return failed();
     }
   }
-  return null;
+  return failed(`The page redirected more than ${MAX_REDIRECTS} times.`);
 }
 
 /** A URL from what a person typed (`acme.com/pricing`), https only. */
@@ -218,7 +229,7 @@ async function inContainers(containers: string[], siteId: string) {
   let attribute: { id: string; carriesSiteId: boolean } | null = null;
   for (const id of containers) {
     const fetched = await fetchPage(new URL(gtmContainerUrl(id)));
-    if (!fetched?.text) continue;
+    if (!fetched.text) continue;
     const state = gtmTag(fetched.text, siteId);
     if (state === "url") return { id, carriesSiteId: true };
     if (state === "attribute" && !attribute) {
@@ -248,13 +259,9 @@ async function verify(organizationId: string, url: string) {
   const started = Date.now();
   const fetched = await fetchPage(target);
   const responseMs = Date.now() - started;
-  const host = (fetched?.url ?? target).hostname.toLowerCase();
-  if (!fetched || fetched.text === null) {
-    return {
-      status: "unreachable" as const,
-      host,
-      httpStatus: fetched?.status ?? null,
-    };
+  const host = fetched.url.hostname.toLowerCase();
+  if (fetched.text === null) {
+    return { status: "unreachable" as const, host, detail: fetched.detail };
   }
   const siteId = site.siteId;
   const body = fetched.text;

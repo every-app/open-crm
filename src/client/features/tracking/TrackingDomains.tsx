@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { revalidateLogic } from "@tanstack/react-form";
-import { Plus } from "lucide-react";
+import { Globe, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/client/components/EmptyState";
 import { FormDialog } from "@/client/components/FormDialog";
 import { InlineConfirm } from "@/client/components/InlineConfirm";
-import { SectionHeader } from "@/client/components/PageHeader";
+import {
+  SettingsCard,
+  SettingsSection,
+} from "@/client/components/SettingsSection";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
 import {
   Table,
   TableBody,
-  TableCard,
   TableCell,
   TableHead,
   TableHeader,
@@ -39,34 +41,40 @@ import {
   type AddTrackedDomainInput,
 } from "@/types/schemas/tracking";
 
-/** The hosts the script records on. */
-export function TrackingDomains({ settings }: { settings: TrackingSettings }) {
+/** The hosts the script records on. Owners and admins add and remove them. */
+export function TrackingDomains({
+  settings,
+  canManage,
+}: {
+  settings: TrackingSettings;
+  canManage: boolean;
+}) {
   const [adding, setAdding] = useState(false);
   const remove = useTrackingMutation(
     (id: string) => removeTrackedDomain({ data: { id } }),
-    () => toast.success("Domain removed"),
+    () => toast.success("Domain removed."),
   );
 
   return (
-    <section className="space-y-3">
-      <SectionHeader
-        title="Allowed domains"
-        hint="The script records page views on these hosts only."
-        action={
-          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-            <Plus data-icon="inline-start" />
-            Add domain
-          </Button>
-        }
-      />
-      {settings.domains.length === 0 ? (
-        <EmptyState
-          title="No domains yet"
-          description="Add the domain your website runs on to get your tracking script."
-          size="sm"
-        />
-      ) : (
-        <TableCard>
+    <SettingsSection
+      title="Allowed domains"
+      description="The script records page views on these hosts only."
+      action={
+        <Button disabled={!canManage} onClick={() => setAdding(true)}>
+          <Plus data-icon="inline-start" />
+          Add domain
+        </Button>
+      }
+    >
+      <SettingsCard>
+        {settings.domains.length === 0 ? (
+          <EmptyState
+            icon={Globe}
+            media="rows"
+            variant="plain"
+            title="Add the domain your website runs on to get your tracking script."
+          />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -74,9 +82,11 @@ export function TrackingDomains({ settings }: { settings: TrackingSettings }) {
                 <TableHead>Scope</TableHead>
                 <TableHead className="text-right">Page views</TableHead>
                 <TableHead className="text-right">Last seen</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
+                {canManage ? (
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -96,21 +106,23 @@ export function TrackingDomains({ settings }: { settings: TrackingSettings }) {
                       "—"
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <InlineConfirm
-                      label={`Remove ${domain.host}`}
-                      pending={remove.isPending}
-                      onConfirm={() => remove.mutate(domain.id)}
-                    />
-                  </TableCell>
+                  {canManage ? (
+                    <TableCell className="text-right">
+                      <InlineConfirm
+                        label={`Remove ${domain.host}`}
+                        pending={remove.isPending}
+                        onConfirm={() => remove.mutate(domain.id)}
+                      />
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TableCard>
-      )}
+        )}
+      </SettingsCard>
       {adding ? <AddDomainDialog onClose={() => setAdding(false)} /> : null}
-    </section>
+    </SettingsSection>
   );
 }
 
@@ -130,7 +142,7 @@ function AddDomainDialog({ onClose }: { onClose: () => void }) {
     meta: { errorToast: false },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tracking"] });
-      toast.success("Domain added");
+      toast.success("Domain added.");
       onClose();
     },
   });
@@ -193,13 +205,7 @@ function AddDomainDialog({ onClose }: { onClose: () => void }) {
             )}
           </form.AppField>
           <form.AppField name="scope">
-            {(field) => (
-              <field.SelectField
-                label="Scope"
-                items={SCOPE_ITEMS}
-                description="Site + subdomains also covers www. and blog. under it."
-              />
-            )}
+            {(field) => <field.SelectField label="Scope" items={SCOPE_ITEMS} />}
           </form.AppField>
         </form.Form>
       </FormDialog>
