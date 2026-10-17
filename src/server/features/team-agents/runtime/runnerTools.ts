@@ -54,7 +54,7 @@ export function runnerTools(context: RunnerContext): ToolSet {
   return {
     inspect_run: tool({
       description:
-        "Read this run's trigger and input, the version's approved record scope and allowed actions, and the current time.",
+        "Read this run's trigger and input, the version's approved record scope, captured sources and allowed actions, and the current time.",
       inputSchema: z.object({}),
       execute: () => RunActions.runContext(organizationId, runId),
     }),
@@ -84,7 +84,7 @@ export function runnerTools(context: RunnerContext): ToolSet {
 
     read_crm_record: tool({
       description:
-        "Read one approved CRM record with its CRM history: the people, deals, notes and stage changes the CRM holds.",
+        "Read one approved CRM record with its CRM history: the people, deals, notes and stage changes the CRM holds, and the captured email threads and meetings filed on it only when this version grants them.",
       inputSchema: z.object({
         kind: z.enum(RECORD_KINDS),
         id: z.string().min(1),

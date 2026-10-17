@@ -6,6 +6,8 @@ import { searchCrm } from "@/server/features/agent/tools/lookup";
 import { RECORD_KINDS, type RecordKind } from "@/shared/records";
 import {
   agentManifest,
+  CAPTURE_KINDS,
+  captureGrants,
   recordResources,
   type AgentManifest,
   type RecordResource,
@@ -16,8 +18,9 @@ import { RunSettlement } from "../services/RunSettlement";
 // What a team agent's run may read, ported from the CRM's run-runtime.ts.
 // Each function re-reads the run and its pinned version and enforces the
 // version's grants itself, whatever the model asked: records only inside the
-// approved scope, and nothing at all once the run is no longer RUNNING. What
-// it may do outside itself is runSideEffects.ts.
+// approved scope, captured email and meetings only when the version grants
+// them, and nothing at all once the run is no longer RUNNING. What it may do
+// outside itself is runSideEffects.ts.
 
 export class RunRefusal extends Error {
   constructor(message: string) {
@@ -79,6 +82,7 @@ async function runContext(organizationId: string, runId: string) {
     triggers: manifest.triggers,
     recordScope: scope.mode,
     allowedRecords: scope.records,
+    capturedSources: captureGrants(manifest.dataScope.resources),
     allowedActions: manifest.actions,
     now: new Date().toISOString(),
   };
@@ -155,50 +159,55 @@ async function listDeals(
   };
 }
 
+const WITHHELD = {
+  email: "Captured email is not granted to this version: no threads were read.",
+  calendar:
+    "Captured meetings are not granted to this version: no meetings were read.",
+} as const;
+
 /**
- * One record and its CRM history, inside the approved scope. Email and
- * calendar history are left out: no version can grant them yet.
+ * One record and its CRM history, inside the approved scope, with the
+ * captured email threads and meetings filed on it only when the version
+ * grants them (CAPTURE_GRANTS). An ungranted source is never read, so its
+ * lists come back empty and its counts null.
  */
 async function readRecord(
   organizationId: string,
   runId: string,
   input: { kind: RecordKind; id: string },
 ) {
-  const { scope } = await activeRun(organizationId, runId);
+  const { scope, manifest } = await activeRun(organizationId, runId);
   if (!inScope(scope, input.kind, input.id)) {
     throw new RunRefusal(
       "That CRM record is outside this agent version's approved scope.",
     );
   }
+  const sources = captureGrants(manifest.dataScope.resources);
   const history =
     input.kind === "contact"
       ? await AgentHistoryRepository.contactHistory(organizationId, input.id, {
-          threads: 0,
+          threads: 10,
+          ...sources,
         })
       : input.kind === "company"
         ? await AgentAccountRepository.companyHistory(
             organizationId,
             input.id,
-            {
-              threads: 0,
-              people: 50,
-            },
+            { threads: 10, people: 50, ...sources },
           )
         : await AgentDealRepository.dealHistory(organizationId, input.id, {
-            threads: 0,
+            threads: 10,
+            ...sources,
           });
   if (!history) return { found: false as const, reason: "No such record." };
-  const {
-    threads: _threads,
-    meetings: _meetings,
-    stats: _stats,
-    ...rest
-  } = history as typeof history & {
-    threads?: unknown;
-    meetings?: unknown;
-    stats?: unknown;
+  const withheld = CAPTURE_KINDS.filter((kind) => !sources[kind]).map(
+    (kind) => WITHHELD[kind],
+  );
+  return {
+    found: true as const,
+    ...history,
+    ...(withheld.length > 0 ? { withheld } : {}),
   };
-  return { found: true as const, ...rest };
 }
 
 /**

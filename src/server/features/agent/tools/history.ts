@@ -9,6 +9,9 @@ import type { ToolGroup } from "./context";
 // read_company_history and read_deal_history. Every read hands back the ids
 // of the neighbouring records, so the agent never has to ask a rep for one.
 
+/** The research agent reads everything the CRM captured. */
+const ALL_SOURCES = { email: true, calendar: true };
+
 const threads = z
   .number()
   .int()
@@ -26,7 +29,7 @@ export const historyTools: ToolGroup = (context) => ({
       const history = await AgentHistoryRepository.contactHistory(
         context.organizationId,
         contactId,
-        { threads: threadCount },
+        { threads: threadCount, ...ALL_SOURCES },
       );
       if (!history)
         return { found: false as const, reason: "No such contact." };
@@ -61,7 +64,7 @@ export const historyTools: ToolGroup = (context) => ({
       const history = await AgentAccountRepository.companyHistory(
         context.organizationId,
         companyId,
-        { threads: threadCount, people },
+        { threads: threadCount, people, ...ALL_SOURCES },
       );
       if (!history)
         return { found: false as const, reason: "No such company." };
@@ -84,7 +87,7 @@ export const historyTools: ToolGroup = (context) => ({
       const history = await AgentDealRepository.dealHistory(
         context.organizationId,
         dealId,
-        { threads: threadCount },
+        { threads: threadCount, ...ALL_SOURCES },
       );
       if (!history) return { found: false as const, reason: "No such deal." };
       return { found: true as const, ...history };

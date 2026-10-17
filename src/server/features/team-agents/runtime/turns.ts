@@ -133,12 +133,14 @@ export function prepareBuilderTurn(
   const extras = userMessages.map((message) =>
     messageExtras.parse(message.metadata),
   );
-  const tagged = extras.flatMap((extra) =>
-    (extra.resources ?? []).flatMap((resource) =>
-      resource.kind === "integration"
-        ? []
-        : [{ kind: resource.kind, id: resource.id }],
-    ),
+  const resources = extras.flatMap((extra) => extra.resources ?? []);
+  const tagged = resources.flatMap((resource) =>
+    resource.kind === "integration"
+      ? []
+      : [{ kind: resource.kind, id: resource.id }],
+  );
+  const taggedIntegrations = resources.flatMap((resource) =>
+    resource.kind === "integration" ? [resource.id] : [],
   );
   const attachments = extras.flatMap((extra) => extra.attachments ?? []);
   const last = userMessages.at(-1);
@@ -165,6 +167,7 @@ export function prepareBuilderTurn(
       userId: session.conversation.userId,
       conversationId: session.conversation.id,
       tagged,
+      taggedIntegrations,
       creating,
       agentContext: {
         organizationId: session.organizationId,

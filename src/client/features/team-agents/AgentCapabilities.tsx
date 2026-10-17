@@ -15,17 +15,20 @@ import {
 import {
   ACTION_LABELS,
   AGENT_ACTION_TYPES,
+  CAPTURE_KINDS,
+  captureGrants,
   recordResources,
   slackDestinationOf,
   type AgentManifest,
+  type CaptureKind,
   type RecordResource,
 } from "@/shared/team-agents";
 import { teamAgentFilesQueryOptions, teamAgentKeys } from "./teamAgentQueries";
 
 /**
  * The deployed version's permissions (the CRM's AgentCapabilities): turn an
- * action off, move its Slack channel, drop records from its scope, or edit its
- * instructions. Saving makes a new deployed version at once; the old one
+ * action off, move its Slack channel, drop records or captured email and
+ * meetings from what it sees, or edit its instructions. Saving makes a new deployed version at once; the old one
  * stays in the history. Only its creator or an admin may change it.
  */
 export function AgentCapabilities({
@@ -46,14 +49,18 @@ export function AgentCapabilities({
     null,
   );
   const [records, setRecords] = useState<RecordResource[] | null>(null);
+  const [sources, setSources] = useState<CaptureKind[] | null>(null);
   const destination = slackDestinationOf(manifest);
   const scope = recordResources(manifest.dataScope.resources);
   const shownRecords = records ?? scope;
+  const granted = captureGrants(manifest.dataScope.resources);
+  const shownSources = sources ?? CAPTURE_KINDS.filter((kind) => granted[kind]);
 
   const reset = () => {
     setOff([]);
     setChannel(null);
     setRecords(null);
+    setSources(null);
   };
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: teamAgentKeys.agent(agentId) });
@@ -72,6 +79,7 @@ export function AgentCapabilities({
               : undefined,
           channel: channel ?? undefined,
           resources: records ?? undefined,
+          sources: sources ?? undefined,
         },
       }),
     onSuccess: async () => {
@@ -81,7 +89,8 @@ export function AgentCapabilities({
     },
   });
 
-  const dirty = off.length > 0 || channel !== null || records !== null;
+  const dirty =
+    off.length > 0 || channel !== null || records !== null || sources !== null;
   const blocked =
     records !== null &&
     manifest.dataScope.mode === "SELECTED" &&
@@ -180,6 +189,26 @@ export function AgentCapabilities({
               </span>
             ))
           )}
+          {shownSources.map((kind) => (
+            <span
+              key={kind}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border py-1 pr-1.5 pl-2.5 text-sm"
+            >
+              {CAPTURED_LABELS[kind]}
+              {canManage ? (
+                <button
+                  type="button"
+                  aria-label={`Remove ${CAPTURED_LABELS[kind]}`}
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() =>
+                    setSources(shownSources.filter((entry) => entry !== kind))
+                  }
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </span>
+          ))}
         </div>
       </section>
 
@@ -214,6 +243,11 @@ export function AgentCapabilities({
     </div>
   );
 }
+
+const CAPTURED_LABELS: Record<CaptureKind, string> = {
+  email: "Captured email",
+  calendar: "Captured meetings",
+};
 
 /** The Slack channels the app can reach, to move the agent to one. */
 function SlackChannelChoice({

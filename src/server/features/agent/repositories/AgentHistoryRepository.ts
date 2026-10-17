@@ -27,6 +27,12 @@ import { descNullsLast } from "./order";
 // reads (read_crm_history, read_company_history, read_deal_history). Ported
 // from the CRM's lib/crm.ts and lib/accounts.ts. Every query is scoped to the
 // organization; bodies are capped so one long thread cannot crowd out the rest.
+// A team agent reads the same histories, with captured email and meetings
+// only where its version grants them (`Sources`): a source it may not read is
+// never queried, and its counts come back null, not zero.
+
+/** Which captured sources a history read includes. */
+export type Sources = { email: boolean; calendar: boolean };
 
 const BODY_LIMIT = 4000;
 const NOTE_TYPES = ["NOTE", "CALL", "TASK", "ENRICHMENT"] as const;
@@ -267,7 +273,7 @@ function nextMeetingAt(meetings: HistoryMeeting[]): string | null {
 async function contactHistory(
   organizationId: string,
   contactId: string,
-  options: { threads: number },
+  options: { threads: number } & Sources,
 ) {
   const [row] = await db
     .select({
@@ -317,13 +323,17 @@ async function contactHistory(
         ),
       )
       .orderBy(descNullsLast(deal.lastActivityAt)),
-    threadsWhere(
-      organizationId,
-      eq(emailThread.contactId, contactId),
-      options.threads,
-      6,
-    ),
-    meetingsWhere(organizationId, meetingWith(organizationId, [contactId])),
+    options.email
+      ? threadsWhere(
+          organizationId,
+          eq(emailThread.contactId, contactId),
+          options.threads,
+          6,
+        )
+      : [],
+    options.calendar
+      ? meetingsWhere(organizationId, meetingWith(organizationId, [contactId]))
+      : [],
     row.companyId
       ? db
           .select({
@@ -375,11 +385,13 @@ async function contactHistory(
       ),
     })),
     stats: {
-      emails: threads.reduce((total, thread) => total + thread.messageCount, 0),
-      theyReplied: inbound.length > 0,
+      emails: options.email
+        ? threads.reduce((total, thread) => total + thread.messageCount, 0)
+        : null,
+      theyReplied: options.email ? inbound.length > 0 : null,
       lastReplyAt:
         inbound.length > 0 ? inbound.reduce((a, b) => (a > b ? a : b)) : null,
-      meetings: meetings.length,
+      meetings: options.calendar ? meetings.length : null,
       nextMeetingAt: nextMeetingAt(meetings),
     },
     colleagues: colleagues.map((colleague) => ({

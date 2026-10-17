@@ -11,18 +11,21 @@ import {
   user,
 } from "@/db/schema";
 import { daysSince, isOpen } from "./AgentAccountRepository";
-import { AgentHistoryRepository as History } from "./AgentHistoryRepository";
+import {
+  AgentHistoryRepository as History,
+  type Sources,
+} from "./AgentHistoryRepository";
 
 // A deal's full history for the agent, ported from the CRM's lib/accounts.ts:
 // the stage clock and every stage it moved through, the people on it with
-// their ids, the correspondence and meetings with them, and the notes, in one
-// free read. Scoped to the organization.
+// their ids, the correspondence and meetings with them (those `Sources`
+// grants), and the notes, in one free read. Scoped to the organization.
 
 /** Everything the CRM has on a deal. Null when it isn't the organization's. */
 async function dealHistory(
   organizationId: string,
   dealId: string,
-  options: { threads: number },
+  options: { threads: number } & Sources,
 ) {
   const [row] = await db
     .select({
@@ -104,18 +107,22 @@ async function dealHistory(
       )
       .orderBy(asc(activity.createdAt))
       .limit(25),
-    History.threadsWhere(organizationId, related, options.threads, 4),
-    History.meetingsWhere(
-      organizationId,
-      people.length > 0
-        ? or(
-            History.meetingWith(organizationId, contactIds),
-            eq(calendarEvent.companyId, row.companyId),
-          )
-        : eq(calendarEvent.companyId, row.companyId),
-    ),
+    options.email
+      ? History.threadsWhere(organizationId, related, options.threads, 4)
+      : [],
+    options.calendar
+      ? History.meetingsWhere(
+          organizationId,
+          people.length > 0
+            ? or(
+                History.meetingWith(organizationId, contactIds),
+                eq(calendarEvent.companyId, row.companyId),
+              )
+            : eq(calendarEvent.companyId, row.companyId),
+        )
+      : [],
     History.notesFor(organizationId, eq(activity.dealId, dealId)),
-    History.lastInbound(organizationId, related),
+    options.email ? History.lastInbound(organizationId, related) : null,
   ]);
   const now = Date.now();
   return {
@@ -155,7 +162,7 @@ async function dealHistory(
     meetings,
     notes,
     stats: {
-      theyReplied: inbound !== null,
+      theyReplied: options.email ? inbound !== null : null,
       lastReplyAt: inbound?.sentAt ?? null,
       lastReplyFrom: inbound ? (inbound.fromName ?? inbound.fromEmail) : null,
       nextMeetingAt: History.nextMeetingAt(meetings),
@@ -163,8 +170,9 @@ async function dealHistory(
         ? daysSince(row.lastActivityAt, now)
         : null,
     },
-    note:
-      people.length > 0
+    note: !(options.email || options.calendar)
+      ? "Captured email and meetings are outside this agent version's approved data sources."
+      : people.length > 0
         ? "Connected account history is filed against people and companies, never against a deal. The history here belongs to the people on this deal and the rest of the account — read the details before treating any of it as being about this deal."
         : "Nobody is attached to this deal, so the correspondence here is the whole account's. Attaching the people on it would make this answer sharper.",
   };

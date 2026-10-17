@@ -1,11 +1,14 @@
 import { z } from "zod";
 import {
   AGENT_ACTION_TYPES,
+  CAPTURE_GRANTS,
+  CAPTURE_KINDS,
   CRM_EVENT_CATALOG,
   CRM_EVENT_TYPES,
   SLACK_RESOURCE,
   TEAM_AGENT_LIMITS,
   type AgentManifest,
+  type CaptureGrants,
   type ManifestResource,
 } from "@/shared/team-agents";
 import type { DescribedRecord } from "../repositories/BuilderRepository";
@@ -85,7 +88,7 @@ export const draftInputSchema = z.object({
       }),
     )
     .max(30),
-  integrations: z.array(z.enum(["slack"])).max(1),
+  integrations: z.array(z.enum(["email", "calendar", "slack"])).max(3),
   actions: z.array(draftAction).min(1).max(10),
 });
 
@@ -115,6 +118,9 @@ function accessOf(input: DraftInput): string[] {
     input.recordScope === "WORKSPACE"
       ? "Read workspace CRM records"
       : "Read selected CRM records",
+    ...CAPTURE_KINDS.filter((kind) => input.integrations.includes(kind)).map(
+      (kind) => CAPTURE_GRANTS[kind].access,
+    ),
     ...(input.integrations.includes("slack")
       ? ["Post to the approved Slack destination"]
       : []),
@@ -132,9 +138,10 @@ export function draftIssues(
   input: DraftInput,
   tagged: readonly DescribedRecord[],
   existing: readonly DescribedRecord[],
-  slack: SlackInventory,
+  connections: { slack: SlackInventory; capture: CaptureGrants },
   now: Date,
 ): string[] {
+  const { slack, capture } = connections;
   const issues: string[] = [];
   if (input.recordScope === "SELECTED" && input.resources.length === 0) {
     issues.push("Selected CRM scope needs at least one tagged record.");
@@ -167,8 +174,21 @@ export function draftIssues(
       issues.push(`${resource.label} is no longer in the CRM.`);
     }
   }
+  if (new Set(input.integrations).size !== input.integrations.length) {
+    issues.push("An integration is listed more than once.");
+  }
   if (input.integrations.includes("slack") && !slack.connected) {
     issues.push("Slack is not connected for this workspace.");
+  }
+  if (input.integrations.includes("email") && !capture.email) {
+    issues.push(
+      "Email is not connected: nobody in this workspace has connected a mailbox.",
+    );
+  }
+  if (input.integrations.includes("calendar") && !capture.calendar) {
+    issues.push(
+      "Calendar is not connected: nobody in this workspace has connected a calendar.",
+    );
   }
 
   const actionTypes = new Set<string>();
@@ -247,6 +267,9 @@ function scopeSummary(input: DraftInput): string {
 export function manifestOf(input: DraftInput): AgentManifest {
   const resources: ManifestResource[] = [
     ...input.resources,
+    ...CAPTURE_KINDS.filter((kind) => input.integrations.includes(kind)).map(
+      (kind) => CAPTURE_GRANTS[kind].resource,
+    ),
     ...(input.integrations.includes("slack") ? [SLACK_RESOURCE] : []),
   ];
   return {

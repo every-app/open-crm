@@ -22,9 +22,12 @@ vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
 
+import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
+import { CAPTURE_GRANTS, captureGrants } from "@/shared/team-agents";
 import { RunActions } from "../runtime/runActions";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import { BuilderRepository } from "../repositories/BuilderRepository";
+import { AgentRevisionService } from "./AgentRevisionService";
 import { AgentRunService } from "./AgentRunService";
 import { BuilderService } from "./BuilderService";
 import type { DraftInput } from "./draft";
@@ -66,6 +69,7 @@ async function saved(
       userId: "user_a",
       conversationId: chat.id,
       tagged,
+      taggedIntegrations: [],
     },
     input,
   );
@@ -82,6 +86,12 @@ async function live(input: DraftInput = draft()) {
   });
   return version;
 }
+
+const google = (accountEmail: string) => ({
+  provider: "google" as const,
+  accountEmail,
+  sources: ["gmail" as const],
+});
 
 const countRow = z.object({ n: z.coerce.number() });
 
@@ -150,6 +160,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         organizationId: "org_a",
         userId: "user_a",
         conversationId: chat.id,
+        taggedIntegrations: [],
       };
       const untagged = await BuilderToolService.saveDraft(
         { ...tool, tagged: [] },
@@ -164,6 +175,39 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         input,
       );
       expect(tagged).toMatchObject({ saved: true, status: "READY" });
+    });
+
+    it("grants captured email once the workspace has a mailbox, and a revision can take it away", async () => {
+      const reading = draft({ integrations: ["email"] });
+      // Another organization's mailbox doesn't count.
+      await seedMailbox({ ...outsider, ...google("bo@b.test") });
+      await expect(saved(reading)).rejects.toThrow(
+        "nobody in this workspace has connected a mailbox",
+      );
+      await seedMailbox({ ...owner, ...google("ana@a.test") });
+      const version = await live(reading);
+      const grants = async () => {
+        const agent = await TeamAgentService.get(owner, version.agentId);
+        const shown = agent.currentVersion;
+        if (!shown?.readable) throw new Error("No readable deployed version");
+        return {
+          grants: captureGrants(shown.manifest.dataScope.resources),
+          access: shown.manifest.access,
+        };
+      };
+      expect(await grants()).toEqual({
+        grants: { email: true, calendar: false },
+        access: ["Read workspace CRM records", CAPTURE_GRANTS.email.access],
+      });
+      await AgentRevisionService.revise(owner, {
+        agentId: version.agentId,
+        clientRequestId: crypto.randomUUID(),
+        sources: [],
+      });
+      expect(await grants()).toEqual({
+        grants: { email: false, calendar: false },
+        access: ["Read workspace CRM records"],
+      });
     });
 
     it("queues one run per live agent listening for an event", async () => {

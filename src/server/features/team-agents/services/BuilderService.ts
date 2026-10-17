@@ -7,8 +7,14 @@ import { sessionName } from "@/server/features/agent/sessionName";
 import { SearchService } from "@/server/features/search/services/SearchService";
 import { SlackService } from "@/server/features/slack/services/SlackService";
 import { AppError } from "@/server/lib/errors";
-import { agentManifest, SLACK_RESOURCE } from "@/shared/team-agents";
+import {
+  agentManifest,
+  CAPTURE_GRANTS,
+  CAPTURE_KINDS,
+  SLACK_RESOURCE,
+} from "@/shared/team-agents";
 import { BuilderRepository } from "../repositories/BuilderRepository";
+import { BuilderToolService } from "./BuilderToolService";
 
 // The agent builder's side of the CRM, ported from the CRM's conversations
 // service (builder chats) and builder-runtime.ts (what the builder's tools
@@ -155,21 +161,51 @@ async function removeConversation(context: Context, id: string) {
   return removed;
 }
 
-/** Records and integrations a person can tag in the composer. */
+const CAPTURE_TAGS = {
+  email: {
+    detail: "Captured mail on CRM records",
+    unavailable:
+      "Nobody here has connected a mailbox yet (Settings → Connections)",
+  },
+  calendar: {
+    detail: "Captured meetings on CRM records",
+    unavailable:
+      "Nobody here has connected a calendar yet (Settings → Connections)",
+  },
+} as const;
+
+/**
+ * Records and integrations a person can tag in the composer. Email and
+ * Calendar are always offered, with the reason they can't be granted yet
+ * when no member has connected one.
+ */
 async function searchResources(context: Context, q: string) {
-  const [{ hits }, slack] = await Promise.all([
+  const [{ hits }, slack, capture] = await Promise.all([
     SearchService.quick(context.organizationId, q),
     SlackService.isConnected(context.organizationId),
+    BuilderToolService.captureConnections(context.organizationId),
   ]);
   const term = q.trim().toLowerCase();
+  const matches = (label: string) =>
+    !term || label.toLowerCase().includes(term);
   return [
-    ...(slack && (!term || "slack".includes(term))
+    ...CAPTURE_KINDS.filter((kind) =>
+      matches(CAPTURE_GRANTS[kind].resource.label),
+    ).map((kind) => ({
+      kind: "integration" as const,
+      id: CAPTURE_GRANTS[kind].resource.id,
+      label: CAPTURE_GRANTS[kind].resource.label,
+      detail: CAPTURE_TAGS[kind].detail,
+      unavailable: capture[kind] ? null : CAPTURE_TAGS[kind].unavailable,
+    })),
+    ...(slack && matches("slack")
       ? [
           {
             kind: "integration" as const,
             id: SLACK_RESOURCE.id,
             label: SLACK_RESOURCE.label,
             detail: "Connected workspace",
+            unavailable: null,
           },
         ]
       : []),
@@ -178,6 +214,7 @@ async function searchResources(context: Context, q: string) {
       id: hit.id,
       label: hit.label,
       detail: hit.detail,
+      unavailable: null,
     })),
   ];
 }

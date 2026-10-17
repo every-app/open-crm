@@ -12,44 +12,53 @@ import {
   emailThread,
 } from "@/db/schema";
 import { isDerivedName } from "../lib/names";
-import { AgentHistoryRepository as History } from "./AgentHistoryRepository";
+import {
+  AgentHistoryRepository as History,
+  type Sources,
+} from "./AgentHistoryRepository";
 import { descNullsLast } from "./order";
 
 // A company's full history for the agent, ported from the CRM's
 // lib/accounts.ts: every person and deal with their ids, the correspondence
-// and meetings, and the notes, in one free read. Scoped to the organization.
+// and meetings (those `Sources` grants), and the notes, in one free read.
+// Scoped to the organization.
 
 const CLOSED_STAGES = ["CLOSED_WON", "CLOSED_LOST", "UNQUALIFIED_TO_BUY"];
 
-/** Message and meeting counts for each of `contactIds`. */
+/** Thread and meeting counts for each of `contactIds`, from `sources`. */
 async function contactActivityCounts(
   organizationId: string,
   contactIds: string[],
+  sources: Sources,
 ) {
   const threads = new Map<string, number>();
   const meetings = new Map<string, number>();
   for (const part of chunk(contactIds, 90)) {
     const [threadRows, meetingRows] = await Promise.all([
-      db
-        .select({ contactId: emailThread.contactId, value: count() })
-        .from(emailThread)
-        .where(
-          and(
-            eq(emailThread.organizationId, organizationId),
-            inArray(emailThread.contactId, part),
-          ),
-        )
-        .groupBy(emailThread.contactId),
-      db
-        .select({ contactId: calendarEvent.contactId, value: count() })
-        .from(calendarEvent)
-        .where(
-          and(
-            eq(calendarEvent.organizationId, organizationId),
-            inArray(calendarEvent.contactId, part),
-          ),
-        )
-        .groupBy(calendarEvent.contactId),
+      sources.email
+        ? db
+            .select({ contactId: emailThread.contactId, value: count() })
+            .from(emailThread)
+            .where(
+              and(
+                eq(emailThread.organizationId, organizationId),
+                inArray(emailThread.contactId, part),
+              ),
+            )
+            .groupBy(emailThread.contactId)
+        : [],
+      sources.calendar
+        ? db
+            .select({ contactId: calendarEvent.contactId, value: count() })
+            .from(calendarEvent)
+            .where(
+              and(
+                eq(calendarEvent.organizationId, organizationId),
+                inArray(calendarEvent.contactId, part),
+              ),
+            )
+            .groupBy(calendarEvent.contactId)
+        : [],
     ]);
     for (const row of threadRows)
       if (row.contactId) threads.set(row.contactId, row.value);
@@ -84,7 +93,7 @@ export function daysSince(iso: string, now: number): number {
 async function companyHistory(
   organizationId: string,
   companyId: string,
-  options: { threads: number; people: number },
+  options: { threads: number; people: number } & Sources,
 ) {
   const [row] = await db
     .select({
@@ -137,16 +146,27 @@ async function companyHistory(
         .orderBy(descNullsLast(contact.lastActivityAt), asc(contact.createdAt))
         .limit(options.people),
       accountDeals(organizationId, companyId),
-      History.threadsWhere(organizationId, accountThreads, options.threads, 4),
-      History.meetingsWhere(
-        organizationId,
-        or(
-          eq(calendarEvent.companyId, companyId),
-          History.meetingWith(organizationId, people),
-        ),
-      ),
+      options.email
+        ? History.threadsWhere(
+            organizationId,
+            accountThreads,
+            options.threads,
+            4,
+          )
+        : [],
+      options.calendar
+        ? History.meetingsWhere(
+            organizationId,
+            or(
+              eq(calendarEvent.companyId, companyId),
+              History.meetingWith(organizationId, people),
+            ),
+          )
+        : [],
       History.notesFor(organizationId, eq(activity.companyId, companyId)),
-      History.lastInbound(organizationId, accountThreads),
+      options.email
+        ? History.lastInbound(organizationId, accountThreads)
+        : null,
       Promise.all([
         db
           .select({ value: count() })
@@ -158,31 +178,34 @@ async function companyHistory(
               isNull(contact.archivedAt),
             ),
           ),
-        db
-          .select({ value: count() })
-          .from(emailMessage)
-          .where(
-            and(
-              eq(emailMessage.organizationId, organizationId),
-              inArray(
-                emailMessage.threadId,
-                db
-                  .select({ id: emailThread.id })
-                  .from(emailThread)
-                  .where(
-                    and(
-                      eq(emailThread.organizationId, organizationId),
-                      accountThreads,
-                    ),
+        options.email
+          ? db
+              .select({ value: count() })
+              .from(emailMessage)
+              .where(
+                and(
+                  eq(emailMessage.organizationId, organizationId),
+                  inArray(
+                    emailMessage.threadId,
+                    db
+                      .select({ id: emailThread.id })
+                      .from(emailThread)
+                      .where(
+                        and(
+                          eq(emailThread.organizationId, organizationId),
+                          accountThreads,
+                        ),
+                      ),
                   ),
-              ),
-            ),
-          ),
+                ),
+              )
+          : [],
       ]),
     ]);
   const activityCounts = await contactActivityCounts(
     organizationId,
     contacts.map((person) => person.id),
+    options,
   );
   const [[peopleCount], [emailCount]] = counts;
   return {
@@ -204,8 +227,12 @@ async function companyHistory(
       email: person.email,
       linkedinUrl: person.linkedinUrl,
       lastActivityAt: person.lastActivityAt,
-      threads: activityCounts.threads.get(person.id) ?? 0,
-      meetings: activityCounts.meetings.get(person.id) ?? 0,
+      threads: options.email
+        ? (activityCounts.threads.get(person.id) ?? 0)
+        : null,
+      meetings: options.calendar
+        ? (activityCounts.meetings.get(person.id) ?? 0)
+        : null,
       needsIdentity: isDerivedName(
         person.email,
         person.firstName,
@@ -219,9 +246,9 @@ async function companyHistory(
     stats: {
       people: peopleCount?.value ?? 0,
       openDeals: deals.filter((item) => item.open).length,
-      emails: emailCount?.value ?? 0,
-      meetings: meetings.length,
-      theyReplied: inbound !== null,
+      emails: options.email ? (emailCount?.value ?? 0) : null,
+      meetings: options.calendar ? meetings.length : null,
+      theyReplied: options.email ? inbound !== null : null,
       lastReplyAt: inbound?.sentAt ?? null,
       lastReplyFrom: inbound ? (inbound.fromName ?? inbound.fromEmail) : null,
       nextMeetingAt: History.nextMeetingAt(meetings),

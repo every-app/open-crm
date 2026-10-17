@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SyncSource } from "./mailbox";
 
 // Team agents, ported from the CRM's agent builder and runner: a team
 // describes an agent in a private builder chat, reviews the version the
@@ -130,6 +131,57 @@ export const SLACK_RESOURCE = {
   id: "slack:workspace",
   label: "Slack",
 } as const;
+
+/**
+ * The captured mail and meetings a version may read (the CRM's
+ * `google:gmail` and `google:calendar` integrations). Capture is per member
+ * but filed on shared records, so the grant is to what the organization
+ * captured, Gmail and Outlook alike, on the records the version may see;
+ * never to anyone's mailbox. Each is available once any member has
+ * connected one of its sources (Settings → Connections).
+ */
+export const CAPTURE_GRANTS = {
+  email: {
+    resource: { kind: "integration", id: "capture:email", label: "Email" },
+    access: "Read captured email on the records it can see",
+    sources: ["gmail", "outlook"],
+  },
+  calendar: {
+    resource: {
+      kind: "integration",
+      id: "capture:calendar",
+      label: "Calendar",
+    },
+    access: "Read captured meetings on the records it can see",
+    sources: ["calendar"],
+  },
+} as const satisfies Record<
+  string,
+  {
+    resource: { kind: "integration"; id: string; label: string };
+    access: string;
+    sources: readonly SyncSource[];
+  }
+>;
+
+export const CAPTURE_KINDS = ["email", "calendar"] as const;
+export type CaptureKind = (typeof CAPTURE_KINDS)[number];
+export type CaptureGrants = Record<CaptureKind, boolean>;
+
+/** Which captured sources `resources` (a manifest's scope) grants. */
+export function captureGrants(
+  resources: readonly { kind: string; id: string }[],
+): CaptureGrants {
+  const ids = new Set(
+    resources
+      .filter((resource) => resource.kind === "integration")
+      .map((resource) => resource.id),
+  );
+  return {
+    email: ids.has(CAPTURE_GRANTS.email.resource.id),
+    calendar: ids.has(CAPTURE_GRANTS.calendar.resource.id),
+  };
+}
 
 const recordResource = z.object({
   kind: z.enum(["company", "contact", "deal"]),
