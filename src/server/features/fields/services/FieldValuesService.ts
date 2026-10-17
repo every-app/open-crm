@@ -204,12 +204,7 @@ async function filterConditions(
   return entries.flatMap(([key, filter]) => {
     const definition = byKey.get(key);
     const condition = definition
-      ? FieldValueRepository.filterCondition(
-          organizationId,
-          entity,
-          definition,
-          filter,
-        )
+      ? FieldValueRepository.filterCondition(entity, definition, filter)
       : null;
     return condition ? [condition] : [];
   });

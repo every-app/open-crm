@@ -47,7 +47,7 @@ export async function createDualDialectTestDb() {
 
   return {
     /** Points every mocked module at `next`'s database and returns it. */
-    use(next: Dialect) {
+    use<Next extends Dialect>(next: Next): (typeof databases)[Next] {
       dialect = next;
       return databases[next];
     },

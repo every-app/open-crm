@@ -15,7 +15,7 @@ import {
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import { InlineSelectField } from "@/client/features/records/InlineField";
 import type { Owner } from "@/client/features/records/cells";
-import { UNASSIGNED } from "@/types/schemas/records";
+import { OWNER_FILTER_MAX, UNASSIGNED } from "@/types/schemas/records";
 
 // Who owns a record: one of the organization's members, or nobody. The
 // members are the people the gateway has let into the CRM so far.
@@ -97,6 +97,10 @@ export function OwnerFilter({
             <DropdownMenuCheckboxItem
               key={option.value}
               checked={value.includes(option.value)}
+              disabled={
+                !value.includes(option.value) &&
+                value.length >= OWNER_FILTER_MAX
+              }
               onCheckedChange={(checked) =>
                 onChange(
                   checked

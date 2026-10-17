@@ -222,10 +222,7 @@ async function openValue(
     .select({ value: sql<number | null>`sum(${deal.baseAmount})` })
     .from(deal)
     .where(
-      and(
-        openInView(organizationId, input, fieldConditions),
-        countedIn(base),
-      ),
+      and(openInView(organizationId, input, fieldConditions), countedIn(base)),
     );
   return row?.value == null ? null : roundMoney(Number(row.value), base);
 }
