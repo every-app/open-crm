@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { SlackService } from "@/server/features/slack/services/SlackService";
 import { AppError } from "@/server/lib/errors";
@@ -32,6 +33,8 @@ import { assertNoSecrets } from "./draft";
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
 const INSTRUCTIONS_PATH = "agent/instructions.md";
+
+const auditJson = z.json().catch(null);
 
 /** A manifest the review screen can show, or why it can't. */
 function readable(manifest: unknown):
@@ -164,7 +167,16 @@ async function files(context: Context, agentId: string, versionId: string) {
 
 async function activity(context: Context, agentId: string, limit: number) {
   const agent = await readableAgent(context, agentId);
-  return TeamAgentRepository.listAudit(context.organizationId, agent.id, limit);
+  const rows = await TeamAgentRepository.listAudit(
+    context.organizationId,
+    agent.id,
+    limit,
+  );
+  return rows.map((row) => ({
+    ...row,
+    before: auditJson.parse(row.before),
+    after: auditJson.parse(row.after),
+  }));
 }
 
 /**

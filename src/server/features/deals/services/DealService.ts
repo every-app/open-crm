@@ -15,6 +15,7 @@ import {
 import { AppError } from "@/server/lib/errors";
 import { normalizeCurrency, roundMoney } from "@/shared/currency";
 import { isClosedStage, isLosingStage } from "@/shared/deal-stages";
+import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import type {
   AttachDealContactInput,
   CreateDealInput,
@@ -127,6 +128,18 @@ async function createDeal(organizationId: string, input: CreateDealInput) {
     expectedCloseDate: closeDateOf(input.expectedCloseDate),
   });
   console.log("[deals] created", { organizationId, dealId: row.id, stage });
+  await AgentTaskService.crmEvent(organizationId, {
+    type: "deal.created",
+    recordId: row.id,
+    data: { companyId: input.companyId, stage },
+  });
+  if (isClosedStage(stage)) {
+    await AgentTaskService.crmEvent(organizationId, {
+      type: "deal.closed",
+      recordId: row.id,
+      data: { companyId: input.companyId, from: null, to: stage },
+    });
+  }
   await FieldsService.queueFillForNewRecord(organizationId, "DEAL", row.id);
   return row;
 }
@@ -216,6 +229,19 @@ async function setStage(
     from: found.stage,
     to: stage,
   });
+  const move = { companyId: found.companyId, from: found.stage, to: stage };
+  await AgentTaskService.crmEvent(organizationId, {
+    type: "deal.stage.changed",
+    recordId: id,
+    data: move,
+  });
+  if (isClosedStage(stage) !== isClosedStage(found.stage)) {
+    await AgentTaskService.crmEvent(organizationId, {
+      type: isClosedStage(stage) ? "deal.closed" : "deal.opened",
+      recordId: id,
+      data: move,
+    });
+  }
   return { id, stage, changed: true };
 }
 

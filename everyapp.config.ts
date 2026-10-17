@@ -65,6 +65,12 @@ export default {
       access: "read",
       why: "Company brand data, LinkedIn profiles and website extraction for the research agent.",
     },
+    // The gateway completes Slack's token endpoint with its client; the CRM
+    // keeps the workspace's tokens (src/server/features/slack).
+    slack: {
+      access: "write",
+      why: "Connects the workspace's Slack so team agents can post to an approved channel.",
+    },
   },
   // Every member of the organization works in the CRM.
   access: "everyone",

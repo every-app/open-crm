@@ -6,6 +6,11 @@ import {
   type NewAgentTask,
 } from "@/server/features/agent/repositories/AgentTaskRepository";
 import { pokeDispatcher } from "@/server/features/agent/poke";
+import { pokeRuns } from "@/server/features/team-agents/runtime/poke";
+import {
+  TriggerService,
+  type CrmEvent,
+} from "@/server/features/team-agents/services/TriggerService";
 
 // How the rest of the CRM hands the research agent work: a row in its queue
 // (agent_task), which the minute cron leases (src/server/features/agent/
@@ -239,6 +244,20 @@ async function fieldBackfillRecords(
 
 const BACKFILL_CHUNK = 90;
 
+/**
+ * A CRM event happened (a record created, a deal moved): team agents with an
+ * EVENT trigger for it get a queued run each (TriggerService). Never fails
+ * the request that caused it.
+ */
+async function crmEvent(organizationId: string, event: CrmEvent): Promise<void> {
+  try {
+    const queued = await TriggerService.emitEvent(organizationId, event);
+    if (queued > 0) pokeRuns(organizationId);
+  } catch (error) {
+    console.error("[agent] could not deliver a CRM event", { type: event.type }, error);
+  }
+}
+
 export const AgentTaskService = {
   companyCreated,
   companyRequested,
@@ -246,4 +265,5 @@ export const AgentTaskService = {
   contactCreated,
   backfill,
   fieldBackfillRecords,
+  crmEvent,
 };

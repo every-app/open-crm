@@ -143,6 +143,11 @@ async function createCompany(
     domain,
   });
   await AgentTaskService.companyCreated(organizationId, row.id);
+  await AgentTaskService.crmEvent(organizationId, {
+    type: "company.created",
+    recordId: row.id,
+    data: { name: row.name, domain },
+  });
   await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", row.id);
   return { id: row.id, name: row.name, domain };
 }
@@ -379,6 +384,11 @@ async function companyForEmail(
       row.id,
       `Created from an email domain (${domain}): it has no name but the domain`,
     );
+    await AgentTaskService.crmEvent(organizationId, {
+      type: "company.created",
+      recordId: row.id,
+      data: { name: domain, domain },
+    });
     await FieldsService.queueFillForNewRecord(
       organizationId,
       "COMPANY",

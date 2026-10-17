@@ -7,7 +7,13 @@ import { withPgClient } from "@/db";
 import { runCron } from "@/server/cron";
 import { withoutCookies } from "@/server/everyapp/cookies";
 import { routeAgentRequests } from "@/server/features/agent/agentRoutes";
+import { handleSlackCallback } from "@/server/features/slack/routes/callback";
+import {
+  ATTACHMENT_ROUTE_PREFIX,
+  serveAttachment,
+} from "@/server/features/team-agents/routes/attachments";
 import { serveImage, IMAGE_ROUTE_PREFIX } from "@/server/lib/images";
+import { SLACK_REDIRECT_PATH } from "@/shared/slack";
 import { serveEveryAppRequest } from "@/server/lib/gateway-attribution";
 
 const startHandler = createStartHandler(defaultStreamHandler);
@@ -49,6 +55,14 @@ function routeAppRequest(
   // Logos and photographs the agent copied into R2.
   if (pathname.startsWith(IMAGE_ROUTE_PREFIX)) {
     return serveImage(request, env);
+  }
+  // Files attached in a builder chat, for the chat's owner.
+  if (pathname.startsWith(ATTACHMENT_ROUTE_PREFIX)) {
+    return serveAttachment(request);
+  }
+  // Slack's redirect back after an owner or admin connected it.
+  if (pathname === SLACK_REDIRECT_PATH) {
+    return handleSlackCallback(request);
   }
   return appFetch(request);
 }

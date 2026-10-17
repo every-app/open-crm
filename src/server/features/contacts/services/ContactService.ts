@@ -198,6 +198,11 @@ async function createContact(
     id,
     "Added by a person, with nothing on the record yet",
   );
+  await AgentTaskService.crmEvent(organizationId, {
+    type: "contact.created",
+    recordId: id,
+    data: { firstName, lastName, companyId },
+  });
   await FieldsService.queueFillForNewRecord(organizationId, "CONTACT", id);
   return { id, firstName, lastName, companyId };
 }
