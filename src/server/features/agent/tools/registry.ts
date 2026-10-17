@@ -1,5 +1,6 @@
 import type { Tool, ToolSet } from "ai";
 import { withPgClient } from "@/db";
+import { withSpendSink, type SpendSink } from "@/server/billing/spendSink";
 import { forOrganization } from "@/server/lib/gateway-attribution";
 import { capToolOutput } from "../runtime/toolOutput";
 import type { AgentToolContext, ToolGroup } from "./context";
@@ -29,21 +30,28 @@ const TOOL_GROUPS: readonly ToolGroup[] = [
   conversationTools,
 ];
 
-export function buildAgentTools(context: AgentToolContext): ToolSet {
+export function buildAgentTools(
+  context: AgentToolContext,
+  sink: SpendSink,
+): ToolSet {
   const tools: ToolSet = {};
   for (const group of TOOL_GROUPS) Object.assign(tools, group(context));
-  return scopeTools(context, tools);
+  return scopeTools(context, tools, sink);
 }
 
-/** `tools`, each run as the session's organization (scoped, below). */
+/**
+ * `tools`, each run as the session's organization (scoped, below), its paid
+ * calls reporting to the session's `sink` (CrmAgent's meter).
+ */
 export function scopeTools(
   context: Pick<AgentToolContext, "organizationId" | "sessionId">,
   tools: ToolSet,
+  sink: SpendSink,
 ): ToolSet {
   return Object.fromEntries(
     Object.entries(tools).map(([name, definition]) => [
       name,
-      scoped(context, definition),
+      scoped(context, definition, sink),
     ]),
   );
 }
@@ -51,12 +59,14 @@ export function scopeTools(
 /**
  * Runs a tool as the session's organization: its database client scoped for
  * the call (tool calls run inside Think's loop, outside any request), every
- * gateway call it makes named for the organization, its output capped, and a
- * failure handed to the model to work around rather than ending the turn.
+ * gateway call it makes named for the organization and its cost reported to
+ * the session's sink, its output capped, and a failure handed to the model
+ * to work around rather than ending the turn.
  */
 function scoped(
   context: Pick<AgentToolContext, "organizationId" | "sessionId">,
   definition: Tool,
+  sink: SpendSink,
 ): Tool {
   const execute = definition.execute;
   if (!execute) return definition;
@@ -65,12 +75,11 @@ function scoped(
     execute: async (input: unknown, options) => {
       try {
         const output = await withPgClient(() =>
-          forOrganization(
-            context.organizationId,
-            async (): Promise<unknown> => {
+          forOrganization(context.organizationId, () =>
+            withSpendSink(sink, async (): Promise<unknown> => {
               const result: unknown = await execute(input, options);
               return result;
-            },
+            }),
           ),
         );
         return capToolOutput(output);

@@ -1,5 +1,5 @@
 {
-  "id": "a7592e88-4eed-4e02-8a54-d990542a8f97",
+  "id": "3b44e9aa-10fb-44fd-9592-51ab9b3b5c46",
   "prevId": "c81ea3f2-1dd6-40ba-8503-9d6c125728b7",
   "version": "7",
   "dialect": "postgresql",
@@ -4551,6 +4551,12 @@
         },
         "model_answered_at": {
           "name": "model_answered_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "credits_depleted_at": {
+          "name": "credits_depleted_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false

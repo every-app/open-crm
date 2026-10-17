@@ -7,10 +7,15 @@ import type { TaskKind } from "@/shared/agent-tasks";
 // is due, how long a running one has run.
 
 /**
- * Running under a live lease, waiting its turn, out of attempts, or waiting
- * for the agent's model to be set up.
+ * Running under a live lease, waiting its turn, out of attempts, waiting
+ * for the agent's model to be set up, or for the workspace's credits.
  */
-export type QueueState = "running" | "queued" | "failed" | "waiting";
+export type QueueState =
+  | "running"
+  | "queued"
+  | "failed"
+  | "waiting"
+  | "credits";
 
 const STEPS = {
   brand: "Fetching the logo",
@@ -35,6 +40,7 @@ export function enrichmentStep(kind: string): string {
 export function queueLine(state: QueueState, kind: string): string {
   if (state === "queued") return "Waiting";
   if (state === "waiting") return "Waiting for setup";
+  if (state === "credits") return "Out of credits";
   if (state === "failed") return "Could not look this up";
   return enrichmentStep(kind);
 }
@@ -61,7 +67,12 @@ export function elapsedLabel(
   now: number,
 ): string {
   const started = startedAt ? Date.parse(startedAt) : Number.NaN;
-  if (state === "queued" || state === "waiting" || Number.isNaN(started)) {
+  if (
+    state === "queued" ||
+    state === "waiting" ||
+    state === "credits" ||
+    Number.isNaN(started)
+  ) {
     return "—";
   }
   const seconds = Math.max(0, Math.floor((now - started) / 1000));

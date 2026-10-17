@@ -92,6 +92,7 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
       () => {},
     ),
     role: null,
+    sink: () => {},
   });
   const result = await generateText({
     model: stub,

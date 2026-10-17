@@ -3,6 +3,7 @@ import { AgentVersionRepository } from "@/server/features/team-agents/repositori
 import { RunSettlement } from "@/server/features/team-agents/services/RunSettlement";
 import { RunQueueRepository } from "@/server/features/team-agents/repositories/RunQueueRepository";
 import { getAgentByName } from "agents";
+import type { CreditCheck } from "@/server/billing/credits";
 import { settledWithin } from "@/server/features/agent/dispatch/pool";
 import type { CrmAgent } from "@/server/features/agent/CrmAgent";
 import { sessionName } from "@/server/features/agent/sessionName";
@@ -19,9 +20,9 @@ import { TriggerService } from "../services/TriggerService";
 // due schedules, then starts queued runs, one at a time per agent, each in
 // its own CrmAgent session (`run.<organization>.<run id>`). A person's "Run
 // now" pokes it for their organization at once. A run that can't run (no
-// model on the gateway, Slack not connected) fails with the reason instead of
-// waiting. The per-minute scans are a few indexed queries whatever the number
-// of organizations.
+// model on the gateway, Slack not connected, the workspace out of credits)
+// fails with the reason instead of waiting. The per-minute scans are a few
+// indexed queries whatever the number of organizations.
 
 const MINUTE_MS = 60_000;
 
@@ -98,9 +99,16 @@ async function recover(env: Env, defer: Defer): Promise<void> {
 async function cannotStart(
   env: Env,
   run: { organizationId: string; agentId: string; versionId: string },
+  credits: CreditCheck | undefined,
 ): Promise<{ code: string; message: string } | null> {
   if (getOpenRouterFetch(env, run.organizationId) === null) {
     return MODEL_UNAVAILABLE;
+  }
+  if (credits && !(await credits(run.organizationId))) {
+    return {
+      code: "INSUFFICIENT_CREDITS",
+      message: "The workspace is out of credits, so this run didn't start.",
+    };
   }
   const version = await AgentVersionRepository.findVersion(
     run.organizationId,
@@ -138,8 +146,9 @@ async function start(
     versionId: string;
   },
   defer: Defer,
+  credits: CreditCheck | undefined,
 ): Promise<boolean> {
-  const blocked = await cannotStart(env, run);
+  const blocked = await cannotStart(env, run, credits);
   if (blocked) {
     await RunSettlement.failRun(
       run.organizationId,
@@ -195,6 +204,7 @@ export async function runTeamAgentLane(
     organizationId?: string;
     holdUnattended?: boolean;
     signal?: AbortSignal;
+    credits?: CreditCheck;
   },
 ): Promise<number> {
   if (!options.organizationId) {
@@ -210,14 +220,16 @@ export async function runTeamAgentLane(
   for (const run of queued) {
     if (options.signal?.aborted) break;
     const ok = await forOrganization(run.organizationId, () =>
-      start(env, run, options.defer).catch((error: unknown) => {
-        console.error(
-          "[team-agents] run did not start",
-          { runId: run.id },
-          error,
-        );
-        return false;
-      }),
+      start(env, run, options.defer, options.credits).catch(
+        (error: unknown) => {
+          console.error(
+            "[team-agents] run did not start",
+            { runId: run.id },
+            error,
+          );
+          return false;
+        },
+      ),
     );
     if (ok) started += 1;
   }

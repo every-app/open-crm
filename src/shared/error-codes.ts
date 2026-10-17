@@ -24,6 +24,8 @@ const ERROR_CODES = [
   "SLACK_UNAVAILABLE",
   // Slack refused the request (a channel name taken, a missing permission).
   "SLACK_REJECTED",
+  // The organization is out of usage credits (hosted billing, server/billing).
+  "INSUFFICIENT_CREDITS",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -44,6 +46,7 @@ const NON_REPORTABLE_ERROR_CODES = new Set<ErrorCode>([
   "TEAM_AGENT_RUN_LIMIT",
   "SLACK_UNAVAILABLE",
   "SLACK_REJECTED",
+  "INSUFFICIENT_CREDITS",
   // An external provider failing on its own side: nothing in the app to fix.
   "UPSTREAM_UNAVAILABLE",
 ]);

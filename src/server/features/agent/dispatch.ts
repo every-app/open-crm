@@ -1,3 +1,7 @@
+import { creditsHeldSince } from "@/server/billing/creditReading";
+import type { CreditCheck } from "@/server/billing/credits";
+import { billResearchSpend } from "@/server/billing/researchSpend";
+import { withSpendSink, type ProviderSpend } from "@/server/billing/spendSink";
 import { forOrganization } from "@/server/lib/gateway-attribution";
 import { ASKED_FOR_PRIORITY, DIRECT_KINDS } from "@/shared/agent-tasks";
 import { DISPATCH } from "./dispatch/config";
@@ -25,7 +29,8 @@ import { runPortrait } from "./visible/portrait";
 //
 // Every gateway call is the task's organization's (forOrganization). A task
 // that fails is retried when its lease runs out, up to MAX_ATTEMPTS, then
-// retired by the stale-task sweep.
+// retired by the stale-task sweep. Where usage is billed, both lanes leave an
+// organization out of credits waiting (`credits`, billing/credits.ts).
 
 /** Work that outlives the call that started it (ctx.waitUntil). */
 export type Defer = (work: Promise<unknown>) => void;
@@ -41,6 +46,7 @@ export async function runVisibleLane(options: {
   organizationId?: string;
   signal?: AbortSignal;
   defer: Defer;
+  credits?: CreditCheck;
 }): Promise<number> {
   const { batch, concurrency, leaseMs } = DISPATCH.visible;
   let handled = 0;
@@ -50,11 +56,12 @@ export async function runVisibleLane(options: {
       lane: { only: DIRECT_KINDS },
       leaseMs,
       organizationId: options.organizationId,
+      creditsHeldSince: options.credits ? creditsHeldSince() : undefined,
     });
     if (tasks.length === 0) break;
     await runLimited(
       concurrency,
-      tasks,
+      await withCredits(tasks, options.credits),
       (task) => runDirect(task, options.defer),
       options.signal,
     );
@@ -68,7 +75,7 @@ type DirectOutcome = { finished: true } | { finished: false; reason: string };
 async function runDirect(task: LeasedTask, defer: Defer): Promise<void> {
   const work: Promise<DirectOutcome> = forOrganization(
     task.organizationId,
-    () => handleDirect(task),
+    () => handleDirectBilled(task),
   ).then(
     () => ({ finished: true }) as const,
     (error: unknown) => ({ finished: false, reason: reasonOf(error) }) as const,
@@ -92,6 +99,21 @@ async function reconcileDirect(
     reason: outcome.reason,
   });
   await settle(task, "FAILED", outcome.reason).catch(() => {});
+}
+
+/** A logo or photo lookup, its Context.dev calls billed once it ran. */
+async function handleDirectBilled(task: LeasedTask): Promise<void> {
+  const spent: ProviderSpend[] = [];
+  try {
+    await withSpendSink(
+      (spend) => {
+        spent.push(spend);
+      },
+      () => handleDirect(task),
+    );
+  } finally {
+    await billResearchSpend(task.organizationId, spent, { taskId: task.id });
+  }
 }
 
 async function handleDirect(task: LeasedTask): Promise<void> {
@@ -141,7 +163,7 @@ async function handleDirect(task: LeasedTask): Promise<void> {
  * model at all (`modelConfigured` false) nothing is leased, and an
  * organization whose model the gateway refused lately is left until
  * MODEL_RETRY_MS has passed, when its next session finds out whether a key
- * has been set meanwhile.
+ * has been set meanwhile. Research nobody can pay for waits too (`credits`).
  */
 export async function runResearchLane(options: {
   start: ResearchStart;
@@ -149,6 +171,7 @@ export async function runResearchLane(options: {
   askedForOnly: boolean;
   signal?: AbortSignal;
   defer: Defer;
+  credits?: CreditCheck;
 }): Promise<number> {
   if (options.signal?.aborted || !options.modelConfigured) return 0;
   const tasks = await AgentQueueRepository.claimDue({
@@ -157,9 +180,28 @@ export async function runResearchLane(options: {
     leaseMs: DISPATCH.research.leaseMs,
     minPriority: options.askedForOnly ? ASKED_FOR_PRIORITY : undefined,
     heldSince: new Date(Date.now() - MODEL_RETRY_MS).toISOString(),
+    creditsHeldSince: options.credits ? creditsHeldSince() : undefined,
   });
-  await Promise.all(tasks.map((task) => beginResearch(task, options)));
-  return tasks.length;
+  const funded = await withCredits(tasks, options.credits);
+  await Promise.all(funded.map((task) => beginResearch(task, options)));
+  return funded.length;
+}
+
+/**
+ * The leased tasks whose organizations have credits to pay for them. The
+ * others go back to the queue, their attempts uncounted, to wait for credits.
+ */
+async function withCredits(
+  tasks: LeasedTask[],
+  credits: CreditCheck | undefined,
+): Promise<LeasedTask[]> {
+  if (!credits) return tasks;
+  const funded: LeasedTask[] = [];
+  for (const task of tasks) {
+    if (await credits(task.organizationId)) funded.push(task);
+    else await AgentTaskRepository.release(task.organizationId, task.id);
+  }
+  return funded;
 }
 
 type StartOutcome =

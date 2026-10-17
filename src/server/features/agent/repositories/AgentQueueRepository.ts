@@ -65,6 +65,13 @@ const modelRefusedSince = (since: string) =>
   sql`exists (select 1 from ${workspace} where ${workspace.organizationId} = ${agentTask.organizationId} and ${workspace.modelRefusedAt} >= ${since} and (${workspace.modelAnsweredAt} is null or ${workspace.modelAnsweredAt} < ${workspace.modelRefusedAt}))`;
 
 /**
+ * The task's organization was confirmed out of usage credits at or after
+ * `since` (hosted billing, billing/creditReading.ts).
+ */
+const outOfCreditsSince = (since: string) =>
+  sql`exists (select 1 from ${workspace} where ${workspace.organizationId} = ${agentTask.organizationId} and ${workspace.creditsDepletedAt} >= ${since})`;
+
+/**
  * Leases up to `limit` due tasks of `lane`, most urgent first. Across every
  * organization unless `organizationId` names one: the minute cron serves the
  * whole queue, a poke serves one organization's. Each returned task carries
@@ -75,7 +82,8 @@ const modelRefusedSince = (since: string) =>
  * candidates only one gets each row back. Every claim counts an attempt.
  *
  * `heldSince` leaves the tasks of organizations whose model the gateway
- * refused since then: they wait until the model is set up.
+ * refused since then: they wait until the model is set up. `creditsHeldSince`
+ * leaves those of organizations out of credits since then.
  */
 async function claimDue(input: {
   limit: number;
@@ -84,6 +92,7 @@ async function claimDue(input: {
   organizationId?: string;
   minPriority?: number;
   heldSince?: string;
+  creditsHeldSince?: string;
 }): Promise<LeasedTask[]> {
   const now = new Date().toISOString();
   const until = new Date(Date.now() + input.leaseMs).toISOString();
@@ -111,6 +120,9 @@ async function claimDue(input: {
         input.heldSince === undefined
           ? undefined
           : sql`not ${modelRefusedSince(input.heldSince)}`,
+        input.creditsHeldSince === undefined
+          ? undefined
+          : sql`not ${outOfCreditsSince(input.creditsHeldSince)}`,
       ),
     )
     .orderBy(desc(agentTask.priority), asc(agentTask.dueAt))

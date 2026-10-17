@@ -1,5 +1,6 @@
 import { GATEWAY_ERROR_HEADER } from "@every-app/sdk/internal";
 import { gatewayRefusal } from "@every-app/sdk/server";
+import { heldForCredits } from "@/server/billing/credits";
 import { getOpenRouterFetch } from "@/server/lib/openrouter";
 import { hasContextAccess } from "@/server/lib/provider-access";
 import {
@@ -78,30 +79,41 @@ async function modelOf(organizationId: string) {
 async function forOrganization(
   organizationId: string,
 ): Promise<AgentAvailability> {
-  const [model, context] = await Promise.all([
+  const [model, context, outOfCredits] = await Promise.all([
     modelOf(organizationId),
     hasContextAccess(),
+    heldForCredits(organizationId),
   ]);
   return {
     model: model.state,
     modelRefusal: model.refusal,
     context,
+    outOfCredits,
     scheduledResearch: scheduledResearchEnabled(model.env),
     tier: deploymentTierFor(model.env),
   };
 }
 
 /**
- * What holds the organization's research back: the model (`paused`), and
- * on a first-party deployment holding scheduled research, every task below
- * the work a person asked for (`minPriority`).
+ * What holds the organization's research back: the model (`paused`), the
+ * workspace out of credits (`outOfCredits`, every paid task), and on a
+ * first-party deployment holding scheduled research, every task below the
+ * work a person asked for (`minPriority`).
  */
-export type ResearchHold = { paused: boolean; minPriority: number | null };
+export type ResearchHold = {
+  paused: boolean;
+  outOfCredits: boolean;
+  minPriority: number | null;
+};
 
 async function researchHold(organizationId: string): Promise<ResearchHold> {
-  const model = await modelOf(organizationId);
+  const [model, outOfCredits] = await Promise.all([
+    modelOf(organizationId),
+    heldForCredits(organizationId),
+  ]);
   return {
     paused: model.state === "missing" || model.state === "refused",
+    outOfCredits,
     minPriority: scheduledResearchEnabled(model.env)
       ? null
       : ASKED_FOR_PRIORITY,
@@ -111,14 +123,15 @@ async function researchHold(organizationId: string): Promise<ResearchHold> {
 const DIRECT = new Set<string>(DIRECT_KINDS);
 
 /**
- * What keeps an open task from running: the model's setup, the schedule, or
- * nothing. Logos and photos (the visible lane) need no model, so nothing
- * holds them.
+ * What keeps an open task from running: the workspace's credits, the model's
+ * setup, the schedule, or nothing. Logos and photos (the visible lane) need
+ * no model, so only credits hold them.
  */
 export function taskHold(
   task: { kind: string; priority: number },
   hold: ResearchHold,
 ): TaskHold {
+  if (hold.outOfCredits) return "credits";
   if (DIRECT.has(task.kind)) return null;
   if (hold.paused) return "setup";
   if (hold.minPriority !== null && task.priority < hold.minPriority) {

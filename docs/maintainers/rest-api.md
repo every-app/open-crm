@@ -30,7 +30,7 @@ Each endpoint (`src/server/api/routes/<feature>.ts`) is an `apiRoute()`: method,
 
 A query string is read the way the schema expects it: numbers, booleans, and repeated keys for arrays (`inputSchema.ts`, from the schema's JSON Schema). Inputs with nested objects (list filters) use `POST …/search` with a JSON body, as the original did.
 
-Errors answer with the `AppError` code's HTTP status and `{ code, message, issues? }`: 400 `VALIDATION_ERROR` (with `issues` from Zod), 401, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 429, 502/503, 500. A client error carries the service's message, as MCP tools do; a server fault only the code's standard copy.
+Errors answer with the `AppError` code's HTTP status and `{ code, message, issues? }`: 400 `VALIDATION_ERROR` (with `issues` from Zod), 401, 402 `INSUFFICIENT_CREDITS` (hosted, out of credits), 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 429, 502/503, 500. A client error carries the service's message, as MCP tools do; a server fault only the code's standard copy.
 
 The OpenAPI document is built on request from the same schemas (`z.toJSONSchema`, input side). Responses are documented as JSON without a schema: the services return TypeScript types, not Zod schemas.
 

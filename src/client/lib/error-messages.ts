@@ -29,6 +29,8 @@ const STANDARD_MESSAGES: Record<ErrorCode, string> = {
     "Slack isn't connected. An owner or admin connects it in Settings → Connections.",
   SLACK_REJECTED:
     "Slack refused that. Check the channel name, or reconnect Slack, and try again.",
+  INSUFFICIENT_CREDITS:
+    "You don't have enough credits for this. Upgrade your plan or buy more credits to keep going.",
   INTERNAL_ERROR: UNEXPECTED_ERROR_MESSAGE,
 };
 

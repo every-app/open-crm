@@ -1,4 +1,5 @@
 import { env, waitUntil } from "cloudflare:workers";
+import { laneCreditCheck } from "@/server/billing/credits";
 import { collapsingByKey } from "@/server/features/agent/dispatch/pool";
 
 // A run a person asked for (or an event queued) starts now rather than on the
@@ -8,7 +9,11 @@ import { collapsingByKey } from "@/server/features/agent/dispatch/pool";
 // record service that can emit an event.
 const runLaneFor = collapsingByKey(async (organizationId) => {
   const { runTeamAgentLane } = await import("./dispatch");
-  await runTeamAgentLane(env, { organizationId, defer: waitUntil });
+  await runTeamAgentLane(env, {
+    organizationId,
+    defer: waitUntil,
+    credits: laneCreditCheck(env),
+  });
 });
 
 /** Starts the organization's queued runs after the response. Never throws. */

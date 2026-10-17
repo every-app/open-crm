@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8224d6e5-ef44-4fd1-833c-7262b30f7331",
+  "id": "4beac879-9770-41fe-91ff-638dae3c515b",
   "prevId": "4faad0a5-2929-46de-883e-0d784300fef4",
   "tables": {
     "member": {
@@ -3920,6 +3920,13 @@
         },
         "model_answered_at": {
           "name": "model_answered_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "credits_depleted_at": {
+          "name": "credits_depleted_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

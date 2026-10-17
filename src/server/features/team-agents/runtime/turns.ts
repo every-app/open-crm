@@ -4,6 +4,7 @@ import {
   RUNTIME_INSTRUCTIONS,
   CHAT_TITLE_INSTRUCTION,
 } from "@/server/features/agent/prompt/instructions";
+import type { SpendSink } from "@/server/billing/spendSink";
 import type { Spend } from "@/server/features/agent/runtime/budget";
 import type {
   ChatSession,
@@ -52,7 +53,7 @@ export const withinRunInput: StopCondition<ToolSet> = ({ steps }) =>
  */
 export async function prepareRunTurn(
   session: RunSession,
-  input: { thinkSystem: string; spend: Spend },
+  input: { thinkSystem: string; spend: Spend; sink: SpendSink },
 ): Promise<{ system: string; tools: ToolSet } | null> {
   const run = await AgentRunRepository.findWithVersion(
     session.organizationId,
@@ -79,6 +80,7 @@ export async function prepareRunTurn(
       manifest: manifest.data,
       spend: input.spend,
     }),
+    input.sink,
   );
   return { system, tools };
 }
@@ -129,7 +131,12 @@ function textOf(message: UIMessage): string {
  */
 export function prepareBuilderTurn(
   session: ChatSession,
-  input: { thinkSystem: string; messages: readonly UIMessage[]; spend: Spend },
+  input: {
+    thinkSystem: string;
+    messages: readonly UIMessage[];
+    spend: Spend;
+    sink: SpendSink;
+  },
 ): { system: string; tools: ToolSet } {
   const userMessages = input.messages.filter(
     (message) => message.role === "user",
@@ -184,6 +191,7 @@ export function prepareBuilderTurn(
         spend: input.spend,
       },
     }),
+    input.sink,
   );
   return { system, tools };
 }

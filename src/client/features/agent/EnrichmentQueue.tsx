@@ -46,6 +46,7 @@ const STATE_DOTS: Record<QueueState, string> = {
   queued: "bg-muted-foreground/60",
   failed: "bg-destructive",
   waiting: "bg-warning",
+  credits: "bg-warning",
 };
 
 const ROW_LINK =

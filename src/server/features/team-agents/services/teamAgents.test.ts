@@ -7,7 +7,8 @@ import { z } from "zod";
 // Team agents end to end on both backends, below the runtime: a builder
 // chat's saved version waits for a person to deploy it; runs are queued once
 // per request, schedule slot and event; a stop settles the run with what it
-// had outstanding; and nothing crosses organizations.
+// had outstanding; a workspace out of credits starts none; and nothing
+// crosses organizations.
 const { testDb } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -20,7 +21,16 @@ vi.mock("cloudflare:workers", () => ({
 vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
+// The first-party deployment, which bills: the organization has credits.
+const { autumn } = await vi.hoisted(async () => ({
+  autumn: (await import("@/server/billing/autumnTestSupport")).autumnMock(),
+}));
+vi.mock("@/server/billing/autumn", () => ({
+  autumn,
+  AUTUMN_TRACK_RETRY_OPTIONS: {},
+}));
 
+import { withBalance } from "@/server/billing/autumnTestSupport";
 import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
 import { CAPTURE_GRANTS, captureGrants } from "@/shared/team-agents";
 import { RunActions } from "../runtime/runActions";
@@ -55,6 +65,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
     beforeEach(async () => {
       testDb.use(dialect);
+      withBalance(autumn, 500);
       await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
       await database.seedTwoOrganizations();
       await database.exec(`
@@ -234,6 +245,40 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(trigger?.nextRunAt && trigger.nextRunAt > now.toISOString()).toBe(
         true,
       );
+    });
+
+    it("refuses a person's run and skips a schedule's, audited, while the workspace is out of credits", async () => {
+      const version = await live(
+        draft({
+          triggers: [
+            {
+              type: "SCHEDULE",
+              name: "Mondays",
+              summary: "Every Monday morning",
+              nextRunAt: new Date(Date.now() + 3_600_000).toISOString(),
+              intervalMinutes: 10_080,
+            },
+          ],
+        }),
+      );
+      await database.exec(
+        `UPDATE agent_trigger SET next_run_at = '2026-01-05T09:00:00.000Z'`,
+      );
+      withBalance(autumn, 0);
+
+      await expect(
+        AgentRunService.runNow(owner, {
+          agentId: version.agentId,
+          clientRequestId: crypto.randomUUID(),
+        }),
+      ).rejects.toMatchObject({ code: "INSUFFICIENT_CREDITS" });
+      expect(await TriggerService.queueDueSchedules(new Date())).toBe(0);
+      expect(await runs()).toBe(0);
+      expect(
+        await database.rows(
+          "SELECT summary FROM agent_audit_event WHERE type = 'run.skipped'",
+        ),
+      ).toEqual([{ summary: "Skipped: the workspace is out of credits." }]);
     });
 
     it("settles a stopped run with its outstanding actions, and its tools refuse after", async () => {

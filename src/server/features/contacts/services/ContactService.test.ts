@@ -16,7 +16,16 @@ vi.mock("@/db/schema", () => testDb.modules.schema);
 vi.mock("@/server/lib/openrouter", () => ({
   getOpenRouterFetch: () => fetch,
 }));
+// The first-party deployment, which bills: the organization has credits.
+const { autumn } = await vi.hoisted(async () => ({
+  autumn: (await import("@/server/billing/autumnTestSupport")).autumnMock(),
+}));
+vi.mock("@/server/billing/autumn", () => ({
+  autumn,
+  AUTUMN_TRACK_RETRY_OPTIONS: {},
+}));
 
+import { withBalance } from "@/server/billing/autumnTestSupport";
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import {
   contactListSchema,
@@ -32,6 +41,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     const database = testDb.use(dialect);
     beforeEach(async () => {
       testDb.use(dialect);
+      withBalance(autumn, 500);
       await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
       await database.seedTwoOrganizations();
     });

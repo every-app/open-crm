@@ -65,6 +65,9 @@ export const workspace = sqliteTable("workspace", {
   modelRefusedAt: timestamp("model_refused_at"),
   modelRefusal: text("model_refusal"),
   modelAnsweredAt: timestamp("model_answered_at"),
+  // When Autumn last confirmed the organization out of usage credits (hosted
+  // billing, src/server/billing/creditReading.ts); null once it has credits.
+  creditsDepletedAt: timestamp("credits_depleted_at"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

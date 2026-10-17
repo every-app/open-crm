@@ -1,4 +1,5 @@
-import { waitUntil } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
+import { laneCreditCheck } from "@/server/billing/credits";
 import { runVisibleLane } from "./dispatch";
 import { collapsingByKey } from "./dispatch/pool";
 
@@ -6,7 +7,11 @@ import { collapsingByKey } from "./dispatch/pool";
 // CSV of forty companies pokes forty times); its leases keep it from taking
 // what another isolate's lane, or the minute cron, has taken.
 const runVisibleLaneFor = collapsingByKey(async (organizationId) => {
-  await runVisibleLane({ organizationId, defer: waitUntil });
+  await runVisibleLane({
+    organizationId,
+    defer: waitUntil,
+    credits: laneCreditCheck(env),
+  });
 });
 
 /**

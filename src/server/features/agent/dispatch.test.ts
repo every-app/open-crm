@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_ATTEMPTS, PRIORITY, RETIRED_OUTCOME } from "@/shared/agent-tasks";
+import { AUTUMN_SEO_DATA_BALANCE_FEATURE_ID } from "@/shared/billing";
 
 const { database } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
@@ -16,7 +17,21 @@ vi.mock("@/server/lib/provider-access", () => ({
   getContextFetch: vi.fn(async () => null),
   hasContextAccess: vi.fn(async () => false),
 }));
+// The first-party deployment, which bills.
+const { autumn } = await vi.hoisted(async () => ({
+  autumn: (await import("@/server/billing/autumnTestSupport")).autumnMock(),
+}));
+vi.mock("@/server/billing/autumn", () => ({
+  autumn,
+  AUTUMN_TRACK_RETRY_OPTIONS: {},
+}));
 
+import { withBalance } from "@/server/billing/autumnTestSupport";
+import { laneCreditCheck } from "@/server/billing/credits";
+import {
+  getContextFetch,
+  hasContextAccess,
+} from "@/server/lib/provider-access";
 import { runResearchLane, runVisibleLane } from "./dispatch";
 import { reconcileStaleTasks } from "./dispatch/staleTasks";
 import { NO_CONTEXT_REASON } from "./visible/brand";
@@ -51,6 +66,7 @@ async function row(table: string, id: string) {
 
 describe("the dispatcher", () => {
   beforeEach(async () => {
+    withBalance(autumn, 500);
     await database.exec(
       `DELETE FROM agent_task; DELETE FROM contact; DELETE FROM company; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
     );
@@ -127,6 +143,77 @@ describe("the dispatcher", () => {
     expect(await row("contact", "c1")).toMatchObject({
       enrichment_status: "PENDING",
     });
+  });
+
+  it("holds an organization's research while it is out of credits, and leases it once it has some", async () => {
+    await queue("t1", {
+      kind: "identify",
+      priority: PRIORITY.identify,
+      contactId: "c1",
+    });
+    const start = vi.fn(async () => ({ sessionId: "task.session" }));
+    const tick = () =>
+      runResearchLane({
+        start,
+        modelConfigured: true,
+        askedForOnly: false,
+        defer,
+        credits: laneCreditCheck({}),
+      });
+
+    withBalance(autumn, 0);
+    expect(await tick()).toBe(0);
+    expect(start).not.toHaveBeenCalled();
+    expect(await row("agent_task", "t1")).toMatchObject({
+      attempts: 0,
+      leased_until: null,
+    });
+    // Confirmed out lately: the next tick holds it without asking Autumn.
+    autumn.check.mockClear();
+    expect(await tick()).toBe(0);
+    expect(autumn.check).not.toHaveBeenCalled();
+
+    // The hold lapses; Autumn now shows credits.
+    await database.exec(
+      `UPDATE workspace SET credits_depleted_at = '${past(60 * 60_000)}'`,
+    );
+    withBalance(autumn, 500);
+    expect(await tick()).toBe(1);
+    expect(start).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "t1", attempts: 1 }),
+    );
+  });
+
+  it("bills a logo lookup's Context.dev call at its reported credits", async () => {
+    await queue("t1", {
+      kind: "brand",
+      priority: PRIORITY.brand,
+      companyId: "co1",
+    });
+    vi.mocked(hasContextAccess).mockResolvedValueOnce(true);
+    vi.mocked(getContextFetch).mockResolvedValueOnce(async () =>
+      Response.json({
+        brand: { title: "Acme" },
+        key_metadata: { credits_consumed: 10, credits_remaining: 990 },
+      }),
+    );
+
+    expect(await runVisibleLane({ defer })).toBe(1);
+    // 10 credits at $0.0025 is $0.025, $0.032 with the markup.
+    expect(autumn.track.mock.calls.map(([request]) => request)).toMatchObject([
+      {
+        featureId: AUTUMN_SEO_DATA_BALANCE_FEATURE_ID,
+        value: 32,
+        overageBehavior: "overflow",
+        properties: {
+          app: "open-crm",
+          provider: "context",
+          operation: "brand/retrieve",
+          creditFeature: "company_data",
+          taskId: "t1",
+        },
+      },
+    ]);
   });
 
   it("fails the record when its session does not start, and keeps the task for a retry", async () => {
