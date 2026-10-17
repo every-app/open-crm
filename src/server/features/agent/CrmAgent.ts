@@ -39,7 +39,11 @@ import { researchBrief } from "./runtime/brief";
 import { budgetSpender, type BudgetState, type Spend } from "./runtime/budget";
 import { buildCrmAgentModel, type ModelChoice } from "./runtime/model";
 import { reportResearch } from "./runtime/research";
-import { loadAgentSession, type AgentSession } from "./runtime/session";
+import {
+  loadAgentSession,
+  type AgentSession,
+  type ChatSession,
+} from "./runtime/session";
 import { agentSkillSource } from "./runtime/skills";
 import {
   closeExpiredSocket,
@@ -227,10 +231,12 @@ export class CrmAgent extends Think {
         };
       }
       if (!turn.continuation) await this.openTurn(session);
+      else if (session.kind === "chat") await this.continueTurn(session);
       if (session.kind === "chat" && session.conversation.kind === "BUILDER") {
         const { system, tools } = prepareBuilderTurn(session, {
           thinkSystem: turn.system,
           messages: this.messages,
+          spend: this.spender(session),
         });
         return { system, tools, maxOutputTokens: MAX_OUTPUT_TOKENS };
       }
@@ -259,6 +265,28 @@ export class CrmAgent extends Think {
       by: session.kind === "chat" ? "person" : "dispatcher",
       message: lastText(this.messages, "user"),
     });
+  }
+
+  /**
+   * A person's answer (to a question, or an approval) resumed the turn: the
+   * conversation moved, as its list shows, and a chat that moved lately is
+   * asked whether it is still answering (BuilderService.listConversations).
+   */
+  private async continueTurn(session: ChatSession): Promise<void> {
+    await AgentConversationRepository.recordMessage(
+      session.organizationId,
+      session.conversation.id,
+      { messageCount: this.messages.length, assistant: false },
+    );
+  }
+
+  /**
+   * Whether a turn is answering in this session now: its reply is streaming.
+   * Read from Think's own stream state, which outlives a restart, for the
+   * chat list's working spinner.
+   */
+  async isAnswering(): Promise<boolean> {
+    return this._resumableStream.hasActiveStream();
   }
 
   // A call outside a turn (a compaction summary) reads the choice itself.

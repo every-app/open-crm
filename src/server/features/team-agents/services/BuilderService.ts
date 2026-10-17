@@ -4,7 +4,6 @@ import { env } from "cloudflare:workers";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { AgentConversationRepository } from "@/server/features/agent/repositories/AgentConversationRepository";
 import { sessionName } from "@/server/features/agent/sessionName";
-import { SearchService } from "@/server/features/search/services/SearchService";
 import { SlackService } from "@/server/features/slack/services/SlackService";
 import { AppError } from "@/server/lib/errors";
 import {
@@ -14,6 +13,8 @@ import {
   SLACK_RESOURCE,
 } from "@/shared/team-agents";
 import { BuilderRepository } from "../repositories/BuilderRepository";
+import { BuilderResourceRepository } from "../repositories/BuilderResourceRepository";
+import { answeringSessions } from "../runtime/answering";
 import { BuilderToolService } from "./BuilderToolService";
 
 // The agent builder's side of the CRM, ported from the CRM's conversations
@@ -29,11 +30,17 @@ const AGENT_ROUTE = "crm-agent";
 
 const MAX_ATTACHMENT_BYTES = 2_000_000;
 
-function summary(
-  row: NonNullable<
-    Awaited<ReturnType<typeof BuilderRepository.findConversation>>
-  >,
-) {
+/**
+ * A chat whose last turn started this long ago has finished or died: its
+ * agent is no longer asked whether it is still answering.
+ */
+const ANSWERING_WINDOW_MS = 30 * 60_000;
+
+type ConversationRow = NonNullable<
+  Awaited<ReturnType<typeof BuilderRepository.findConversation>>
+>;
+
+function summary(row: ConversationRow) {
   return {
     id: row.id,
     sessionId: row.sessionId,
@@ -66,12 +73,41 @@ async function createConversation(context: Context) {
   return summary(row);
 }
 
+/** A turn started in the chat lately and no reply has completed since. */
+function mayBeAnswering(row: ConversationRow, now: number): boolean {
+  return (
+    row.messageCount > 0 &&
+    row.lastMessageAt > (row.lastAssistantAt ?? "") &&
+    now - Date.parse(row.lastMessageAt) < ANSWERING_WINDOW_MS
+  );
+}
+
+/**
+ * The person's builder chats, each with its state in Chat's column, ranked
+ * as the CRM ranks them: the agent it made is live, a turn is answering
+ * (its agent says so), a reply is unread.
+ */
 async function listConversations(context: Context) {
   const rows = await BuilderRepository.listConversations(
     context.organizationId,
     context.userId,
   );
-  return rows.map(summary);
+  const now = Date.now();
+  const answering = await answeringSessions(
+    rows.filter((row) => mayBeAnswering(row, now)).map((row) => row.sessionId),
+  );
+  return rows.map((row) => {
+    const chat = summary(row);
+    const state =
+      chat.madeAgent?.status === "LIVE"
+        ? ("deployed" as const)
+        : answering.has(row.sessionId)
+          ? ("working" as const)
+          : chat.unread
+            ? ("unread" as const)
+            : ("idle" as const);
+    return { ...chat, state };
+  });
 }
 
 /**
@@ -111,6 +147,7 @@ async function getConversation(context: Context, id: string) {
       path: file.path,
       language: file.language,
       content: file.content,
+      previousContent: file.previousContent,
       revision: file.revision,
       status: file.status,
     })),
@@ -174,20 +211,36 @@ const CAPTURE_TAGS = {
   },
 } as const;
 
+/** How many records of each kind the tag picker offers. */
+const TAGGABLE_PER_KIND = 6;
+
+type Picture = {
+  url: string | null;
+  darkUrl: string | null;
+  tone: string | null;
+};
+
+const NO_PICTURE: Picture = { url: null, darkUrl: null, tone: null };
+
 /**
- * Records and integrations a person can tag in the composer. Email and
- * Calendar are always offered, with the reason they can't be granted yet
- * when no member has connected one.
+ * Records and integrations a person can tag in the composer, as the CRM's
+ * builder resources: before they type, the most recently active companies,
+ * contacts and deals. Email and Calendar are always offered, with the reason
+ * they can't be granted yet when no member has connected one.
  */
 async function searchResources(context: Context, q: string) {
-  const [{ hits }, slack, capture] = await Promise.all([
-    SearchService.quick(context.organizationId, q),
+  const term = q.trim();
+  const [records, slack, capture] = await Promise.all([
+    BuilderResourceRepository.taggableRecords(
+      context.organizationId,
+      term,
+      TAGGABLE_PER_KIND,
+    ),
     SlackService.isConnected(context.organizationId),
     BuilderToolService.captureConnections(context.organizationId),
   ]);
-  const term = q.trim().toLowerCase();
   const matches = (label: string) =>
-    !term || label.toLowerCase().includes(term);
+    !term || label.toLowerCase().includes(term.toLowerCase());
   return [
     ...CAPTURE_KINDS.filter((kind) =>
       matches(CAPTURE_GRANTS[kind].resource.label),
@@ -196,6 +249,7 @@ async function searchResources(context: Context, q: string) {
       id: CAPTURE_GRANTS[kind].resource.id,
       label: CAPTURE_GRANTS[kind].resource.label,
       detail: CAPTURE_TAGS[kind].detail,
+      picture: NO_PICTURE,
       unavailable: capture[kind] ? null : CAPTURE_TAGS[kind].unavailable,
     })),
     ...(slack && matches("slack")
@@ -205,15 +259,43 @@ async function searchResources(context: Context, q: string) {
             id: SLACK_RESOURCE.id,
             label: SLACK_RESOURCE.label,
             detail: "Connected workspace",
+            picture: NO_PICTURE,
             unavailable: null,
           },
         ]
       : []),
-    ...hits.map((hit) => ({
-      kind: hit.kind,
-      id: hit.id,
-      label: hit.label,
-      detail: hit.detail,
+    ...records.companies.map((row) => ({
+      kind: "company" as const,
+      id: row.id,
+      label: row.name,
+      detail: row.domain,
+      picture: {
+        url: row.iconUrl,
+        darkUrl: row.iconDarkUrl,
+        tone: row.iconTone,
+      },
+      unavailable: null,
+    })),
+    ...records.contacts.map((row) => ({
+      kind: "contact" as const,
+      id: row.id,
+      label:
+        [row.firstName, row.lastName].filter(Boolean).join(" ") ||
+        (row.email ?? "Unnamed"),
+      detail: row.companyName ?? row.email,
+      picture: { ...NO_PICTURE, url: row.imageUrl },
+      unavailable: null,
+    })),
+    ...records.deals.map((row) => ({
+      kind: "deal" as const,
+      id: row.id,
+      label: row.name,
+      detail: row.companyName,
+      picture: {
+        url: row.iconUrl,
+        darkUrl: row.iconDarkUrl,
+        tone: row.iconTone,
+      },
       unavailable: null,
     })),
   ];

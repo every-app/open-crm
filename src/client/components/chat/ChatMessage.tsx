@@ -1,23 +1,15 @@
 import { type UIMessage } from "ai";
-import { Fragment, useState, type ReactNode } from "react";
-import {
-  AlertTriangle,
-  Check,
-  ChevronRight,
-  Pencil,
-  Undo2,
-} from "lucide-react";
+import { Fragment, type ReactNode } from "react";
+import { AlertTriangle, Check, ChevronRight } from "lucide-react";
 import { CopyButton } from "@/client/components/CopyButton";
 import { Markdown } from "@/client/components/Markdown";
 import { Badge } from "@/client/components/ui/badge";
-import { Button } from "@/client/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/client/components/ui/collapsible";
 import { Spinner } from "@/client/components/ui/spinner";
-import { Textarea } from "@/client/components/ui/textarea";
 
 // Turn a tool part type ("tool-get_serp_results") into a readable label
 // ("Get serp results"). SAM exposes the full MCP tool surface, too many tools
@@ -67,18 +59,8 @@ function messageText(message: UIMessage): string {
     .trim();
 }
 
-// Hover action bar under a message: copy for every message, undo/edit for user
-// messages when the chat wires up the handlers (rewinding needs server support,
-// so chats opt in per handler).
-function MessageActions({
-  message,
-  onUndo,
-  onStartEdit,
-}: {
-  message: UIMessage;
-  onUndo?: () => void;
-  onStartEdit?: () => void;
-}) {
+// Hover action bar under a message: copy it.
+function MessageActions({ message }: { message: UIMessage }) {
   return (
     <div
       className={`flex gap-0.5 text-muted-foreground reveal-on-hover ${
@@ -92,28 +74,6 @@ function MessageActions({
         variant="ghost"
         size="icon-xs"
       />
-      {onStartEdit ? (
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Edit message"
-          title="Edit and resend"
-          onClick={onStartEdit}
-        >
-          <Pencil />
-        </Button>
-      ) : null}
-      {onUndo ? (
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Undo from this message"
-          title="Undo — remove this message and everything after it"
-          onClick={onUndo}
-        >
-          <Undo2 />
-        </Button>
-      ) : null}
     </div>
   );
 }
@@ -182,69 +142,28 @@ function ToolBadge({
 /**
  * One chat message bubble. User turns render as a right-aligned bubble;
  * assistant turns render each part (reasoning, markdown text, tool badges) in
- * document order, flush with the column.
- *
- * Every settled message gets a hover copy button. User messages additionally
- * get undo (rewind the conversation to before this message) and edit (rewind,
- * then resend the edited text) when the chat passes the handlers — both need
- * server support, so chats opt in.
+ * document order, flush with the column. Every settled message gets a hover
+ * copy button.
  *
  * A chat with its own words for its tools passes `renderTool`, which draws
- * each tool part in place of the default badge.
+ * each tool part in place of the default badge, and `extras` for what a
+ * person's message carries besides its text (the records it tagged).
  */
 export function ChatMessage({
   message,
   streaming,
-  onUndo,
-  onEdit,
   renderTool,
+  extras,
 }: {
   message: UIMessage;
   /** True while this message is still being generated: reasoning spinners
    * stay live and the hover actions (copy) are held back until it settles. */
   streaming?: boolean;
-  onUndo?: () => void;
-  onEdit?: (newText: string) => void;
   renderTool?: (part: UIMessage["parts"][number], live: boolean) => ReactNode;
+  /** Under a person's message, before its actions. */
+  extras?: ReactNode;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
   if (message.role === "user") {
-    if (editing && onEdit) {
-      const submit = () => {
-        const text = draft.trim();
-        setEditing(false);
-        if (text && text !== messageText(message)) onEdit(text);
-      };
-      return (
-        <div className="flex flex-col items-end gap-1.5 pl-8 sm:pl-16">
-          <Textarea
-            className="max-h-36 max-w-xl"
-            // Browsers without CSS field-sizing size the box from `rows`.
-            rows={Math.min(6, Math.max(2, draft.split("\n").length))}
-            value={draft}
-            autoFocus
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                submit();
-              }
-              if (event.key === "Escape") setEditing(false);
-            }}
-          />
-          <div className="flex gap-1.5">
-            <Button variant="ghost" size="xs" onClick={() => setEditing(false)}>
-              Cancel
-            </Button>
-            <Button size="xs" onClick={submit}>
-              Save & resend
-            </Button>
-          </div>
-        </div>
-      );
-    }
     return (
       <div className="group flex flex-col gap-1">
         <div className="flex justify-end pl-8 sm:pl-16">
@@ -258,18 +177,8 @@ export function ChatMessage({
             )}
           </div>
         </div>
-        <MessageActions
-          message={message}
-          onUndo={onUndo}
-          onStartEdit={
-            onEdit
-              ? () => {
-                  setDraft(messageText(message));
-                  setEditing(true);
-                }
-              : undefined
-          }
-        />
+        {extras}
+        <MessageActions message={message} />
       </div>
     );
   }

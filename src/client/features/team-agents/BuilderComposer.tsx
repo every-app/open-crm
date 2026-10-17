@@ -1,30 +1,20 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowUp, AtSign, Bot, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, Bot, Paperclip, Square, X } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/client/components/ui/button";
-import { Input } from "@/client/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
 } from "@/client/components/ui/input-group";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/client/components/ui/popover";
 import { Toggle } from "@/client/components/ui/toggle";
 import { uploadBuilderAttachment } from "@/serverFunctions/teamAgents";
-import { builderResourcesQueryOptions } from "./teamAgentQueries";
+import {
+  builderCommandType,
+  consumeBuilderCommand,
+} from "@/shared/builder-command";
+import { TagPicker, type TaggedResource } from "./TagPicker";
 import { CREATE_AGENT_PREFIX } from "./teamAgentCopy";
-
-export type TaggedResource = {
-  kind: "company" | "contact" | "deal" | "integration";
-  id: string;
-  label: string;
-};
 
 export type Attachment = {
   id: string;
@@ -33,10 +23,17 @@ export type Attachment = {
   size: number;
 };
 
-/** What one message carries: its text, and the tags and files riding on it. */
+/** What one message carries to the agent: its text, and its tags and files. */
 export type BuilderMessage = {
   text: string;
   metadata: { resources: TaggedResource[]; attachments: Attachment[] };
+};
+
+/** What the composer sends: the files are uploaded once the chat exists. */
+export type ComposerMessage = {
+  text: string;
+  resources: TaggedResource[];
+  files: File[];
 };
 
 const MAX_ATTACHMENTS = 5;
@@ -45,89 +42,130 @@ const MAX_BYTES = 2_000_000;
 async function toBase64(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
+  for (let index = 0; index < bytes.length; index += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
+  }
   return btoa(binary);
 }
 
-/**
- * The builder chat's composer (the CRM's AgentComposer): tag records and
- * integrations, attach files, and switch "Create agent" on to ask the builder
- * for an agent rather than an answer. Enter sends, Shift+Enter breaks the
- * line.
- */
-export function BuilderComposer({
-  conversationId,
-  busy,
-  initialText = "",
-  initialCreating = false,
-  onSend,
-  onStop,
-}: {
-  /** Attachments need the chat; the builder home has none yet. */
-  conversationId: string | null;
-  busy: boolean;
-  initialText?: string;
-  initialCreating?: boolean;
-  onSend: (message: BuilderMessage) => void;
-  onStop?: () => void;
-}) {
-  const [value, setValue] = useState(initialText);
-  const [creating, setCreating] = useState(initialCreating);
-  const [tags, setTags] = useState<TaggedResource[]>([]);
-  const [files, setFiles] = useState<Attachment[]>([]);
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  const upload = useMutation({
-    mutationFn: async (file: File) => {
-      if (!conversationId) throw new Error("No chat yet");
-      return uploadBuilderAttachment({
+/** Keeps the files a message attaches in its chat, for the message to name. */
+export async function uploadAttachments(
+  conversationId: string,
+  files: readonly File[],
+): Promise<Attachment[]> {
+  const attachments: Attachment[] = [];
+  for (const file of files) {
+    attachments.push(
+      await uploadBuilderAttachment({
         data: {
           conversationId,
           name: file.name,
           mediaType: file.type || "application/octet-stream",
           contentBase64: await toBase64(file),
         },
-      });
-    },
-    onSuccess: (attachment) => setFiles((current) => [...current, attachment]),
-  });
+      }),
+    );
+  }
+  return attachments;
+}
 
-  function submit() {
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** The files among `list` a message can carry, saying why of any it can't. */
+function acceptedFiles(list: FileList | null, room: number): File[] {
+  const accepted: File[] = [];
+  for (const file of Array.from(list ?? []).slice(0, room)) {
+    if (file.size === 0) toast.error(`${file.name} is empty.`);
+    else if (file.size > MAX_BYTES)
+      toast.error(`${file.name} is larger than 2 MB.`);
+    else if (file.name.length > 180) toast.error("That file name is too long.");
+    else if (file.type.length > 120)
+      toast.error(`${file.name} has an unsupported file type.`);
+    else accepted.push(file);
+  }
+  return accepted;
+}
+
+/**
+ * The builder chat's composer (the CRM's AgentComposer): tag records and
+ * integrations, attach files, and switch "Create agent" on to ask the builder
+ * for an agent rather than an answer. Asking for one in words ("set up an
+ * agent that…") switches it on too. Enter sends, Shift+Enter breaks the line.
+ */
+export function BuilderComposer({
+  mode,
+  busy,
+  initialText = "",
+  initialCreating = false,
+  onSend,
+  onStop,
+}: {
+  /** The builder home, or a chat. */
+  mode: "home" | "chat";
+  busy: boolean;
+  initialText?: string;
+  initialCreating?: boolean;
+  /** Settles once the message is sent; a failure keeps it to send again. */
+  onSend: (message: ComposerMessage) => Promise<unknown>;
+  onStop?: () => void;
+}) {
+  const [value, setValue] = useState(initialText);
+  const [creating, setCreating] = useState(initialCreating);
+  const [tags, setTags] = useState<TaggedResource[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [sending, setSending] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const locked = busy || sending;
+
+  function change(text: string) {
+    // "/Create agent" typed out (and a space after it) is the switch; asking
+    // in words turns it on.
+    const command = consumeBuilderCommand(text);
+    if (command !== null && (command || /\s$/.test(text))) {
+      setCreating(true);
+      setValue(command);
+      return;
+    }
+    if (builderCommandType(text) === "CREATE_AGENT") setCreating(true);
+    setValue(text);
+  }
+
+  async function submit() {
     const text = value.trim();
-    if (!text || busy || upload.isPending) return;
-    onSend({
-      text: creating ? `${CREATE_AGENT_PREFIX}${text}` : text,
-      metadata: { resources: tags, attachments: files },
-    });
-    setValue("");
-    setTags([]);
-    setFiles([]);
-    setCreating(false);
+    if (!text || locked) return;
+    // A request in words is one as it stands; otherwise the switch says so.
+    const asks = builderCommandType(text) === "CREATE_AGENT";
+    setSending(true);
+    try {
+      await onSend({
+        text: creating && !asks ? `${CREATE_AGENT_PREFIX}${text}` : text,
+        resources: tags,
+        files,
+      });
+      setValue("");
+      setTags([]);
+      setFiles([]);
+      setCreating(false);
+    } catch {
+      // The sender said what went wrong; the message stays to send again.
+    } finally {
+      setSending(false);
+    }
   }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    submit();
+    void submit();
   }
 
   function handleKey(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      submit();
-    }
-  }
-
-  function pickFiles(list: FileList | null) {
-    for (const file of Array.from(list ?? [])) {
-      if (files.length >= MAX_ATTACHMENTS) {
-        toast.error(`Up to ${MAX_ATTACHMENTS} files per message.`);
-        break;
-      }
-      if (file.size > MAX_BYTES) {
-        toast.error(`${file.name} is over 2 MB.`);
-        continue;
-      }
-      upload.mutate(file);
+      void submit();
     }
   }
 
@@ -144,10 +182,10 @@ export function BuilderComposer({
               }
             />
           ))}
-          {files.map((file) => (
+          {files.map((file, index) => (
             <Chip
-              key={file.id}
-              label={file.name}
+              key={`${file.name}:${index}`}
+              label={`${file.name} · ${formatBytes(file.size)}`}
               onRemove={() =>
                 setFiles((current) => current.filter((entry) => entry !== file))
               }
@@ -158,13 +196,13 @@ export function BuilderComposer({
       <InputGroup className="items-end rounded-xl bg-card has-disabled:bg-card has-disabled:opacity-100 dark:has-disabled:bg-input/30">
         <InputGroupTextarea
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => change(event.target.value)}
           onKeyDown={handleKey}
           rows={2}
           placeholder={
-            creating
-              ? "Describe the agent: when it runs, what it looks at, what it does"
-              : "Ask about your CRM, or switch on Create agent"
+            mode === "home"
+              ? "Ask about your CRM or automate a task…"
+              : "Send a message"
           }
           aria-label="Message the agent builder"
           className="max-h-48 min-h-0 px-3 leading-relaxed"
@@ -192,28 +230,28 @@ export function BuilderComposer({
                 )
               }
             />
-            {conversationId ? (
-              <>
-                <InputGroupButton
-                  size="icon-sm"
-                  aria-label="Attach a file"
-                  disabled={upload.isPending}
-                  onClick={() => fileInput.current?.click()}
-                >
-                  <Paperclip />
-                </InputGroupButton>
-                <input
-                  ref={fileInput}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => {
-                    pickFiles(event.target.files);
-                    event.target.value = "";
-                  }}
-                />
-              </>
-            ) : null}
+            <InputGroupButton
+              size="icon-sm"
+              aria-label="Attach files"
+              disabled={locked || files.length >= MAX_ATTACHMENTS}
+              onClick={() => fileInput.current?.click()}
+            >
+              <Paperclip />
+            </InputGroupButton>
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                const accepted = acceptedFiles(
+                  event.target.files,
+                  MAX_ATTACHMENTS - files.length,
+                );
+                setFiles((current) => [...current, ...accepted]);
+                event.target.value = "";
+              }}
+            />
           </div>
           {busy && onStop ? (
             <InputGroupButton
@@ -232,7 +270,7 @@ export function BuilderComposer({
               size="icon-sm"
               className="rounded-full"
               aria-label="Send message"
-              disabled={busy || upload.isPending || !value.trim()}
+              disabled={locked || !value.trim()}
             >
               <ArrowUp />
             </InputGroupButton>
@@ -256,79 +294,5 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
         <X className="size-3" />
       </button>
     </span>
-  );
-}
-
-/**
- * Search the CRM's records to tag one, or tag Email, Calendar or Slack (Email
- * and Calendar show why they can't be granted until someone connects one).
- */
-function TagPicker({ onPick }: { onPick: (tag: TaggedResource) => void }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const results = useQuery({
-    ...builderResourcesQueryOptions(query),
-    enabled: open,
-  });
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <InputGroupButton
-            size="icon-sm"
-            aria-label="Tag a record or integration"
-          />
-        }
-      >
-        <AtSign />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-0">
-        <div className="border-b border-border p-2">
-          <Input
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search records and integrations"
-            aria-label="Search records and integrations"
-          />
-        </div>
-        <div className="flex max-h-64 flex-col overflow-y-auto py-1">
-          {(results.data ?? []).map((resource) => (
-            <Button
-              key={`${resource.kind}:${resource.id}`}
-              variant="ghost"
-              className="h-auto flex-col items-start rounded-none px-3 py-2 text-left font-normal whitespace-normal"
-              disabled={resource.unavailable !== null}
-              onClick={() => {
-                onPick({
-                  kind: resource.kind,
-                  id: resource.id,
-                  label: resource.label,
-                });
-                setOpen(false);
-                setQuery("");
-              }}
-            >
-              <span className="text-sm">{resource.label}</span>
-              <span className="text-xs text-muted-foreground">
-                {resource.unavailable ??
-                  (resource.kind === "integration"
-                    ? resource.detail
-                    : [resource.kind, resource.detail]
-                        .filter(Boolean)
-                        .join(" · "))}
-              </span>
-            </Button>
-          ))}
-          {results.data?.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-muted-foreground">
-              {query.trim().length < 2
-                ? "Type two letters to search."
-                : "Nothing matches."}
-            </p>
-          ) : null}
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }

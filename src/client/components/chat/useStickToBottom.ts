@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 // Within this many pixels of the bottom still counts as "following along", so
 // sub-pixel rounding and a half-rendered line don't unpin the view.
@@ -23,6 +23,20 @@ export function useStickToBottom(messages: readonly unknown[], status: string) {
     const el = scrollRef.current;
     if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
   }, [messages, status]);
+
+  // Content that grows after it renders (a card whose data loads after the
+  // messages) keeps a pinned view at the bottom too. The thread's content is
+  // the container's last child.
+  useEffect(() => {
+    const el = scrollRef.current;
+    const content = el?.lastElementChild;
+    if (!el || !content) return undefined;
+    const observer = new ResizeObserver(() => {
+      if (pinnedRef.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
 
   // Fires for our own pinning too, which simply recomputes to `true` — the jump
   // is instant, so there is no in-flight smooth scroll to misread.
