@@ -29,6 +29,20 @@ describe("describeStep", () => {
     });
   });
 
+  it("says a source the install lacks isn't set up, not what it tells the model", () => {
+    expect(
+      describeStep("research_person", {
+        output: {
+          configured: false,
+          reason: "This install has no web research. Retrying will not help.",
+        },
+      }),
+    ).toMatchObject({
+      label: "Researched them on the web — not set up here",
+      tone: "neutral",
+    });
+  });
+
   it("tones a write as done, and a tool that threw as a warning with its error", () => {
     expect(describeStep("write_brief", { output: { written: true } })).toEqual({
       label: "Wrote the background",

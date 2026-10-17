@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { cn } from "cn";
 import {
   ACTION_LABELS,
   AGENT_ACTION_TYPES,
@@ -93,39 +91,6 @@ function Row({
       <dd className="min-w-0 font-medium [overflow-wrap:anywhere]">
         {children}
       </dd>
-    </div>
-  );
-}
-
-type File = { path: string; content: string };
-
-/** A version's exact files, one tab per file. */
-export function FileTabs({ files }: { files: File[] }) {
-  const [open, setOpen] = useState(files[0]?.path ?? "");
-  const shown = files.find((file) => file.path === open) ?? files[0];
-  if (!shown) return null;
-  return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <div className="flex gap-1 overflow-x-auto border-b border-border bg-muted/40 px-2 py-1">
-        {files.map((file) => (
-          <button
-            key={file.path}
-            type="button"
-            onClick={() => setOpen(file.path)}
-            className={cn(
-              "rounded px-2 py-1 font-mono text-xs",
-              file.path === shown.path
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {file.path.replace("agent/", "")}
-          </button>
-        ))}
-      </div>
-      <pre className="max-h-96 overflow-auto p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
-        {shown.content}
-      </pre>
     </div>
   );
 }

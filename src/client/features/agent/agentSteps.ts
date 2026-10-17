@@ -68,6 +68,8 @@ const text = z.string().trim().min(1).nullable().catch(null);
 // around).
 const outcomeSchema = z
   .object({
+    // False when the install lacks the source the tool needs.
+    configured: flag,
     reason: text,
     error: text,
     applied: flag,
@@ -112,7 +114,11 @@ export function describeStep(
 ): Step {
   const outcome = outcomeSchema.parse(result.output);
   const verb = toolVerb(tool);
-  const reason = outcome?.reason ?? outcome?.error ?? null;
+  // A missing source's reason is written for the model, not for people.
+  const reason =
+    outcome?.configured === false
+      ? "not set up here"
+      : (outcome?.reason ?? outcome?.error ?? null);
   const tone: Tone =
     result.failed || outcome?.error
       ? "warning"
