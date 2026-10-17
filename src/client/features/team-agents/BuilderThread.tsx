@@ -3,60 +3,61 @@ import { getAgentMessages, useAgentChat } from "@cloudflare/think/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useAgent } from "agents/react";
-import type { UIMessage } from "ai";
-import { Paperclip, ThumbsDown, ThumbsUp } from "lucide-react";
-import { z } from "zod";
-import {
-  ChatMessage,
-  messageHasVisibleContent,
-} from "@/client/components/chat/ChatMessage";
+import { toast } from "sonner";
+import { messageHasVisibleContent } from "@/client/components/chat/ChatMessage";
 import { useStickToBottom } from "@/client/components/chat/useStickToBottom";
-import { EmptyState } from "@/client/components/EmptyState";
 import { ErrorState } from "@/client/components/ErrorState";
 import { Button } from "@/client/components/ui/button";
 import { QuestionComposer } from "@/client/features/agent/AgentQuestion";
-import {
-  AgentUnavailable,
-  ThreadFrame,
-} from "@/client/features/agent/AgentThreadParts";
+import { AgentUnavailable } from "@/client/features/agent/AgentThreadParts";
 import {
   ASK_QUESTION,
   type QuestionAnswer,
 } from "@/client/features/agent/askQuestion";
 import { pendingQuestion } from "@/client/features/agent/agentTranscript";
-import { ToolPart } from "@/client/features/agent/ConversationThread";
 import type { getBuilderChat } from "@/serverFunctions/teamAgents";
+import { markBuilderChatRead } from "@/serverFunctions/teamAgents";
 import {
-  markBuilderChatRead,
-  rateBuilderReply,
-} from "@/serverFunctions/teamAgents";
-import { BuilderComposer, type BuilderMessage } from "./BuilderComposer";
+  BuilderComposer,
+  uploadAttachments,
+  type ComposerMessage,
+} from "./BuilderComposer";
+import {
+  AssistantMessage,
+  asksForAgent,
+  buildProgress,
+  Feedback,
+  hasText,
+  UserMessage,
+} from "./BuilderMessages";
 import { builderAskQuestionTool } from "./builderQuestion";
+import { AgentCodeWorkspace } from "./AgentCodeWorkspace";
+import {
+  BuilderFailureCard,
+  BuildingAgentCard,
+  DeployedAgentCard,
+  ReviewAgentCard,
+} from "./DraftCards";
 import { teamAgentKeys } from "./teamAgentQueries";
+import { CREATE_AGENT_PREFIX } from "./teamAgentCopy";
 
 type Chat = Awaited<ReturnType<typeof getBuilderChat>>;
-
-const extras = z
-  .object({
-    resources: z.array(z.object({ label: z.string() })).catch([]),
-    attachments: z
-      .array(z.object({ id: z.string(), name: z.string() }))
-      .catch([]),
-  })
-  .partial()
-  .catch({});
 
 /**
  * The builder conversation, over the chat's CrmAgent session like a record
  * chat (the Worker authorizes the socket, agentRoutes.ts). The builder may
- * stop to ask one question, answered in place of the composer.
+ * stop to ask one question, answered in place of the composer. Under the
+ * conversation sit the agent it makes, as it is built, saved and deployed.
  */
 export function BuilderThread({
   chat,
   canChat,
+  onWorkingChange,
 }: {
   chat: Chat;
   canChat: boolean;
+  /** Whether a turn is running, for the page's header. */
+  onWorkingChange: (working: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -92,10 +93,19 @@ export function BuilderThread({
     status,
   );
 
-  const send = (message: BuilderMessage) => {
-    pinToBottom();
-    void sendMessage({ text: message.text, metadata: message.metadata });
-  };
+  useEffect(() => {
+    onWorkingChange(busy);
+  }, [busy, onWorkingChange]);
+
+  // A message's files are kept in the chat first, then the message names
+  // them.
+  const send = useMutation({
+    mutationFn: async ({ text, resources, files }: ComposerMessage) => {
+      const attachments = await uploadAttachments(conversation.id, files);
+      pinToBottom();
+      void sendMessage({ text, metadata: { resources, attachments } });
+    },
+  });
 
   // The message the chat was started with on the builder home, sent once the
   // socket is identified, then dropped from history so a reload can't resend.
@@ -114,7 +124,7 @@ export function BuilderThread({
     void navigate({ to: ".", replace: true, state: {} });
   }, [firstMessage, agent.identified, pinToBottom, sendMessage, navigate]);
 
-  // While the builder works, its files and draft land beside the chat.
+  // While the builder works, its files and draft land in the chat.
   const wasBusy = useRef(false);
   useEffect(() => {
     const refresh = () => {
@@ -159,6 +169,16 @@ export function BuilderThread({
     (lastMessage?.role !== "assistant" ||
       !messageHasVisibleContent(lastMessage));
 
+  // The agent this chat makes: a turn that asks for one builds it, then the
+  // saved draft waits for review, then the deployed agent can run.
+  const requests = messages.filter((message) => message.role === "user");
+  const creatingAgent = requests.some(asksForAgent);
+  const lastRequest = requests.at(-1);
+  const lastCreates = lastRequest ? asksForAgent(lastRequest) : false;
+  const building = busy && lastCreates;
+  const madeAgent = conversation.madeAgent;
+  const review = chat.version?.status === "READY" ? chat.version : null;
+
   const footer = (
     <>
       {connectionError ? (
@@ -196,9 +216,9 @@ export function BuilderThread({
         />
       ) : (
         <BuilderComposer
-          conversationId={conversation.id}
+          mode="chat"
           busy={busy}
-          onSend={send}
+          onSend={(message) => send.mutateAsync(message)}
           onStop={() => void stop()}
         />
       )}
@@ -206,143 +226,90 @@ export function BuilderThread({
   );
 
   return (
-    <ThreadFrame
-      header={null}
-      footer={footer}
-      scrollRef={scrollRef}
-      onScroll={onScroll}
-    >
-      {messages.length === 0 && !busy ? (
-        <EmptyState
-          variant="plain"
-          size="sm"
-          title="Ask about your CRM, or build an agent"
-          description="Switch on Create agent and say when it should run, what it should look at and what it should do. You review the draft before anything runs."
-        />
-      ) : null}
-      {messages.map((message, index) => (
-        <div key={message.id} className="space-y-1">
-          <ChatMessage
-            message={message}
-            streaming={
-              busy &&
-              index === messages.length - 1 &&
-              message.role === "assistant"
+    <>
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-5 sm:py-9">
+          {messages.map((message, index) => {
+            if (message.role === "user") {
+              return <UserMessage key={message.id} message={message} />;
             }
-            renderTool={(part, live) => (
-              <ToolPart part={part} live={live} hidden={question?.toolCallId} />
-            )}
-          />
-          {message.role === "user" ? <MessageExtras message={message} /> : null}
-          {message.role === "assistant" &&
-          !(busy && index === messages.length - 1) ? (
-            <Feedback
-              conversationId={conversation.id}
-              messageId={message.id}
-              rating={
-                chat.feedback.find((row) => row.messageId === message.id)
-                  ?.rating ?? null
-              }
+            const streaming = busy && index === messages.length - 1;
+            // A reply that ended before saying anything has nothing to show.
+            if (!streaming && !messageHasVisibleContent(message)) return null;
+            return (
+              <div key={message.id} className="space-y-1">
+                <AssistantMessage
+                  message={message}
+                  streaming={streaming}
+                  hidden={question?.toolCallId}
+                />
+                {!streaming && hasText(message) ? (
+                  <Feedback
+                    conversationId={conversation.id}
+                    messageId={message.id}
+                    rating={
+                      chat.feedback.find((row) => row.messageId === message.id)
+                        ?.rating ?? null
+                    }
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+          {showTyping && !building ? (
+            <div className="flex items-center gap-1.5 pt-1 text-muted-foreground">
+              <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+              <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+              <span className="size-1.5 animate-bounce rounded-full bg-current" />
+            </div>
+          ) : null}
+          {building ? (
+            <BuildingAgentCard
+              {...buildProgress(messages)}
+              onStop={() => {
+                void stop();
+                toast.success("Stop requested.");
+              }}
+            />
+          ) : null}
+          {creatingAgent && chat.files.length > 0 ? (
+            <AgentCodeWorkspace files={chat.files} working={building} />
+          ) : null}
+          {status === "error" ? (
+            <BuilderFailureCard
+              creatingAgent={lastCreates}
+              retrying={busy}
+              onRetry={canChat ? () => void regenerate() : null}
+            />
+          ) : null}
+          {creatingAgent && !busy && review && madeAgent ? (
+            <ReviewAgentCard
+              agentId={madeAgent.id}
+              agentName={madeAgent.name ?? ""}
+              manifest={review.manifest}
+            />
+          ) : null}
+          {creatingAgent && madeAgent?.status === "LIVE" && !review ? (
+            <DeployedAgentCard
+              agentId={madeAgent.id}
+              onFollowUp={(text) => {
+                pinToBottom();
+                void sendMessage({
+                  text: `${CREATE_AGENT_PREFIX}${text}`,
+                  metadata: { resources: [], attachments: [] },
+                });
+              }}
             />
           ) : null}
         </div>
-      ))}
-      {showTyping ? (
-        <div className="flex items-center gap-1.5 pt-1 text-muted-foreground">
-          <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-          <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-          <span className="size-1.5 animate-bounce rounded-full bg-current" />
-        </div>
-      ) : null}
-      {status === "error" ? (
-        <ErrorState
-          variant="inline"
-          message="The builder stopped before finishing this reply."
-          onRetry={canChat ? () => void regenerate() : undefined}
-          isRetrying={busy}
-        />
-      ) : null}
-    </ThreadFrame>
-  );
-}
-
-/** The records a message tagged and the files it attached. */
-function MessageExtras({ message }: { message: UIMessage }) {
-  const { resources = [], attachments = [] } = extras.parse(message.metadata);
-  if (resources.length === 0 && attachments.length === 0) return null;
-  return (
-    <div className="flex flex-wrap justify-end gap-1.5">
-      {resources.map((resource) => (
-        <span
-          key={resource.label}
-          className="rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground"
-        >
-          @{resource.label}
-        </span>
-      ))}
-      {attachments.map((file) => (
-        <a
-          key={file.id}
-          href={`/api/agent-attachments/${encodeURIComponent(file.id)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Paperclip className="size-3" />
-          {file.name}
-        </a>
-      ))}
-    </div>
-  );
-}
-
-/** Thumbs up or down on a reply; pressing the same one again clears it. */
-function Feedback({
-  conversationId,
-  messageId,
-  rating,
-}: {
-  conversationId: string;
-  messageId: string;
-  rating: "UP" | "DOWN" | null;
-}) {
-  const queryClient = useQueryClient();
-  const rate = useMutation({
-    mutationFn: (next: "UP" | "DOWN" | null) =>
-      rateBuilderReply({ data: { conversationId, messageId, rating: next } }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: teamAgentKeys.chat(conversationId),
-      }),
-  });
-  const choose = (value: "UP" | "DOWN") =>
-    rate.mutate(rating === value ? null : value);
-  return (
-    <div className="flex gap-0.5">
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        aria-label="Rate response helpful"
-        aria-pressed={rating === "UP"}
-        className={
-          rating === "UP" ? "text-foreground" : "text-muted-foreground"
-        }
-        onClick={() => choose("UP")}
-      >
-        <ThumbsUp />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        aria-label="Rate response not helpful"
-        aria-pressed={rating === "DOWN"}
-        className={
-          rating === "DOWN" ? "text-foreground" : "text-muted-foreground"
-        }
-        onClick={() => choose("DOWN")}
-      >
-        <ThumbsDown />
-      </Button>
-    </div>
+      </div>
+      <div className="shrink-0 border-t border-border px-4 py-3 sm:px-5">
+        <div className="mx-auto w-full max-w-3xl space-y-2">{footer}</div>
+      </div>
+    </>
   );
 }

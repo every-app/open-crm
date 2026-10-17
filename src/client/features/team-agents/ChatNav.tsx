@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { Bot, CircleCheck, Plus, X } from "lucide-react";
+import {
+  Bot,
+  CircleCheck,
+  EllipsisVertical,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
 import {
@@ -9,6 +17,12 @@ import {
   SectionNavLink,
 } from "@/client/components/SectionLayout";
 import { Button } from "@/client/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/client/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -28,6 +42,10 @@ type Chat = Awaited<ReturnType<typeof listBuilderChats>>[number];
 
 const DAY_MS = 86_400_000;
 const GROUPS = ["Today", "Yesterday", "Last 7 days"] as const;
+
+/** While any chat is working, the column follows it this closely. */
+const WORKING_POLL_MS = 2_500;
+const IDLE_POLL_MS = 30_000;
 
 /** Which of the column's date groups a chat falls in, if any. */
 function dateGroup(lastMessageAt: string, now: number) {
@@ -63,7 +81,7 @@ export function ChatNav() {
           >
             Chats
           </SheetTrigger>
-          <SheetContent side="left" className="w-72 gap-0 p-3">
+          <SheetContent side="left" className="w-72 gap-0 p-3 pt-12">
             <SheetHeader className="sr-only">
               <SheetTitle>Chats and team agents</SheetTitle>
             </SheetHeader>
@@ -92,7 +110,11 @@ export function ChatNav() {
 function ChatNavLists() {
   const chats = useQuery({
     ...builderChatsQueryOptions(),
-    refetchInterval: 30_000,
+    // A chat working in the background is followed until it settles.
+    refetchInterval: (query) =>
+      query.state.data?.some((chat) => chat.state === "working")
+        ? WORKING_POLL_MS
+        : IDLE_POLL_MS,
   });
   const agents = useQuery(teamAgentsQueryOptions());
   const now = chats.dataUpdatedAt;
@@ -111,7 +133,7 @@ function ChatNavLists() {
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label="New chat"
+            aria-label="New agent chat"
             nativeButton={false}
             render={<Link to="/chat" />}
           >
@@ -167,21 +189,7 @@ function ChatNavLists() {
 }
 
 function ChatLink({ chat }: { chat: Chat }) {
-  const title = chat.title ?? "New chat";
-  const [confirming, setConfirming] = useState(false);
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const current = useParams({ strict: false, select: (p) => p.chatId });
-  const remove = useMutation({
-    mutationFn: () => deleteBuilderChat({ data: { conversationId: chat.id } }),
-    onSuccess: async () => {
-      setConfirming(false);
-      toast.success("Chat deleted.");
-      await queryClient.invalidateQueries({ queryKey: teamAgentKeys.chats() });
-      if (current === chat.id) await navigate({ to: "/chat" });
-    },
-  });
-
+  const title = chat.title ?? "Untitled chat";
   return (
     <div className="group relative flex min-w-0 items-center">
       <SectionNavLink
@@ -189,18 +197,112 @@ function ChatLink({ chat }: { chat: Chat }) {
         params={{ chatId: chat.id }}
         className="flex-1 pr-8"
       >
-        <ChatState chat={chat} />
+        <ChatState state={chat.state} />
         <span className="min-w-0 truncate">{title}</span>
       </SectionNavLink>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        aria-label={`Delete ${title}`}
+      <DeleteChatAction
+        conversationId={chat.id}
+        title={title}
+        trigger="close"
         className="reveal-on-hover absolute right-1"
-        onClick={() => setConfirming(true)}
-      >
-        <X />
-      </Button>
+      />
+    </div>
+  );
+}
+
+/** Working in the background, an unread reply, or its agent is live. */
+function ChatState({ state }: { state: Chat["state"] }) {
+  if (state === "working") {
+    return (
+      <RefreshCw
+        className="animate-spin text-muted-foreground"
+        aria-label="Working"
+      />
+    );
+  }
+  if (state === "unread") {
+    return (
+      <span className="flex size-4 items-center justify-center">
+        <span className="size-1.5 rounded-full bg-primary" />
+        <span className="sr-only">Unread</span>
+      </span>
+    );
+  }
+  if (state === "deployed") {
+    return <CircleCheck className="text-primary" aria-label="Deployed" />;
+  }
+  return null;
+}
+
+/**
+ * Deletes one of the person's chats once they confirm (the CRM's
+ * DeleteChatAction): a close button in Chat's column, a menu in the chat's
+ * header. Deleting the open chat returns to Chat's home.
+ */
+export function DeleteChatAction({
+  conversationId,
+  title,
+  trigger,
+  className,
+}: {
+  conversationId: string;
+  title: string;
+  trigger: "close" | "menu";
+  className?: string;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const current = useParams({ strict: false, select: (p) => p.chatId });
+  const remove = useMutation({
+    mutationFn: () => deleteBuilderChat({ data: { conversationId } }),
+    onSuccess: async () => {
+      setConfirming(false);
+      toast.success("Chat deleted.");
+      await queryClient.invalidateQueries({ queryKey: teamAgentKeys.chats() });
+      if (current === conversationId) {
+        await navigate({ to: "/chat", replace: true });
+      }
+    },
+  });
+
+  return (
+    <>
+      {trigger === "close" ? (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label={`Delete ${title}`}
+          className={className}
+          onClick={() => setConfirming(true)}
+        >
+          <X />
+        </Button>
+      ) : (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="More chat actions"
+                className={className}
+              />
+            }
+          >
+            <EllipsisVertical />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-auto min-w-40">
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setConfirming(true)}
+            >
+              <Trash2 />
+              Delete chat
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       {confirming ? (
         <ConfirmDialog
           title={`Delete ${title}?`}
@@ -214,22 +316,6 @@ function ChatLink({ chat }: { chat: Chat }) {
           agent created from it stays available.
         </ConfirmDialog>
       ) : null}
-    </div>
+    </>
   );
-}
-
-/** An unread reply, or the agent the chat made is live. */
-function ChatState({ chat }: { chat: Chat }) {
-  if (chat.unread) {
-    return (
-      <span className="flex size-4 items-center justify-center">
-        <span className="size-1.5 rounded-full bg-primary" />
-        <span className="sr-only">Unread</span>
-      </span>
-    );
-  }
-  if (chat.madeAgent?.status === "LIVE") {
-    return <CircleCheck className="text-primary" aria-label="Deployed" />;
-  }
-  return null;
 }

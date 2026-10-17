@@ -5,7 +5,12 @@ import { ArrowRight } from "lucide-react";
 import { AgentUnavailable } from "@/client/features/agent/AgentThreadParts";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
 import { createBuilderChat } from "@/serverFunctions/teamAgents";
-import { BuilderComposer, type BuilderMessage } from "./BuilderComposer";
+import {
+  BuilderComposer,
+  uploadAttachments,
+  type BuilderMessage,
+  type ComposerMessage,
+} from "./BuilderComposer";
 import { teamAgentKeys } from "./teamAgentQueries";
 import { BUILDER_SUGGESTIONS } from "./teamAgentCopy";
 
@@ -18,7 +23,8 @@ declare module "@tanstack/react-router" {
 
 /**
  * Chat's home (the CRM's builder home): ask about the CRM, or describe an
- * agent. The chat exists once there is something to say in it.
+ * agent. The chat exists once there is something to say in it, and the
+ * files the first message attaches are kept in it then.
  */
 export function BuilderHome() {
   const navigate = useNavigate();
@@ -30,8 +36,12 @@ export function BuilderHome() {
   const [suggestion, setSuggestion] = useState<string | null>(null);
 
   const start = useMutation({
-    mutationFn: (_message: BuilderMessage) => createBuilderChat(),
-    onSuccess: async (chat, message) => {
+    mutationFn: async ({ text, resources, files }: ComposerMessage) => {
+      const chat = await createBuilderChat();
+      const attachments = await uploadAttachments(chat.id, files);
+      return { chat, message: { text, metadata: { resources, attachments } } };
+    },
+    onSuccess: async ({ chat, message }) => {
       await queryClient.invalidateQueries({ queryKey: teamAgentKeys.chats() });
       await navigate({
         to: "/chat/$chatId",
@@ -55,11 +65,11 @@ export function BuilderHome() {
       <div className="w-full max-w-3xl">
         <BuilderComposer
           key={suggestion ?? ""}
-          conversationId={null}
+          mode="home"
           busy={start.isPending || !canChat}
           initialText={suggestion ?? ""}
           initialCreating={suggestion !== null}
-          onSend={(message) => start.mutate(message)}
+          onSend={(message) => start.mutateAsync(message)}
         />
         {canChat ? null : (
           <div className="pt-2">
