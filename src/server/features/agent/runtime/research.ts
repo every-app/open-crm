@@ -20,7 +20,7 @@ type TurnEnding =
   | { status: "error"; error: string };
 
 /** The gateway (or, in dev, .dev.vars) has no model key: retrying won't help. */
-function modelUnavailable(error: string): boolean {
+export function modelUnavailable(error: string): boolean {
   return /Provider is not configured|AI gateway unavailable|OPENROUTER_API_KEY/i.test(
     error,
   );

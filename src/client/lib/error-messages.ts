@@ -17,6 +17,16 @@ const STANDARD_MESSAGES: Record<ErrorCode, string> = {
     "A provider is temporarily unavailable. Please retry in a moment.",
   AGENT_UNAVAILABLE:
     "The research agent isn't set up on your Every App gateway yet. An admin sets OPENROUTER_API_KEY with `everyapp secret set OPENROUTER_API_KEY --for gateway`.",
+  TEAM_AGENT_NOT_LIVE:
+    "This agent isn't live. Deploy it, or resume it, before it runs.",
+  TEAM_AGENT_BUSY:
+    "This agent already has an active run. Stop it or wait for it to finish.",
+  TEAM_AGENT_RUN_LIMIT:
+    "This agent has started as many runs as it may today. It can run again tomorrow.",
+  SLACK_UNAVAILABLE:
+    "Slack isn't connected. An owner or admin connects it in Settings → Connections.",
+  SLACK_REJECTED:
+    "Slack refused that. Check the channel name, or reconnect Slack, and try again.",
   INTERNAL_ERROR: UNEXPECTED_ERROR_MESSAGE,
 };
 

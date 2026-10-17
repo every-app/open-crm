@@ -12,7 +12,7 @@ import type {
   TurnContext,
 } from "@cloudflare/think";
 import { createCompactFunction } from "agents/experimental/memory/utils";
-import { generateText } from "ai";
+import { generateText, type StopCondition, type ToolSet } from "ai";
 import { z } from "zod";
 import { withPgClient } from "@/db";
 import {
@@ -20,6 +20,17 @@ import {
   staticAssistantModel,
 } from "@/server/lib/chatAgent";
 import { DEFAULT_AGENT_MODEL } from "@/server/lib/openrouter";
+import { AgentRunRepository } from "@/server/features/team-agents/repositories/AgentRunRepository";
+import {
+  AgentRunService,
+  MODEL_UNAVAILABLE,
+} from "@/server/features/team-agents/services/AgentRunService";
+import {
+  prepareBuilderTurn,
+  prepareRunTurn,
+  RUN_LIMITS,
+  runBrief,
+} from "@/server/features/team-agents/runtime/turns";
 import { CHAT_ROLE_HEADER } from "./agentRoutes";
 import { capabilityList, readCapabilities } from "./prompt/capabilities";
 import { AgentConversationRepository } from "./repositories/AgentConversationRepository";
@@ -28,7 +39,7 @@ import { finalText, lastText, messageText, recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
 import { budgetSpender, type BudgetState, type Spend } from "./runtime/budget";
 import { buildCrmAgentModel, type ModelChoice } from "./runtime/model";
-import { reportResearch } from "./runtime/research";
+import { modelUnavailable, reportResearch } from "./runtime/research";
 import { loadAgentSession, type AgentSession } from "./runtime/session";
 import { agentSkillSource } from "./runtime/skills";
 import {
@@ -64,12 +75,49 @@ const INTERRUPTED_TURN_NOTICE =
 const GONE_REPLY =
   "This conversation no longer exists. Start a new one from the record.";
 
+const RUN_STOPPED_REPLY = "This run is no longer active, so it does nothing.";
+
+/** A run stops where it is once its steps have read this much input. */
+const withinRunInput: StopCondition<ToolSet> = ({ steps }) =>
+  steps.reduce((total, step) => total + (step.usage.inputTokens ?? 0), 0) >
+  RUN_LIMITS.maxInputTokens;
+
 const TERMINAL_SUBMISSIONS = new Set([
   "completed",
   "aborted",
   "skipped",
   "error",
 ]);
+
+/** How a run's turn ended, written to its row. */
+async function settleRunTurn(
+  organizationId: string,
+  runId: string,
+  submission: ThinkSubmissionInspection,
+): Promise<void> {
+  if (submission.status === "completed") {
+    await AgentRunService.finishRun(organizationId, runId);
+    return;
+  }
+  if (submission.status === "error") {
+    const error = submission.error ?? "The agent turn failed.";
+    await (modelUnavailable(error)
+      ? AgentRunService.failRun(
+          organizationId,
+          runId,
+          MODEL_UNAVAILABLE.code,
+          MODEL_UNAVAILABLE.message,
+        )
+      : AgentRunService.failRun(organizationId, runId, "TURN_FAILED", error));
+    return;
+  }
+  await AgentRunService.settleRun(organizationId, runId, {
+    status: "CANCELLED",
+    code: "CANCELLED",
+    message: "The run was stopped before it finished.",
+    actor: { type: "AGENT" },
+  });
+}
 
 /** The model the organization's workspace runs its agent on. */
 async function modelFor(organizationId: string): Promise<ModelChoice> {
@@ -149,6 +197,38 @@ export class CrmAgent extends Think {
     return { sessionId: this.name };
   }
 
+  /**
+   * Starts a team agent's run (team-agents/runtime/dispatch.ts): accepted
+   * durably and returned at once; the run settles when its turn ends
+   * (onSubmissionStatus). The run id is the submission id, so stopRun can
+   * cancel it.
+   */
+  async startRun(input: { runId: string }): Promise<{ sessionId: string }> {
+    const session = await withPgClient(() => loadAgentSession(this.name));
+    if (session?.kind !== "run" || session.run.id !== input.runId) {
+      throw new Error("This run session has no run to work on.");
+    }
+    await this.submitMessages(
+      [
+        {
+          id: input.runId,
+          role: "user",
+          parts: [{ type: "text", text: runBrief(input.runId) }],
+        },
+      ],
+      { submissionId: input.runId, idempotencyKey: input.runId },
+    );
+    return { sessionId: this.name };
+  }
+
+  /**
+   * Stops a run's turn so it spends nothing more. The run's row already says
+   * it was stopped, which is what keeps its tools from acting.
+   */
+  async stopRun(input: { runId: string }): Promise<void> {
+    await this.cancelSubmission(input.runId, "The run was stopped.");
+  }
+
   async beforeTurn(turn: TurnContext): Promise<TurnConfig> {
     return withPgClient(async (): Promise<TurnConfig> => {
       const session = await loadAgentSession(this.name);
@@ -157,7 +237,39 @@ export class CrmAgent extends Think {
         return { model: staticAssistantModel(GONE_REPLY), activeTools: [] };
       }
       this.modelChoice = await modelFor(session.organizationId);
+      if (session.kind === "run") {
+        const prepared = await prepareRunTurn(session, {
+          thinkSystem: turn.system,
+          spend: this.spender(session),
+        });
+        if (!prepared) {
+          return {
+            model: staticAssistantModel(RUN_STOPPED_REPLY),
+            activeTools: [],
+          };
+        }
+        // A run uses the model its version was saved with.
+        this.modelChoice = {
+          organizationId: session.organizationId,
+          modelId: prepared.modelId,
+        };
+        if (!turn.continuation) await this.openTurn(session);
+        return {
+          system: prepared.system,
+          tools: prepared.tools,
+          maxSteps: RUN_LIMITS.maxSteps,
+          maxOutputTokens: RUN_LIMITS.maxOutputTokens,
+          stopWhen: withinRunInput,
+        };
+      }
       if (!turn.continuation) await this.openTurn(session);
+      if (session.kind === "chat" && session.conversation.kind === "BUILDER") {
+        const { system, tools } = prepareBuilderTurn(session, {
+          thinkSystem: turn.system,
+          messages: this.messages,
+        });
+        return { system, tools, maxOutputTokens: MAX_OUTPUT_TOKENS };
+      }
       const install = await readCapabilities(this.env, session.organizationId);
       const { system, tools } = await prepareTurn(session, {
         thinkSystem: turn.system,
@@ -202,7 +314,10 @@ export class CrmAgent extends Think {
       ? stored.data
       : {
           spent: 0,
-          budget: session.task?.budget ?? CHAT_BUDGET,
+          budget:
+            session.kind === "run"
+              ? RUN_LIMITS.budget
+              : (session.task?.budget ?? CHAT_BUDGET),
           exhausted: false,
         };
     return budgetSpender(state, (next) => this.saveBudget(next));
@@ -237,15 +352,24 @@ export class CrmAgent extends Think {
   override async onStepFinish(step: StepContext): Promise<void> {
     const session = this.turnSession;
     if (!session) return;
-    await withPgClient(() =>
-      recordEvent(session, "step.completed", {
+    const costUsd = openRouterCostUsd(step.providerMetadata);
+    await withPgClient(async () => {
+      await recordEvent(session, "step.completed", {
         stepNumber: step.stepNumber,
         finishReason: step.finishReason,
         inputTokens: step.usage.inputTokens ?? null,
         outputTokens: step.usage.outputTokens ?? null,
-        costUsd: openRouterCostUsd(step.providerMetadata),
-      }),
-    );
+        costUsd,
+      });
+      // A run carries its own tokens and cost, for the runs drawer.
+      if (session.kind === "run") {
+        await AgentRunRepository.addUsage(session.organizationId, session.run.id, {
+          inputTokens: step.usage.inputTokens ?? 0,
+          outputTokens: step.usage.outputTokens ?? 0,
+          costUsd: costUsd ?? 0,
+        });
+      }
+    });
   }
 
   override async onChatResponse(result: ChatResponseResult): Promise<void> {
@@ -300,13 +424,20 @@ export class CrmAgent extends Think {
     return error;
   }
 
-  /** A research turn ended: finish its task, or fail it for a retry. */
+  /**
+   * A research turn ended: finish its task, or fail it for a retry. A run's
+   * turn ended: it succeeds, fails or is cancelled, once (AgentRunService).
+   */
   override async onSubmissionStatus(
     submission: ThinkSubmissionInspection,
   ): Promise<void> {
     if (!TERMINAL_SUBMISSIONS.has(submission.status)) return;
     await withPgClient(async () => {
       const session = await loadAgentSession(this.name);
+      if (session?.kind === "run") {
+        await settleRunTurn(session.organizationId, session.run.id, submission);
+        return;
+      }
       if (session?.kind !== "research") return;
       if (submission.status === "completed") {
         await reportResearch(session, {

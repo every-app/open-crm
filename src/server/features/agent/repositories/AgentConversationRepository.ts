@@ -99,6 +99,7 @@ async function findBySession(organizationId: string, sessionId: string) {
   const [row] = await db
     .select({
       id: agentConversation.id,
+      kind: agentConversation.kind,
       userId: agentConversation.userId,
       title: agentConversation.title,
       contactId: agentConversation.contactId,

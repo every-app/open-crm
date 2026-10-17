@@ -143,8 +143,9 @@ export const lookupTools: ToolGroup = (context) => ({
   }),
 });
 
-async function searchCrm(
-  context: AgentToolContext,
+/** Records matching a person's kind of search, ranked; free. */
+export async function searchCrm(
+  context: Pick<AgentToolContext, "organizationId">,
   query: string,
   kinds: readonly (typeof RECORD_KINDS)[number][],
   limit: number,
