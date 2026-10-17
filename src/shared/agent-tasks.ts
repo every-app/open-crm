@@ -20,17 +20,11 @@ export type TaskKind = (typeof TASK_KINDS)[number];
  */
 export const DIRECT_KINDS = ["brand", "portrait"] as const;
 
-export type DirectKind = (typeof DIRECT_KINDS)[number];
-
-export function isDirectKind(kind: string): kind is DirectKind {
-  return (DIRECT_KINDS as readonly string[]).includes(kind);
-}
-
 /** Kinds whose progress is the contact's enrichment status. */
-export const CONTACT_STATUS_KINDS = ["identify", "profile", "recheck"] as const;
+const CONTACT_STATUS_KINDS = ["identify", "profile", "recheck"] as const;
 
 /** Kinds whose progress is the company's enrichment status. */
-export const COMPANY_STATUS_KINDS = ["brand"] as const;
+const COMPANY_STATUS_KINDS = ["brand"] as const;
 
 export function ownsContactStatus(kind: string): boolean {
   return (CONTACT_STATUS_KINDS as readonly string[]).includes(kind);

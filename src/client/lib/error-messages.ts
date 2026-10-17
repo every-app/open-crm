@@ -1,7 +1,7 @@
 import { isErrorCode, type ErrorCode } from "@/shared/error-codes";
 
 /** Copy for an error we did not expect. */
-export const UNEXPECTED_ERROR_MESSAGE =
+const UNEXPECTED_ERROR_MESSAGE =
   "Something went wrong. Please try again, or check the server logs for details.";
 
 const STANDARD_MESSAGES: Record<ErrorCode, string> = {

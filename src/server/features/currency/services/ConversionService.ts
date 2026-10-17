@@ -25,7 +25,7 @@ import {
 type ResolvedRate = { rate: number; asOf: string };
 
 /** What a deal stores beside its amount, frozen when the deal is saved. */
-export type DealFxFields = {
+type DealFxFields = {
   baseAmount: number | null;
   baseCurrency: string | null;
   fxRate: number | null;

@@ -51,7 +51,7 @@ function SafeAnchor({ href, children, ...rest }: AnchorProps) {
   );
 }
 
-export const MARKDOWN_COMPONENTS = {
+const MARKDOWN_COMPONENTS = {
   h1: ({ children }: { children?: ReactNode }) => (
     <h1 className="mt-5 mb-2 text-base font-semibold first:mt-0">{children}</h1>
   ),

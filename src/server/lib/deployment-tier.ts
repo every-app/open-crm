@@ -30,7 +30,7 @@ function read(env: object, name: string): string | undefined {
 }
 
 /** The tier for an env record (a Worker's env, or a Durable Object's). */
-export function deploymentTierFor(env: object): DeploymentTier {
+function deploymentTierFor(env: object): DeploymentTier {
   const declared = read(env, "DEPLOYMENT_TIER");
   if (declared === "first_party" || declared === "fork") return declared;
   if (declared && !warnedInvalidTiers.has(declared)) {
@@ -56,14 +56,4 @@ export function deploymentTierFor(env: object): DeploymentTier {
 export function scheduledResearchEnabled(env: object): boolean {
   if (deploymentTierFor(env) !== "first_party") return true;
   return read(env, "FIRST_PARTY_SCHEDULED_RESEARCH") !== "off";
-}
-
-/** The label the logs and the agent's tools show for the tier. */
-export function deploymentTierLabel(tier: DeploymentTier): string {
-  switch (tier) {
-    case "first_party":
-      return "Every App (first party)";
-    case "fork":
-      return "Every App (fork)";
-  }
 }

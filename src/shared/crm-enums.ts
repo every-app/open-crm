@@ -70,7 +70,4 @@ export const FIELD_TYPES = [
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 export const EMAIL_DIRECTIONS = ["INBOUND", "OUTBOUND"] as const;
-export type EmailDirection = (typeof EMAIL_DIRECTIONS)[number];
-
 export const AGENT_CONVERSATION_KINDS = ["RECORD", "BUILDER"] as const;
-export type AgentConversationKind = (typeof AGENT_CONVERSATION_KINDS)[number];

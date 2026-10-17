@@ -139,7 +139,7 @@ function SelectionCheckbox<TData>({
 }
 
 /** The frame around the rows, for table components that pass it through. */
-export type DataTableFrameProps = {
+type DataTableFrameProps = {
   /** The first load: shows skeleton rows under the real headers. */
   isLoading?: boolean;
   /** True when filters are active. An empty table then offers `onClearFilters`. */

@@ -4,7 +4,7 @@ import { AppError } from "@/server/lib/errors";
 import { normalizeDomain } from "@/shared/domain";
 import type { UpdateWorkspaceInput } from "@/types/schemas/workspace";
 
-export type Workspace = {
+type Workspace = {
   name: string;
   website: string | null;
   onboarded: boolean;

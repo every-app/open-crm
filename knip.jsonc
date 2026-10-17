@@ -7,7 +7,6 @@
     // Detect Tanstack Start Routes
     "src/start.ts",
     "src/router.tsx",
-    "src/routes/**/*.ts",
     "src/routes/**/*.tsx",
     // Drizzle configs (plugin disabled due to cloudflare:workers import issues)
     "drizzle/sqlite.config.ts",

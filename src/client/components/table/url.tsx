@@ -1,4 +1,3 @@
-import { ExternalLink } from "lucide-react";
 import { safeHttpUrl } from "@/shared/safe-url";
 
 export function formatUrlForDisplay(value: string): string {
@@ -27,32 +26,5 @@ export function resolveUrlHref(
   if (!baseDomain) return null;
   return safeHttpUrl(
     `https://${baseDomain}${value.startsWith("/") ? value : `/${value}`}`,
-  );
-}
-
-export function ExternalUrlCell({
-  value,
-  label,
-  baseDomain,
-}: {
-  value: string | null | undefined;
-  label: string;
-  baseDomain?: string;
-}) {
-  const href = resolveUrlHref(value, baseDomain);
-  if (!value || !href) {
-    return <span className="text-muted-foreground">-</span>;
-  }
-
-  return (
-    <a
-      className="inline-flex max-w-full items-center gap-1 text-primary underline-offset-4 hover:underline"
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-    >
-      <span className="truncate">{label}</span>
-      <ExternalLink className="size-3 shrink-0" />
-    </a>
   );
 }

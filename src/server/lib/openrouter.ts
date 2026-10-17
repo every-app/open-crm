@@ -9,7 +9,6 @@ import {
   type OpenRouterProvider,
 } from "@openrouter/ai-sdk-provider";
 import { gatewayCallFor } from "@/server/lib/gateway-attribution";
-import { getWorkersEnv } from "@/server/lib/runtime-env";
 
 /**
  * How the CRM reaches OpenRouter: through the Every App gateway's AI proxy,
@@ -55,22 +54,6 @@ export function getOpenRouterFetch(
     if (error instanceof ConfigurationError) return null;
     throw error;
   }
-}
-
-/** For server code: the gateway's OpenRouter fetch, or an error to show. */
-export async function requireOpenRouterFetch(
-  organizationId?: string,
-): Promise<typeof fetch> {
-  const fetchFn = getOpenRouterFetch(
-    (await getWorkersEnv()) ?? {},
-    organizationId,
-  );
-  if (!fetchFn) {
-    throw new Error(
-      "OpenRouter is unavailable: deploy behind an Every App gateway that holds OPENROUTER_API_KEY, or set it in .dev.vars for local development.",
-    );
-  }
-  return fetchFn;
 }
 
 /** The OpenRouter provider over a gateway fetch. */

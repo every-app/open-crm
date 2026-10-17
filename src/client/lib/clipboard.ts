@@ -1,8 +1,6 @@
 import { normalizeExportValue, type CsvValue, type ExportValue } from "./csv";
 import { safeHttpUrl } from "@/shared/safe-url";
 
-export const GOOGLE_SHEETS_NEW_URL = "https://sheets.new";
-
 export async function copyTableToClipboard(
   headers: string[],
   rows: CsvValue[][],

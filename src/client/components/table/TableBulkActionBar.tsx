@@ -1,12 +1,6 @@
-import { Download, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/client/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/client/components/ui/dropdown-menu";
 
 export function TableBulkActionBar({
   selectedCount,
@@ -75,41 +69,5 @@ export function TableBulkActionButton({
       {icon}
       {children}
     </Button>
-  );
-}
-
-export function TableBulkExportMenu({
-  actions,
-  busy,
-}: {
-  actions: Array<{
-    label: ReactNode;
-    icon?: ReactNode;
-    onClick: () => void;
-    disabled?: boolean;
-  }>;
-  busy?: boolean;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Button variant="ghost" size="sm" pending={busy} />}
-      >
-        {busy ? null : <Download data-icon="inline-start" />}
-        Export
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="end" className="w-52">
-        {actions.map((action, index) => (
-          <DropdownMenuItem
-            key={index}
-            onClick={action.onClick}
-            disabled={busy || action.disabled}
-          >
-            {action.icon}
-            {action.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

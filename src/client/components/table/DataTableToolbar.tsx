@@ -1,8 +1,7 @@
 import { RotateCcw, SlidersHorizontal } from "lucide-react";
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
-import { Input } from "@/client/components/ui/input";
 import { Tabs, TabsList } from "@/client/components/ui/tabs";
 
 // The parts above a `DataTable`: a tab row, a toolbar row and a collapsible
@@ -139,37 +138,5 @@ export function DataTableFilterGroup({
       </div>
       {children}
     </div>
-  );
-}
-
-/** A Min/Max range filter. Bind each input to a form field. */
-export function DataTableRangeFilter({
-  label,
-  min,
-  max,
-}: {
-  label: string;
-  min: ComponentProps<typeof Input>;
-  max: ComponentProps<typeof Input>;
-}) {
-  return (
-    <DataTableFilterGroup label={label}>
-      <div className="grid grid-cols-2 gap-2">
-        <Input
-          type="number"
-          placeholder="Min"
-          aria-label={`${label} min`}
-          className="h-7"
-          {...min}
-        />
-        <Input
-          type="number"
-          placeholder="Max"
-          aria-label={`${label} max`}
-          className="h-7"
-          {...max}
-        />
-      </div>
-    </DataTableFilterGroup>
   );
 }

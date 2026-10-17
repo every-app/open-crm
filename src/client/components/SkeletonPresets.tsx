@@ -86,7 +86,7 @@ export function SkeletonPage() {
 }
 
 /** SkeletonPage without the page frame, for layouts that already provide it. */
-export function SkeletonPageContent({ className }: { className?: string }) {
+function SkeletonPageContent({ className }: { className?: string }) {
   return (
     <div className={cn("space-y-4", className)} aria-busy>
       {/* Line boxes the size of PageHeader's title and description. */}

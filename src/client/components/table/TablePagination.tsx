@@ -10,7 +10,7 @@ import {
 } from "@/client/components/ui/select";
 import { Spinner } from "@/client/components/ui/spinner";
 
-export type PageButtonProps = {
+type PageButtonProps = {
   page: number;
   disabled: boolean;
   label: string;

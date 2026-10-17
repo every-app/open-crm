@@ -5,7 +5,7 @@ import { ADD_OPTION } from "@/client/features/fields/fieldsCopy";
 import { FIELD_OPTION_LABEL_MAX } from "@/shared/fields";
 
 /** A select's option while it is edited: `id` once saved, `key` for React. */
-export type DraftOption = { id?: string; key: string; label: string };
+type DraftOption = { id?: string; key: string; label: string };
 
 let nextKey = 0;
 

@@ -27,15 +27,3 @@ export function Spinner({
     </span>
   );
 }
-
-/**
- * A full-screen spinner for the sign-in and account layouts, which have no app
- * chrome to show while the session loads. In the app, pages show skeletons.
- */
-export function PageLoading() {
-  return (
-    <div className="flex min-h-dvh items-center justify-center">
-      <Spinner />
-    </div>
-  );
-}

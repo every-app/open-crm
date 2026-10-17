@@ -39,7 +39,7 @@ export function domainFromEmail(
     : domain;
 }
 
-export function isMachineDomain(input: string | null | undefined): boolean {
+function isMachineDomain(input: string | null | undefined): boolean {
   const domain = normalizeDomain(input);
   if (!domain) return false;
 

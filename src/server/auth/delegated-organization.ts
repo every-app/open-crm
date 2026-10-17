@@ -41,8 +41,3 @@ export async function ensureEveryAppMembership(input: {
   ensuredMemberships.set(key, input.role);
   return input.organizationId;
 }
-
-/** For tests: forget what this isolate has written. */
-export function resetEnsuredEveryAppMemberships() {
-  ensuredMemberships.clear();
-}
