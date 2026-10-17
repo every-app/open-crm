@@ -14,10 +14,8 @@ import { DealStageIndicator } from "@/client/features/deals/DealStage";
 import { formatAmount } from "@/client/features/deals/dealFormat";
 import { EmptyValue, OwnerCell } from "@/client/features/records/cells";
 import { LocalDay } from "@/client/features/records/LocalDateTime";
-import {
-  RecordLink,
-  useOpenRecord,
-} from "@/client/features/records/RecordLink";
+import { RecordLink } from "@/client/features/records/RecordLink";
+import { useOpenRecord } from "@/client/features/records/recordStack";
 import { DEAL_STAGES, type DealStage } from "@/shared/crm-enums";
 
 // A pipeline answer as a table, ported from the CRM's deal-list-result.tsx
