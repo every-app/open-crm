@@ -4,7 +4,6 @@ import {
   count,
   desc,
   eq,
-  exists,
   inArray,
   isNotNull,
   isNull,
@@ -13,13 +12,7 @@ import {
 } from "drizzle-orm";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
-import {
-  activity,
-  company,
-  contact,
-  suppressedContact,
-  user,
-} from "@/db/schema";
+import { company, contact, suppressedContact, user } from "@/db/schema";
 import type { RecordSource } from "@/shared/crm-enums";
 import { leaveOtherCompanies } from "@/server/features/contacts/repositories/ContactRelationsRepository";
 import {
@@ -30,12 +23,7 @@ import {
   sortOrder,
   type SortSpec,
 } from "@/server/features/records/listQuery";
-import {
-  activityTargets,
-  clearAgentRows,
-  idChunks,
-  recomputeLastActivity,
-} from "@/server/features/records/recordRules";
+import { idChunks } from "@/server/features/records/recordRules";
 import type { ContactListInput, ContactSort } from "@/types/schemas/contacts";
 
 // Contacts: the people in the pipeline. A live contact's email is unique in
@@ -321,66 +309,6 @@ async function restore(organizationId: string, id: string) {
   return row ?? null;
 }
 
-/**
- * Permanently deletes an archived contact. Its activities, facts, brief,
- * deal roles, custom field values and conversations go with it (foreign
- * keys); captured mail and meetings stay, without them. In the same batch
- * the agent's rows about the contact are cleared and its email goes on the
- * suppression list, as the retention purge does, so captured mail never
- * files the person again. The records its activities were also filed on get
- * their last activity restamped. False when nothing was deleted: the contact
- * isn't the organization's, or isn't archived.
- */
-async function purge(organizationId: string, id: string): Promise<boolean> {
-  const isArchived = and(
-    inOrganization(organizationId, id),
-    isNotNull(contact.archivedAt),
-  );
-  const guard = exists(
-    db.select({ id: contact.id }).from(contact).where(isArchived),
-  );
-  const targets = await activityTargets(
-    organizationId,
-    eq(activity.contactId, id),
-  );
-  const now = new Date().toISOString();
-  await runBatch((tx) => [
-    ...clearAgentRows(
-      tx,
-      organizationId,
-      (row) => eq(row.contactId, id),
-      guard,
-    ),
-    tx
-      .insert(suppressedContact)
-      .select((qb) =>
-        qb
-          .select({
-            organizationId: contact.organizationId,
-            email: sql<string>`lower(trim(${contact.email}))`,
-            reason: sql<string>`'Deleted from the CRM (' || ${contact.firstName} || coalesce(' ' || nullif(${contact.lastName}, ''), '') || ')'`,
-            createdAt: sql<string>`${now}`,
-          })
-          .from(contact)
-          .where(
-            and(isArchived, sql`trim(coalesce(${contact.email}, '')) <> ''`),
-          )
-          // Typed as SQL, so the expressions needn't type as columns; the
-          // selection follows suppressed_contact's column order.
-          .getSQL(),
-      )
-      .onConflictDoNothing(),
-    tx.delete(contact).where(isArchived),
-  ]);
-  const [left] = await db
-    .select({ id: contact.id })
-    .from(contact)
-    .where(inOrganization(organizationId, id));
-  if (left) return false;
-  await recomputeLastActivity(organizationId, targets);
-  return true;
-}
-
 /** Gives `ids` to `ownerId` (or nobody); how many it changed. */
 async function setOwner(
   organizationId: string,
@@ -433,7 +361,6 @@ export const ContactRepository = {
   update,
   archive,
   restore,
-  purge,
   setOwner,
   markEnrichmentRequested,
 };

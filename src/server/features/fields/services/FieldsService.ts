@@ -5,6 +5,7 @@ import {
 } from "@/server/features/fields/repositories/FieldDefinitionRepository";
 import { FieldValueRepository } from "@/server/features/fields/repositories/FieldValueRepository";
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { isUniqueViolation } from "@/server/features/records/recordRules";
 import { AppError } from "@/server/lib/errors";
 import {
   serializeField,
@@ -31,13 +32,6 @@ type FieldCoverage = {
 // CRM's maxRecordsPerRun): each record is a row in the agent's queue.
 const BACKFILL_CHUNK = 100;
 const BACKFILL_MAX_RECORDS = 500;
-
-function isUniqueViolation(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  if (error.message.includes("UNIQUE constraint failed")) return true;
-  if ("code" in error && error.code === "23505") return true;
-  return isUniqueViolation(error.cause);
-}
 
 async function requireDefinition(
   organizationId: string,

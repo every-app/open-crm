@@ -1,4 +1,5 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import { ContactFactRepository } from "@/server/features/contacts/repositories/ContactFactRepository";
 import { ContactRelationsRepository } from "@/server/features/contacts/repositories/ContactRelationsRepository";
@@ -270,7 +271,13 @@ async function purgeContact(organizationId: string, id: string) {
       "Only an archived contact can be deleted forever. Archive them first.",
     );
   }
-  if (!(await ContactRepository.purge(organizationId, id))) {
+  const purged = await ArchiveService.purgeArchived(
+    organizationId,
+    "contact",
+    [id],
+    new Date().toISOString(),
+  );
+  if (purged.length === 0) {
     throw new AppError(
       "CONFLICT",
       "The contact was restored before they could be deleted.",

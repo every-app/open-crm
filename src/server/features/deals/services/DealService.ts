@@ -1,3 +1,4 @@
+import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CompanyRepository } from "@/server/features/companies/repositories/CompanyRepository";
 import { ConversionService } from "@/server/features/currency/services/ConversionService";
 import { DealContactRepository } from "@/server/features/deals/repositories/DealContactRepository";
@@ -222,7 +223,13 @@ async function purgeDeal(organizationId: string, id: string) {
       "Only an archived deal can be deleted forever. Archive it first.",
     );
   }
-  if (!(await DealRepository.purge(organizationId, id))) {
+  const purged = await ArchiveService.purgeArchived(
+    organizationId,
+    "deal",
+    [id],
+    new Date().toISOString(),
+  );
+  if (purged.length === 0) {
     throw new AppError(
       "CONFLICT",
       "The deal was restored before it could be deleted.",

@@ -1,4 +1,5 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CompanyRelationsRepository } from "@/server/features/companies/repositories/CompanyRelationsRepository";
 import { CompanyRepository } from "@/server/features/companies/repositories/CompanyRepository";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
@@ -234,7 +235,13 @@ async function purgeCompany(organizationId: string, id: string) {
       "Only an archived company can be deleted forever. Archive it first.",
     );
   }
-  if (!(await CompanyRepository.purge(organizationId, id))) {
+  const purged = await ArchiveService.purgeArchived(
+    organizationId,
+    "company",
+    [id],
+    new Date().toISOString(),
+  );
+  if (purged.length === 0) {
     throw new AppError(
       "CONFLICT",
       "The company was restored before it could be deleted.",

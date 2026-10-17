@@ -1,37 +1,18 @@
-import {
-  and,
-  eq,
-  inArray,
-  isNull,
-  lte,
-  sql,
-  type AnyColumn,
-  type SQL,
-} from "drizzle-orm";
+import { and, eq, inArray, isNull, lte } from "drizzle-orm";
 import { chunk } from "remeda";
 import { db } from "@/db";
-import {
-  activity,
-  agentEvent,
-  agentTask,
-  company,
-  contact,
-  deal,
-} from "@/db/schema";
+import { agentTask } from "@/db/schema";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { AppError, asAppError } from "@/server/lib/errors";
 import type { BulkResult } from "@/types/schemas/records";
 
 // Rules every record (company, contact, deal) follows: who may own it, how a
-// bulk action reports, when its enrichment counts as queued, and what a purge
-// has to clean up by hand.
+// bulk action reports, and when its enrichment counts as queued.
 //
 // Archive and restore only set or clear `archived_at`: the record is hidden,
-// not changed. Purge permanently deletes an archived record. The database
-// cascades what has a foreign key; the agent's rows (agent_task, agent_event)
-// carry record ids without one, so the purge clears them itself, and the
-// records whose last activity came from the deleted activities are
-// restamped once it's done.
+// not changed. Purge permanently deletes an archived record, the same way
+// whether a person or the retention sweep does it
+// (ArchiveService.purgeArchived).
 
 // D1 binds at most 100 parameters per statement; id lists are cut below it.
 const ID_CHUNK = 90;
@@ -58,7 +39,7 @@ export async function assertOwner(
 
 /**
  * Whether a write hit a unique index (a live company's domain, a live
- * contact's email). Drizzle wraps the driver's error, so the cause chain is
+ * contact's email, a field's key, a saved view's name). Drizzle wraps the driver's error, so the cause chain is
  * checked: SQLite says so in the message, Postgres with code 23505.
  */
 export function isUniqueViolation(error: unknown): boolean {
@@ -142,130 +123,4 @@ export async function queuedRecordIds(
     for (const row of rows) if (row.id) queued.add(row.id);
   }
   return queued;
-}
-
-type AgentRecordColumns = {
-  companyId: AnyColumn;
-  contactId: AnyColumn;
-  dealId: AnyColumn;
-};
-
-/**
- * The statements that clear the agent's queue and journal rows about a
- * record being purged, for its runBatch. `about` picks the rows; `guard` is
- * the purge's own condition, so they stay unless the record really goes.
- */
-export function clearAgentRows(
-  tx: typeof db,
-  organizationId: string,
-  about: (row: AgentRecordColumns) => SQL,
-  guard: SQL,
-) {
-  return [
-    tx
-      .delete(agentTask)
-      .where(
-        and(
-          eq(agentTask.organizationId, organizationId),
-          about(agentTask),
-          guard,
-        ),
-      ),
-    tx
-      .delete(agentEvent)
-      .where(
-        and(
-          eq(agentEvent.organizationId, organizationId),
-          about(agentEvent),
-          guard,
-        ),
-      ),
-  ];
-}
-
-type ActivityTargets = {
-  companyIds: string[];
-  contactIds: string[];
-  dealIds: string[];
-};
-
-/**
- * The records the activities matching `where` are filed on. Read before a
- * purge deletes them, so their last activity can be restamped after.
- */
-export async function activityTargets(
-  organizationId: string,
-  where: SQL,
-): Promise<ActivityTargets> {
-  const rows = await db
-    .selectDistinct({
-      companyId: activity.companyId,
-      contactId: activity.contactId,
-      dealId: activity.dealId,
-    })
-    .from(activity)
-    .where(and(eq(activity.organizationId, organizationId), where));
-  const ids = (key: keyof (typeof rows)[number]) => [
-    ...new Set(rows.flatMap((row) => (row[key] ? [row[key]] : []))),
-  ];
-  return {
-    companyIds: ids("companyId"),
-    contactIds: ids("contactId"),
-    dealIds: ids("dealId"),
-  };
-}
-
-/**
- * Restamps `last_activity_at` on `targets` from the activities they still
- * have. Runs after a purge, which has already happened, so a failure is
- * logged rather than thrown.
- */
-export async function recomputeLastActivity(
-  organizationId: string,
-  targets: ActivityTargets,
-): Promise<void> {
-  try {
-    for (const ids of idChunks(targets.companyIds)) {
-      await db
-        .update(company)
-        .set({
-          lastActivityAt: sql`(select max(${activity.createdAt}) from ${activity} where ${activity.companyId} = ${company.id})`,
-        })
-        .where(
-          and(
-            eq(company.organizationId, organizationId),
-            inArray(company.id, ids),
-          ),
-        );
-    }
-    for (const ids of idChunks(targets.contactIds)) {
-      await db
-        .update(contact)
-        .set({
-          lastActivityAt: sql`(select max(${activity.createdAt}) from ${activity} where ${activity.contactId} = ${contact.id})`,
-        })
-        .where(
-          and(
-            eq(contact.organizationId, organizationId),
-            inArray(contact.id, ids),
-          ),
-        );
-    }
-    for (const ids of idChunks(targets.dealIds)) {
-      await db
-        .update(deal)
-        .set({
-          lastActivityAt: sql`(select max(${activity.createdAt}) from ${activity} where ${activity.dealId} = ${deal.id})`,
-        })
-        .where(
-          and(eq(deal.organizationId, organizationId), inArray(deal.id, ids)),
-        );
-    }
-  } catch (error) {
-    console.error(
-      "[records] a purge went through but last activity was not restamped",
-      { organizationId },
-      error,
-    );
-  }
 }

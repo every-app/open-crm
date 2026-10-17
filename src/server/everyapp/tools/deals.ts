@@ -1,12 +1,10 @@
 import { z } from "zod";
-import { crmTool } from "@/server/everyapp/crm-tool";
-import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
+import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
   DealService,
   type DealDetail,
   type DealListRow,
 } from "@/server/features/deals/services/DealService";
-import { AppError } from "@/server/lib/errors";
 import { DEAL_STAGES } from "@/shared/crm-enums";
 import { CURRENCY_CODES } from "@/shared/currency";
 import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
@@ -27,21 +25,6 @@ import { SORT_DIRECTIONS } from "@/types/schemas/records";
 // email here, as a model knows them; the app's own forms use member ids.
 
 const STAGES_NOTE = `Stages in pipeline order: ${OPEN_DEAL_STAGES.join(", ")} are open; CLOSED_WON, CLOSED_LOST and UNQUALIFIED_TO_BUY are outcomes.`;
-
-/** A member's user id from their email, as the tools take owners. */
-async function memberId(organizationId: string, email: string) {
-  const members = await AuthRepository.listMembers(organizationId);
-  const member = members.find(
-    (candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase(),
-  );
-  if (!member) {
-    throw new AppError(
-      "VALIDATION_ERROR",
-      `No member of this organization has the email ${email}.`,
-    );
-  }
-  return member.userId;
-}
 
 /** A close date as written: its day. */
 function day(value: string | null) {

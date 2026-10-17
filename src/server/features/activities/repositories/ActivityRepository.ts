@@ -29,7 +29,7 @@ import type { TaskWindow, TimelineFilter } from "@/types/schemas/activities";
 // stamp does: a record's `last_activity_at` is the creation time of its
 // newest activity, whatever its type, and never moves back when an older one
 // is written. A purge recomputes it the same way from what is left
-// (recordRules' recomputeLastActivity, the archive's restamp).
+// (ArchiveRepository's restamp).
 
 const NOTE_TYPES: ActivityType[] = ["NOTE", "CALL", "EMAIL", "MEETING"];
 

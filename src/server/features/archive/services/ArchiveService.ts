@@ -6,9 +6,10 @@ import {
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { MIN_ARCHIVE_RETENTION_DAYS } from "@/types/schemas/settings";
 
-// Archived records are hidden from lists, then purged for good once they
-// have been archived longer than the workspace's retention (Settings →
-// Data, 180 days unless an owner or admin changes it).
+// Archived records are hidden from lists, then purged for good: by an owner
+// or admin (Delete forever), or once they have been archived longer than the
+// workspace's retention (Settings → Data, 180 days unless an owner or admin
+// changes it). Both purge the same way.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -28,6 +29,40 @@ type PurgeResult = {
   contacts: number;
   deals: number;
 };
+
+/**
+ * Permanently deletes the given records of `kind` that are still archived at
+ * or before `archivedBefore`, with what goes with them, then restamps the
+ * last activity of the records they shared activities with. The ids it
+ * deleted: a record restored in the meantime stays.
+ */
+async function purgeArchived(
+  organizationId: string,
+  kind: ArchivedKind,
+  ids: string[],
+  archivedBefore: string,
+): Promise<string[]> {
+  const deleted: string[] = [];
+  for (let start = 0; start < ids.length; start += PURGE_CHUNK) {
+    const chunk = ids.slice(start, start + PURGE_CHUNK);
+    const targets = await ArchiveRepository.activityTargets(
+      organizationId,
+      kind,
+      chunk,
+    );
+    const gone = await ArchiveRepository.purge(
+      organizationId,
+      kind,
+      chunk,
+      archivedBefore,
+    );
+    deleted.push(...gone);
+    if (gone.length > 0) {
+      await restampAfterPurge(organizationId, kind, targets);
+    }
+  }
+  return deleted;
+}
 
 /**
  * Permanently deletes the organization's companies, contacts and deals
@@ -51,24 +86,9 @@ async function purgeExpiredArchives(
       before,
       PURGE_LIMIT,
     );
-    for (let start = 0; start < ids.length; start += PURGE_CHUNK) {
-      const chunk = ids.slice(start, start + PURGE_CHUNK);
-      const targets = await ArchiveRepository.activityTargets(
-        organizationId,
-        kind,
-        chunk,
-      );
-      const deleted = await ArchiveRepository.purge(
-        organizationId,
-        kind,
-        chunk,
-        before,
-      );
-      purged[kind] += deleted.length;
-      if (deleted.length > 0) {
-        await restampAfterPurge(organizationId, kind, targets);
-      }
-    }
+    purged[kind] = (
+      await purgeArchived(organizationId, kind, ids, before)
+    ).length;
   }
   const result = {
     retentionDays,
@@ -144,6 +164,7 @@ async function purgeAllExpiredArchives(): Promise<{
 }
 
 export const ArchiveService = {
+  purgeArchived,
   purgeExpiredArchives,
   purgeAllExpiredArchives,
 };

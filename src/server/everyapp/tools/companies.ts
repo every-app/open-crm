@@ -1,12 +1,10 @@
 import { z } from "zod";
-import { crmTool } from "@/server/everyapp/crm-tool";
-import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
+import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
   CompanyService,
   type CompanyDetail,
   type CompanyListRow,
 } from "@/server/features/companies/services/CompanyService";
-import { AppError } from "@/server/lib/errors";
 import {
   COMPANY_SORTS,
   companyListSchema,
@@ -22,21 +20,6 @@ const ownerEmail = z
   .string()
   .email()
   .describe("The email of the member who owns the company.");
-
-/** A member's user id from their email, as the tools take owners. */
-export async function memberId(organizationId: string, email: string) {
-  const members = await AuthRepository.listMembers(organizationId);
-  const member = members.find(
-    (candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase(),
-  );
-  if (!member) {
-    throw new AppError(
-      "VALIDATION_ERROR",
-      `No member of this organization has the email ${email}.`,
-    );
-  }
-  return member.userId;
-}
 
 function location(company: {
   city: string | null;

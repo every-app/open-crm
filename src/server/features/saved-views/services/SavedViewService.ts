@@ -2,6 +2,7 @@ import {
   SavedViewRepository,
   type SavedViewRow,
 } from "@/server/features/saved-views/repositories/SavedViewRepository";
+import { isUniqueViolation } from "@/server/features/records/recordRules";
 import { AppError } from "@/server/lib/errors";
 import type { FieldEntity } from "@/shared/crm-enums";
 import {
@@ -38,13 +39,6 @@ function serialize(row: SavedViewRow, userId: string): SavedView {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  if (error.message.includes("UNIQUE constraint failed")) return true;
-  if ("code" in error && error.code === "23505") return true;
-  return isUniqueViolation(error.cause);
 }
 
 /** The entity's views the person can apply: their own and the team's shared ones. */
