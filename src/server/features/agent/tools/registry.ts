@@ -31,12 +31,21 @@ const TOOL_GROUPS: readonly ToolGroup[] = [
 
 export function buildAgentTools(context: AgentToolContext): ToolSet {
   const tools: ToolSet = {};
-  for (const group of TOOL_GROUPS) {
-    for (const [name, definition] of Object.entries(group(context))) {
-      tools[name] = scoped(context, definition);
-    }
-  }
-  return tools;
+  for (const group of TOOL_GROUPS) Object.assign(tools, group(context));
+  return scopeTools(context, tools);
+}
+
+/** `tools`, each run as the session's organization (scoped, below). */
+export function scopeTools(
+  context: Pick<AgentToolContext, "organizationId" | "sessionId">,
+  tools: ToolSet,
+): ToolSet {
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, definition]) => [
+      name,
+      scoped(context, definition),
+    ]),
+  );
 }
 
 /**
@@ -45,7 +54,10 @@ export function buildAgentTools(context: AgentToolContext): ToolSet {
  * gateway call it makes named for the organization, its output capped, and a
  * failure handed to the model to work around rather than ending the turn.
  */
-function scoped(context: AgentToolContext, definition: Tool): Tool {
+function scoped(
+  context: Pick<AgentToolContext, "organizationId" | "sessionId">,
+  definition: Tool,
+): Tool {
   const execute = definition.execute;
   if (!execute) return definition;
   return {

@@ -3,8 +3,10 @@ import { toHex } from "@/server/auth/org-slug";
 // A session's id is the name of the CrmAgent Durable Object that holds it, and
 // the name carries the organization it works for:
 //
-//   chat.<organization, hex>.<uuid>     a person's conversation about a record
+//   chat.<organization, hex>.<uuid>     a person's conversation (about a
+//                                       record, or with the agent builder)
 //   task.<organization, hex>.<task id>  a research session the dispatcher starts
+//   run.<organization, hex>.<run id>    a team agent's run the dispatcher starts
 //
 // Only server code mints names (the dispatcher, and the server function that
 // opens a conversation), and a chat name reaches its Durable Object only after
@@ -14,7 +16,7 @@ import { toHex } from "@/server/auth/org-slug";
 // client. The organization is hex-encoded so the name is URL-safe whatever
 // characters the gateway's ids use.
 
-type SessionKind = "chat" | "task";
+type SessionKind = "chat" | "task" | "run";
 
 type SessionName = {
   kind: SessionKind;
@@ -23,7 +25,7 @@ type SessionName = {
   id: string;
 };
 
-const NAME = /^(chat|task)\.([0-9a-f]+)\.([A-Za-z0-9-]+)$/;
+const NAME = /^(chat|task|run)\.([0-9a-f]+)\.([A-Za-z0-9-]+)$/;
 
 export function sessionName(
   kind: SessionKind,
@@ -38,7 +40,12 @@ export function parseSessionName(name: string): SessionName | null {
   if (!match) return null;
   const [, kind, hex, id] = match;
   const organizationId = fromHex(hex);
-  if (!organizationId || (kind !== "chat" && kind !== "task")) return null;
+  if (
+    !organizationId ||
+    (kind !== "chat" && kind !== "task" && kind !== "run")
+  ) {
+    return null;
+  }
   return { kind, organizationId, id };
 }
 

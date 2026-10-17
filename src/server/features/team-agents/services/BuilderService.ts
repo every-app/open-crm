@@ -1,0 +1,276 @@
+import { AgentVersionRepository } from "@/server/features/team-agents/repositories/AgentVersionRepository";
+import { AgentFileRepository } from "@/server/features/team-agents/repositories/AgentFileRepository";
+import { env } from "cloudflare:workers";
+import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
+import { AgentConversationRepository } from "@/server/features/agent/repositories/AgentConversationRepository";
+import { sessionName } from "@/server/features/agent/sessionName";
+import { SearchService } from "@/server/features/search/services/SearchService";
+import { SlackService } from "@/server/features/slack/services/SlackService";
+import { AppError } from "@/server/lib/errors";
+import { agentManifest, SLACK_RESOURCE } from "@/shared/team-agents";
+import { BuilderRepository } from "../repositories/BuilderRepository";
+
+// The agent builder's side of the CRM, ported from the CRM's conversations
+// service (builder chats) and builder-runtime.ts (what the builder's tools
+// do). A builder chat is a person's private conversation with the agent
+// builder, held in its CrmAgent session like a record chat; saving a draft
+// makes an immutable READY version for human review and never deploys it.
+
+type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
+
+/** The agents-client route name for CrmAgent, as record chats use it. */
+const AGENT_ROUTE = "crm-agent";
+
+const MAX_ATTACHMENT_BYTES = 2_000_000;
+
+function summary(
+  row: NonNullable<
+    Awaited<ReturnType<typeof BuilderRepository.findConversation>>
+  >,
+) {
+  return {
+    id: row.id,
+    sessionId: row.sessionId,
+    agent: AGENT_ROUTE,
+    title: row.title,
+    messageCount: row.messageCount,
+    lastMessageAt: row.lastMessageAt,
+    unread: Boolean(
+      row.lastAssistantAt &&
+      (!row.lastReadAt || row.lastAssistantAt > row.lastReadAt),
+    ),
+    madeAgent: row.agentId
+      ? { id: row.agentId, name: row.agentName, status: row.agentStatus }
+      : null,
+  };
+}
+
+async function createConversation(context: Context) {
+  const created = await BuilderRepository.createConversation({
+    organizationId: context.organizationId,
+    userId: context.userId,
+    sessionId: sessionName("chat", context.organizationId, crypto.randomUUID()),
+  });
+  const row = await BuilderRepository.findConversation(
+    context.organizationId,
+    context.userId,
+    created.id,
+  );
+  if (!row) throw new Error("Builder chat missing after insert");
+  return summary(row);
+}
+
+async function listConversations(context: Context) {
+  const rows = await BuilderRepository.listConversations(
+    context.organizationId,
+    context.userId,
+  );
+  return rows.map(summary);
+}
+
+/**
+ * A builder chat for its page: the chat, the agent it made with its newest
+ * version, the files it wrote (newest revision of each), the person's
+ * feedback and attachments.
+ */
+async function getConversation(context: Context, id: string) {
+  const row = await BuilderRepository.findConversation(
+    context.organizationId,
+    context.userId,
+    id,
+  );
+  if (!row) throw new AppError("NOT_FOUND");
+  const { organizationId } = context;
+  const [files, feedback, attachments, version] = await Promise.all([
+    AgentFileRepository.conversationFiles(organizationId, id),
+    BuilderRepository.listFeedback(organizationId, context.userId, id),
+    BuilderRepository.listAttachments(organizationId, id),
+    row.agentId
+      ? AgentVersionRepository.latestVersion(organizationId, row.agentId)
+      : null,
+  ]);
+  const manifest = version ? agentManifest.safeParse(version.manifest) : null;
+  return {
+    conversation: summary(row),
+    version: version
+      ? {
+          id: version.id,
+          number: version.number,
+          status: version.status,
+          createdAt: version.createdAt,
+          manifest: manifest?.success ? manifest.data : null,
+        }
+      : null,
+    files: files.map((file) => ({
+      path: file.path,
+      language: file.language,
+      content: file.content,
+      revision: file.revision,
+      status: file.status,
+    })),
+    feedback,
+    attachments: attachments.map(
+      ({ storageKey: _key, ...attachment }) => attachment,
+    ),
+  };
+}
+
+async function markRead(context: Context, id: string) {
+  const read = await AgentConversationRepository.markRead(
+    context.organizationId,
+    context.userId,
+    id,
+  );
+  if (!read) throw new AppError("NOT_FOUND");
+  return { id };
+}
+
+/**
+ * Deletes a builder chat: its working files (a saved version keeps its own),
+ * its attachments and the row. The agent it made stays. Returns the session
+ * whose transcript the caller empties.
+ */
+async function removeConversation(context: Context, id: string) {
+  const { organizationId, userId } = context;
+  const row = await BuilderRepository.findConversation(
+    organizationId,
+    userId,
+    id,
+  );
+  if (!row) throw new AppError("NOT_FOUND");
+  const attachments = await BuilderRepository.listAttachments(
+    organizationId,
+    id,
+  );
+  await AgentFileRepository.deleteUnsavedFiles(organizationId, id);
+  const removed = await BuilderRepository.removeConversation(
+    organizationId,
+    userId,
+    id,
+  );
+  if (!removed) throw new AppError("NOT_FOUND");
+  if (attachments.length > 0) {
+    await env.R2.delete(attachments.map((attachment) => attachment.storageKey));
+  }
+  return removed;
+}
+
+/** Records and integrations a person can tag in the composer. */
+async function searchResources(context: Context, q: string) {
+  const [{ hits }, slack] = await Promise.all([
+    SearchService.quick(context.organizationId, q),
+    SlackService.isConnected(context.organizationId),
+  ]);
+  const term = q.trim().toLowerCase();
+  return [
+    ...(slack && (!term || "slack".includes(term))
+      ? [
+          {
+            kind: "integration" as const,
+            id: SLACK_RESOURCE.id,
+            label: SLACK_RESOURCE.label,
+            detail: "Connected workspace",
+          },
+        ]
+      : []),
+    ...hits.map((hit) => ({
+      kind: hit.kind,
+      id: hit.id,
+      label: hit.label,
+      detail: hit.detail,
+    })),
+  ];
+}
+
+async function rate(
+  context: Context,
+  input: {
+    conversationId: string;
+    messageId: string;
+    rating: "UP" | "DOWN" | null;
+  },
+) {
+  const row = await BuilderRepository.findConversation(
+    context.organizationId,
+    context.userId,
+    input.conversationId,
+  );
+  if (!row) throw new AppError("NOT_FOUND");
+  await BuilderRepository.rate({
+    organizationId: context.organizationId,
+    userId: context.userId,
+    ...input,
+  });
+  return { messageId: input.messageId, rating: input.rating };
+}
+
+/** Keeps a file a person attached in a builder chat, in R2. */
+async function uploadAttachment(
+  context: Context,
+  input: {
+    conversationId: string;
+    name: string;
+    mediaType: string;
+    contentBase64: string;
+  },
+) {
+  const row = await BuilderRepository.findConversation(
+    context.organizationId,
+    context.userId,
+    input.conversationId,
+  );
+  if (!row) throw new AppError("NOT_FOUND");
+  const bytes = Uint8Array.from(atob(input.contentBase64), (char) =>
+    char.charCodeAt(0),
+  );
+  if (bytes.length === 0 || bytes.length > MAX_ATTACHMENT_BYTES) {
+    throw new AppError("VALIDATION_ERROR", "Attachments are up to 2 MB.");
+  }
+  const id = crypto.randomUUID();
+  // Not under the organization's image prefix (src/server/lib/images.ts),
+  // which every member may read: an attachment is its chat's owner's.
+  const storageKey = `builder-attachments/${context.organizationId}/${input.conversationId}/${id}`;
+  await env.R2.put(storageKey, bytes, {
+    httpMetadata: { contentType: input.mediaType },
+  });
+  await BuilderRepository.insertAttachment({
+    id,
+    organizationId: context.organizationId,
+    conversationId: input.conversationId,
+    userId: context.userId,
+    name: input.name,
+    mediaType: input.mediaType,
+    size: bytes.length,
+    storageKey,
+  });
+  return {
+    id,
+    name: input.name,
+    mediaType: input.mediaType,
+    size: bytes.length,
+  };
+}
+
+/** An attachment's bytes, for its owner. */
+async function attachmentObject(context: Context, id: string) {
+  const row = await BuilderRepository.findAttachment(
+    context.organizationId,
+    context.userId,
+    id,
+  );
+  if (!row) return null;
+  const object = await env.R2.get(row.storageKey);
+  return object ? { row, object } : null;
+}
+
+export const BuilderService = {
+  createConversation,
+  listConversations,
+  getConversation,
+  markRead,
+  removeConversation,
+  searchResources,
+  rate,
+  uploadAttachment,
+  attachmentObject,
+};

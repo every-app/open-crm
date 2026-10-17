@@ -7,10 +7,14 @@ import { sort } from "remeda";
 import { describe, expect, it } from "vitest";
 import * as sqliteCrm from "./crm.schema";
 import * as sqliteAgent from "./agent.schema";
+import * as sqliteTeamAgent from "./team-agent.schema";
+import * as sqliteSlack from "./slack.schema";
 import * as sqliteAuth from "./auth.schema";
 import * as sqliteTracking from "./tracking.schema";
 import * as pgCrm from "./pg/crm.schema";
 import * as pgAgent from "./pg/agent.schema";
+import * as pgTeamAgent from "./pg/team-agent.schema";
+import * as pgSlack from "./pg/slack.schema";
 import * as pgAuth from "./pg/auth.schema";
 import * as pgTracking from "./pg/tracking.schema";
 
@@ -134,8 +138,20 @@ function checkNames(table: Table, dialect: Dialect): string[] {
   );
 }
 
-const sqliteAppTables = tablesFrom(sqliteCrm, sqliteAgent, sqliteTracking);
-const pgAppTables = tablesFrom(pgCrm, pgAgent, pgTracking);
+const sqliteAppTables = tablesFrom(
+  sqliteCrm,
+  sqliteAgent,
+  sqliteTracking,
+  sqliteTeamAgent,
+  sqliteSlack,
+);
+const pgAppTables = tablesFrom(
+  pgCrm,
+  pgAgent,
+  pgTracking,
+  pgTeamAgent,
+  pgSlack,
+);
 const sqliteAuthTables = tablesFrom(sqliteAuth);
 const pgAuthTables = tablesFrom(pgAuth);
 

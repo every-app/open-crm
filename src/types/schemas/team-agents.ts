@@ -1,0 +1,87 @@
+import { z } from "zod";
+import { FEEDBACK_RATINGS } from "@/shared/team-agents";
+
+const id = z.string().trim().min(1).max(128);
+const requestId = z.uuid();
+
+export const agentIdSchema = z.object({ agentId: id });
+
+export const agentVersionSchema = z.object({ agentId: id, versionId: id });
+
+export const agentHistorySchema = z.object({
+  agentId: id,
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+export const deployAgentSchema = z.object({
+  agentId: id,
+  versionId: id,
+  clientRequestId: requestId,
+});
+
+export const agentTransitionSchema = z.object({
+  agentId: id,
+  action: z.enum(["pause", "resume", "archive", "restore"]),
+});
+
+export const runAgentSchema = z.object({
+  agentId: id,
+  clientRequestId: requestId,
+});
+
+export const retryRunSchema = z.object({
+  agentId: id,
+  runId: id,
+  clientRequestId: requestId,
+});
+
+export const cancelRunSchema = z.object({ agentId: id, runId: id });
+
+export const reviseAgentSchema = z.object({
+  agentId: id,
+  clientRequestId: requestId,
+  actions: z.array(z.string().min(1).max(120)).max(10).optional(),
+  channel: z
+    .object({ id: id, name: z.string().trim().min(1).max(120) })
+    .optional(),
+  resources: z
+    .array(
+      z.object({
+        kind: z.enum(["company", "contact", "deal"]),
+        id,
+        label: z.string().trim().min(1).max(160),
+      }),
+    )
+    .max(30)
+    .optional(),
+});
+
+export const saveInstructionsSchema = z.object({
+  agentId: id,
+  clientRequestId: requestId,
+  content: z.string().trim().min(40).max(20_000),
+});
+
+export const builderChatIdSchema = z.object({ conversationId: id });
+
+export const builderResourcesSchema = z.object({
+  q: z.string().max(120).default(""),
+});
+
+export const rateBuilderReplySchema = z.object({
+  conversationId: id,
+  messageId: z.string().trim().min(1).max(200),
+  rating: z.enum(FEEDBACK_RATINGS).nullable(),
+});
+
+/** One attachment per call, at most 2 MB of bytes (base64 grows it by ⅓). */
+export const uploadAttachmentSchema = z.object({
+  conversationId: id,
+  name: z.string().trim().min(1).max(180),
+  mediaType: z.string().trim().min(1).max(120),
+  contentBase64: z
+    .string()
+    .min(1)
+    .max(2_800_000)
+    .regex(/^[A-Za-z\d+/]*={0,2}$/, "Attachment content must be base64."),
+});

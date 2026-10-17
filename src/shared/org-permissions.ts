@@ -11,6 +11,11 @@ const statement = {
   field: ["manage"],
   // Permanently delete archived records.
   record: ["purge"],
+  // Change, pause, archive or delete any team agent (its creator always may),
+  // and stop anyone's run.
+  agent: ["manage"],
+  // Connect or disconnect the workspace's Slack.
+  connection: ["manage"],
 } as const;
 
 type Statement = typeof statement;
@@ -23,6 +28,8 @@ const FULL: OrgPermissionRequest = {
   workspace: ["manage"],
   field: ["manage"],
   record: ["purge"],
+  agent: ["manage"],
+  connection: ["manage"],
 };
 
 const ROLE_PERMISSIONS: Record<string, OrgPermissionRequest> = {
@@ -45,7 +52,9 @@ function grants(
   return (
     covers(granted.workspace, permissions.workspace) &&
     covers(granted.field, permissions.field) &&
-    covers(granted.record, permissions.record)
+    covers(granted.record, permissions.record) &&
+    covers(granted.agent, permissions.agent) &&
+    covers(granted.connection, permissions.connection)
   );
 }
 

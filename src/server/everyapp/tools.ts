@@ -8,6 +8,7 @@ import { dealTools } from "@/server/everyapp/tools/deals";
 import { fieldTools } from "@/server/everyapp/tools/fields";
 import { savedViewTools } from "@/server/everyapp/tools/savedViews";
 import { searchTools } from "@/server/everyapp/tools/search";
+import { teamAgentTools } from "@/server/everyapp/tools/teamAgents";
 import { workspaceTools } from "@/server/everyapp/tools/workspace";
 
 // The CRM's tools, served by the Every App gateway: its one MCP connector
@@ -32,6 +33,7 @@ const tools = {
   ...dashboardTools,
   ...bulkTools,
   ...savedViewTools,
+  ...teamAgentTools,
 };
 
 /**

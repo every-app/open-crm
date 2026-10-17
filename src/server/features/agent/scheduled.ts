@@ -8,6 +8,7 @@ import { sweepAllBlankFacts } from "./lib/blankFacts";
 import type { CrmAgent } from "./CrmAgent";
 import type { LeasedTask } from "./repositories/AgentQueueRepository";
 import { sessionName } from "./sessionName";
+import { runTeamAgentLane } from "@/server/features/team-agents/runtime/dispatch";
 
 /**
  * The minute cron: the agent's dispatcher. It closes stale tasks, then drains
@@ -32,6 +33,9 @@ export async function runScheduledWork(
   const askedForOnly = !scheduledResearchEnabled(env);
   const lanes = await Promise.allSettled([
     runVisibleLane({ signal, defer }),
+    // Team agents' runs: their schedules are unattended spending, held with
+    // the scheduled research.
+    runTeamAgentLane(env, { signal, defer, holdUnattended: askedForOnly }),
     runResearchLane({
       signal,
       defer,
@@ -41,11 +45,16 @@ export async function runScheduledWork(
       start: (task) => startResearchSession(env, task),
     }),
   ]);
-  const [visible, research] = lanes;
-  if (visible.status === "fulfilled" && research.status === "fulfilled") {
-    if (visible.value + research.value > 0) {
+  const [visible, runs, research] = lanes;
+  if (
+    visible.status === "fulfilled" &&
+    runs.status === "fulfilled" &&
+    research.status === "fulfilled"
+  ) {
+    if (visible.value + runs.value + research.value > 0) {
       console.log("[agent] dispatched", {
         visible: visible.value,
+        runs: runs.value,
         research: research.value,
         askedForOnly,
       });

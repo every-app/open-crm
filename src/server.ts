@@ -11,7 +11,13 @@ import {
   isTrackingPath,
   serveTracking,
 } from "@/server/features/tracking/trackingRoutes";
+import { handleSlackCallback } from "@/server/features/slack/routes/callback";
+import {
+  ATTACHMENT_ROUTE_PREFIX,
+  serveAttachment,
+} from "@/server/features/team-agents/routes/attachments";
 import { serveImage, IMAGE_ROUTE_PREFIX } from "@/server/lib/images";
+import { SLACK_REDIRECT_PATH } from "@/shared/slack";
 import { serveEveryAppRequest } from "@/server/lib/gateway-attribution";
 
 const startHandler = createStartHandler(defaultStreamHandler);
@@ -54,13 +60,22 @@ function routeAppRequest(
       handleApiRequest(request, user),
     );
   }
-  // The agent's chats (WebSocket and history) and its Durable Objects.
-  if (pathname.startsWith("/agents/")) {
+  // The agent's chats (WebSocket and history) and its Durable Objects. Only
+  // the CrmAgent's own prefix: the rest of /agents/* is the team agents' pages.
+  if (pathname.startsWith("/agents/crm-agent/")) {
     return routeAgentRequests(request, env);
   }
   // Logos and photographs the agent copied into R2.
   if (pathname.startsWith(IMAGE_ROUTE_PREFIX)) {
     return serveImage(request, env);
+  }
+  // Files attached in a builder chat, for the chat's owner.
+  if (pathname.startsWith(ATTACHMENT_ROUTE_PREFIX)) {
+    return serveAttachment(request);
+  }
+  // Slack's redirect back after an owner or admin connected it.
+  if (pathname === SLACK_REDIRECT_PATH) {
+    return handleSlackCallback(request);
   }
   return appFetch(request);
 }

@@ -60,3 +60,11 @@ export function scheduledResearchEnabled(env: object): boolean {
   if (deploymentTierFor(env) !== "first_party") return true;
   return read(env, "FIRST_PARTY_SCHEDULED_RESEARCH") !== "off";
 }
+
+/**
+ * Whether this deployment is an organization's own copy, whose owners and
+ * admins operate its gateway too (and so can set a gateway secret).
+ */
+export function isForkDeployment(env: object): boolean {
+  return deploymentTierFor(env) === "fork";
+}

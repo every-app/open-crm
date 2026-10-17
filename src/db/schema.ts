@@ -3,10 +3,14 @@ import * as sqliteAuth from "./auth.schema";
 import * as sqliteCrm from "./crm.schema";
 import * as sqliteAgent from "./agent.schema";
 import * as sqliteTracking from "./tracking.schema";
+import * as sqliteTeamAgent from "./team-agent.schema";
+import * as sqliteSlack from "./slack.schema";
 import * as pgAuth from "./pg/auth.schema";
 import * as pgCrm from "./pg/crm.schema";
 import * as pgAgent from "./pg/agent.schema";
 import * as pgTracking from "./pg/tracking.schema";
+import * as pgTeamAgent from "./pg/team-agent.schema";
+import * as pgSlack from "./pg/slack.schema";
 
 // Canonical schema barrel. Repositories import their tables from here and the
 // provider-aware `db` from "@/db", so each repository is written ONCE for both
@@ -21,12 +25,28 @@ import * as pgTracking from "./pg/tracking.schema";
 type AppSchema = typeof sqliteAuth &
   typeof sqliteCrm &
   typeof sqliteAgent &
-  typeof sqliteTracking;
+  typeof sqliteTracking &
+  typeof sqliteTeamAgent &
+  typeof sqliteSlack;
 
 const runtimeSchema =
   getDatabaseProvider() === "postgres"
-    ? { ...pgAuth, ...pgCrm, ...pgAgent, ...pgTracking }
-    : { ...sqliteAuth, ...sqliteCrm, ...sqliteAgent, ...sqliteTracking };
+    ? {
+        ...pgAuth,
+        ...pgCrm,
+        ...pgAgent,
+        ...pgTracking,
+        ...pgTeamAgent,
+        ...pgSlack,
+      }
+    : {
+        ...sqliteAuth,
+        ...sqliteCrm,
+        ...sqliteAgent,
+        ...sqliteTracking,
+        ...sqliteTeamAgent,
+        ...sqliteSlack,
+      };
 
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- guarded by schema-parity.test.ts
 const schema = runtimeSchema as unknown as AppSchema;
@@ -70,4 +90,17 @@ export const {
   trackedPageDaily,
   trackingCounter,
   formSubmission,
+  agentDefinition,
+  agentVersion,
+  agentBuilderArtifact,
+  agentTrigger,
+  agentRun,
+  agentAction,
+  agentAuditEvent,
+  agentConversationFeedback,
+  agentConversationAttachment,
+  slackConnection,
+  slackChannel,
+  slackMemberMatch,
+  slackOauthState,
 } = schema;

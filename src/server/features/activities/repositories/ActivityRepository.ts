@@ -196,6 +196,11 @@ type NewActivity = {
   /** Null when the research agent writes it. */
   createdById: string | null;
   meta?: Record<string, unknown> | null;
+  /**
+   * A caller-chosen id, for writes that must happen once (a team agent's
+   * ledgered action); a second insert with it changes nothing.
+   */
+  id?: string;
 };
 
 type StampedTable = typeof company | typeof contact | typeof deal;
@@ -227,7 +232,7 @@ function touch(
  * included), so lists sorted by last activity stay true. The new id.
  */
 async function insert(values: NewActivity): Promise<string> {
-  const id = crypto.randomUUID();
+  const id = values.id ?? crypto.randomUUID();
   const now = new Date().toISOString();
   const targets: [StampedTable, string | null][] = [
     [company, values.companyId],
@@ -235,13 +240,16 @@ async function insert(values: NewActivity): Promise<string> {
     [deal, values.dealId],
   ];
   await runBatch((tx) => [
-    tx.insert(activity).values({
-      ...values,
-      meta: values.meta ?? null,
-      id,
-      createdAt: now,
-      updatedAt: now,
-    }),
+    tx
+      .insert(activity)
+      .values({
+        ...values,
+        meta: values.meta ?? null,
+        id,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: activity.id }),
     ...targets.flatMap(([table, recordId]) =>
       recordId ? [touch(tx, table, values.organizationId, recordId, now)] : [],
     ),
