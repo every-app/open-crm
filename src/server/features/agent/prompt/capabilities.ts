@@ -60,7 +60,7 @@ export function capabilityList(install: InstallCapabilities): Capability[] {
     {
       label: "LinkedIn",
       gives:
-        "a person read back from a LinkedIn URL you already hold — their real name, bio, current title and employer, every earlier role with its dates, and their other public profiles, all self-reported and so authoritative on identity",
+        "a person read back from a LinkedIn URL you already hold — their real name, bio, current title and employer, every earlier role with its dates, their education and their other public profiles, all self-reported and so authoritative on identity",
       enabled: install.context,
     },
     {
@@ -78,6 +78,18 @@ export function capabilityList(install: InstallCapabilities): Capability[] {
       enabled: true,
     },
   ];
+}
+
+/**
+ * A tool's answer when the install lacks the source it needs, checked before
+ * any budget is spent: a missing key removes a place to look, and is never
+ * an error.
+ */
+export function unavailable(source: string) {
+  return {
+    configured: false as const,
+    reason: `This install has no ${source}, so that source is unavailable. This is not a failure and retrying will not help — use what the CRM already knows, and say in your write-up what you could not check.`,
+  };
 }
 
 export function capabilitiesMarkdown(all: readonly Capability[]): string {

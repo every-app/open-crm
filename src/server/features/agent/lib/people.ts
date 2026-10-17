@@ -22,6 +22,14 @@ type Role = {
   isCurrent: boolean;
 };
 
+type Study = {
+  institution: Organisation;
+  degree: string | null;
+  fieldOfStudy: string | null;
+  startDate: string | null;
+  endDate: string | null;
+};
+
 export type Person = {
   firstName: string | null;
   lastName: string | null;
@@ -32,8 +40,11 @@ export type Person = {
   photoUrl: string | null;
   profileUrl: string | null;
   socialUrls: string[];
+  websiteUrls: string[];
+  skills: string[];
   currentRoles: Role[];
   experience: Role[];
+  education: Study[];
 };
 
 export type PersonMatch =
@@ -42,6 +53,7 @@ export type PersonMatch =
   | { outcome: "failed"; reason: string; retryable: boolean };
 
 const text = z.string().trim().min(1).nullable().catch(null);
+const list = z.array(text).catch([]);
 const organisation = z
   .object({ name: text, domain: text })
   .catch({ name: null, domain: null });
@@ -71,6 +83,20 @@ const EMPTY_ROLE: z.infer<typeof roleShape> = {
   description: null,
   is_current: null,
 };
+const educationShape = z.object({
+  institution: organisation,
+  degree: text,
+  field_of_study: text,
+  start_date: partialDate,
+  end_date: partialDate,
+});
+const EMPTY_EDUCATION: z.infer<typeof educationShape> = {
+  institution: { name: null, domain: null },
+  degree: null,
+  field_of_study: null,
+  start_date: null,
+  end_date: null,
+};
 const personShape = z.object({
   name: z
     .object({ first: text, last: text, full: text })
@@ -81,9 +107,12 @@ const personShape = z.object({
   location: z
     .object({ display: text, city: text, region: text, country: text })
     .catch({ display: null, city: null, region: null, country: null }),
-  social_urls: z.array(text).catch([]),
+  social_urls: list,
+  website_urls: list,
+  skills: list,
   current_role: roleShape.nullable().catch(null),
   experience: z.array(roleShape.catch(EMPTY_ROLE)).catch([]),
+  education: z.array(educationShape.catch(EMPTY_EDUCATION)).catch([]),
 });
 const candidateShape = z.object({
   status: z.literal("candidate"),
@@ -107,8 +136,11 @@ export function personFromMatch(match: unknown): PersonMatch {
   return { outcome: "found", person: toPerson(candidate.data.person) };
 }
 
+const present = (items: (string | null)[]): string[] =>
+  items.flatMap((item) => (item ? [item] : []));
+
 function toPerson(raw: z.infer<typeof personShape>): Person {
-  const socialUrls = raw.social_urls.flatMap((url) => (url ? [url] : []));
+  const socialUrls = present(raw.social_urls);
   const current = raw.current_role ? [toRole(raw.current_role)] : [];
   const experience = raw.experience.map(toRole);
   const place = [raw.location.city, raw.location.region, raw.location.country]
@@ -125,6 +157,8 @@ function toPerson(raw: z.infer<typeof personShape>): Person {
     profileUrl:
       socialUrls.find((url) => slugFromProfileUrl(url) !== null) ?? null,
     socialUrls,
+    websiteUrls: present(raw.website_urls),
+    skills: present(raw.skills),
     currentRoles: current.concat(
       experience.filter(
         (role) =>
@@ -132,6 +166,13 @@ function toPerson(raw: z.infer<typeof personShape>): Person {
       ),
     ),
     experience,
+    education: raw.education.map((study) => ({
+      institution: study.institution,
+      degree: study.degree,
+      fieldOfStudy: study.field_of_study,
+      startDate: dateOf(study.start_date),
+      endDate: dateOf(study.end_date),
+    })),
   };
 }
 
@@ -194,4 +235,9 @@ export function slugFromProfileUrl(raw: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+/** The profile URL for a LinkedIn handle, as Context.dev is asked for it. */
+export function profileUrlFor(slug: string): string {
+  return `https://www.linkedin.com/in/${encodeURIComponent(slug.trim())}`;
 }

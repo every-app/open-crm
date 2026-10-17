@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { storeImage } from "@/server/lib/images";
+import { imageStorageReady, storeImage } from "@/server/lib/images";
 import {
   extractFromPage,
   personByProfileUrl,
@@ -7,7 +7,7 @@ import {
   type JsonSchema,
 } from "../lib/contextDev";
 import { namesMatch } from "../lib/names";
-import { slugFromProfileUrl } from "../lib/people";
+import { profileUrlFor, slugFromProfileUrl } from "../lib/people";
 import { AgentEnrichmentRepository } from "../repositories/AgentEnrichmentRepository";
 import { BILLABLE_CALL_UNITS, type Spend } from "../runtime/budget";
 import { contextAccess } from "./brand";
@@ -36,6 +36,9 @@ type Subject = {
 };
 
 type Candidate = { source: PortraitSource; url: string };
+
+export const NO_PICTURE_STORAGE =
+  "This install has no picture storage, so there is nowhere to keep a copy, and the source URLs expire. Retrying will not help.";
 
 export async function runPortrait(input: {
   organizationId: string;
@@ -81,32 +84,93 @@ export async function runPortrait(input: {
           : "Nothing on this contact points at a picture: no LinkedIn or GitHub profile, and no company website."),
     };
   }
-  const stored = await storeImage(
+  const result = await copyPortrait({
     organizationId,
-    `contacts/${contactId}/photo`,
-    found.candidate.url,
+    contactId,
+    current: contact.imageUrl,
+    sourceUrl: found.candidate.url,
+    force: Boolean(input.force),
+  });
+  return result.stored ? { ...result, source: found.candidate.source } : result;
+}
+
+/**
+ * Stores the photograph of a profile already established to be this
+ * contact's (get_linkedin_profile, once its verdict says so): into an empty
+ * slot only, never over a photo they have.
+ */
+export async function storePortrait(input: {
+  organizationId: string;
+  contactId: string;
+  sourceUrl: string | null;
+}): Promise<PortraitResult> {
+  if (!input.sourceUrl) {
+    return {
+      stored: false,
+      imageUrl: null,
+      reason: "No photo on the profile.",
+    };
+  }
+  if (!imageStorageReady()) {
+    return { stored: false, imageUrl: null, reason: NO_PICTURE_STORAGE };
+  }
+  const contact = await AgentEnrichmentRepository.contactForPortrait(
+    input.organizationId,
+    input.contactId,
+  );
+  if (!contact) {
+    return { stored: false, imageUrl: null, reason: "No such contact." };
+  }
+  if (contact.imageUrl) {
+    return {
+      stored: false,
+      imageUrl: contact.imageUrl,
+      reason: "They already have a photo.",
+    };
+  }
+  return copyPortrait({
+    organizationId: input.organizationId,
+    contactId: input.contactId,
+    current: null,
+    sourceUrl: input.sourceUrl,
+    force: false,
+  });
+}
+
+/** Copies the photograph into R2 and puts our copy on the contact. */
+async function copyPortrait(input: {
+  organizationId: string;
+  contactId: string;
+  current: string | null;
+  sourceUrl: string;
+  force: boolean;
+}): Promise<PortraitResult> {
+  const stored = await storeImage(
+    input.organizationId,
+    `contacts/${input.contactId}/photo`,
+    input.sourceUrl,
   );
   if (!stored) {
     return {
       stored: false,
-      imageUrl: contact.imageUrl,
+      imageUrl: input.current,
       reason: "The photo could not be fetched. The record is unchanged.",
     };
   }
-  if (stored === contact.imageUrl) {
+  if (stored === input.current) {
     return { stored: false, imageUrl: stored, reason: "Unchanged." };
   }
   const written = await AgentEnrichmentRepository.setContactImage(
-    organizationId,
-    contactId,
+    input.organizationId,
+    input.contactId,
     stored,
-    Boolean(input.force),
+    input.force,
   );
   return written
-    ? { stored: true, imageUrl: stored, source: found.candidate.source }
+    ? { stored: true, imageUrl: stored }
     : {
         stored: false,
-        imageUrl: contact.imageUrl,
+        imageUrl: input.current,
         reason: "Someone gave them a photo meanwhile.",
       };
 }
@@ -127,10 +191,7 @@ async function findPortrait(
   if (slug && contextFetch) {
     const charge = spend(BILLABLE_CALL_UNITS);
     if (!charge.ok) return { found: false, tried, reason: charge.reason };
-    const result = await personByProfileUrl(
-      contextFetch,
-      `https://www.linkedin.com/in/${slug}`,
-    );
+    const result = await personByProfileUrl(contextFetch, profileUrlFor(slug));
     if (result.outcome === "found" && result.person.photoUrl) {
       return {
         found: true,

@@ -7,8 +7,10 @@ import { conversationTools } from "./conversation";
 import { factTools } from "./facts";
 import { historyTools } from "./history";
 import { lookupTools } from "./lookup";
+import { peopleTools } from "./people";
 import { recordTools } from "./records";
 import { researchTools } from "./research";
+import { socialTools } from "./socials";
 import { webTools } from "./web";
 
 // The agent's tools, built per session turn from what the session is
@@ -19,6 +21,8 @@ const TOOL_GROUPS: readonly ToolGroup[] = [
   recordTools,
   factTools,
   researchTools,
+  peopleTools,
+  socialTools,
   webTools,
   conversationTools,
 ];
