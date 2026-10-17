@@ -73,9 +73,19 @@ async function dealHistory(
         eq(dealContact.dealId, dealId),
       ),
     );
-  const contactIds = people.map((person) => person.id);
+  // The deal's people as a subquery, not a bound list: a large buying
+  // committee would pass D1's 100 bound parameters per statement.
+  const contactIds = db
+    .select({ id: dealContact.contactId })
+    .from(dealContact)
+    .where(
+      and(
+        eq(dealContact.organizationId, organizationId),
+        eq(dealContact.dealId, dealId),
+      ),
+    );
   const related =
-    contactIds.length > 0
+    people.length > 0
       ? or(
           inArray(emailThread.contactId, contactIds),
           eq(emailThread.companyId, row.companyId),
@@ -97,7 +107,7 @@ async function dealHistory(
     History.threadsWhere(organizationId, related, options.threads, 4),
     History.meetingsWhere(
       organizationId,
-      contactIds.length > 0
+      people.length > 0
         ? or(
             History.meetingWith(organizationId, contactIds),
             eq(calendarEvent.companyId, row.companyId),
@@ -154,7 +164,7 @@ async function dealHistory(
         : null,
     },
     note:
-      contactIds.length > 0
+      people.length > 0
         ? "Connected account history is filed against people and companies, never against a deal. The history here belongs to the people on this deal and the rest of the account — read the details before treating any of it as being about this deal."
         : "Nobody is attached to this deal, so the correspondence here is the whole account's. Attaching the people on it would make this answer sharper.",
   };
