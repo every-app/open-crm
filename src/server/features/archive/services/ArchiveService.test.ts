@@ -79,8 +79,12 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('t_deal', 'org_a', NULL, 'd_old', NULL, 'recheck', 'r', '${daysAgo(50)}'),
           ('t_contact', 'org_a', NULL, NULL, 'p_old', 'identify', 'r', '${daysAgo(50)}'),
           ('t_live', 'org_a', 'c_live', NULL, NULL, 'brand', 'r', '${daysAgo(50)}');
-        INSERT INTO agent_event (id, organization_id, session_id, contact_id, type, data, emitted_at) VALUES
-          ('e_old', 'org_a', 's', 'p_old', 'note', '{}', '${daysAgo(50)}');
+        INSERT INTO agent_event (id, organization_id, session_id, company_id, deal_id, contact_id, type, data, emitted_at) VALUES
+          ('e_company', 'org_a', 's', 'c_old', NULL, NULL, 'note', '{}', '${daysAgo(50)}'),
+          ('e_its_deal', 'org_a', 's', NULL, 'd_of_old', NULL, 'note', '{}', '${daysAgo(50)}'),
+          ('e_deal', 'org_a', 's', NULL, 'd_old', NULL, 'note', '{}', '${daysAgo(50)}'),
+          ('e_contact', 'org_a', 's', NULL, NULL, 'p_old', 'note', '{}', '${daysAgo(50)}'),
+          ('e_live', 'org_a', 's', 'c_live', NULL, NULL, 'note', '{}', '${daysAgo(50)}');
       `);
 
       expect(await ArchiveService.purgeExpiredArchives("org_a")).toEqual({
@@ -95,7 +99,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await ids("deal")).toEqual([]);
       expect(await ids("contact")).toEqual(["p_live"]);
       expect(await ids("agent_task")).toEqual(["t_live"]);
-      expect(await ids("agent_event")).toEqual([]);
+      expect(await ids("agent_event")).toEqual(["e_live"]);
       expect(
         await database.rows(
           "SELECT organization_id, email, reason FROM suppressed_contact",

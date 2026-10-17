@@ -3,19 +3,15 @@ import {
   asc,
   count,
   eq,
-  exists,
   inArray,
   isNotNull,
   isNull,
   ne,
-  or,
   sql,
-  type AnyColumn,
-  type SQL,
 } from "drizzle-orm";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
-import { activity, company, contact, deal, user } from "@/db/schema";
+import { company, contact, deal, user } from "@/db/schema";
 import type { RecordSource } from "@/shared/crm-enums";
 import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 import {
@@ -26,12 +22,7 @@ import {
   sortOrder,
   type SortSpec,
 } from "@/server/features/records/listQuery";
-import {
-  activityTargets,
-  clearAgentRows,
-  idChunks,
-  recomputeLastActivity,
-} from "@/server/features/records/recordRules";
+import { idChunks } from "@/server/features/records/recordRules";
 import type { CompanyListInput, CompanySort } from "@/types/schemas/companies";
 
 const SORTS = {
@@ -267,70 +258,6 @@ async function restore(organizationId: string, id: string) {
   return row ?? null;
 }
 
-function dealsOf(organizationId: string, companyId: string) {
-  return db
-    .select({ id: deal.id })
-    .from(deal)
-    .where(
-      and(
-        eq(deal.organizationId, organizationId),
-        eq(deal.companyId, companyId),
-      ),
-    );
-}
-
-/** Rows about the company or one of its deals (`or` of two is never empty). */
-function aboutCompany(
-  row: { companyId: AnyColumn; dealId: AnyColumn },
-  organizationId: string,
-  companyId: string,
-): SQL {
-  return (
-    or(
-      eq(row.companyId, companyId),
-      inArray(row.dealId, dealsOf(organizationId, companyId)),
-    ) ?? sql`false`
-  );
-}
-
-/**
- * Permanently deletes an archived company. Its deals, activities, custom
- * field values and conversations go with it (foreign keys); its contacts stay,
- * without a company. The agent's rows about it and its deals are cleared in
- * the same batch, and the contacts its activities were also filed on get
- * their last activity restamped. False when nothing was deleted: the company
- * isn't the organization's, or isn't archived.
- */
-async function purge(organizationId: string, id: string): Promise<boolean> {
-  const isArchived = and(
-    inOrganization(organizationId, id),
-    isNotNull(company.archivedAt),
-  );
-  const guard = exists(
-    db.select({ id: company.id }).from(company).where(isArchived),
-  );
-  const targets = await activityTargets(
-    organizationId,
-    aboutCompany(activity, organizationId, id),
-  );
-  await runBatch((tx) => [
-    ...clearAgentRows(
-      tx,
-      organizationId,
-      (row) => aboutCompany(row, organizationId, id),
-      guard,
-    ),
-    tx.delete(company).where(isArchived),
-  ]);
-  const [left] = await db
-    .select({ id: company.id })
-    .from(company)
-    .where(inOrganization(organizationId, id));
-  if (left) return false;
-  await recomputeLastActivity(organizationId, targets);
-  return true;
-}
-
 /** Gives `ids` to `ownerId` (or nobody); how many it changed. */
 async function setOwner(
   organizationId: string,
@@ -416,7 +343,6 @@ export const CompanyRepository = {
   update,
   archive,
   restore,
-  purge,
   setOwner,
   setPrimaryContact,
   markEnrichmentRequested,

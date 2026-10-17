@@ -12,12 +12,7 @@ import {
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
 import { activity, company, deal, user } from "@/db/schema";
-import {
-  activityTargets,
-  clearAgentRows,
-  idChunks,
-  recomputeLastActivity,
-} from "@/server/features/records/recordRules";
+import { idChunks } from "@/server/features/records/recordRules";
 import type { DealStage } from "@/shared/crm-enums";
 import { isClosedStage } from "@/shared/deal-stages";
 
@@ -227,37 +222,6 @@ async function restore(organizationId: string, id: string) {
   return row ?? null;
 }
 
-/**
- * Permanently deletes an archived deal. Its activities, contacts' links,
- * custom field values and conversations go with it (foreign keys); its
- * company and contacts stay. The agent's rows about it are cleared in the
- * same batch, and the records its activities were also filed on get their
- * last activity restamped. False when nothing was deleted: the deal isn't
- * the organization's, or isn't archived.
- */
-async function purge(organizationId: string, id: string): Promise<boolean> {
-  const isArchived = and(
-    inOrganization(organizationId, id),
-    isNotNull(deal.archivedAt),
-  );
-  const guard = exists(db.select({ id: deal.id }).from(deal).where(isArchived));
-  const targets = await activityTargets(
-    organizationId,
-    eq(activity.dealId, id),
-  );
-  await runBatch((tx) => [
-    ...clearAgentRows(tx, organizationId, (row) => eq(row.dealId, id), guard),
-    tx.delete(deal).where(isArchived),
-  ]);
-  const [left] = await db
-    .select({ id: deal.id })
-    .from(deal)
-    .where(inOrganization(organizationId, id));
-  if (left) return false;
-  await recomputeLastActivity(organizationId, targets);
-  return true;
-}
-
 /** Gives `ids` to `ownerId`; how many it changed. */
 async function setOwner(
   organizationId: string,
@@ -285,6 +249,5 @@ export const DealRepository = {
   moveStage,
   archive,
   restore,
-  purge,
   setOwner,
 };
