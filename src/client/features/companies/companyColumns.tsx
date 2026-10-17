@@ -1,5 +1,4 @@
 import type { MutableRefObject } from "react";
-import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { SortableHeader } from "@/client/components/table/SortableHeader";
 import { makeSelectionColumn } from "@/client/components/table/DataTable";
@@ -12,19 +11,24 @@ import {
   EnrichmentIndicator,
   hasAgentNote,
 } from "@/client/features/records/EnrichmentStatus";
+import { RecordLink } from "@/client/features/records/RecordLink";
 import {
   EntityLogo,
   NameCell,
   countColumn,
   dateColumn,
   ownerColumn,
+  recordDateColumns,
   textColumn,
 } from "@/client/features/records/cells";
 
+/** The columns the companies list hides until the Columns menu shows them. */
+export const COMPANY_HIDDEN_COLUMNS = ["location", "createdAt", "enrichment"];
+
 /**
- * The companies table. Name, last activity and created date sort on the
- * server; the page adds the custom field columns (useFieldColumns) after
- * these.
+ * The companies table. Every column but the location and the research
+ * state sorts on the server; the page adds the custom field columns
+ * (useFieldColumns) after these.
  */
 export function companyColumns({
   archived,
@@ -39,25 +43,18 @@ export function companyColumns({
       id: "name",
       accessorFn: (row) => row.name,
       enableSorting: true,
+      enableHiding: false,
       header: ({ column }) => (
         <SortableHeader column={column} label="Company" />
       ),
-      meta: { cellClassName: "max-w-72" },
+      meta: { width: "w-[24%]" },
       cell: ({ row }) => {
         const company = row.original;
         return (
           <div className="min-w-0 space-y-0.5">
-            <Link
-              from="/companies"
-              to="/companies"
-              search={(prev) => ({
-                ...prev,
-                record: company.id,
-                tab: undefined,
-              })}
-              // The row opens it too; one navigation is enough.
-              onClick={(event) => event.stopPropagation()}
-              className="block min-w-0 underline-offset-4 hover:underline"
+            <RecordLink
+              record={{ kind: "company", id: company.id }}
+              className="block"
             >
               <NameCell
                 media={
@@ -71,7 +68,7 @@ export function companyColumns({
                 }
                 name={company.name}
               />
-            </Link>
+            </RecordLink>
             {hasAgentNote(company) ? (
               <div className="pl-7.5">
                 <EnrichmentIndicator
@@ -89,46 +86,56 @@ export function companyColumns({
       id: "domain",
       header: "Domain",
       value: (row) => row.domain,
+      width: "w-[15%]",
       className: "text-muted-foreground",
+      sortable: true,
     }),
     textColumn({
       id: "industry",
       header: "Industry",
       value: (row) => row.industry,
+      width: "w-[14%]",
+      sortable: true,
     }),
     textColumn<CompanyRow>({
       id: "location",
       header: "Location",
       value: location,
+      width: "w-[14%]",
     }),
-    ownerColumn(),
+    ownerColumn("w-[15%]"),
     countColumn({
       id: "contacts",
       header: "Contacts",
       value: (row) => row.contactCount,
+      width: "w-[9%]",
     }),
     countColumn({
       id: "deals",
       header: "Open deals",
       value: (row) => row.openDealCount,
+      width: "w-[10%]",
     }),
     dateColumn({
       id: "lastActivity",
       header: "Last activity",
       value: (row) => row.lastActivityAt,
       sortable: true,
+      width: "w-[13%]",
     }),
-    archived
-      ? dateColumn({
-          id: "archivedAt",
-          header: "Archived",
-          value: (row) => row.archivedAt,
-        })
-      : dateColumn({
-          id: "createdAt",
-          header: "Created",
-          value: (row) => row.createdAt,
-          sortable: true,
-        }),
+    {
+      id: "enrichment",
+      header: "Enrichment",
+      enableSorting: false,
+      meta: { label: "Enrichment status", width: "w-[14%]" },
+      cell: ({ row }) => (
+        <EnrichmentIndicator
+          status={row.original.enrichmentStatus}
+          queued={row.original.queued}
+          waiting={row.original.waiting}
+        />
+      ),
+    },
+    ...recordDateColumns<CompanyRow>(archived),
   ];
 }

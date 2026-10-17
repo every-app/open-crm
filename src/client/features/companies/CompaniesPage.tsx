@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
-import { Plus, Upload } from "lucide-react";
+import { Building2, Plus, Upload } from "lucide-react";
+import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
+import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
 import {
   DataTable,
   useDataTable,
@@ -13,11 +15,15 @@ import {
 import { TablePagination } from "@/client/components/table/TablePagination";
 import { Button } from "@/client/components/ui/button";
 import { CompanyBulkActions } from "@/client/features/companies/CompanyBulkActions";
-import { CompanySheet } from "@/client/features/companies/CompanySheet";
+import { CompanyFilters } from "@/client/features/companies/CompanyFilters";
 import { CreateCompanyDialog } from "@/client/features/companies/CreateCompanyDialog";
-import { companyColumns } from "@/client/features/companies/companyColumns";
+import {
+  COMPANY_HIDDEN_COLUMNS,
+  companyColumns,
+} from "@/client/features/companies/companyColumns";
 import { companyListQueryOptions } from "@/client/features/companies/companyQueries";
 import {
+  COMPANY_FILTER_KEYS,
   companyListInput,
   companyListSearchSchema,
   type CompanyListSearch,
@@ -30,11 +36,14 @@ import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { COMPANY_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import {
+  clearedFilters,
+  columnVisibility,
   isListFiltered,
   savedViewOf,
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
+import { useRecordStack } from "@/client/features/records/recordStack";
 import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listCompanies } from "@/serverFunctions/companies";
@@ -47,13 +56,13 @@ const routeApi = getRouteApi("/_app/companies");
 export function CompaniesPage() {
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
-  const setSearch = (update: Partial<CompanyListSearch>, push = false) =>
+  const setSearch = (update: Partial<CompanyListSearch>) =>
     void navigate({
       search: (prev) => ({ ...prev, ...update }),
-      replace: !push,
+      replace: true,
     });
-  const openCompany = (id: string) =>
-    setSearch({ record: id, tab: undefined }, true);
+  const { stack, open } = useRecordStack();
+  const openCompany = (id: string) => open({ kind: "company", id });
 
   const input = companyListInput(search);
   const query = useQuery(companyListQueryOptions(input));
@@ -77,11 +86,21 @@ export function CompaniesPage() {
   const sorting: SortingState = [
     { id: input.sort, desc: input.dir === "desc" },
   ];
+  const visibility = columnVisibility(
+    search.hide,
+    COMPANY_HIDDEN_COLUMNS,
+    (hide) => setSearch({ hide }),
+  );
   const table = useDataTable({
     data: query.data?.rows ?? [],
     columns,
     getRowId: (row) => row.id,
-    state: { sorting, rowSelection: selection.rowSelection },
+    state: {
+      sorting,
+      rowSelection: selection.rowSelection,
+      columnVisibility: visibility.state,
+    },
+    onColumnVisibilityChange: visibility.onChange,
     manualSorting: true,
     enableSortingRemoval: false,
     onSortingChange: (updater) => {
@@ -123,15 +142,9 @@ export function CompaniesPage() {
         <DataTable
           table={table}
           isLoading={query.isPending}
-          isFiltered={isListFiltered(search)}
-          onClearFilters={() =>
-            setSearch({
-              q: undefined,
-              owner: undefined,
-              fields: undefined,
-              page: undefined,
-            })
-          }
+          isFiltered={isListFiltered(search, COMPANY_FILTER_KEYS)}
+          onClearFilters={() => setSearch(clearedFilters(COMPANY_FILTER_KEYS))}
+          filteredTitle="No companies match this view"
           error={
             query.isError ? (
               <QueryError
@@ -145,14 +158,14 @@ export function CompaniesPage() {
           empty={
             input.archived
               ? {
+                  icon: Building2,
+                  media: "rows",
                   title: "No archived companies",
-                  description:
-                    "A company you archive waits here until it's restored or deleted forever.",
                 }
               : {
+                  icon: Building2,
+                  media: "rows",
                   title: "No companies yet",
-                  description:
-                    "Add the first account you sell to, or import them from a CSV. The agent fills in the rest.",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">
                       {newCompany}
@@ -166,7 +179,10 @@ export function CompaniesPage() {
               entity="COMPANY"
               search={search}
               onSearchChange={setSearch}
-              placeholder="Search by name or domain"
+              placeholder="Search companies by name or domain…"
+              filters={
+                <CompanyFilters search={search} onSearchChange={setSearch} />
+              }
               actions={
                 <>
                   <ExportButton
@@ -190,6 +206,7 @@ export function CompaniesPage() {
                       })
                     }
                   />
+                  <ColumnsMenu table={table} />
                   <FieldsSheetButton entity="COMPANY" />
                 </>
               }
@@ -207,7 +224,7 @@ export function CompaniesPage() {
             />
           }
           onRowClick={(row) => openCompany(row.original.id)}
-          activeRowId={search.record}
+          activeRowId={findLast(stack, (ref) => ref.kind === "company")?.id}
         />
       </div>
 
@@ -216,14 +233,6 @@ export function CompaniesPage() {
         archived={input.archived}
         canPurge={canPurge}
         onDone={selection.clear}
-      />
-      <CompanySheet
-        companyId={search.record}
-        tab={search.tab ?? "overview"}
-        onTabChange={(tab) =>
-          setSearch({ tab: tab === "overview" ? undefined : tab })
-        }
-        onClose={() => setSearch({ record: undefined, tab: undefined })}
       />
       {importing ? (
         <ImportDialog entity="COMPANY" onClose={() => setImporting(false)} />

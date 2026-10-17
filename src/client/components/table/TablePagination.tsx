@@ -38,6 +38,8 @@ type Props<TSize extends number> = {
   onPageSizeChange?: (nextPageSize: TSize) => void;
   /** Render prev/next as links, for pages whose number lives in the URL. */
   renderPageButton?: (props: PageButtonProps) => ReactNode;
+  /** Beside the row count: a figure about the rows, such as their total. */
+  meta?: ReactNode;
 };
 
 export function TablePagination<TSize extends number>({
@@ -52,6 +54,7 @@ export function TablePagination<TSize extends number>({
   onPageChange,
   onPageSizeChange,
   renderPageButton = PageButton,
+  meta,
 }: Props<TSize>) {
   const totalPages =
     pageRange?.pageCount ??
@@ -68,12 +71,21 @@ export function TablePagination<TSize extends number>({
     if (isOutOfRange && !isLoading) onPageChange(currentPage);
   }, [currentPage, isLoading, isOutOfRange, onPageChange]);
 
+  // An empty table has no pages to show.
+  if (totalCount === 0) return null;
+
   return (
     <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2 text-sm text-muted-foreground tabular-nums">
         <span className="whitespace-nowrap">
           {formatRange(currentPage, pageSize, totalCount, pageRange)}
         </span>
+        {meta ? (
+          <>
+            <span aria-hidden>·</span>
+            {meta}
+          </>
+        ) : null}
         {isLoading ? <Spinner className="size-3.5" /> : null}
       </div>
 

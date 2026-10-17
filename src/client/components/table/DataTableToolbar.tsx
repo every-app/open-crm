@@ -1,11 +1,8 @@
-import { RotateCcw, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
-import { Badge } from "@/client/components/ui/badge";
-import { Button } from "@/client/components/ui/button";
 import { Tabs, TabsList } from "@/client/components/ui/tabs";
 
-// The parts above a `DataTable`: a tab row, a toolbar row and a collapsible
-// filter panel. The page owns the filter values and the open state.
+// The parts above a `DataTable`: a tab row and a toolbar row. The page owns
+// the filter values.
 
 /**
  * Tabs that switch what the table shows, as the first row of its card. Pass
@@ -45,7 +42,10 @@ export function DataTableTabs({
   );
 }
 
-/** Filter controls on the left, actions such as `ExportMenu` on the right. */
+/**
+ * Filter controls on the left, wrapping as they need; actions such as an
+ * export on the right of the first line.
+ */
 export function DataTableToolbar({
   children,
   actions,
@@ -54,89 +54,15 @@ export function DataTableToolbar({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5">
-      <div className="flex flex-wrap items-center gap-2">{children}</div>
+    <div className="flex flex-col gap-2 border-b border-border px-4 py-2.5 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {children}
+      </div>
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
-      ) : null}
-    </div>
-  );
-}
-
-export function DataTableFilterToggle({
-  open,
-  activeCount,
-  onToggle,
-}: {
-  open: boolean;
-  activeCount: number;
-  onToggle: () => void;
-}) {
-  return (
-    <Button variant="outline" size="sm" aria-expanded={open} onClick={onToggle}>
-      <SlidersHorizontal data-icon="inline-start" />
-      Filters
-      {activeCount > 0 ? (
-        <Badge size="sm" aria-label={`${activeCount} active`}>
-          {activeCount}
-        </Badge>
-      ) : null}
-    </Button>
-  );
-}
-
-export function DataTableFilterPanel({
-  activeCount,
-  onReset,
-  children,
-}: {
-  activeCount: number;
-  onReset: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-3 border-b border-border bg-foreground/[0.02] px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold">Refine results</p>
-          {activeCount > 0 ? (
-            <Badge size="sm">{activeCount} active</Badge>
-          ) : null}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {actions}
         </div>
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={onReset}
-          disabled={activeCount === 0}
-        >
-          <RotateCcw data-icon="inline-start" />
-          Clear all
-        </Button>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/** A labelled box for one filter, for example a Min/Max range. */
-export function DataTableFilterGroup({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-2 rounded-lg border border-border bg-card p-2.5">
-      <div className="flex items-center gap-2">
-        {icon}
-        <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          {label}
-        </p>
-      </div>
-      {children}
+      ) : null}
     </div>
   );
 }

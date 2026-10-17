@@ -1,6 +1,7 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { enrichmentRefetchInterval } from "@/client/features/records/EnrichmentStatus";
 import {
+  companyFilterOptions,
   companyOptions,
   getCompany,
   listCompanies,
@@ -14,6 +15,8 @@ export const companyKeys = {
   list: (input: CompanyListInput) => ["companies", "list", input] as const,
   detail: (id: string) => ["companies", "detail", id] as const,
   options: (q: string) => ["companies", "options", q] as const,
+  filterOptions: (archived: boolean) =>
+    ["companies", "filterOptions", archived] as const,
 };
 
 export const companyListQueryOptions = (input: CompanyListInput) =>
@@ -41,4 +44,12 @@ export const companyOptionsQueryOptions = (q: string) =>
     queryFn: () => companyOptions({ data: { q } }),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+  });
+
+/** What the list's Industry filter offers, in its live or Archived view. */
+export const companyFilterOptionsQueryOptions = (archived: boolean) =>
+  queryOptions({
+    queryKey: companyKeys.filterOptions(archived),
+    queryFn: () => companyFilterOptions({ data: { archived } }),
+    staleTime: 60_000,
   });

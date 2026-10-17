@@ -177,18 +177,32 @@ export function NameCell({ media, name }: { media: ReactNode; name: string }) {
   );
 }
 
-/** A plain text column, with a dash for blanks. */
+/** A plain text column, with a dash for blanks; `sortable` asks the server. */
 export function textColumn<TRow>(options: {
   id: string;
   header: string;
   value: (row: TRow) => string | null;
+  /** Its share of the table, such as `w-[16%]`. */
+  width: string;
   className?: string;
+  sortable?: boolean;
 }): ColumnDef<TRow> {
   return {
     id: options.id,
-    header: options.header,
-    enableSorting: false,
-    meta: { cellClassName: cn("max-w-56", options.className) },
+    // The table only sorts (here: asks the server to) a column with a value.
+    accessorFn: options.value,
+    enableSorting: options.sortable ?? false,
+    header: ({ column }) =>
+      options.sortable ? (
+        <SortableHeader column={column} label={options.header} />
+      ) : (
+        options.header
+      ),
+    meta: {
+      label: options.header,
+      width: options.width,
+      cellClassName: options.className,
+    },
     cell: ({ row }) => {
       const value = options.value(row.original);
       return value ? (
@@ -200,29 +214,40 @@ export function textColumn<TRow>(options: {
   };
 }
 
-export function ownerColumn<
-  TRow extends { owner: Owner | null },
->(): ColumnDef<TRow> {
+export function ownerColumn<TRow extends { owner: Owner | null }>(
+  width: string,
+): ColumnDef<TRow> {
   return {
     id: "owner",
-    header: "Owner",
-    enableSorting: false,
-    meta: { cellClassName: "max-w-48" },
+    accessorFn: (row) => row.owner?.name ?? null,
+    enableSorting: true,
+    header: ({ column }) => <SortableHeader column={column} label="Owner" />,
+    meta: { label: "Owner", width },
     cell: ({ row }) => <OwnerCell owner={row.original.owner} />,
   };
 }
 
-/** A right-aligned count, such as a company's contacts. */
+/** A right-aligned count, such as a company's contacts; it sorts biggest first. */
 export function countColumn<TRow>(options: {
   id: string;
   header: string;
   value: (row: TRow) => number;
+  width: string;
 }): ColumnDef<TRow> {
   return {
     id: options.id,
-    header: options.header,
-    enableSorting: false,
-    meta: { headerClassName: "text-right", cellClassName: "text-right" },
+    accessorFn: options.value,
+    enableSorting: true,
+    sortDescFirst: true,
+    header: ({ column }) => (
+      <SortableHeader column={column} label={options.header} align="right" />
+    ),
+    meta: {
+      label: options.header,
+      width: options.width,
+      headerClassName: "text-right",
+      cellClassName: "text-right",
+    },
     cell: ({ row }) => (
       <span className="tabular-nums">{options.value(row.original)}</span>
     ),
@@ -233,8 +258,11 @@ export function countColumn<TRow>(options: {
 export function dateColumn<TRow>(options: {
   id: string;
   header: string;
+  /** What the Columns menu calls it, when the header is too short to say. */
+  label?: string;
   value: (row: TRow) => string | null;
   sortable?: boolean;
+  width: string;
 }): ColumnDef<TRow> {
   return {
     id: options.id,
@@ -249,6 +277,8 @@ export function dateColumn<TRow>(options: {
         <span className="flex justify-end">{options.header}</span>
       ),
     meta: {
+      label: options.label ?? options.header,
+      width: options.width,
       cellClassName: "text-right whitespace-nowrap text-muted-foreground",
     },
     cell: ({ row }) => {
@@ -256,4 +286,32 @@ export function dateColumn<TRow>(options: {
       return value ? <RelativeTime date={value} /> : <EmptyValue />;
     },
   };
+}
+
+/** Created and archived dates, as every list shows them. */
+export function recordDateColumns<
+  TRow extends { createdAt: string; archivedAt: string | null },
+>(archived: boolean): ColumnDef<TRow>[] {
+  return [
+    dateColumn<TRow>({
+      id: "createdAt",
+      header: "Created",
+      label: "Created date",
+      value: (row) => row.createdAt,
+      sortable: true,
+      width: "w-[10%]",
+    }),
+    ...(archived
+      ? [
+          dateColumn<TRow>({
+            id: "archivedAt",
+            header: "Archived",
+            label: "Archived date",
+            value: (row) => row.archivedAt,
+            sortable: true,
+            width: "w-[12%]",
+          }),
+        ]
+      : []),
+  ];
 }

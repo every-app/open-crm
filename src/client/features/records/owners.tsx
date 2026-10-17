@@ -1,17 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { UserRound } from "lucide-react";
-import { Badge } from "@/client/components/ui/badge";
-import { Button } from "@/client/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/client/components/ui/dropdown-menu";
+import { FilterChip } from "@/client/components/table/FilterChip";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import { InlineSelectField } from "@/client/features/records/InlineField";
 import type { Owner } from "@/client/features/records/cells";
@@ -74,54 +63,14 @@ export function OwnerFilter({
   value: string[];
   onChange: (owners: string[]) => void;
 }) {
-  const options = useOwnerOptions();
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="outline" size="sm" aria-label="Filter by owner" />
-        }
-      >
-        <UserRound data-icon="inline-start" />
-        Owner
-        {value.length > 0 ? (
-          <Badge size="sm" aria-label={`${value.length} chosen`}>
-            {value.length}
-          </Badge>
-        ) : null}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-80 min-w-52">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Owned by</DropdownMenuLabel>
-          {options.map((option) => (
-            <DropdownMenuCheckboxItem
-              key={option.value}
-              checked={value.includes(option.value)}
-              disabled={
-                !value.includes(option.value) &&
-                value.length >= OWNER_FILTER_MAX
-              }
-              onCheckedChange={(checked) =>
-                onChange(
-                  checked
-                    ? [...value, option.value]
-                    : value.filter((owner) => owner !== option.value),
-                )
-              }
-            >
-              <span className="truncate">{option.label}</span>
-            </DropdownMenuCheckboxItem>
-          ))}
-        </DropdownMenuGroup>
-        {value.length > 0 ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onChange([])}>
-              Any owner
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <FilterChip
+      label="Owner"
+      icon={UserRound}
+      options={useOwnerOptions()}
+      value={value}
+      onChange={onChange}
+      max={OWNER_FILTER_MAX}
+    />
   );
 }

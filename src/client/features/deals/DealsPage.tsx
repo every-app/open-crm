@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
-import { Plus, Upload } from "lucide-react";
+import { CircleDollarSign, Plus, Upload } from "lucide-react";
+import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
+import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
 import {
   DataTable,
   useDataTable,
@@ -15,13 +17,16 @@ import { Button } from "@/client/components/ui/button";
 import { CreateDealDialog } from "@/client/features/deals/CreateDealDialog";
 import { DealBulkActions } from "@/client/features/deals/DealBulkActions";
 import { DealFilters } from "@/client/features/deals/DealFilters";
-import { DealSheet } from "@/client/features/deals/DealSheet";
-import { dealColumns } from "@/client/features/deals/dealColumns";
+import {
+  DEAL_HIDDEN_COLUMNS,
+  dealColumns,
+} from "@/client/features/deals/dealColumns";
 import { formatAmount } from "@/client/features/deals/dealFormat";
 import { dealListQueryOptions } from "@/client/features/deals/dealQueries";
 import {
+  DEAL_FILTER_KEYS,
   dealListInput,
-  isDealListFiltered,
+  dealListSearchSchema,
   type DealListSearch,
 } from "@/client/features/deals/dealSearch";
 import type { DealRow } from "@/client/features/deals/dealFormat";
@@ -31,7 +36,16 @@ import { ExportButton } from "@/client/features/csv/ExportButton";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { DEAL_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
-import { useListSelection } from "@/client/features/records/listSearch";
+import {
+  clearedFilters,
+  columnVisibility,
+  isListFiltered,
+  savedViewOf,
+  searchFromSavedView,
+  useListSelection,
+} from "@/client/features/records/listSearch";
+import { useRecordStack } from "@/client/features/records/recordStack";
+import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listDeals } from "@/serverFunctions/deals";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -43,13 +57,13 @@ const routeApi = getRouteApi("/_app/deals");
 export function DealsPage() {
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
-  const setSearch = (update: Partial<DealListSearch>, push = false) =>
+  const setSearch = (update: Partial<DealListSearch>) =>
     void navigate({
       search: (prev) => ({ ...prev, ...update }),
-      replace: !push,
+      replace: true,
     });
-  const openDeal = (id: string) =>
-    setSearch({ record: id, tab: undefined }, true);
+  const { stack, open } = useRecordStack();
+  const openDeal = (id: string) => open({ kind: "deal", id });
 
   const input = dealListInput(search);
   const query = useQuery(dealListQueryOptions(input));
@@ -73,11 +87,21 @@ export function DealsPage() {
   const sorting: SortingState = [
     { id: input.sort, desc: input.dir === "desc" },
   ];
+  const visibility = columnVisibility(
+    search.hide,
+    DEAL_HIDDEN_COLUMNS,
+    (hide) => setSearch({ hide }),
+  );
   const table = useDataTable({
     data: query.data?.rows ?? [],
     columns,
     getRowId: (row) => row.id,
-    state: { sorting, rowSelection: selection.rowSelection },
+    state: {
+      sorting,
+      rowSelection: selection.rowSelection,
+      columnVisibility: visibility.state,
+    },
+    onColumnVisibilityChange: visibility.onChange,
     manualSorting: true,
     enableSortingRemoval: false,
     onSortingChange: (updater) => {
@@ -119,18 +143,9 @@ export function DealsPage() {
         <DataTable
           table={table}
           isLoading={query.isPending}
-          isFiltered={isDealListFiltered(search)}
-          onClearFilters={() =>
-            setSearch({
-              q: undefined,
-              owner: undefined,
-              status: undefined,
-              stage: undefined,
-              closing: undefined,
-              fields: undefined,
-              page: undefined,
-            })
-          }
+          isFiltered={isListFiltered(search, DEAL_FILTER_KEYS)}
+          onClearFilters={() => setSearch(clearedFilters(DEAL_FILTER_KEYS))}
+          filteredTitle="No deals match this view"
           error={
             query.isError ? (
               <QueryError
@@ -144,14 +159,14 @@ export function DealsPage() {
           empty={
             input.archived
               ? {
+                  icon: CircleDollarSign,
+                  media: "rows",
                   title: "No archived deals",
-                  description:
-                    "A deal you archive waits here until it's restored or deleted forever.",
                 }
               : {
+                  icon: CircleDollarSign,
+                  media: "rows",
                   title: "No deals yet",
-                  description:
-                    "Add the first deal you're working on (a company, what it's worth, and who owns it), or import your pipeline from a CSV.",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">
                       {newDeal}
@@ -165,7 +180,7 @@ export function DealsPage() {
               entity="DEAL"
               search={search}
               onSearchChange={setSearch}
-              placeholder="Search deals by name or company"
+              placeholder="Search deals by name or company…"
               filters={
                 <DealFilters search={search} onSearchChange={setSearch} />
               }
@@ -178,9 +193,21 @@ export function DealsPage() {
                       listDeals({ data: { ...input, page, pageSize } })
                     }
                   />
-                  {input.archived ? null : (
-                    <PipelineSummary list={query.data} />
-                  )}
+                  <SavedViewsMenu
+                    entity="DEAL"
+                    current={savedViewOf(search)}
+                    onApply={(filters) =>
+                      void navigate({
+                        search: (prev) =>
+                          searchFromSavedView(
+                            dealListSearchSchema,
+                            filters,
+                            prev,
+                          ),
+                      })
+                    }
+                  />
+                  <ColumnsMenu table={table} />
                   <FieldsSheetButton entity="DEAL" />
                 </>
               }
@@ -195,10 +222,13 @@ export function DealsPage() {
               onPageChange={(page) =>
                 setSearch({ page: page > 1 ? page : undefined })
               }
+              meta={
+                input.archived ? null : <PipelineSummary list={query.data} />
+              }
             />
           }
           onRowClick={(row) => openDeal(row.original.id)}
-          activeRowId={search.record}
+          activeRowId={findLast(stack, (ref) => ref.kind === "deal")?.id}
         />
       </div>
 
@@ -207,14 +237,6 @@ export function DealsPage() {
         archived={input.archived}
         canPurge={canPurge}
         onDone={selection.clear}
-      />
-      <DealSheet
-        dealId={search.record}
-        tab={search.tab ?? "overview"}
-        onTabChange={(tab) =>
-          setSearch({ tab: tab === "overview" ? undefined : tab })
-        }
-        onClose={() => setSearch({ record: undefined, tab: undefined })}
       />
       {importing ? (
         <ImportDialog entity="DEAL" onClose={() => setImporting(false)} />
@@ -245,20 +267,14 @@ function PipelineSummary({
   const { openValue, reportingCurrency, unconverted } = list;
   if (openValue === null && unconverted.count === 0) return null;
   return (
-    <p className="text-sm text-muted-foreground">
-      <span className="font-medium text-foreground tabular-nums">
+    <span>
+      <span className="text-foreground">
         {formatAmount(openValue ?? 0, reportingCurrency)}
       </span>{" "}
       open pipeline
-      {unconverted.count > 0 ? (
-        <span
-          title={`Open deals in ${unconverted.currencies.join(", ")} have no exchange rate into ${reportingCurrency} yet.`}
-        >
-          {" "}
-          · {unconverted.count} not counted (no{" "}
-          {unconverted.currencies.join(", ")} rate)
-        </span>
-      ) : null}
-    </p>
+      {unconverted.count > 0
+        ? ` · ${unconverted.count} not counted (no ${unconverted.currencies.join(", ")} rate)`
+        : null}
+    </span>
   );
 }

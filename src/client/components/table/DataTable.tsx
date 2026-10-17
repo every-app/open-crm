@@ -18,6 +18,7 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from "react";
+import { cn } from "cn";
 import { EmptyState } from "@/client/components/EmptyState";
 import { Button } from "@/client/components/ui/button";
 import { Checkbox } from "@/client/components/ui/checkbox";
@@ -37,6 +38,13 @@ import {
 } from "./tableSelection";
 
 type AppColumnMeta<TData> = {
+  /** What the Columns menu calls it, when its header isn't plain text. */
+  label?: string;
+  /**
+   * Its share of the table, such as `w-[24%]`: with widths, the table lays
+   * its columns out fixed, as the CRM's tables do, and long values truncate.
+   */
+  width?: string;
   headerClassName?: string;
   cellClassName?: string | ((row: Row<TData>) => string | undefined);
 };
@@ -83,6 +91,8 @@ export function makeSelectionColumn<TData>(
     id: "select",
     size: 32,
     enableSorting: false,
+    enableHiding: false,
+    meta: { width: "w-10" },
     header: ({ table }) => (
       <Checkbox
         checked={table.getIsAllRowsSelected()}
@@ -167,6 +177,7 @@ export function DataTable<TData>({
   isLoading = false,
   empty,
   isFiltered = false,
+  filteredTitle,
   onClearFilters,
   error,
   toolbar,
@@ -177,10 +188,12 @@ export function DataTable<TData>({
   renderExpandedRow,
 }: DataTableFrameProps & {
   table: TanStackTable<TData>;
+  /** An empty table's title while filters are active. */
+  filteredTitle: string;
   /** Shown when there are no rows and no filters. */
   empty: Pick<
     ComponentProps<typeof EmptyState>,
-    "kind" | "title" | "description" | "action"
+    "kind" | "icon" | "media" | "title" | "description" | "action"
   >;
   /** Makes each row clickable, for example to open its details beside the table. */
   onRowClick?: (
@@ -196,36 +209,47 @@ export function DataTable<TData>({
 }) {
   const columns = table.getVisibleLeafColumns();
   const rows = table.getRowModel().rows;
+  const fixed = columns.some((column) => column.columnDef.meta?.width);
 
   return (
     <TableCard>
       {toolbar}
       {error ? <div className="p-4">{error}</div> : null}
       {error && !isLoading && rows.length === 0 ? null : (
-        <Table containerClassName={scrollClassName}>
-          <TableHeader
-            className={
-              scrollClassName ? "sticky top-0 z-10 bg-card" : undefined
-            }
-          >
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={header.column.columnDef.meta?.headerClassName}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
+        <Table
+          containerClassName={scrollClassName}
+          // A phone scrolls the table rather than squeeze its columns.
+          className={fixed ? "min-w-3xl table-fixed" : undefined}
+        >
+          {/* An empty table is its empty state alone. */}
+          {!isLoading && rows.length === 0 ? null : (
+            <TableHeader
+              className={
+                scrollClassName ? "sticky top-0 z-10 bg-card" : undefined
+              }
+            >
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className={cn(
+                        header.column.columnDef.meta?.width,
+                        header.column.columnDef.meta?.headerClassName,
+                      )}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+          )}
           <TableBody>
             {isLoading ? (
               Array.from({ length: 8 }, (_, index) => (
@@ -248,8 +272,7 @@ export function DataTable<TData>({
                     <EmptyState
                       kind="filtered"
                       variant="plain"
-                      title="No rows match these filters"
-                      description="Change or clear the filters to see more rows."
+                      title={filteredTitle}
                       action={
                         onClearFilters ? (
                           <Button

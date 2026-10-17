@@ -1,23 +1,51 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { DataTableFilterGroup } from "@/client/components/table/DataTableToolbar";
-import { Input } from "@/client/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/client/components/ui/select";
+  AlignLeft,
+  CalendarDays,
+  CircleUser,
+  Hash,
+  Link2,
+  List,
+  Mail,
+  Phone,
+  SquareCheck,
+  Type,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  FilterChip,
+  FilterChipShell,
+} from "@/client/components/table/FilterChip";
+import { Input } from "@/client/components/ui/input";
 import { useDebouncedDraft } from "@/client/hooks/useDebouncedDraft";
 import { fieldsQueryOptions } from "@/client/features/fields/fieldQueries";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import type { Field } from "@/server/features/fields/services/fieldShape";
-import type { FieldEntity } from "@/shared/crm-enums";
+import type { FieldEntity, FieldType } from "@/shared/crm-enums";
 import type { FieldFilter, FieldFilters } from "@/types/schemas/fields";
 
-type ControlProps = {
-  label: string;
+// A list's custom field filters, as chips after its own: one per field
+// offered as a filter. Text fields match what they contain, numbers and
+// dates a range, checkboxes yes or no, selects and users any of those
+// picked. The value is what the list keeps in its URL (`fieldFiltersSchema`)
+// and hands to FieldValuesService.filterConditions.
+
+const TYPE_ICONS: Record<FieldType, LucideIcon> = {
+  TEXT: Type,
+  LONG_TEXT: AlignLeft,
+  NUMBER: Hash,
+  DATE: CalendarDays,
+  CHECKBOX: SquareCheck,
+  SELECT: List,
+  URL: Link2,
+  EMAIL: Mail,
+  PHONE: Phone,
+  USER: CircleUser,
+};
+
+type ChipProps = {
+  field: Field;
   filter: FieldFilter | undefined;
   onChange: (filter: FieldFilter | null) => void;
 };
@@ -25,38 +53,27 @@ type ControlProps = {
 /**
  * The live fields a list shows filters for: those offered as filters
  * (`showOnFilter`), and any other one it is filtering by (from a saved view
- * or a link), so no filter applies unseen. `activeCount` is how many of
- * them filter the list now. Archived fields have no filter: the server
- * ignores filters on them.
+ * or a link), so no filter applies unseen. Archived fields have no filter:
+ * the server ignores filters on them.
  */
-export function useFilterableFields(entity: FieldEntity, value: FieldFilters) {
+function useFilterableFields(entity: FieldEntity, value: FieldFilters) {
   const { data } = useQuery(fieldsQueryOptions(entity));
-  const fields = (data ?? []).filter(
+  return (data ?? []).filter(
     (field) => field.showOnFilter || value[field.key] !== undefined,
   );
-  return {
-    fields,
-    activeCount: fields.filter((field) => value[field.key] !== undefined)
-      .length,
-  };
 }
 
-/**
- * A list filter panel's custom field filters, one per field in `fields`
- * (useFilterableFields). Text fields match what they contain, numbers and
- * dates a range, checkboxes yes or no, selects and users any of those
- * picked. `value` is what the list keeps in its URL (`fieldFiltersSchema`)
- * and hands to FieldValuesService.filterConditions.
- */
-export function FieldFilterControls({
-  fields,
+/** One chip per custom field the list filters by, after its own filters. */
+export function FieldFilterChips({
+  entity,
   value,
   onChange,
 }: {
-  fields: Field[];
+  entity: FieldEntity;
   value: FieldFilters;
   onChange: (filters: FieldFilters) => void;
 }) {
+  const fields = useFilterableFields(entity, value);
   // Two filters can commit before the list re-renders with the first (a
   // debounced input and a pick): the second builds on the first.
   const latest = useRef(value);
@@ -71,64 +88,121 @@ export function FieldFilterControls({
     latest.current = filter ? { ...others, [key]: filter } : others;
     onChange(latest.current);
   };
+
+  return fields.map((field) => {
+    const props: ChipProps = {
+      field,
+      filter: value[field.key],
+      onChange: (filter) => set(field.key, filter),
+    };
+    switch (field.type) {
+      case "SELECT":
+        return <SelectChip key={field.id} {...props} />;
+      case "USER":
+        return <MemberChip key={field.id} {...props} />;
+      case "CHECKBOX":
+        return <CheckedChip key={field.id} {...props} />;
+      case "NUMBER":
+      case "DATE":
+        return <RangeChip key={field.id} {...props} />;
+      default:
+        return <ContainsChip key={field.id} {...props} />;
+    }
+  });
+}
+
+function AnyOfChip({
+  field,
+  filter,
+  onChange,
+  options,
+}: ChipProps & { options: { value: string; label: string }[] }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-      {fields.map((field) => (
-        <DataTableFilterGroup key={field.id} label={field.label}>
-          <FieldFilterInput
-            field={field}
-            label={field.label}
-            filter={value[field.key]}
-            onChange={(filter) => set(field.key, filter)}
-          />
-        </DataTableFilterGroup>
-      ))}
-    </div>
+    <FilterChip
+      label={field.label}
+      icon={TYPE_ICONS[field.type]}
+      options={options}
+      value={filter?.op === "anyOf" ? filter.values : []}
+      max={20}
+      onChange={(values) =>
+        onChange(values.length > 0 ? { op: "anyOf", values } : null)
+      }
+    />
   );
 }
 
-function FieldFilterInput({
-  field,
-  ...props
-}: ControlProps & { field: Field }) {
-  switch (field.type) {
-    case "NUMBER":
-      return <RangeInput {...props} kind="number" />;
-    case "DATE":
-      return <RangeInput {...props} kind="date" />;
-    case "CHECKBOX":
-      return <CheckedInput {...props} />;
-    case "SELECT":
-      return (
-        <AnyOfInput
-          {...props}
-          choices={field.options.map((option) => ({
-            value: option.id,
-            label: option.label,
-          }))}
-        />
-      );
-    case "USER":
-      return <MemberAnyOfInput {...props} />;
-    default:
-      return <ContainsInput {...props} />;
-  }
+function SelectChip(props: ChipProps) {
+  return (
+    <AnyOfChip
+      {...props}
+      options={props.field.options.map((option) => ({
+        value: option.id,
+        label: option.label,
+      }))}
+    />
+  );
 }
 
-function ContainsInput({ label, filter, onChange }: ControlProps) {
+function MemberChip(props: ChipProps) {
+  const { data: members } = useQuery(membersQueryOptions());
+  return (
+    <AnyOfChip
+      {...props}
+      options={(members ?? []).map((member) => ({
+        value: member.userId,
+        label: member.name,
+      }))}
+    />
+  );
+}
+
+const CHECKED_OPTIONS = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+];
+
+function CheckedChip({ field, filter, onChange }: ChipProps) {
+  return (
+    <FilterChip
+      label={field.label}
+      icon={TYPE_ICONS[field.type]}
+      options={CHECKED_OPTIONS}
+      single
+      value={filter?.op === "checked" ? [filter.value ? "yes" : "no"] : []}
+      onChange={([picked]) =>
+        onChange(picked ? { op: "checked", value: picked === "yes" } : null)
+      }
+    />
+  );
+}
+
+function ContainsChip({ field, filter, onChange }: ChipProps) {
+  const [open, setOpen] = useState(false);
+  const applied = filter?.op === "contains" ? filter.value : "";
   const [draft, setDraft] = useDebouncedDraft(
-    filter?.op === "contains" ? filter.value : "",
+    applied,
     (next) => onChange(next ? { op: "contains", value: next } : null),
     (next) => next.trim(),
   );
   return (
-    <Input
-      aria-label={`${label} contains`}
-      placeholder="Contains…"
-      className="h-7"
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-    />
+    <FilterChipShell
+      label={field.label}
+      icon={TYPE_ICONS[field.type]}
+      summary={applied ? `“${applied}”` : undefined}
+      open={open}
+      onOpenChange={setOpen}
+      onClear={() => onChange(null)}
+    >
+      <div className="p-2">
+        <Input
+          aria-label={`${field.label} contains`}
+          placeholder="Contains…"
+          className="h-8"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      </div>
+    </FilterChipShell>
   );
 }
 
@@ -147,15 +221,21 @@ function boundsOf(filter: FieldFilter | undefined): Bounds {
 const asNumber = (text: string) =>
   text === "" || !Number.isFinite(Number(text)) ? undefined : Number(text);
 
+/** "10–50", "≥ 10" or "≤ 50": a range as its chip shows it. */
+function rangeSummary({ low, high }: Bounds): string | undefined {
+  if (low && high) return `${low}–${high}`;
+  if (low) return `≥ ${low}`;
+  if (high) return `≤ ${high}`;
+  return undefined;
+}
+
 /** Min and max for a number, from and to (whole days) for a date. */
-function RangeInput({
-  label,
-  filter,
-  onChange,
-  kind,
-}: ControlProps & { kind: "number" | "date" }) {
+function RangeChip({ field, filter, onChange }: ChipProps) {
+  const [open, setOpen] = useState(false);
+  const kind = field.type === "DATE" ? "date" : "number";
+  const applied = boundsOf(filter);
   const [draft, setDraft] = useDebouncedDraft(
-    boundsOf(filter),
+    applied,
     ({ low, high }) => {
       if (!low && !high) return onChange(null);
       onChange(
@@ -180,112 +260,29 @@ function RangeInput({
   const names =
     kind === "number" ? (["Min", "Max"] as const) : (["From", "To"] as const);
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {(["low", "high"] as const).map((bound, index) => (
-        <Input
-          key={bound}
-          type={kind}
-          placeholder={names[index]}
-          aria-label={`${label} ${names[index].toLowerCase()}`}
-          className="h-7"
-          value={draft[bound]}
-          onChange={(event) =>
-            setDraft({ ...draft, [bound]: event.target.value })
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-const CHECKED_ITEMS = [
-  { value: "any", label: "Any" },
-  { value: "yes", label: "Yes" },
-  { value: "no", label: "No" },
-];
-
-function CheckedInput({ label, filter, onChange }: ControlProps) {
-  const current =
-    filter?.op === "checked" ? (filter.value ? "yes" : "no") : "any";
-  return (
-    <Select
-      items={CHECKED_ITEMS}
-      value={current}
-      onValueChange={(next) =>
-        onChange(
-          next === "yes" || next === "no"
-            ? { op: "checked", value: next === "yes" }
-            : null,
-        )
-      }
+    <FilterChipShell
+      label={field.label}
+      icon={TYPE_ICONS[field.type]}
+      summary={rangeSummary(applied)}
+      open={open}
+      onOpenChange={setOpen}
+      onClear={() => onChange(null)}
     >
-      <SelectTrigger size="sm" aria-label={label} className="w-full">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {CHECKED_ITEMS.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
+      <div className="grid grid-cols-2 gap-2 p-2">
+        {(["low", "high"] as const).map((bound, index) => (
+          <Input
+            key={bound}
+            type={kind}
+            placeholder={names[index]}
+            aria-label={`${field.label} ${names[index].toLowerCase()}`}
+            className="h-8"
+            value={draft[bound]}
+            onChange={(event) =>
+              setDraft({ ...draft, [bound]: event.target.value })
+            }
+          />
         ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function AnyOfInput({
-  label,
-  filter,
-  onChange,
-  choices,
-}: ControlProps & { choices: { value: string; label: string }[] }) {
-  const selected = filter?.op === "anyOf" ? filter.values : [];
-  return (
-    <Select
-      multiple
-      items={choices}
-      value={selected}
-      onValueChange={(next) =>
-        onChange(
-          next.length > 0 ? { op: "anyOf", values: next.slice(0, 20) } : null,
-        )
-      }
-    >
-      <SelectTrigger size="sm" aria-label={label} className="w-full">
-        <SelectValue placeholder="Any">
-          {(values: string[]) =>
-            values.length === 0
-              ? "Any"
-              : values
-                  .map(
-                    (value) =>
-                      choices.find((choice) => choice.value === value)?.label ??
-                      value,
-                  )
-                  .join(", ")
-          }
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {choices.map((choice) => (
-          <SelectItem key={choice.value} value={choice.value}>
-            {choice.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function MemberAnyOfInput(props: ControlProps) {
-  const { data: members } = useQuery(membersQueryOptions());
-  return (
-    <AnyOfInput
-      {...props}
-      choices={(members ?? []).map((member) => ({
-        value: member.userId,
-        label: member.name,
-      }))}
-    />
+      </div>
+    </FilterChipShell>
   );
 }

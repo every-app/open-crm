@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, Users } from "lucide-react";
+import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
+import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
 import {
   DataTable,
   useDataTable,
@@ -13,12 +15,16 @@ import {
 import { TablePagination } from "@/client/components/table/TablePagination";
 import { Button } from "@/client/components/ui/button";
 import { ContactBulkActions } from "@/client/features/contacts/ContactBulkActions";
-import { ContactSheet } from "@/client/features/contacts/ContactSheet";
+import { ContactFilters } from "@/client/features/contacts/ContactFilters";
 import { CreateContactDialog } from "@/client/features/contacts/CreateContactDialog";
-import { contactColumns } from "@/client/features/contacts/contactColumns";
+import {
+  CONTACT_HIDDEN_COLUMNS,
+  contactColumns,
+} from "@/client/features/contacts/contactColumns";
 import { contactListQueryOptions } from "@/client/features/contacts/contactQueries";
 import type { ContactRow } from "@/client/features/contacts/contactFormat";
 import {
+  CONTACT_FILTER_KEYS,
   contactListInput,
   contactListSearchSchema,
   type ContactListSearch,
@@ -30,11 +36,14 @@ import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { CONTACT_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import {
+  clearedFilters,
+  columnVisibility,
   isListFiltered,
   savedViewOf,
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
+import { useRecordStack } from "@/client/features/records/recordStack";
 import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listContacts } from "@/serverFunctions/contacts";
@@ -47,13 +56,13 @@ const routeApi = getRouteApi("/_app/contacts");
 export function ContactsPage() {
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
-  const setSearch = (update: Partial<ContactListSearch>, push = false) =>
+  const setSearch = (update: Partial<ContactListSearch>) =>
     void navigate({
       search: (prev) => ({ ...prev, ...update }),
-      replace: !push,
+      replace: true,
     });
-  const openContact = (id: string) =>
-    setSearch({ record: id, tab: undefined }, true);
+  const { stack, open } = useRecordStack();
+  const openContact = (id: string) => open({ kind: "contact", id });
 
   const input = contactListInput(search);
   const query = useQuery(contactListQueryOptions(input));
@@ -77,11 +86,21 @@ export function ContactsPage() {
   const sorting: SortingState = [
     { id: input.sort, desc: input.dir === "desc" },
   ];
+  const visibility = columnVisibility(
+    search.hide,
+    CONTACT_HIDDEN_COLUMNS,
+    (hide) => setSearch({ hide }),
+  );
   const table = useDataTable({
     data: query.data?.rows ?? [],
     columns,
     getRowId: (row) => row.id,
-    state: { sorting, rowSelection: selection.rowSelection },
+    state: {
+      sorting,
+      rowSelection: selection.rowSelection,
+      columnVisibility: visibility.state,
+    },
+    onColumnVisibilityChange: visibility.onChange,
     manualSorting: true,
     enableSortingRemoval: false,
     onSortingChange: (updater) => {
@@ -123,15 +142,9 @@ export function ContactsPage() {
         <DataTable
           table={table}
           isLoading={query.isPending}
-          isFiltered={isListFiltered(search)}
-          onClearFilters={() =>
-            setSearch({
-              q: undefined,
-              owner: undefined,
-              fields: undefined,
-              page: undefined,
-            })
-          }
+          isFiltered={isListFiltered(search, CONTACT_FILTER_KEYS)}
+          onClearFilters={() => setSearch(clearedFilters(CONTACT_FILTER_KEYS))}
+          filteredTitle="No contacts match this view"
           error={
             query.isError ? (
               <QueryError
@@ -145,14 +158,14 @@ export function ContactsPage() {
           empty={
             input.archived
               ? {
+                  icon: Users,
+                  media: "rows",
                   title: "No archived contacts",
-                  description:
-                    "A contact you archive waits here until they're restored or deleted forever.",
                 }
               : {
+                  icon: Users,
+                  media: "rows",
                   title: "No contacts yet",
-                  description:
-                    "Add the first person you sell to, or import them from a CSV. The agent fills in the rest.",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">
                       {newContact}
@@ -166,7 +179,10 @@ export function ContactsPage() {
               entity="CONTACT"
               search={search}
               onSearchChange={setSearch}
-              placeholder="Search by name, email or company"
+              placeholder="Search by name, email or company…"
+              filters={
+                <ContactFilters search={search} onSearchChange={setSearch} />
+              }
               actions={
                 <>
                   <ExportButton
@@ -190,6 +206,7 @@ export function ContactsPage() {
                       })
                     }
                   />
+                  <ColumnsMenu table={table} />
                   <FieldsSheetButton entity="CONTACT" />
                 </>
               }
@@ -207,7 +224,7 @@ export function ContactsPage() {
             />
           }
           onRowClick={(row) => openContact(row.original.id)}
-          activeRowId={search.record}
+          activeRowId={findLast(stack, (ref) => ref.kind === "contact")?.id}
         />
       </div>
 
@@ -216,14 +233,6 @@ export function ContactsPage() {
         archived={input.archived}
         canPurge={canPurge}
         onDone={selection.clear}
-      />
-      <ContactSheet
-        contactId={search.record}
-        tab={search.tab ?? "overview"}
-        onTabChange={(tab) =>
-          setSearch({ tab: tab === "overview" ? undefined : tab })
-        }
-        onClose={() => setSearch({ record: undefined, tab: undefined })}
       />
       {importing ? (
         <ImportDialog entity="CONTACT" onClose={() => setImporting(false)} />

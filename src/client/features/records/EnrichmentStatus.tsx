@@ -1,6 +1,6 @@
 import { cn } from "cn";
 import { WaitingForSetup } from "@/client/features/agent/AgentPaused";
-import type { EnrichmentStatus } from "@/shared/crm-enums";
+import { ENRICHMENT_STATUSES, type EnrichmentStatus } from "@/shared/crm-enums";
 
 // Where the research agent is with a company or a contact. The agent writes
 // in the background, so lists and sheets poll while it works, and only then:
@@ -23,6 +23,12 @@ const PRESENTATION: Record<
 };
 
 const QUEUED = { label: "Queued", tone: "neutral" as const, busy: false };
+
+/** The list's Enrichment filter: one choice per state, as the CRM names it. */
+export const ENRICHMENT_OPTIONS = ENRICHMENT_STATUSES.map((value) => ({
+  value,
+  label: PRESENTATION[value].label,
+}));
 
 const DOT: Record<Tone, string> = {
   neutral: "bg-muted-foreground/60",
