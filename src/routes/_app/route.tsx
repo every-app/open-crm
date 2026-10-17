@@ -4,6 +4,7 @@ import { SkeletonPage } from "@/client/components/SkeletonPresets";
 import { QueryError } from "@/client/components/QueryState";
 import { AppLayout } from "@/client/layout/AppShell";
 import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
+import { CreditsBanner } from "@/client/features/billing/CreditsBanner";
 import { RecordSheetHost } from "@/client/features/records/RecordSheetHost";
 import { appSearchSchema } from "@/client/features/records/recordStack";
 import { QuickSwitcher } from "@/client/features/search/QuickSwitcher";
@@ -35,6 +36,7 @@ function AppRouteLayout() {
           <EnrichmentQueue />
         </div>
       }
+      banner={<CreditsBanner />}
     >
       {workspace ? (
         <>

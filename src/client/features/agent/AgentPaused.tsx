@@ -14,10 +14,14 @@ import {
   modelBlocked,
   type AgentAvailability,
 } from "@/shared/agent-availability";
+import { SETTINGS_BILLING_ROUTE } from "@/shared/billing";
 
 // What every screen showing the agent's progress says when the agent can't
 // run: the records it would research wait for its model to be set up on the
-// gateway, and nothing pretends to be working on them.
+// gateway, or for the workspace's credits, and nothing pretends to be
+// working on them.
+
+const OUT_OF_CREDITS = "The workspace is out of credits.";
 
 /** What the agent has to work with; undefined until it has loaded. */
 export function useAgentAvailability(): AgentAvailability | undefined {
@@ -32,15 +36,22 @@ export function useAgentPaused(): boolean {
 
 /** Why the agent can't run, in a sentence. */
 export function agentPausedReason(availability: AgentAvailability): string {
+  if (availability.outOfCredits) return OUT_OF_CREDITS;
   if (availability.model === "missing") {
     return "This deployment has no way to reach a model: it isn't connected to an Every App gateway (in local development, set OPENROUTER_API_KEY in .dev.vars).";
   }
   return "Your Every App gateway holds no key for the agent's model (OPENROUTER_API_KEY).";
 }
 
-/** Where an owner or admin sets the agent up; nothing for anyone else. */
+/**
+ * Where the pause is lifted: Billing, when the workspace is out of credits;
+ * else where an owner or admin sets the agent up, and nothing for anyone else.
+ */
 export function AgentSetupLink({ className }: { className?: string }) {
   const canManage = useCanManageWorkspace();
+  if (useAgentAvailability()?.outOfCredits) {
+    return <BillingLink className={className} />;
+  }
   if (!canManage) {
     return (
       <span className={className}>
@@ -92,5 +103,26 @@ export function WaitingForSetup() {
         <AgentSetupLink className="text-foreground underline underline-offset-4" />
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** The record's agent tab: its research waits for credits. */
+export function OutOfCredits() {
+  return (
+    <p className="text-xs text-muted-foreground">
+      {OUT_OF_CREDITS}{" "}
+      <BillingLink className="text-foreground underline underline-offset-4" />
+    </p>
+  );
+}
+
+function BillingLink({ className }: { className?: string }) {
+  return (
+    <Link
+      to={SETTINGS_BILLING_ROUTE}
+      className={className ?? "text-foreground underline underline-offset-4"}
+    >
+      Go to Billing
+    </Link>
   );
 }

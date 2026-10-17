@@ -22,6 +22,7 @@ import { Route as AppContactsContactIdRouteImport } from './routes/_app/contacts
 import { Route as AppDealsDealIdRouteImport } from './routes/_app/deals_.$dealId'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/api-keys'
+import { Route as AppSettingsBillingRouteImport } from './routes/_app/settings/billing'
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsSsoRouteImport } from './routes/_app/settings/sso'
@@ -99,6 +100,11 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
 const AppSettingsApiKeysRoute = AppSettingsApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsBillingRoute = AppSettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppSettingsCurrenciesRoute = AppSettingsCurrenciesRouteImport.update({
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/sso': typeof AppSettingsSsoRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/sso': typeof AppSettingsSsoRoute
@@ -253,6 +261,7 @@ export interface FileRoutesById {
   '/_app/contacts_/$contactId': typeof AppContactsContactIdRoute
   '/_app/deals_/$dealId': typeof AppDealsDealIdRoute
   '/_app/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/_app/settings/billing': typeof AppSettingsBillingRoute
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/sso': typeof AppSettingsSsoRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/contacts/$contactId'
     | '/deals/$dealId'
     | '/settings/api-keys'
+    | '/settings/billing'
     | '/settings/currencies'
     | '/settings/members'
     | '/settings/sso'
@@ -310,6 +320,7 @@ export interface FileRouteTypes {
     | '/contacts/$contactId'
     | '/deals/$dealId'
     | '/settings/api-keys'
+    | '/settings/billing'
     | '/settings/currencies'
     | '/settings/members'
     | '/settings/sso'
@@ -340,6 +351,7 @@ export interface FileRouteTypes {
     | '/_app/contacts_/$contactId'
     | '/_app/deals_/$dealId'
     | '/_app/settings/api-keys'
+    | '/_app/settings/billing'
     | '/_app/settings/currencies'
     | '/_app/settings/members'
     | '/_app/settings/sso'
@@ -458,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsApiKeysRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/billing': {
+      id: '/_app/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof AppSettingsBillingRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/_app/settings/currencies': {
       id: '/_app/settings/currencies'
       path: '/currencies'
@@ -568,6 +587,7 @@ declare module '@tanstack/react-router' {
 
 interface AppSettingsRouteRouteChildren {
   AppSettingsApiKeysRoute: typeof AppSettingsApiKeysRoute
+  AppSettingsBillingRoute: typeof AppSettingsBillingRoute
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsSsoRoute: typeof AppSettingsSsoRoute
@@ -582,6 +602,7 @@ interface AppSettingsRouteRouteChildren {
 
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsApiKeysRoute: AppSettingsApiKeysRoute,
+  AppSettingsBillingRoute: AppSettingsBillingRoute,
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsSsoRoute: AppSettingsSsoRoute,
