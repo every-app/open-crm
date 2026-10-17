@@ -21,6 +21,12 @@ import {
   FIELD_TYPES,
   RECORD_SOURCES,
 } from "../shared/crm-enums";
+import {
+  CONNECTION_STATUSES,
+  MAILBOX_PROVIDERS,
+  SYNC_SOURCES,
+  SYNC_STATUSES,
+} from "../shared/mailbox";
 import { organization, user } from "./auth.schema";
 import { isoNow, timestamp } from "./columns";
 
@@ -616,7 +622,7 @@ export const activity = sqliteTable(
   ],
 );
 
-/** A captured email conversation (mail capture lands in a later phase). */
+/** A captured email conversation (src/server/features/mailbox). */
 export const emailThread = sqliteTable(
   "email_thread",
   {
@@ -672,6 +678,11 @@ export const emailMessage = sqliteTable(
     snippet: text("snippet"),
     body: text("body"),
     sentAt: timestamp("sent_at").notNull(),
+    // Where the message lives in the mailbox it was captured from, for "Open
+    // in Gmail" and "Open in Outlook".
+    gmailMessageId: text("gmail_message_id"),
+    outlookMessageId: text("outlook_message_id"),
+    outlookWebLink: text("outlook_web_link"),
     createdAt: createdAt(),
   },
   (table) => [
@@ -680,10 +691,18 @@ export const emailMessage = sqliteTable(
       table.rfcMessageId,
     ),
     index("email_message_thread_sent_idx").on(table.threadId, table.sentAt),
+    index("email_message_organization_gmail_idx").on(
+      table.organizationId,
+      table.gmailMessageId,
+    ),
+    index("email_message_organization_synced_by_idx").on(
+      table.organizationId,
+      table.syncedByUserId,
+    ),
   ],
 );
 
-/** A captured meeting (calendar capture lands in a later phase). */
+/** A captured meeting (src/server/features/mailbox). */
 export const calendarEvent = sqliteTable(
   "calendar_event",
   {
@@ -710,10 +729,15 @@ export const calendarEvent = sqliteTable(
       onDelete: "set null",
     }),
     syncedByUserId: text("synced_by_user_id"),
+    googleEventId: text("google_event_id"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
+    index("calendar_event_organization_synced_by_idx").on(
+      table.organizationId,
+      table.syncedByUserId,
+    ),
     uniqueIndex("calendar_event_organization_ical_start_uidx").on(
       table.organizationId,
       table.iCalUid,
@@ -781,4 +805,101 @@ export const suppressedContact = sqliteTable(
     createdAt: createdAt(),
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.email] })],
+);
+
+/**
+ * A member's own mailbox and calendar connection (Google or Microsoft): the
+ * account it reads, the scopes granted, and the member's tokens, which never
+ * leave the server. The gateway holds the OAuth client; the CRM keeps the
+ * tokens, as the CRM's Better Auth `account` row did.
+ */
+export const mailboxConnection = sqliteTable(
+  "mailbox_connection",
+  {
+    id: text("id").primaryKey(),
+    organizationId: organizationId(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: MAILBOX_PROVIDERS }).notNull(),
+    // Lowercased: the address the member's mail is sent from.
+    accountEmail: text("account_email").notNull(),
+    // Space-separated, as the provider granted them.
+    scopes: text("scopes").notNull(),
+    accessToken: text("access_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at"),
+    refreshToken: text("refresh_token"),
+    status: text("status", { enum: CONNECTION_STATUSES })
+      .notNull()
+      .default("ACTIVE"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("mailbox_connection_organization_user_provider_uidx").on(
+      table.organizationId,
+      table.userId,
+      table.provider,
+    ),
+  ],
+);
+
+/**
+ * A pending connect: the single-use `state` sent to the provider's authorize
+ * page, bound to the member and organization, with its PKCE verifier. The
+ * callback consumes it with a conditional update.
+ */
+export const oauthState = sqliteTable(
+  "oauth_state",
+  {
+    id: text("id").primaryKey(),
+    organizationId: organizationId(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: MAILBOX_PROVIDERS }).notNull(),
+    codeVerifier: text("code_verifier").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+    createdAt: createdAt(),
+  },
+  (table) => [index("oauth_state_expires_idx").on(table.expiresAt)],
+);
+
+/**
+ * One member's sync of one source (calendar, gmail, outlook): its cursor,
+ * whether it may add companies and contacts, when it runs next, and the
+ * lease a running check holds.
+ */
+export const mailboxSync = sqliteTable(
+  "mailbox_sync",
+  {
+    id: text("id").primaryKey(),
+    organizationId: organizationId(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    source: text("source", { enum: SYNC_SOURCES }).notNull(),
+    status: text("status", { enum: SYNC_STATUSES }).notNull().default("IDLE"),
+    cursor: text("cursor"),
+    autoCreate: integer("auto_create", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    lastSyncedAt: timestamp("last_synced_at"),
+    lastError: text("last_error"),
+    // Null while the member must reconnect: nothing schedules it.
+    nextSyncAt: timestamp("next_sync_at"),
+    leaseUntil: timestamp("lease_until"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("mailbox_sync_organization_user_source_uidx").on(
+      table.organizationId,
+      table.userId,
+      table.source,
+    ),
+    // The minute cron's one query across every organization.
+    index("mailbox_sync_next_idx").on(table.nextSyncAt),
+  ],
 );
