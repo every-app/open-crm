@@ -85,26 +85,37 @@ export function EnrichmentQueue() {
   return (
     <Popover open={open} onOpenChange={show}>
       <PopoverTrigger
-        render={<Button variant="outline" size="sm" className="h-8" />}
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-full justify-start gap-2.5 px-2 font-normal text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-foreground"
+          />
+        }
       >
+        {/* In the nav's icon column. */}
         <span
           aria-hidden
-          className={cn(
-            "size-1.5 shrink-0 rounded-full",
-            paused
-              ? STATE_DOTS.waiting
-              : total > 0
-                ? STATE_DOTS.running
-                : STATE_DOTS.queued,
-          )}
-        />
+          className="flex size-4 shrink-0 items-center justify-center"
+        >
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              paused
+                ? STATE_DOTS.waiting
+                : total > 0
+                  ? STATE_DOTS.running
+                  : STATE_DOTS.queued,
+            )}
+          />
+        </span>
         {paused
           ? "Agent paused"
           : total > 0
             ? `Enriching ${total}`
             : "Enriching"}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-96">
+      <PopoverContent side="right" align="start" className="w-96">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <PopoverTitle>
             {paused ? "The agent is paused" : "Enriching now"}

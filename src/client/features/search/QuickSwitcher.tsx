@@ -95,7 +95,7 @@ export function QuickSwitcher() {
         type="button"
         onClick={() => show(true)}
         // The shortcut shows when the row has room for it beside the queue.
-        className="@container flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-input bg-background px-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="@container flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-input bg-background px-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <Search className="size-4 shrink-0" aria-hidden />
         <span className="flex-1 text-left">Search</span>

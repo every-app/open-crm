@@ -30,7 +30,7 @@ function AppRouteLayout() {
     <AppLayout
       workspaceName={workspace?.name ?? null}
       sidebarHeader={
-        <div className="flex items-center gap-1.5 pb-1">
+        <div className="space-y-1 pb-1">
           <QuickSwitcher />
           <EnrichmentQueue />
         </div>
