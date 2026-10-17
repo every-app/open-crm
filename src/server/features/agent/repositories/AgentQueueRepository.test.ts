@@ -33,6 +33,10 @@ vi.mock("@/db", () => ({
   },
 }));
 
+import {
+  CreditReadingRepository,
+  creditsHeldSince,
+} from "@/server/billing/creditReading";
 import { AgentQueueRepository, type TaskLane } from "./AgentQueueRepository";
 
 const VISIBLE: TaskLane = { only: DIRECT_KINDS };
@@ -80,7 +84,11 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
     const claim = (
       lane: TaskLane = RESEARCH,
-      extra: { organizationId?: string; minPriority?: number } = {},
+      extra: {
+        organizationId?: string;
+        minPriority?: number;
+        creditsHeldSince?: string;
+      } = {},
     ) =>
       AgentQueueRepository.claimDue({
         limit: 10,
@@ -154,6 +162,18 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         minPriority: ASKED_FOR_PRIORITY,
       });
       expect(claimed.map((task) => task.id)).toEqual([asked]);
+    });
+
+    it("holds the work of an organization out of credits, and only its", async () => {
+      await queue({ organizationId: "org_a" });
+      const other = await queue({ organizationId: "org_b" });
+      await CreditReadingRepository.note("org_a", true);
+
+      const claimed = await claim(RESEARCH, {
+        creditsHeldSince: creditsHeldSince(),
+      });
+      expect(claimed.map((task) => task.id)).toEqual([other]);
+      expect(await CreditReadingRepository.held("org_b")).toBe(false);
     });
 
     it("serves one organization's queue to its poke, and no one else's", async () => {
