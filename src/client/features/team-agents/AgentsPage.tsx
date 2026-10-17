@@ -52,7 +52,7 @@ export function AgentsPage() {
                   description="Describe one in a private chat, then review its access before deploying it."
                   action={
                     <Button
-nativeButton={false}
+                      nativeButton={false}
                       variant="outline"
                       size="sm"
                       render={<Link to="/agents/new" />}
