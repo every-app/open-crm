@@ -49,9 +49,8 @@ export function agentPausedReason(availability: AgentAvailability): string {
  */
 export function AgentSetupLink({ className }: { className?: string }) {
   const canManage = useCanManageWorkspace();
-  if (useAgentAvailability()?.outOfCredits) {
-    return <BillingLink className={className} />;
-  }
+  const outOfCredits = useAgentAvailability()?.outOfCredits;
+  if (outOfCredits) return <BillingLink className={className} />;
   if (!canManage) {
     return (
       <span className={className}>

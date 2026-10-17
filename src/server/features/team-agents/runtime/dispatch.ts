@@ -21,8 +21,8 @@ import { TriggerService } from "../services/TriggerService";
 // its own CrmAgent session (`run.<organization>.<run id>`). A person's "Run
 // now" pokes it for their organization at once. A run that can't run (no
 // model on the gateway, Slack not connected, the workspace out of credits)
-// fails with the reason instead of waiting. The per-minute scans are a few indexed queries whatever the number
-// of organizations.
+// fails with the reason instead of waiting. The per-minute scans are a few
+// indexed queries whatever the number of organizations.
 
 const MINUTE_MS = 60_000;
 
