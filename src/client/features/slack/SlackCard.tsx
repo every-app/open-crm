@@ -1,3 +1,4 @@
+import { SLACK_REDIRECT_PATH } from "@/shared/slack";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -82,7 +83,7 @@ export function SlackCard({ outcome }: { outcome?: string }) {
         errorFallback="Slack's status could not be loaded."
       >
         {(data) => (
-          <Card className="max-w-3xl">
+          <Card className="max-w-2xl">
             <CardContent className="space-y-6">
               <header className="flex flex-wrap items-center gap-3">
                 <h2 className="text-lg font-medium">Slack</h2>
@@ -107,7 +108,7 @@ export function SlackCard({ outcome }: { outcome?: string }) {
               ) : data.configured ? (
                 <NotConnected canManage={data.canManage} />
               ) : (
-                <NotSetUp command={data.setupCommand} />
+                <NotSetUp setup={data.setup} />
               )}
             </CardContent>
           </Card>
@@ -117,37 +118,58 @@ export function SlackCard({ outcome }: { outcome?: string }) {
   );
 }
 
-function NotSetUp({ command }: { command: string | null }) {
+function NotSetUp({
+  setup,
+}: {
+  setup: { command: string | null; devVars: string[] | null } | null;
+}) {
+  // Slack sends the owner back to this CRM's own host.
+  const redirectUri = `${window.location.origin}${SLACK_REDIRECT_PATH}`;
   return (
     <div className="space-y-3 text-sm">
-      <p className="font-medium">Slack isn't set up on this gateway.</p>
+      <p className="font-medium">
+        {setup?.devVars
+          ? "Slack isn't set up for local development."
+          : "Slack isn't set up on this gateway."}
+      </p>
       <p className="text-muted-foreground">
         Team agents post to Slack through the Every App gateway's Slack app,
         which holds its client. Nothing is pasted into the CRM.
       </p>
-      {command ? (
+      {setup ? (
         <div className="space-y-1.5">
           <p className="text-xs text-muted-foreground">
-            Register a Slack app, then set its client once on the gateway:
+            {setup.devVars
+              ? `Register a Slack app with this redirect URL, then put its client in .dev.vars as ${setup.devVars.join(" and ")}:`
+              : "Register a Slack app with this redirect URL, then set its client once on the gateway:"}
           </p>
-          <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs">
-              {command}
-            </code>
-            <CopyButton
-              value={command}
-              successMessage="Command copied"
-              label="Copy the command that sets up Slack"
-              size="icon-xs"
-              variant="ghost"
-            />
-          </div>
+          <SetupLine value={redirectUri} label="redirect URL" />
+          {setup.command ? (
+            <SetupLine value={setup.command} label="command" />
+          ) : null}
         </div>
       ) : (
         <p className="text-muted-foreground">
           Ask whoever runs your Every App gateway to set up Slack.
         </p>
       )}
+    </div>
+  );
+}
+
+function SetupLine({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs">
+        {value}
+      </code>
+      <CopyButton
+        value={value}
+        successMessage="Copied"
+        label={`Copy the ${label}`}
+        size="icon-xs"
+        variant="ghost"
+      />
     </div>
   );
 }

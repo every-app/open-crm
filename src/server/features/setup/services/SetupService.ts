@@ -1,5 +1,6 @@
 import { AgentAvailabilityService } from "@/server/features/agent/services/AgentAvailabilityService";
 import { clientStatus } from "@/server/features/mailbox/providers/oauth";
+import { SlackService } from "@/server/features/slack/services/SlackService";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 import type { AgentAvailability } from "@/shared/agent-availability";
@@ -94,6 +95,21 @@ const SETUP_ITEMS: SetupItemSpec[] = [
     note: ({ availability }) =>
       availability.tier === "fork"
         ? "The gateway holds the OAuth client; Settings → Connections shows the redirect URI to register with it."
+        : null,
+  },
+  {
+    id: "slack",
+    group: "connections",
+    optional: true,
+    title: "Slack",
+    unlocks:
+      "Team agents post to the Slack channels their version was approved for.",
+    setting: "SLACK_CLIENT_ID SLACK_CLIENT_SECRET",
+    check: async () =>
+      (await SlackService.clientReady()) ? "done" : "missing",
+    note: ({ availability }) =>
+      availability.tier === "fork"
+        ? "The gateway holds the OAuth client; Settings → Connections shows the redirect URL to register with it."
         : null,
   },
 ];

@@ -71,9 +71,19 @@ Settings → Connections shows the exact redirect URI for your CRM to owners and
 
 Gmail's read scope is one Google restricts. If everyone who connects is in your own Google Workspace, make the consent screen _Internal_ and no review is needed. An _External_ consent screen needs Google's verification and a yearly security assessment before people outside your Workspace can connect Gmail. Microsoft client secrets expire (after 6 to 24 months): set a new one with the same command before it does.
 
+### Slack
+
+Team agents post to Slack through a Slack app whose client the gateway holds. At [api.slack.com/apps](https://api.slack.com/apps), create an app, add the redirect URL `https://<crm host>/integrations/slack/callback` under _OAuth & Permissions_, and add the bot token scopes `users:read`, `users:read.email`, `channels:read`, `groups:read`, `channels:history`, `groups:history`, `chat:write`, `chat:write.public`, `im:write`, `channels:join`, `channels:manage`, `groups:write`, `channels:write.invites`, `groups:write.invites`, `conversations.connect:write` and `links:write`, and the user token scopes `channels:read`, `channels:write`, `groups:read` and `groups:write`. Then give the gateway its client:
+
+```bash
+pnpm everyapp secret set SLACK_CLIENT_ID SLACK_CLIENT_SECRET --for gateway
+```
+
+An owner or admin then connects the workspace's Slack from Settings → Connections.
+
 ## What works without keys
 
-The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking), and the REST API (Settings → API). Mail and calendar capture need the OAuth clients above.
+The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking), and the REST API (Settings → API). Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
 
 Without a model key, the research agent pauses. Records it would research say "Waiting for setup", the agent button on Home says "Agent paused", and the setup checklist (on Home for owners and admins, and in Settings → Setup) shows what is missing and, on your own gateway, the command that sets it. Nothing is lost while it waits: the agent does the work once the key is set.
 

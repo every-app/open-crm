@@ -26,7 +26,7 @@ export function AgentsPage() {
 
   return (
     <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-4xl space-y-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         <PageHeader
           title="Agents"
           description="Durable automations created from private agent-builder chats."

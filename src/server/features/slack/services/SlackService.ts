@@ -42,8 +42,7 @@ const AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const TOKEN_URL = "https://slack.com/api/oauth.v2.access";
 const STATE_TTL_MS = 10 * 60_000;
 
-const SLACK_GATEWAY_COMMAND =
-  "everyapp secret set SLACK_CLIENT_ID SLACK_CLIENT_SECRET --for gateway";
+const SLACK_CLIENT_SETTINGS = ["SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET"];
 
 async function gatewayEnv(): Promise<object> {
   return (await getWorkersEnv()) ?? {};
@@ -80,12 +79,22 @@ async function status(context: Context) {
     gatewayEnv(),
   ]);
   const manage = canManage(context);
+  // `everyapp dev` has no gateway: the developer's own client goes in
+  // .dev.vars under the gateway's names. Otherwise only the operator of a
+  // fork's gateway can set its secrets.
+  const local = Boolean((env as { EVERYAPP_DEV?: string }).EVERYAPP_DEV);
   const base = {
     configured: client.ready,
     canManage: manage,
-    // Only the operator of a fork's gateway can set its secrets.
-    setupCommand:
-      manage && isForkDeployment(env) ? SLACK_GATEWAY_COMMAND : null,
+    setup:
+      local || (manage && isForkDeployment(env))
+        ? {
+            command: local
+              ? null
+              : `pnpm everyapp secret set ${SLACK_CLIENT_SETTINGS.join(" ")} --for gateway`,
+            devVars: local ? SLACK_CLIENT_SETTINGS : null,
+          }
+        : null,
   };
   if (!connection) return { ...base, connected: false as const };
   const [members, agents] = await Promise.all([
@@ -332,8 +341,14 @@ async function postMessage(
   return posted.data;
 }
 
+/** Whether the gateway holds Slack's client (the setup checklist). */
+async function clientReady(): Promise<boolean> {
+  return (await gatewayClient()).ready;
+}
+
 export const SlackService = {
   status,
+  clientReady,
   startConnect,
   completeConnect,
   disconnect,
