@@ -2,7 +2,7 @@
 
 The CRM keeps its records up to date with a research agent ported from the CRM's agent (which ran on Vercel). Here it is a [Think](https://developers.cloudflare.com/agents/) agent in a Durable Object (`CrmAgent`, `src/server/features/agent/CrmAgent.ts`), driven by a queue in the database and the Worker's minute cron. Every model and Context.dev call goes through the Every App gateway, named for the organization it is for (`docs/maintainers/every-app.md`).
 
-**The model** is OpenSEO's: GPT-5.6 Luna through OpenRouter (`src/server/lib/openrouter.ts`), with MiniMax M3 where OpenAI is blocked, and nobody picks it in the app; a self-hosted copy sets `OPENROUTER_MODEL` to use another. As OpenSEO splits it, a person's chat turn (a record chat or Chat) reasons at `max` with 16,000 output tokens a step, and background work (research sessions, team agent runs, compaction summaries) at `low` (`runtime/model.ts`, `runtime/turn.ts`). A run records the model it ran on.
+**The model** is GPT-6 Luna through OpenRouter, set up as OpenSEO runs Luna (`src/server/lib/openrouter.ts`), with MiniMax M3 where OpenAI is blocked, and nobody picks it in the app; a self-hosted copy sets `OPENROUTER_MODEL` to use another. As OpenSEO splits it, a person's chat turn (a record chat or Chat) reasons at `max` with 16,000 output tokens a step, and background work (research sessions, team agent runs, compaction summaries) at `low` (`runtime/model.ts`, `runtime/turn.ts`). A run records the model it ran on.
 
 ## The queue
 

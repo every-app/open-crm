@@ -54,7 +54,7 @@ The research agent's keys live on the gateway, never in the CRM. Set each once:
 
 Each command asks for the value at a hidden prompt, so the key never appears in your shell history. The change is live on the gateway at once, with no redeploy of the gateway or the CRM. The CRM notices a newly set model key on its own: work waiting for it starts within about ten minutes, with no restart.
 
-The agent runs on GPT-5.6 Luna through OpenRouter. To use another OpenRouter model, set its id on the CRM (the key stays on the gateway):
+The agent runs on GPT-6 Luna through OpenRouter. To use another OpenRouter model, set its id on the CRM (the key stays on the gateway):
 
 ```bash
 pnpm everyapp secret set OPENROUTER_MODEL

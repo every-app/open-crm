@@ -46,5 +46,5 @@ it("stays on OpenAI when the country lookup fails", async () => {
     await requestedModel(async () => {
       throw new Error("offline");
     }),
-  ).toBe("openai/gpt-5.6-luna");
+  ).toBe("openai/gpt-6-luna");
 });

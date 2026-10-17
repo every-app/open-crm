@@ -14,7 +14,7 @@ const CRM_SECRETS = [
   // profiles. Any classic token with no scopes will do.
   "GITHUB_TOKEN",
   // The OpenRouter model the agent runs on, for a self-hosted copy that
-  // wants another than GPT-5.6 Luna (src/server/lib/openrouter.ts). The key
+  // wants another than GPT-6 Luna (src/server/lib/openrouter.ts). The key
   // itself, OPENROUTER_API_KEY, is the gateway's.
   "OPENROUTER_MODEL",
   // Overrides the deployment shape (src/server/lib/deployment-tier.ts). Its

@@ -22,11 +22,11 @@ const GATEWAY_BASE_URL =
   "https://every-app-gateway.invalid/api/ai/openrouter/api/v1";
 
 /**
- * The agent's model, as OpenSEO's SAM runs: GPT-5.6 Luna. A self-hosted copy
- * picks another OpenRouter model with OPENROUTER_MODEL; nobody picks one in
- * the app.
+ * The agent's model: GPT-6 Luna, set up as OpenSEO's SAM runs Luna. A
+ * self-hosted copy picks another OpenRouter model with OPENROUTER_MODEL;
+ * nobody picks one in the app.
  */
-export const DEFAULT_AGENT_MODEL = "openai/gpt-5.6-luna";
+export const DEFAULT_AGENT_MODEL = "openai/gpt-6-luna";
 
 // OpenSEO's previous default: reachable through OPENROUTER_MODEL, and the
 // fallback where OpenAI is blocked. Its routing needs the ZDR and provider
@@ -116,9 +116,9 @@ export function openRouterProvider(
  * builds SAM's (buildChatAgentModel). `usage: { include: true }` turns on
  * OpenRouter usage accounting so each response carries its real USD cost
  * (providerMetadata.openrouter.usage.cost). "max" is valid at the OpenRouter
- * API for GPT-5.x but missing from the SDK's effort union, so the reasoning
- * config rides in `extraBody`; reasoning tokens are billed as output tokens,
- * which the usage accounting captures.
+ * API for GPT-6 Luna (its supported_efforts) but missing from the SDK's effort
+ * union, so the reasoning config rides in `extraBody`; reasoning tokens are
+ * billed as output tokens, which the usage accounting captures.
  */
 export function buildAgentModel(
   gatewayFetch: typeof fetch,
