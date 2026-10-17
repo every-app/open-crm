@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Settings2 } from "lucide-react";
+import { Settings, Settings2 } from "lucide-react";
 import { Button } from "@/client/components/ui/button";
 import {
   Sheet,
@@ -27,16 +27,38 @@ import { fieldEntitySchema } from "@/types/schemas/fields";
 const NEW = "new";
 
 /**
- * The list toolbar's "Fields" button: opens the sheet that manages an
- * entity's custom fields (and, from its tabs, the other entities').
+ * Opens the sheet that manages an entity's custom fields (and, from its
+ * tabs, the other entities'): the list toolbar's "Fields" button, or the
+ * settings cog of a record sheet's Details.
  */
-export function FieldsSheetButton({ entity }: { entity: FieldEntity }) {
+export function FieldsSheetButton({
+  entity,
+  cog = false,
+}: {
+  entity: FieldEntity;
+  cog?: boolean;
+}) {
   return (
     <Sheet>
-      <SheetTrigger render={<Button variant="outline" size="sm" />}>
-        <Settings2 data-icon="inline-start" />
-        {SHEET_TITLE}
-      </SheetTrigger>
+      {cog ? (
+        <SheetTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={SHEET_TITLE}
+              title={SHEET_TITLE}
+            />
+          }
+        >
+          <Settings />
+        </SheetTrigger>
+      ) : (
+        <SheetTrigger render={<Button variant="outline" size="sm" />}>
+          <Settings2 data-icon="inline-start" />
+          {SHEET_TITLE}
+        </SheetTrigger>
+      )}
       <SheetContent className="w-full gap-0 sm:max-w-md">
         <FieldsSheet initialEntity={entity} />
       </SheetContent>

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, XIcon } from "lucide-react";
 import { EmptyState } from "@/client/components/EmptyState";
 import { SkeletonTableRows } from "@/client/components/SkeletonPresets";
@@ -42,6 +42,9 @@ export function RecordSheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  // The sheet itself takes focus as it opens, not its first button: Tab
+  // reaches its controls from there.
+  const popup = useRef<HTMLDivElement>(null);
   return (
     <Sheet
       open={open}
@@ -50,9 +53,11 @@ export function RecordSheet({
       }}
     >
       <SheetContent
+        ref={popup}
+        initialFocus={popup}
         side="right"
         showCloseButton={false}
-        className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"
+        className="gap-0 p-0 outline-none data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"
       >
         {children}
       </SheetContent>

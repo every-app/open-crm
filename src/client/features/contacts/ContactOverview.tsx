@@ -1,10 +1,11 @@
 import { useId, useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
 import { SafeExternalLink } from "@/client/components/SafeExternalLink";
-import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
-import { formatMoney } from "@/client/features/companies/companyFormat";
+import {
+  formatMoney,
+  fullName,
+} from "@/client/features/companies/companyFormat";
 import {
   AgentFound,
   ContactBrief,
@@ -15,8 +16,9 @@ import {
   sameValue,
   type Contact,
 } from "@/client/features/contacts/contactFormat";
-import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 import type { useContactMutations } from "@/client/features/contacts/useContactMutations";
+import { DealStageMenu } from "@/client/features/deals/DealStage";
+import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { RecordFields } from "@/client/features/fields/RecordFields";
 import {
   CompanyPicker,
@@ -85,7 +87,10 @@ export function ContactOverview({
     <div>
       <ContactSuggestions contact={contact} mutations={mutations} />
 
-      <SheetSection title="Details">
+      <SheetSection
+        title="Details"
+        action={<FieldsSheetButton entity="CONTACT" cog />}
+      >
         <div className="space-y-0.5">
           <InlineField
             label="First name"
@@ -275,16 +280,9 @@ function WeKnowThem({ contact }: { contact: Contact }) {
           <Property label="Also here">
             <span className="flex flex-wrap gap-x-3 gap-y-0.5">
               {colleagues.map((colleague) => (
-                <Link
+                <RecordLink
                   key={colleague.id}
-                  from="/contacts"
-                  to="/contacts"
-                  search={(prev) => ({
-                    ...prev,
-                    record: colleague.id,
-                    tab: undefined,
-                  })}
-                  className="min-w-0 truncate underline-offset-4 hover:underline"
+                  record={{ kind: "contact", id: colleague.id }}
                 >
                   {colleague.name}
                   {colleague.title ? (
@@ -293,7 +291,7 @@ function WeKnowThem({ contact }: { contact: Contact }) {
                       ({colleague.title})
                     </span>
                   ) : null}
-                </Link>
+                </RecordLink>
               ))}
             </span>
           </Property>
@@ -338,7 +336,7 @@ function ContactDeals({ contact }: { contact: Contact }) {
       {contact.deals.length === 0 ? (
         <SheetEmpty
           title="Not on any deals"
-          description="Deals are opened on the company, then people are added to them."
+          description={`${fullName(contact)} is not attached to anything being sold yet. Deals are opened on the company, then people are added to them.`}
         />
       ) : (
         <ul className="-mx-2 divide-y divide-border">
@@ -365,7 +363,7 @@ function ContactDeals({ contact }: { contact: Contact }) {
                   )}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <span className="text-right tabular-nums">
                   {deal.amount === null ? (
                     <EmptyValue />
@@ -373,9 +371,7 @@ function ContactDeals({ contact }: { contact: Contact }) {
                     formatMoney(deal.amount, deal.currency)
                   )}
                 </span>
-                <Badge variant={deal.open ? "outline" : "secondary"}>
-                  {DEAL_STAGE_LABELS[deal.stage]}
-                </Badge>
+                <DealStageMenu dealId={deal.id} stage={deal.stage} />
               </div>
             </li>
           ))}
