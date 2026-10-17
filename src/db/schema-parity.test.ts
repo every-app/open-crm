@@ -7,9 +7,13 @@ import { sort } from "remeda";
 import { describe, expect, it } from "vitest";
 import * as sqliteCrm from "./crm.schema";
 import * as sqliteAgent from "./agent.schema";
+import * as sqliteTeamAgent from "./team-agent.schema";
+import * as sqliteSlack from "./slack.schema";
 import * as sqliteAuth from "./auth.schema";
 import * as pgCrm from "./pg/crm.schema";
 import * as pgAgent from "./pg/agent.schema";
+import * as pgTeamAgent from "./pg/team-agent.schema";
+import * as pgSlack from "./pg/slack.schema";
 import * as pgAuth from "./pg/auth.schema";
 
 // Guards the ONE structural artifact `db:generate` does not regenerate: the
@@ -132,8 +136,13 @@ function checkNames(table: Table, dialect: Dialect): string[] {
   );
 }
 
-const sqliteAppTables = tablesFrom(sqliteCrm, sqliteAgent);
-const pgAppTables = tablesFrom(pgCrm, pgAgent);
+const sqliteAppTables = tablesFrom(
+  sqliteCrm,
+  sqliteAgent,
+  sqliteTeamAgent,
+  sqliteSlack,
+);
+const pgAppTables = tablesFrom(pgCrm, pgAgent, pgTeamAgent, pgSlack);
 const sqliteAuthTables = tablesFrom(sqliteAuth);
 const pgAuthTables = tablesFrom(pgAuth);
 
