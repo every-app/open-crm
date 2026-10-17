@@ -126,7 +126,6 @@ export function ImportReport({
   stoppedAt,
   error,
   total,
-  research,
 }: {
   totals: Totals;
   failed: number;
@@ -134,7 +133,6 @@ export function ImportReport({
   stoppedAt: number | null;
   error: string | null;
   total: number;
-  research: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -166,18 +164,6 @@ export function ImportReport({
           The import stopped after {stoppedAt.toLocaleString()} of{" "}
           {total.toLocaleString()} rows. Run it again with the same file: rows
           already imported are recognized, so nothing is added twice.
-        </p>
-      ) : null}
-      {failed > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Fix the rows that failed and import just those: download them with the
-          reason for each.
-        </p>
-      ) : null}
-      {research && totals.created > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          The research agent looks up what was added a couple of records a
-          minute, after anything people add by hand.
         </p>
       ) : null}
     </div>
@@ -275,13 +261,6 @@ export function ImportOptions({
           <Switch checked={research} onCheckedChange={onResearchChange} />
           Research new records with the agent
         </Label>
-        <p className="text-xs text-muted-foreground">
-          {entity === "DEAL"
-            ? "The companies it adds, and the custom fields the agent fills. "
-            : null}
-          Logos come at once; the agent researches the rest a couple of records
-          a minute, so a big import doesn't crowd out what people add by hand.
-        </p>
       </div>
     </div>
   );
@@ -292,13 +271,11 @@ export function PreviewTable({
   headers,
   results,
   error,
-  total,
 }: {
   rows: { line: number; values: Record<string, string> }[];
   headers: Target[];
   results: RowResult[] | null;
   error: string | null;
-  total: number;
 }) {
   const shown = headers.filter((target) =>
     rows.some((row) => row.values[target.id]),
@@ -306,13 +283,11 @@ export function PreviewTable({
   const byLine = new Map(results?.map((result) => [result.line, result]));
   return (
     <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">
-        {error
-          ? error
-          : results
-            ? `The first ${rows.length} of ${total.toLocaleString()} rows, checked without saving anything.`
-            : "Checking the first rows…"}
-      </p>
+      {error || !results ? (
+        <p className="text-sm text-muted-foreground">
+          {error ?? "Checking the first rows…"}
+        </p>
+      ) : null}
       <div className="max-h-[45vh] overflow-auto rounded-lg border border-border">
         <Table>
           <TableHeader>

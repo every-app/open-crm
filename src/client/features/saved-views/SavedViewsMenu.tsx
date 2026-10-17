@@ -231,12 +231,7 @@ function SaveViewDialog({
             )}
           </form.AppField>
           <form.AppField name="shared">
-            {(field) => (
-              <field.SwitchField
-                label="Share with the team"
-                description="Everyone in the workspace can apply it. Only you can change it."
-              />
-            )}
+            {(field) => <field.SwitchField label="Share with the team" />}
           </form.AppField>
           {filters.success ? null : (
             <p className="text-sm text-destructive">

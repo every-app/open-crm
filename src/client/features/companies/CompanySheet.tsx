@@ -76,7 +76,7 @@ export function CompanySheet({ companyId }: { companyId: string }) {
                     {mutations.enrich.isPending ? null : (
                       <RefreshCw data-icon="inline-start" />
                     )}
-                    <span className="max-sm:sr-only">Enrich now</span>
+                    <span className="max-sm:sr-only">Re-enrich</span>
                   </Button>
                   <RecordActionsMenu
                     noun="company"
@@ -194,12 +194,9 @@ function CompanyStats({ company }: { company: Company }) {
           {formatMoney(pipeline, company.reportingCurrency)}
         </span>
         {unconverted > 0 ? (
-          <span
-            className="font-normal text-muted-foreground"
-            title={`${unconverted} open ${unconverted === 1 ? "deal is" : "deals are"} in a currency with no exchange rate yet`}
-          >
+          <span className="font-normal text-muted-foreground">
             {" "}
-            +{unconverted}
+            +{unconverted} unconverted
           </span>
         ) : null}
       </SheetStat>

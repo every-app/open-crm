@@ -53,23 +53,25 @@ const EMPTY: Record<
     icon: Clock,
     title: "Nothing has happened yet",
     description:
-      "Calls, notes, emails and meetings all land here. Log the first one above.",
+      "Calls, notes, emails and meetings all land here. Log the first one above, or wait for Gmail, Outlook and Calendar to sync.",
   },
   notes: {
     icon: MessageSquare,
     title: "No notes",
     description:
-      "Notes are what you write down for the next person to read: what they care about, who else is involved, what you promised.",
+      "Notes are what you write down for the next person to read — what they care about, who else is involved, what you promised.",
   },
   email: {
     icon: Mail,
     title: "No email",
-    description: "Emails logged on this record show up here.",
+    description:
+      "Threads appear here as they are synced from Gmail or Outlook. Nothing from before this mailbox was connected is imported.",
   },
   meetings: {
     icon: CalendarDays,
     title: "No meetings",
-    description: "Meetings logged on this record show up here.",
+    description:
+      "Calendar events with someone from this record on them show up here, past and upcoming.",
   },
   upcoming: {
     icon: SquareCheck,

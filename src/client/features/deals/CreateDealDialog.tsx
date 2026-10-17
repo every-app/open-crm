@@ -219,7 +219,7 @@ function CreateDealForm({
               <field.SelectField
                 label="Stage"
                 items={STAGE_ITEMS}
-                description="A new deal is an open deal: close it from the pipeline once there is an outcome to record."
+                description="A new deal is an open deal — close it from the pipeline once there is an outcome to record."
               />
             )}
           </form.AppField>

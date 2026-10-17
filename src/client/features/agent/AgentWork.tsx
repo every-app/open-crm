@@ -47,7 +47,7 @@ const HELD = {
   },
   schedule: {
     label: "Held",
-    title: "Background research is off on this deployment. Enrich now runs it.",
+    title: "Background research is off on this deployment. Re-enrich runs it.",
   },
 } as const;
 

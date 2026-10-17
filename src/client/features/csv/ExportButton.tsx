@@ -98,7 +98,6 @@ export function ExportButton<
       variant="outline"
       size="sm"
       pending={pending}
-      title={`Download the ${noun.many} in this list as a CSV`}
       onClick={() => void exportList()}
     >
       <Download data-icon="inline-start" />

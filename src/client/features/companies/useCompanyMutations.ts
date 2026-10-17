@@ -90,8 +90,8 @@ export function useCompanyMutations(
     onSuccess: async (result) => {
       toast.success(
         result.queued
-          ? "The agent is looking it up. This updates when it finishes."
-          : "The agent is already on it.",
+          ? "Looking it up — this page will update when it finishes."
+          : "Already running.",
       );
       await invalidate();
     },

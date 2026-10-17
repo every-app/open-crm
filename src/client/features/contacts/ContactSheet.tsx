@@ -107,7 +107,7 @@ function ContactActions({
         {mutations.enrich.isPending ? null : (
           <RefreshCw data-icon="inline-start" />
         )}
-        <span className="max-sm:sr-only">Enrich now</span>
+        <span className="max-sm:sr-only">Re-enrich</span>
       </Button>
       {contact.email ? (
         <Button
@@ -124,7 +124,6 @@ function ContactActions({
         <Button
           variant="outline"
           size="sm"
-          title={`Make ${contact.firstName} ${company.name}'s primary contact`}
           pending={mutations.setPrimary.isPending}
           onClick={() => mutations.setPrimary.mutate(company.id)}
         >
@@ -245,6 +244,6 @@ function purgeConsequence(contact: Contact): string {
   const gone =
     "Their notes, agent conversations and everything the agent found go too; emails and meetings stay filed against the company.";
   return contact.email
-    ? `${gone} Captured mail will not bring ${contact.email} back: only adding them yourself will.`
+    ? `${gone} The sync will not bring ${contact.email} back — only adding them yourself will.`
     : gone;
 }

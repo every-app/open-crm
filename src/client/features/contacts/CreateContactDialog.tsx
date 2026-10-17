@@ -5,12 +5,7 @@ import { z } from "zod";
 import { FormDialog } from "@/client/components/FormDialog";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/client/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/client/components/ui/field";
 import { fullName } from "@/client/features/companies/companyFormat";
 import {
   contactErrorMessage,
@@ -144,10 +139,6 @@ export function CreateContactDialog({
         }
       >
         <form.Form id={FORM_ID} className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            Each email address belongs to one contact. The agent fills in their
-            photo, role and profiles.
-          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <form.AppField name="firstName">
               {(field) => (
@@ -204,10 +195,6 @@ export function CreateContactDialog({
                     value={field.state.value}
                     onChange={(company) => field.handleChange(company)}
                   />
-                  <FieldDescription>
-                    Leave it empty and a work email files them under its
-                    company.
-                  </FieldDescription>
                   {error ? <FieldError>{error}</FieldError> : null}
                 </Field>
               );

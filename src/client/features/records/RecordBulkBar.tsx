@@ -66,6 +66,7 @@ export function RecordBulkBar({
   onRestore,
   onPurge,
   actions,
+  purgeWarning,
 }: {
   selectedCount: number;
   noun: RecordNoun;
@@ -85,6 +86,8 @@ export function RecordBulkBar({
   onPurge: () => void;
   /** More actions for live records, such as setting a contact's company. */
   actions?: ReactNode;
+  /** What deleting the selection forever means, for its confirmation. */
+  purgeWarning: string;
 }) {
   const owners = useOwnerOptions("Nobody").filter(
     (owner) => !ownerRequired || owner.value !== UNASSIGNED,
@@ -151,7 +154,7 @@ export function RecordBulkBar({
                     onClick={onEnrich}
                     disabled={pending}
                   >
-                    Enrich
+                    Re-enrich
                   </TableBulkActionButton>
                 ) : null}
                 <TableBulkActionButton
@@ -177,8 +180,7 @@ export function RecordBulkBar({
           }}
           onClose={() => setConfirming(false)}
         >
-          This cannot be undone. Everything filed against them is deleted with
-          them.
+          {purgeWarning}
         </ConfirmDialog>
       ) : null}
     </>

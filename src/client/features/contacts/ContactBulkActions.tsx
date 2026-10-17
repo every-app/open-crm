@@ -4,11 +4,7 @@ import { Building2 } from "lucide-react";
 import { FormDialog } from "@/client/components/FormDialog";
 import { TableBulkActionButton } from "@/client/components/table/TableBulkActionBar";
 import { Button } from "@/client/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@/client/components/ui/field";
+import { Field, FieldLabel } from "@/client/components/ui/field";
 import { invalidateContacts } from "@/client/features/contacts/useContactMutations";
 import {
   CompanyPicker,
@@ -104,6 +100,7 @@ export function ContactBulkActions({
         onArchive={() => archive.mutate(ids)}
         onRestore={() => restore.mutate(ids)}
         onPurge={() => purge.mutate(ids)}
+        purgeWarning="Their email addresses are suppressed, so the inbox sync will not file them again. This cannot be undone."
         actions={
           <TableBulkActionButton
             icon={<Building2 />}
@@ -159,9 +156,6 @@ function MoveContactsDialog({
       <Field>
         <FieldLabel htmlFor={id}>Company</FieldLabel>
         <CompanyPicker id={id} value={company} onChange={setCompany} />
-        <FieldDescription>
-          Leave it empty to take them off whatever company they are at.
-        </FieldDescription>
       </Field>
     </FormDialog>
   );
