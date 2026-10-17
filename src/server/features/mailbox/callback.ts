@@ -4,8 +4,9 @@ import type { MailboxProvider } from "@/shared/mailbox";
 
 // Google and Microsoft send the member back here after consent, under the
 // member's own signed-in session on the CRM's host (the gateway signs the
-// identity on as on every request). The outcome goes back to Settings →
-// Connections as `connected` or an `error` code; nothing else does.
+// identity on as on every request). The outcome goes back to the provider's
+// page under Settings → Connections as `connected` or an `error` code;
+// nothing else does.
 
 export async function handleConnectCallback(
   request: Request,
@@ -24,11 +25,13 @@ export async function handleConnectCallback(
     provider,
     new URL(request.url),
   );
-  const back = new URLSearchParams({ provider });
-  if (outcome.ok) back.set("connected", "1");
-  else back.set("error", outcome.error);
+  const back = new URLSearchParams(
+    outcome.ok ? { connected: "1" } : { error: outcome.error },
+  );
   return new Response(null, {
     status: 303,
-    headers: { location: `/settings/connections?${back.toString()}` },
+    headers: {
+      location: `/settings/connections/${provider}?${back.toString()}`,
+    },
   });
 }

@@ -1,4 +1,8 @@
-import { queryOptions } from "@tanstack/react-query";
+import {
+  infiniteQueryOptions,
+  keepPreviousData,
+  queryOptions,
+} from "@tanstack/react-query";
 import {
   getSlackMatches,
   getSlackStatus,
@@ -24,6 +28,7 @@ export const slackStatusQueryOptions = () =>
     },
   });
 
+/** One page of the channels the app can reach, for a picker. */
 export const slackChannelsQueryOptions = (search: string, offset = 0) =>
   queryOptions({
     queryKey: ["slack", "channels", search, offset],
@@ -32,6 +37,23 @@ export const slackChannelsQueryOptions = (search: string, offset = 0) =>
     retry: false,
     refetchInterval: (query) =>
       query.state.data?.sync === "syncing" ? SYNC_POLL_MS : false,
+  });
+
+/** The channels page by page, as the Slack page loads more of them. */
+export const slackChannelPagesQueryOptions = (search: string) =>
+  infiniteQueryOptions({
+    queryKey: ["slack", "channel-pages", search],
+    queryFn: ({ pageParam }) =>
+      listSlackChannels({
+        data: { query: search || undefined, offset: pageParam },
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (page) => page.nextOffset ?? undefined,
+    // A new search keeps the last list up until its own arrives.
+    placeholderData: keepPreviousData,
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.pages[0]?.sync === "syncing" ? SYNC_POLL_MS : false,
   });
 
 export const slackMatchesQueryOptions = () =>

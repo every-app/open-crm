@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { SLACK_CONNECT_ERRORS } from "@/shared/slack";
+
+/** The Slack page's search: why the last connect came back without Slack. */
+export const slackConnectSearchSchema = z.object({
+  error: z.enum(SLACK_CONNECT_ERRORS).optional().catch(undefined),
+});
 
 export const slackChannelsSchema = z.object({
   query: z.string().trim().max(80).optional(),

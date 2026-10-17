@@ -1,3 +1,4 @@
+import type { ConnectionState } from "@/client/features/settings/ConnectionStatus";
 import type { ConnectionsStatus } from "@/server/features/mailbox/services/ConnectionService";
 import type {
   ConnectError,
@@ -5,34 +6,49 @@ import type {
   SyncSource,
 } from "@/shared/mailbox";
 
-// Settings → Connections' words, ported from the CRM's connection pages.
+// The mail providers' words, from the CRM's connection pages.
 
 export type ProviderStatus = ConnectionsStatus["providers"][number];
 export type Connection = NonNullable<ProviderStatus["connection"]>;
 
 export const COPY = {
   google: {
+    title: "Google Workspace",
     name: "Google",
     offer:
       "Read-only Gmail and Calendar. Only conversations with companies in the CRM are stored.",
     connected:
       "Meetings and email threads land on the matching company as they happen.",
+    bringsIn: "Emails, meetings and the people on them",
     manage: "https://myaccount.google.com/permissions",
     manageLabel: "Manage in your Google account",
-    purged: "Every email and meeting brought in from Google is removed",
-    disconnect:
-      "Google's access is withdrawn and new email and meetings stop arriving. Everything already synced stays, and you can connect Google again from this page.",
+    purged:
+      "Every email and meeting brought in from Google is removed from the CRM.",
+    revoke: "Revoke Google access",
+    revokeAction: "Revoke",
+    stops: "New email and meetings stop arriving.",
+    revoked:
+      "New email and meetings stop arriving. Everything already synced stays, and you can connect Google again from this page.",
+    register:
+      "Register an OAuth client with Google and allow this redirect URI. Gmail's read scope is restricted: an External consent screen needs Google's verification, an Internal one doesn't.",
   },
   microsoft: {
+    title: "Microsoft 365",
     name: "Microsoft",
     offer:
       "Read-only Outlook mail. Only conversations with companies in the CRM are stored.",
     connected: "Email threads land on the matching company as they happen.",
+    bringsIn: "Outlook email and the people on it",
     manage: "https://myapplications.microsoft.com",
     manageLabel: "Manage in your Microsoft account",
-    purged: "Every email brought in from Outlook is removed",
-    disconnect:
-      "New email stops arriving. Everything already synced stays, and you can connect Microsoft again from this page. Microsoft has no way for us to withdraw the consent itself: remove this app from your Microsoft account to do that.",
+    purged: "Every email brought in from Outlook is removed from the CRM.",
+    revoke: "Disconnect Microsoft",
+    revokeAction: "Disconnect",
+    stops: "New email stops arriving.",
+    revoked:
+      "New email stops arriving. Everything already synced stays, and you can connect Microsoft again from this page. Microsoft has no way for us to withdraw the consent itself — remove this app from your Microsoft account to do that.",
+    register:
+      "Register an app with Microsoft for accounts in any organization and personal accounts, and allow this redirect URI.",
   },
 } as const satisfies Record<MailboxProvider, Record<string, string>>;
 
@@ -70,4 +86,19 @@ export function connectErrorCopy(
     case "mailbox_unknown":
       return `${name} didn't say which mailbox this is. Try again.`;
   }
+}
+
+/** The provider's status badge: set up, connected, and working. */
+export function mailboxState(status: ProviderStatus): ConnectionState {
+  const { connection } = status;
+  if (!connection) return status.ready ? "disconnected" : "unconfigured";
+  const healthy =
+    connection.hasRefreshToken &&
+    !connection.needsReconnect &&
+    !connection.sources.some(
+      (source) =>
+        source.granted &&
+        (source.status === "NEEDS_RECONNECT" || source.lastError),
+    );
+  return healthy ? "connected" : "attention";
 }

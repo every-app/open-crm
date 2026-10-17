@@ -14,9 +14,9 @@ export const setAutoCreateSchema = z.object({
   enabled: z.boolean(),
 });
 
-/** Settings → Connections' search: how the last connect came back. */
-export const connectionsSearchSchema = z.object({
-  provider: z.enum(MAILBOX_PROVIDERS).optional().catch(undefined),
-  connected: z.literal("1").optional().catch(undefined),
+/** A provider page's search: how the last connect came back. */
+export const mailboxConnectSearchSchema = z.object({
+  // The router reads `?connected=1` as the number 1.
+  connected: z.literal(1).optional().catch(undefined),
   error: z.enum(CONNECT_ERRORS).optional().catch(undefined),
 });

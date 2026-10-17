@@ -6,8 +6,9 @@ import { SlackService } from "../services/SlackService";
 // Slack's redirect back to the CRM after an owner or admin approved the
 // install: `/integrations/slack/callback?code=…&state=…`. The gateway signs
 // the person's identity onto it like any page; the service checks the state
-// was minted for them and finishes the exchange through the gateway. The
-// person lands back on Settings → Connections with the outcome.
+// was minted for them and finishes the exchange through the gateway. A
+// connect lands on the people review (as the CRM's does); anything else on
+// the Slack page with why.
 
 /** The identity's channel: "web" for a person's browser, "mcp" for an agent. */
 export async function callerChannel(headers: Headers): Promise<string> {
@@ -22,7 +23,9 @@ export async function handleSlackCallback(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const back = (outcome: string) =>
     Response.redirect(
-      `${url.origin}/settings/connections?slack=${encodeURIComponent(outcome)}`,
+      outcome === "connected"
+        ? `${url.origin}/settings/connections/slack/people`
+        : `${url.origin}/settings/connections/slack?error=${encodeURIComponent(outcome)}`,
       302,
     );
   if (request.method !== "GET") {
