@@ -1,16 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { revalidateLogic } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { Coins } from "lucide-react";
 import { EmptyState } from "@/client/components/EmptyState";
 import { InlineConfirm } from "@/client/components/InlineConfirm";
-import { SectionHeader } from "@/client/components/PageHeader";
+import {
+  SettingsCard,
+  SettingsSection,
+} from "@/client/components/SettingsSection";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import {
   Table,
   TableBody,
-  TableCard,
   TableCell,
   TableHead,
   TableHeader,
@@ -20,7 +23,7 @@ import {
   getErrorCode,
   getStandardErrorMessage,
 } from "@/client/lib/error-messages";
-import { formatRelativeTime } from "@/client/lib/relative-time";
+import { RelativeTime } from "@/client/features/records/LocalDateTime";
 import type { CurrencySettings } from "@/server/features/currency/services/CurrencyService";
 import {
   refreshRates,
@@ -36,7 +39,8 @@ const formatRate = (rate: number) =>
 /**
  * Settings → Currencies' rates: fetched daily for everyone, and the
  * organization's own, which win. Owners and admins refresh them and enter
- * or remove their own.
+ * or remove their own; when they were last fetched shows under Currencies
+ * in use.
  */
 export function ExchangeRates({
   settings,
@@ -53,7 +57,7 @@ export function ExchangeRates({
     mutationFn: () => refreshRates(),
     onSuccess: async () => {
       await invalidateAll();
-      toast.success("Rates refreshed");
+      toast.success("Rates refreshed.");
     },
     onError: (error) => {
       toast.error(
@@ -68,49 +72,48 @@ export function ExchangeRates({
     mutationFn: (currency: string) => removeManualRate({ data: { currency } }),
     onSuccess: async () => {
       await invalidateAll();
-      toast.success("Rate removed");
+      toast.success("Rate removed.");
     },
   });
 
   const base = settings.reportingCurrency;
 
   return (
-    <section className="space-y-3">
-      <SectionHeader
-        title="Exchange rates"
-        action={
-          canManage ? (
-            <Button
-              variant="outline"
-              size="sm"
-              pending={refresh.isPending}
-              onClick={() => refresh.mutate()}
-            >
-              Refresh
-            </Button>
-          ) : null
-        }
-      />
-      <p className="max-w-2xl text-sm text-muted-foreground">
-        How many {base} one unit of each currency buys. Fetched daily from
-        open.er-api.com; a rate entered here wins.
-      </p>
-
-      {/* Remounted per base, so it never offers the reporting currency. */}
-      {canManage ? <ManualRateForm key={base} base={base} /> : null}
-
-      {settings.rates.length === 0 ? (
-        <EmptyState
-          title="No rates yet"
-          description={
-            canManage
-              ? "Refresh to fetch them, or enter one by hand."
-              : "An owner or an admin can fetch them or enter one by hand."
-          }
-          size="sm"
-        />
-      ) : (
-        <TableCard>
+    <SettingsSection
+      title="Exchange rates"
+      description={`How many ${base} one unit of each currency buys. Fetched daily from open.er-api.com; a rate you enter here wins.`}
+      action={
+        canManage ? (
+          <Button
+            variant="outline"
+            pending={refresh.isPending}
+            onClick={() => refresh.mutate()}
+          >
+            Refresh
+          </Button>
+        ) : null
+      }
+    >
+      <SettingsCard>
+        {canManage ? (
+          <div className="px-5 py-4">
+            {/* Remounted per base, so it never offers the reporting currency. */}
+            <ManualRateForm key={base} base={base} />
+          </div>
+        ) : null}
+        {settings.rates.length === 0 ? (
+          <EmptyState
+            icon={Coins}
+            media="rows"
+            variant="plain"
+            title="No rates yet"
+            description={
+              canManage
+                ? "Refresh to fetch them, or enter one by hand."
+                : "An owner or an admin can fetch them or enter one by hand."
+            }
+          />
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -147,11 +150,8 @@ export function ExchangeRates({
                       <Badge variant="success">Fetched</Badge>
                     )}
                   </TableCell>
-                  <TableCell
-                    className="text-right text-muted-foreground"
-                    title={new Date(rate.asOf).toLocaleString()}
-                  >
-                    {formatRelativeTime(rate.asOf)}
+                  <TableCell className="text-right text-muted-foreground">
+                    <RelativeTime date={rate.asOf} />
                   </TableCell>
                   {canManage ? (
                     <TableCell className="text-right">
@@ -171,15 +171,9 @@ export function ExchangeRates({
               ))}
             </TableBody>
           </Table>
-        </TableCard>
-      )}
-
-      {settings.refreshedAt ? (
-        <p className="text-xs text-muted-foreground">
-          Rates last refreshed {formatRelativeTime(settings.refreshedAt)}.
-        </p>
-      ) : null}
-    </section>
+        )}
+      </SettingsCard>
+    </SettingsSection>
   );
 }
 
@@ -209,7 +203,7 @@ function ManualRateForm({ base }: { base: string }) {
         rate: Number(value.rate),
       });
       formApi.reset();
-      toast.success("Rate saved");
+      toast.success("Rate saved.");
     },
   });
 
