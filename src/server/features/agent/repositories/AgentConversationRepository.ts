@@ -136,6 +136,33 @@ async function markRead(
   return updated.length > 0;
 }
 
+/**
+ * Deletes one of the person's record conversations, and with it the steps the
+ * agent took there (agent_event cascades). The removed row's session, or null
+ * when it isn't theirs.
+ */
+async function remove(
+  organizationId: string,
+  userId: string,
+  id: string,
+): Promise<{ id: string; sessionId: string } | null> {
+  const [row] = await db
+    .delete(agentConversation)
+    .where(
+      and(
+        eq(agentConversation.organizationId, organizationId),
+        eq(agentConversation.userId, userId),
+        eq(agentConversation.kind, "RECORD"),
+        eq(agentConversation.id, id),
+      ),
+    )
+    .returning({
+      id: agentConversation.id,
+      sessionId: agentConversation.sessionId,
+    });
+  return row ?? null;
+}
+
 /** A message went into the conversation (`assistant`: the agent's reply). */
 async function recordMessage(
   organizationId: string,
@@ -199,6 +226,7 @@ export const AgentConversationRepository = {
   findForRecord,
   findBySession,
   markRead,
+  remove,
   recordMessage,
   setTitleIfEmpty,
 };

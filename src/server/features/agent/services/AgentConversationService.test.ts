@@ -84,4 +84,25 @@ describe("AgentConversationService", () => {
     expect(await ids(ana)).toEqual(["chat", "research"]);
     expect(await ids(cy)).toEqual(["research"]);
   });
+
+  it("deletes a conversation for its owner only, with the steps taken in it", async () => {
+    const mine = await AgentConversationService.open(ana, { record: contact });
+    await database.exec(
+      `INSERT INTO agent_event (id, organization_id, session_id, contact_id, conversation_id, type, data, emitted_at) VALUES
+         ('research', 'org_a', 'task.x', 'c_a', NULL, 'task.finished', '{}', '2026-10-16T00:00:00.000Z'),
+         ('chat', 'org_a', '${mine.sessionId}', 'c_a', '${mine.id}', 'turn.started', '{}', '2026-10-16T00:01:00.000Z');`,
+    );
+    for (const other of [cy, { organizationId: "org_b", userId: "user_a" }]) {
+      await expect(
+        AgentConversationService.remove(other, mine.id),
+      ).rejects.toThrow("NOT_FOUND");
+    }
+    await expect(
+      AgentConversationService.remove(ana, mine.id),
+    ).resolves.toEqual({ id: mine.id, sessionId: mine.sessionId });
+    expect(await AgentConversationService.list(ana, contact)).toEqual([]);
+    expect(await database.rows("SELECT id FROM agent_event")).toEqual([
+      expect.objectContaining({ id: "research" }),
+    ]);
+  });
 });

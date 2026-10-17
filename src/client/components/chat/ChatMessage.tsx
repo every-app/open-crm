@@ -1,5 +1,5 @@
 import { type UIMessage } from "ai";
-import { useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   Check,
@@ -188,12 +188,16 @@ function ToolBadge({
  * get undo (rewind the conversation to before this message) and edit (rewind,
  * then resend the edited text) when the chat passes the handlers — both need
  * server support, so chats opt in.
+ *
+ * A chat with its own words for its tools passes `renderTool`, which draws
+ * each tool part in place of the default badge.
  */
 export function ChatMessage({
   message,
   streaming,
   onUndo,
   onEdit,
+  renderTool,
 }: {
   message: UIMessage;
   /** True while this message is still being generated: reasoning spinners
@@ -201,6 +205,7 @@ export function ChatMessage({
   streaming?: boolean;
   onUndo?: () => void;
   onEdit?: (newText: string) => void;
+  renderTool?: (part: UIMessage["parts"][number], live: boolean) => ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -288,7 +293,11 @@ export function ChatMessage({
             ) : null;
           }
           if (part.type.startsWith("tool-")) {
-            return (
+            return renderTool ? (
+              <Fragment key={index}>
+                {renderTool(part, Boolean(streaming))}
+              </Fragment>
+            ) : (
               <ToolBadge key={index} part={part} live={Boolean(streaming)} />
             );
           }
