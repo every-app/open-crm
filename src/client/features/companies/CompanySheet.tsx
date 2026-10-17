@@ -16,67 +16,30 @@ import { EnrichmentIndicator } from "@/client/features/records/EnrichmentStatus"
 import { LocalDay } from "@/client/features/records/LocalDateTime";
 import { RecordActionsMenu } from "@/client/features/records/RecordActionsMenu";
 import {
-  RecordSheet,
   RecordSheetFrame,
   SheetStat,
   SheetStats,
-  useShownRecordId,
 } from "@/client/features/records/RecordSheet";
+import { useRecordStack } from "@/client/features/records/recordStack";
 import {
   EmptyValue,
   EntityLogo,
   OwnerCell,
 } from "@/client/features/records/cells";
-import type { RecordTab } from "@/client/features/records/listSearch";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { safeHttpUrl } from "@/shared/safe-url";
 
-/** The company whose id is in the list's URL, in a sheet over the list. */
-export function CompanySheet({
-  companyId,
-  tab,
-  onTabChange,
-  onClose,
-}: {
-  companyId: string | undefined;
-  tab: RecordTab;
-  onTabChange: (tab: RecordTab) => void;
-  onClose: () => void;
-}) {
-  const shownId = useShownRecordId(companyId);
-  return (
-    <RecordSheet open={companyId !== undefined} onClose={onClose}>
-      {shownId ? (
-        <CompanySheetContent
-          key={shownId}
-          companyId={shownId}
-          tab={tab}
-          onTabChange={onTabChange}
-          onClose={onClose}
-        />
-      ) : null}
-    </RecordSheet>
-  );
-}
-
-function CompanySheetContent({
-  companyId,
-  tab,
-  onTabChange,
-  onClose,
-}: {
-  companyId: string;
-  tab: RecordTab;
-  onTabChange: (tab: RecordTab) => void;
-  onClose: () => void;
-}) {
+/** A company's sheet, over whatever page opened it (RecordSheetHost). */
+export function CompanySheet({ companyId }: { companyId: string }) {
   const query = useQuery(companyQueryOptions(companyId));
   const workspace = useQuery(workspaceQueryOptions());
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
-  const mutations = useCompanyMutations(companyId, { onPurged: onClose });
+  const { back } = useRecordStack();
+  // Deleted forever: its sheet goes, and the one under it shows again.
+  const mutations = useCompanyMutations(companyId, { onPurged: back });
   const company = query.data;
 
   return (
@@ -146,8 +109,6 @@ function CompanySheetContent({
         ) : undefined
       }
       stats={company ? <CompanyStats company={company} /> : undefined}
-      tab={tab}
-      onTabChange={onTabChange}
       overview={
         company ? (
           <CompanyOverview company={company} mutations={mutations} />
