@@ -1,3 +1,7 @@
+import { RunEventRepository } from "@/server/features/team-agents/repositories/RunEventRepository";
+import { AgentVersionRepository } from "@/server/features/team-agents/repositories/AgentVersionRepository";
+import { RunSettlement } from "@/server/features/team-agents/services/RunSettlement";
+import { RunQueueRepository } from "@/server/features/team-agents/repositories/RunQueueRepository";
 import { getAgentByName } from "agents";
 import { settledWithin } from "@/server/features/agent/dispatch/pool";
 import type { CrmAgent } from "@/server/features/agent/CrmAgent";
@@ -7,8 +11,7 @@ import { forOrganization } from "@/server/lib/gateway-attribution";
 import { getOpenRouterFetch } from "@/server/lib/openrouter";
 import { AGENT_ACTION_TYPES, agentManifest } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
-import { TeamAgentRepository } from "../repositories/TeamAgentRepository";
-import { AgentRunService, MODEL_UNAVAILABLE } from "../services/AgentRunService";
+import { MODEL_UNAVAILABLE } from "../services/RunSettlement";
 import { TriggerService } from "../services/TriggerService";
 
 // The team agents' lane of the minute cron, ported from the CRM's
@@ -39,7 +42,10 @@ function crmAgents(env: Env): DurableObjectNamespace<CrmAgent> {
 }
 
 async function runAgent(env: Env, organizationId: string, runId: string) {
-  return getAgentByName(crmAgents(env), sessionName("run", organizationId, runId));
+  return getAgentByName(
+    crmAgents(env),
+    sessionName("run", organizationId, runId),
+  );
 }
 
 /** Asks a run's session to stop spending: the row already stopped it. */
@@ -55,13 +61,13 @@ export async function stopRunSession(
 /** Settles runs that overran, and returns undelivered ones to the queue. */
 async function recover(env: Env, defer: Defer): Promise<void> {
   const now = Date.now();
-  const overran = await AgentRunRepository.runningSince(
+  const overran = await RunQueueRepository.runningSince(
     new Date(now - RUNS.executionTimeoutMs).toISOString(),
     true,
     RUNS.batch,
   );
   for (const run of overran) {
-    const failed = await AgentRunService.failRun(
+    const failed = await RunSettlement.failRun(
       run.organizationId,
       run.id,
       "RUN_TIMED_OUT",
@@ -69,7 +75,7 @@ async function recover(env: Env, defer: Defer): Promise<void> {
     );
     if (failed) defer(stopRunSession(env, run.organizationId, run.id));
   }
-  const undelivered = await AgentRunRepository.runningSince(
+  const undelivered = await RunQueueRepository.runningSince(
     new Date(now - RUNS.deliveryLeaseMs).toISOString(),
     false,
     RUNS.batch,
@@ -77,9 +83,9 @@ async function recover(env: Env, defer: Defer): Promise<void> {
   for (const run of undelivered) {
     await AgentRunRepository.requeue(run.organizationId, run.id);
   }
-  const orphaned = await AgentRunRepository.queuedOfStoppedAgents(RUNS.batch);
+  const orphaned = await RunQueueRepository.queuedOfStoppedAgents(RUNS.batch);
   for (const run of orphaned) {
-    await AgentRunService.settleRun(run.organizationId, run.id, {
+    await RunSettlement.settleRun(run.organizationId, run.id, {
       status: "CANCELLED",
       code: "AGENT_UNAVAILABLE",
       message: `The agent was ${run.agentStatus.toLowerCase()} before this run started.`,
@@ -96,7 +102,7 @@ async function cannotStart(
   if (getOpenRouterFetch(env, run.organizationId) === null) {
     return MODEL_UNAVAILABLE;
   }
-  const version = await TeamAgentRepository.findVersion(
+  const version = await AgentVersionRepository.findVersion(
     run.organizationId,
     run.agentId,
     run.versionId,
@@ -125,12 +131,17 @@ async function cannotStart(
 /** Claims a queued run and hands it to its session. */
 async function start(
   env: Env,
-  run: { id: string; organizationId: string; agentId: string; versionId: string },
+  run: {
+    id: string;
+    organizationId: string;
+    agentId: string;
+    versionId: string;
+  },
   defer: Defer,
 ): Promise<boolean> {
   const blocked = await cannotStart(env, run);
   if (blocked) {
-    await AgentRunService.failRun(
+    await RunSettlement.failRun(
       run.organizationId,
       run.id,
       blocked.code,
@@ -138,7 +149,7 @@ async function start(
     );
     return false;
   }
-  const version = await TeamAgentRepository.findVersion(
+  const version = await AgentVersionRepository.findVersion(
     run.organizationId,
     run.agentId,
     run.versionId,
@@ -150,7 +161,7 @@ async function start(
   );
   if (!claimed) return false;
   const sessionId = sessionName("run", run.organizationId, run.id);
-  await AgentRunRepository.insertEvent({
+  await RunEventRepository.insertEvent({
     organizationId: run.organizationId,
     sessionId,
     type: "run.started",
@@ -161,9 +172,10 @@ async function start(
   const handed = runAgent(env, run.organizationId, run.id)
     .then((agent) => agent.startRun({ runId: run.id }))
     .then(
-      () => AgentRunRepository.setSession(run.organizationId, run.id, sessionId),
+      () =>
+        AgentRunRepository.setSession(run.organizationId, run.id, sessionId),
       (error: unknown) =>
-        AgentRunService.failRun(
+        RunSettlement.failRun(
           run.organizationId,
           run.id,
           "DELIVERY_FAILED",
@@ -194,7 +206,7 @@ export async function runTeamAgentLane(
     if (!options.holdUnattended) await TriggerService.queueDueSchedules();
   }
   if (options.signal?.aborted) return 0;
-  const queued = await AgentRunRepository.queuedAcrossOrganizations(
+  const queued = await RunQueueRepository.queuedAcrossOrganizations(
     RUNS.batch,
     options.organizationId,
   );
@@ -203,7 +215,11 @@ export async function runTeamAgentLane(
     if (options.signal?.aborted) break;
     const ok = await forOrganization(run.organizationId, () =>
       start(env, run, options.defer).catch((error: unknown) => {
-        console.error("[team-agents] run did not start", { runId: run.id }, error);
+        console.error(
+          "[team-agents] run did not start",
+          { runId: run.id },
+          error,
+        );
         return false;
       }),
     );

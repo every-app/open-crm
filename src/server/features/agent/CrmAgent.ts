@@ -1,3 +1,4 @@
+import { RunSettlement } from "@/server/features/team-agents/services/RunSettlement";
 import { Think } from "@cloudflare/think";
 import type {
   ChatErrorContext,
@@ -12,7 +13,7 @@ import type {
   TurnContext,
 } from "@cloudflare/think";
 import { createCompactFunction } from "agents/experimental/memory/utils";
-import { generateText, type StopCondition, type ToolSet } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { withPgClient } from "@/db";
 import {
@@ -22,14 +23,12 @@ import {
 import { DEFAULT_AGENT_MODEL } from "@/server/lib/openrouter";
 import { AgentRunRepository } from "@/server/features/team-agents/repositories/AgentRunRepository";
 import {
-  AgentRunService,
-  MODEL_UNAVAILABLE,
-} from "@/server/features/team-agents/services/AgentRunService";
-import {
   prepareBuilderTurn,
   prepareRunTurn,
   RUN_LIMITS,
+  RUN_STOPPED_REPLY,
   runBrief,
+  withinRunInput,
 } from "@/server/features/team-agents/runtime/turns";
 import { CHAT_ROLE_HEADER } from "./agentRoutes";
 import { capabilityList, readCapabilities } from "./prompt/capabilities";
@@ -39,7 +38,7 @@ import { finalText, lastText, messageText, recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
 import { budgetSpender, type BudgetState, type Spend } from "./runtime/budget";
 import { buildCrmAgentModel, type ModelChoice } from "./runtime/model";
-import { modelUnavailable, reportResearch } from "./runtime/research";
+import { reportResearch } from "./runtime/research";
 import { loadAgentSession, type AgentSession } from "./runtime/session";
 import { agentSkillSource } from "./runtime/skills";
 import {
@@ -75,49 +74,12 @@ const INTERRUPTED_TURN_NOTICE =
 const GONE_REPLY =
   "This conversation no longer exists. Start a new one from the record.";
 
-const RUN_STOPPED_REPLY = "This run is no longer active, so it does nothing.";
-
-/** A run stops where it is once its steps have read this much input. */
-const withinRunInput: StopCondition<ToolSet> = ({ steps }) =>
-  steps.reduce((total, step) => total + (step.usage.inputTokens ?? 0), 0) >
-  RUN_LIMITS.maxInputTokens;
-
 const TERMINAL_SUBMISSIONS = new Set([
   "completed",
   "aborted",
   "skipped",
   "error",
 ]);
-
-/** How a run's turn ended, written to its row. */
-async function settleRunTurn(
-  organizationId: string,
-  runId: string,
-  submission: ThinkSubmissionInspection,
-): Promise<void> {
-  if (submission.status === "completed") {
-    await AgentRunService.finishRun(organizationId, runId);
-    return;
-  }
-  if (submission.status === "error") {
-    const error = submission.error ?? "The agent turn failed.";
-    await (modelUnavailable(error)
-      ? AgentRunService.failRun(
-          organizationId,
-          runId,
-          MODEL_UNAVAILABLE.code,
-          MODEL_UNAVAILABLE.message,
-        )
-      : AgentRunService.failRun(organizationId, runId, "TURN_FAILED", error));
-    return;
-  }
-  await AgentRunService.settleRun(organizationId, runId, {
-    status: "CANCELLED",
-    code: "CANCELLED",
-    message: "The run was stopped before it finished.",
-    actor: { type: "AGENT" },
-  });
-}
 
 /** The model the organization's workspace runs its agent on. */
 async function modelFor(organizationId: string): Promise<ModelChoice> {
@@ -363,11 +325,15 @@ export class CrmAgent extends Think {
       });
       // A run carries its own tokens and cost, for the runs drawer.
       if (session.kind === "run") {
-        await AgentRunRepository.addUsage(session.organizationId, session.run.id, {
-          inputTokens: step.usage.inputTokens ?? 0,
-          outputTokens: step.usage.outputTokens ?? 0,
-          costUsd: costUsd ?? 0,
-        });
+        await AgentRunRepository.addUsage(
+          session.organizationId,
+          session.run.id,
+          {
+            inputTokens: step.usage.inputTokens ?? 0,
+            outputTokens: step.usage.outputTokens ?? 0,
+            costUsd: costUsd ?? 0,
+          },
+        );
       }
     });
   }
@@ -435,7 +401,11 @@ export class CrmAgent extends Think {
     await withPgClient(async () => {
       const session = await loadAgentSession(this.name);
       if (session?.kind === "run") {
-        await settleRunTurn(session.organizationId, session.run.id, submission);
+        await RunSettlement.endTurn(
+          session.organizationId,
+          session.run.id,
+          submission,
+        );
         return;
       }
       if (session?.kind !== "research") return;

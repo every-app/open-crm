@@ -1,7 +1,14 @@
+import { RunSideEffects } from "@/server/features/team-agents/runtime/runSideEffects";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
-import { asker, webResearchAccess } from "@/server/features/agent/lib/perplexity";
-import { BILLABLE_CALL_UNITS, type Spend } from "@/server/features/agent/runtime/budget";
+import {
+  asker,
+  webResearchAccess,
+} from "@/server/features/agent/lib/perplexity";
+import {
+  BILLABLE_CALL_UNITS,
+  type Spend,
+} from "@/server/features/agent/runtime/budget";
 import type { AgentToolContext } from "@/server/features/agent/tools/context";
 import { webTools } from "@/server/features/agent/tools/web";
 import { RECORD_KINDS } from "@/shared/records";
@@ -101,7 +108,7 @@ export function runnerTools(context: RunnerContext): ToolSet {
                 .describe("For a task: when it is due, as an ISO date."),
             }),
             execute: (input, options) =>
-              RunActions.createActivity(
+              RunSideEffects.createActivity(
                 organizationId,
                 runId,
                 options.toolCallId,
@@ -120,7 +127,7 @@ export function runnerTools(context: RunnerContext): ToolSet {
               text: z.string().trim().min(1).max(4_000),
             }),
             execute: (input, options) =>
-              RunActions.postSlackMessage(
+              RunSideEffects.postSlackMessage(
                 organizationId,
                 runId,
                 options.toolCallId,

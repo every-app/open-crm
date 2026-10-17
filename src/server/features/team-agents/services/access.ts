@@ -10,7 +10,9 @@ import { TeamAgentRepository } from "../repositories/TeamAgentRepository";
 
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
-type Agent = NonNullable<Awaited<ReturnType<typeof TeamAgentRepository.findById>>>;
+type Agent = NonNullable<
+  Awaited<ReturnType<typeof TeamAgentRepository.findById>>
+>;
 
 /** The agent, if the person may see it; NOT_FOUND otherwise. */
 export async function readableAgent(

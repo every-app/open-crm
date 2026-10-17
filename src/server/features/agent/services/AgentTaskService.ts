@@ -249,12 +249,19 @@ const BACKFILL_CHUNK = 90;
  * EVENT trigger for it get a queued run each (TriggerService). Never fails
  * the request that caused it.
  */
-async function crmEvent(organizationId: string, event: CrmEvent): Promise<void> {
+async function crmEvent(
+  organizationId: string,
+  event: CrmEvent,
+): Promise<void> {
   try {
     const queued = await TriggerService.emitEvent(organizationId, event);
     if (queued > 0) pokeRuns(organizationId);
   } catch (error) {
-    console.error("[agent] could not deliver a CRM event", { type: event.type }, error);
+    console.error(
+      "[agent] could not deliver a CRM event",
+      { type: event.type },
+      error,
+    );
   }
 }
 

@@ -296,7 +296,7 @@ const answerSchema = z
   .catch(null);
 
 /** One tool call in a reply: a step, or one of the agent's questions. */
-function ToolPart({
+export function ToolPart({
   part,
   live,
   hidden,

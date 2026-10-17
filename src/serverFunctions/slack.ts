@@ -1,3 +1,4 @@
+import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { callerChannel } from "@/server/features/slack/routes/callback";
@@ -35,26 +36,28 @@ export const disconnectSlack = createServerFn({ method: "POST" })
 export const listSlackChannels = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
   .validator(slackChannelsSchema)
-  .handler(async ({ data, context }) => SlackService.channels(context, data));
+  .handler(async ({ data, context }) =>
+    SlackInventoryService.channels(context, data),
+  );
 
 export const joinSlackChannel = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
   .validator(slackChannelSchema)
   .handler(async ({ data, context }) =>
-    SlackService.joinChannel(context, data.channelId),
+    SlackInventoryService.joinChannel(context, data.channelId),
   );
 
 export const createSlackChannel = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
   .validator(createSlackChannelSchema)
   .handler(async ({ data, context }) =>
-    SlackService.createChannel(context, data),
+    SlackInventoryService.createChannel(context, data),
   );
 
 export const refreshSlack = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
-  .handler(async ({ context }) => SlackService.refresh(context));
+  .handler(async ({ context }) => SlackInventoryService.refresh(context));
 
 export const getSlackMatches = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
-  .handler(async ({ context }) => SlackService.matches(context));
+  .handler(async ({ context }) => SlackInventoryService.matches(context));

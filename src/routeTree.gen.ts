@@ -17,11 +17,16 @@ import { Route as AppContactsRouteImport } from './routes/_app/contacts'
 import { Route as AppDealsRouteImport } from './routes/_app/deals'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AppTasksRouteImport } from './routes/_app/tasks'
+import { Route as AppAgentsIndexRouteImport } from './routes/_app/agents/index'
+import { Route as AppAgentsAgentIdRouteImport } from './routes/_app/agents/$agentId'
+import { Route as AppAgentsNewRouteImport } from './routes/_app/agents/new'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsAgentRouteImport } from './routes/_app/settings/agent'
+import { Route as AppSettingsConnectionsRouteImport } from './routes/_app/settings/connections'
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppAgentsChatConversationIdRouteImport } from './routes/_app/agents/chat.$conversationId'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -62,6 +67,21 @@ const AppTasksRoute = AppTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppAgentsIndexRoute = AppAgentsIndexRouteImport.update({
+  id: '/agents/',
+  path: '/agents/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppAgentsAgentIdRoute = AppAgentsAgentIdRouteImport.update({
+  id: '/agents/$agentId',
+  path: '/agents/$agentId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppAgentsNewRoute = AppAgentsNewRouteImport.update({
+  id: '/agents/new',
+  path: '/agents/new',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -70,6 +90,11 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
 const AppSettingsAgentRoute = AppSettingsAgentRouteImport.update({
   id: '/agent',
   path: '/agent',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsConnectionsRoute = AppSettingsConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppSettingsCurrenciesRoute = AppSettingsCurrenciesRouteImport.update({
@@ -87,6 +112,12 @@ const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppAgentsChatConversationIdRoute =
+  AppAgentsChatConversationIdRouteImport.update({
+    id: '/agents/chat/$conversationId',
+    path: '/agents/chat/$conversationId',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -96,11 +127,16 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
   '/tasks': typeof AppTasksRoute
+  '/agents/$agentId': typeof AppAgentsAgentIdRoute
+  '/agents/new': typeof AppAgentsNewRoute
   '/settings/agent': typeof AppSettingsAgentRoute
+  '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/agents/': typeof AppAgentsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/agents/chat/$conversationId': typeof AppAgentsChatConversationIdRoute
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
@@ -109,11 +145,16 @@ export interface FileRoutesByTo {
   '/deals': typeof AppDealsRoute
   '/tasks': typeof AppTasksRoute
   '/': typeof AppIndexRoute
+  '/agents/$agentId': typeof AppAgentsAgentIdRoute
+  '/agents/new': typeof AppAgentsNewRoute
   '/settings/agent': typeof AppSettingsAgentRoute
+  '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/agents': typeof AppAgentsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/agents/chat/$conversationId': typeof AppAgentsChatConversationIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,11 +166,16 @@ export interface FileRoutesById {
   '/_app/deals': typeof AppDealsRoute
   '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/agents/$agentId': typeof AppAgentsAgentIdRoute
+  '/_app/agents/new': typeof AppAgentsNewRoute
   '/_app/settings/agent': typeof AppSettingsAgentRoute
+  '/_app/settings/connections': typeof AppSettingsConnectionsRoute
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/data': typeof AppSettingsDataRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/agents/': typeof AppAgentsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/agents/chat/$conversationId': typeof AppAgentsChatConversationIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,11 +187,16 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/deals'
     | '/tasks'
+    | '/agents/$agentId'
+    | '/agents/new'
     | '/settings/agent'
+    | '/settings/connections'
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/agents/'
     | '/settings/'
+    | '/agents/chat/$conversationId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
@@ -154,11 +205,16 @@ export interface FileRouteTypes {
     | '/deals'
     | '/tasks'
     | '/'
+    | '/agents/$agentId'
+    | '/agents/new'
     | '/settings/agent'
+    | '/settings/connections'
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/agents'
     | '/settings'
+    | '/agents/chat/$conversationId'
   id:
     | '__root__'
     | '/_app'
@@ -169,11 +225,16 @@ export interface FileRouteTypes {
     | '/_app/deals'
     | '/_app/tasks'
     | '/_app/'
+    | '/_app/agents/$agentId'
+    | '/_app/agents/new'
     | '/_app/settings/agent'
+    | '/_app/settings/connections'
     | '/_app/settings/currencies'
     | '/_app/settings/data'
     | '/_app/settings/members'
+    | '/_app/agents/'
     | '/_app/settings/'
+    | '/_app/agents/chat/$conversationId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -239,6 +300,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/agents/': {
+      id: '/_app/agents/'
+      path: '/agents'
+      fullPath: '/agents/'
+      preLoaderRoute: typeof AppAgentsIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/agents/$agentId': {
+      id: '/_app/agents/$agentId'
+      path: '/agents/$agentId'
+      fullPath: '/agents/$agentId'
+      preLoaderRoute: typeof AppAgentsAgentIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/agents/new': {
+      id: '/_app/agents/new'
+      path: '/agents/new'
+      fullPath: '/agents/new'
+      preLoaderRoute: typeof AppAgentsNewRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/settings/': {
       id: '/_app/settings/'
       path: '/'
@@ -251,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/agent'
       fullPath: '/settings/agent'
       preLoaderRoute: typeof AppSettingsAgentRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/connections': {
+      id: '/_app/settings/connections'
+      path: '/connections'
+      fullPath: '/settings/connections'
+      preLoaderRoute: typeof AppSettingsConnectionsRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/currencies': {
@@ -274,11 +363,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/agents/chat/$conversationId': {
+      id: '/_app/agents/chat/$conversationId'
+      path: '/agents/chat/$conversationId'
+      fullPath: '/agents/chat/$conversationId'
+      preLoaderRoute: typeof AppAgentsChatConversationIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
   }
 }
 
 interface AppSettingsRouteRouteChildren {
   AppSettingsAgentRoute: typeof AppSettingsAgentRoute
+  AppSettingsConnectionsRoute: typeof AppSettingsConnectionsRoute
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
@@ -287,6 +384,7 @@ interface AppSettingsRouteRouteChildren {
 
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsAgentRoute: AppSettingsAgentRoute,
+  AppSettingsConnectionsRoute: AppSettingsConnectionsRoute,
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
@@ -303,6 +401,10 @@ interface AppRouteRouteChildren {
   AppDealsRoute: typeof AppDealsRoute
   AppTasksRoute: typeof AppTasksRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAgentsAgentIdRoute: typeof AppAgentsAgentIdRoute
+  AppAgentsNewRoute: typeof AppAgentsNewRoute
+  AppAgentsIndexRoute: typeof AppAgentsIndexRoute
+  AppAgentsChatConversationIdRoute: typeof AppAgentsChatConversationIdRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
@@ -312,6 +414,10 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppDealsRoute: AppDealsRoute,
   AppTasksRoute: AppTasksRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAgentsAgentIdRoute: AppAgentsAgentIdRoute,
+  AppAgentsNewRoute: AppAgentsNewRoute,
+  AppAgentsIndexRoute: AppAgentsIndexRoute,
+  AppAgentsChatConversationIdRoute: AppAgentsChatConversationIdRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(

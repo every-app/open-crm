@@ -29,7 +29,11 @@ const draftTrigger = z.discriminatedUnion("type", [
     type: z.literal("SCHEDULE"),
     ...triggerMetadata,
     nextRunAt: z.string(),
-    intervalMinutes: z.number().int().min(1).max(TEAM_AGENT_LIMITS.maxScheduleMinutes),
+    intervalMinutes: z
+      .number()
+      .int()
+      .min(1)
+      .max(TEAM_AGENT_LIMITS.maxScheduleMinutes),
   }),
   z.object({
     type: z.literal("EVENT"),
@@ -156,7 +160,9 @@ export function draftIssues(
     if (label === undefined) {
       issues.push(`${resource.label} was not tagged in this builder chat.`);
     } else if (label !== resource.label) {
-      issues.push(`${resource.kind} ${resource.id} must use its exact tagged label, "${label}".`);
+      issues.push(
+        `${resource.kind} ${resource.id} must use its exact tagged label, "${label}".`,
+      );
     } else if (!existingKeys.has(key)) {
       issues.push(`${resource.label} is no longer in the CRM.`);
     }
@@ -173,16 +179,22 @@ export function draftIssues(
     actionTypes.add(action.type);
     if (action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST) {
       if (!input.integrations.includes("slack")) {
-        issues.push("Posting to Slack needs Slack in this agent's integrations.");
+        issues.push(
+          "Posting to Slack needs Slack in this agent's integrations.",
+        );
       }
       const options =
         action.destination.kind === "user" ? slack.people : slack.channels;
       const noun = action.destination.kind === "user" ? "person" : "channel";
-      const option = options.find((entry) => entry.id === action.destination.id);
+      const option = options.find(
+        (entry) => entry.id === action.destination.id,
+      );
       if (!option) {
         issues.push(`The Slack ${noun} is not available to this workspace.`);
       } else if (option.label !== action.destination.label) {
-        issues.push(`The Slack ${noun} must use its exact inspected label, "${option.label}".`);
+        issues.push(
+          `The Slack ${noun} must use its exact inspected label, "${option.label}".`,
+        );
       }
     }
     if (

@@ -16,7 +16,11 @@ export function pokeRuns(organizationId: string): void {
   try {
     waitUntil(
       runLaneFor(organizationId).catch((error: unknown) => {
-        console.error("[team-agents] poked lane failed", { organizationId }, error);
+        console.error(
+          "[team-agents] poked lane failed",
+          { organizationId },
+          error,
+        );
       }),
     );
   } catch (error) {

@@ -1,3 +1,7 @@
+import { BuilderToolService } from "@/server/features/team-agents/services/BuilderToolService";
+import { AgentActionRepository } from "@/server/features/team-agents/repositories/AgentActionRepository";
+import { AgentFileRepository } from "@/server/features/team-agents/repositories/AgentFileRepository";
+import { TriggerRepository } from "@/server/features/team-agents/repositories/TriggerRepository";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -21,7 +25,6 @@ vi.mock("@/db/schema", () => testDb.modules.schema);
 import { RunActions } from "../runtime/runActions";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import { BuilderRepository } from "../repositories/BuilderRepository";
-import { TeamAgentRepository } from "../repositories/TeamAgentRepository";
 import { AgentRunService } from "./AgentRunService";
 import { BuilderService } from "./BuilderService";
 import type { DraftInput } from "./draft";
@@ -37,7 +40,9 @@ const draft = (overrides: Partial<DraftInput> = {}): DraftInput => ({
   description: "Summarizes deals that move.",
   instructions:
     "When a deal changes stage, read it and write a one-line summary of where it stands.",
-  triggers: [{ type: "MANUAL", name: "By hand", summary: "When someone runs it" }],
+  triggers: [
+    { type: "MANUAL", name: "By hand", summary: "When someone runs it" },
+  ],
   recordScope: "WORKSPACE",
   resources: [],
   integrations: [],
@@ -46,14 +51,22 @@ const draft = (overrides: Partial<DraftInput> = {}): DraftInput => ({
 });
 
 /** A builder chat that saved `input`: its agent and version ids. */
-async function saved(input: DraftInput, tagged: { kind: "deal"; id: string }[] = []) {
+async function saved(
+  input: DraftInput,
+  tagged: { kind: "deal"; id: string }[] = [],
+) {
   const chat = await BuilderRepository.createConversation({
     organizationId: "org_a",
     userId: "user_a",
     sessionId: `chat.test.${crypto.randomUUID()}`,
   });
-  const result = await BuilderService.saveDraft(
-    { organizationId: "org_a", userId: "user_a", conversationId: chat.id, tagged },
+  const result = await BuilderToolService.saveDraft(
+    {
+      organizationId: "org_a",
+      userId: "user_a",
+      conversationId: chat.id,
+      tagged,
+    },
     input,
   );
   if (!result.saved) throw new Error(result.issues.join(" "));
@@ -89,18 +102,23 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     });
 
     const runs = async () =>
-      countRow.parse((await database.rows("SELECT count(*) AS n FROM agent_run"))[0]).n;
+      countRow.parse(
+        (await database.rows("SELECT count(*) AS n FROM agent_run"))[0],
+      ).n;
 
     it("keeps a saved version from running until a person deploys it", async () => {
       const version = await saved(draft());
-      const request = { agentId: version.agentId, clientRequestId: crypto.randomUUID() };
+      const request = {
+        agentId: version.agentId,
+        clientRequestId: crypto.randomUUID(),
+      };
       await expect(AgentRunService.runNow(owner, request)).rejects.toThrow(
         "TEAM_AGENT_NOT_LIVE",
       );
       // A draft is its creator's alone.
-      await expect(TeamAgentService.get(member, version.agentId)).rejects.toThrow(
-        "NOT_FOUND",
-      );
+      await expect(
+        TeamAgentService.get(member, version.agentId),
+      ).rejects.toThrow("NOT_FOUND");
 
       await TeamAgentService.deploy(owner, {
         agentId: version.agentId,
@@ -110,7 +128,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       const run = await AgentRunService.runNow(member, request);
       expect(await AgentRunService.runNow(member, request)).toEqual(run);
       await expect(
-        AgentRunService.runNow(member, { ...request, clientRequestId: crypto.randomUUID() }),
+        AgentRunService.runNow(member, {
+          ...request,
+          clientRequestId: crypto.randomUUID(),
+        }),
       ).rejects.toThrow("TEAM_AGENT_BUSY");
       expect(await runs()).toBe(1);
     });
@@ -125,13 +146,20 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         recordScope: "SELECTED",
         resources: [{ kind: "deal", id: "renewal", label: "Renewal" }],
       });
-      const tool = { organizationId: "org_a", userId: "user_a", conversationId: chat.id };
-      const untagged = await BuilderService.saveDraft({ ...tool, tagged: [] }, input);
+      const tool = {
+        organizationId: "org_a",
+        userId: "user_a",
+        conversationId: chat.id,
+      };
+      const untagged = await BuilderToolService.saveDraft(
+        { ...tool, tagged: [] },
+        input,
+      );
       expect(untagged).toMatchObject({
         saved: false,
         issues: ["Renewal was not tagged in this builder chat."],
       });
-      const tagged = await BuilderService.saveDraft(
+      const tagged = await BuilderToolService.saveDraft(
         { ...tool, tagged: [{ kind: "deal", id: "renewal" }] },
         input,
       );
@@ -162,7 +190,11 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           data: { from: "DEMO_BOOKED", to: "CONTRACT_SENT" },
         }),
       ).toBe(1);
-      const [run] = await AgentRunRepository.listForAgent("org_a", watching.agentId, 5);
+      const [run] = await AgentRunRepository.listForAgent(
+        "org_a",
+        watching.agentId,
+        5,
+      );
       expect(run).toMatchObject({
         status: "QUEUED",
         triggerType: "EVENT",
@@ -196,12 +228,14 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(queued[0] + queued[1]).toBe(1);
       expect(await TriggerService.queueDueSchedules(now)).toBe(0);
       expect(await runs()).toBe(1);
-      const [trigger] = await TeamAgentRepository.triggersForVersion(
+      const [trigger] = await TriggerRepository.triggersForVersion(
         "org_a",
         version.versionId,
       );
       expect(trigger?.lastRunAt).toBe(due);
-      expect(trigger?.nextRunAt && trigger.nextRunAt > now.toISOString()).toBe(true);
+      expect(trigger?.nextRunAt && trigger.nextRunAt > now.toISOString()).toBe(
+        true,
+      );
     });
 
     it("settles a stopped run with its outstanding actions, and its tools refuse after", async () => {
@@ -210,8 +244,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         agentId: version.agentId,
         clientRequestId: crypto.randomUUID(),
       });
-      expect(await AgentRunRepository.claim("org_a", runId, "model")).toBe(true);
-      const action = await AgentRunRepository.planAction({
+      expect(await AgentRunRepository.claim("org_a", runId, "model")).toBe(
+        true,
+      );
+      const action = await AgentActionRepository.planAction({
         organizationId: "org_a",
         agentId: version.agentId,
         runId,
@@ -225,31 +261,50 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         idempotencyKey: `${runId}:call_1`,
         requestHash: "h",
       });
-      expect(await AgentRunRepository.claimAction("org_a", action.id, 60_000)).not.toBeNull();
+      expect(
+        await AgentActionRepository.claimAction("org_a", action.id, 60_000),
+      ).not.toBeNull();
 
       // Only whoever started it, its creator or an admin may stop it.
       await expect(
         AgentRunService.cancelRun(member, { agentId: version.agentId, runId }),
       ).rejects.toThrow("FORBIDDEN");
       expect(
-        await AgentRunService.cancelRun(owner, { agentId: version.agentId, runId }),
+        await AgentRunService.cancelRun(owner, {
+          agentId: version.agentId,
+          runId,
+        }),
       ).toMatchObject({ cancelled: true });
       expect(
-        await AgentRunService.cancelRun(owner, { agentId: version.agentId, runId }),
+        await AgentRunService.cancelRun(owner, {
+          agentId: version.agentId,
+          runId,
+        }),
       ).toMatchObject({ cancelled: false });
 
       expect(await AgentRunRepository.findById("org_a", runId)).toMatchObject({
         status: "CANCELLED",
         errorCode: "CANCELLED",
       });
-      const [settledAction] = await AgentRunRepository.actionsForRuns("org_a", [runId]);
+      const [settledAction] = await AgentActionRepository.actionsForRuns(
+        "org_a",
+        [runId],
+      );
       expect(settledAction?.status).toBe("CANCELLED");
-      const [history] = await AgentRunService.history(owner, version.agentId, 5);
+      const [history] = await AgentRunService.history(
+        owner,
+        version.agentId,
+        5,
+      );
       expect(history?.events.map((event) => event.type)).toEqual([
         "run.queued",
         "run.cancelled",
       ]);
-      const activity = await TeamAgentService.activity(owner, version.agentId, 20);
+      const activity = await TeamAgentService.activity(
+        owner,
+        version.agentId,
+        20,
+      );
       expect(activity.map((event) => event.type)).toContain("run.cancelled");
       await expect(
         RunActions.stageResult("org_a", runId, { summary: "Done" }),
@@ -264,9 +319,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       });
       expect(await TeamAgentService.list(outsider)).toEqual([]);
       expect(await BuilderService.listConversations(outsider)).toEqual([]);
-      await expect(TeamAgentService.get(outsider, version.agentId)).rejects.toThrow(
-        "NOT_FOUND",
-      );
+      await expect(
+        TeamAgentService.get(outsider, version.agentId),
+      ).rejects.toThrow("NOT_FOUND");
       await expect(
         AgentRunService.runNow(outsider, {
           agentId: version.agentId,
@@ -274,11 +329,14 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         }),
       ).rejects.toThrow("NOT_FOUND");
       await expect(
-        AgentRunService.cancelRun(outsider, { agentId: version.agentId, runId }),
+        AgentRunService.cancelRun(outsider, {
+          agentId: version.agentId,
+          runId,
+        }),
       ).rejects.toThrow("NOT_FOUND");
       expect(await AgentRunRepository.findById("org_b", runId)).toBeNull();
       expect(
-        await TeamAgentRepository.versionFiles("org_b", version.versionId),
+        await AgentFileRepository.versionFiles("org_b", version.versionId),
       ).toEqual([]);
       expect(
         await TriggerService.emitEvent("org_b", {

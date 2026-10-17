@@ -91,7 +91,10 @@ async function findConversation(
       ),
     )
     .where(
-      and(ownBuilderChats(organizationId, userId), eq(agentConversation.id, id)),
+      and(
+        ownBuilderChats(organizationId, userId),
+        eq(agentConversation.id, id),
+      ),
     )
     .limit(1);
   return row ?? null;
@@ -106,7 +109,10 @@ async function removeConversation(
   const [row] = await db
     .delete(agentConversation)
     .where(
-      and(ownBuilderChats(organizationId, userId), eq(agentConversation.id, id)),
+      and(
+        ownBuilderChats(organizationId, userId),
+        eq(agentConversation.id, id),
+      ),
     )
     .returning({
       id: agentConversation.id,
@@ -136,7 +142,10 @@ async function describeRecords(
       .select({ id: company.id, name: company.name, domain: company.domain })
       .from(company)
       .where(
-        and(eq(company.organizationId, organizationId), inArray(company.id, part)),
+        and(
+          eq(company.organizationId, organizationId),
+          inArray(company.id, part),
+        ),
       );
     found.push(
       ...rows.map((row) => ({
@@ -158,7 +167,10 @@ async function describeRecords(
       })
       .from(contact)
       .where(
-        and(eq(contact.organizationId, organizationId), inArray(contact.id, part)),
+        and(
+          eq(contact.organizationId, organizationId),
+          inArray(contact.id, part),
+        ),
       );
     found.push(
       ...rows.map((row) => ({
@@ -175,7 +187,9 @@ async function describeRecords(
     const rows = await db
       .select({ id: deal.id, name: deal.name, stage: deal.stage })
       .from(deal)
-      .where(and(eq(deal.organizationId, organizationId), inArray(deal.id, part)));
+      .where(
+        and(eq(deal.organizationId, organizationId), inArray(deal.id, part)),
+      );
     found.push(
       ...rows.map((row) => ({
         kind: "deal" as const,

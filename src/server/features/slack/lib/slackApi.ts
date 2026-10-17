@@ -89,7 +89,6 @@ export async function slackPages<Item>(
   key: string,
   item: z.ZodType<Item>,
   query: Record<string, string> = {},
-  fetcher?: typeof fetch,
 ): Promise<Item[]> {
   const page = z.object({
     items: z.array(z.unknown()).catch([]),
@@ -100,7 +99,6 @@ export async function slackPages<Item>(
   do {
     const body = await slackCallOrThrow(token, method, {
       query: { limit: "200", ...query, ...(cursor ? { cursor } : {}) },
-      fetcher,
     });
     const record = z.record(z.string(), z.unknown()).catch({}).parse(body);
     const parsed = page.parse({
@@ -143,6 +141,8 @@ export function explainSlackError(code: string): string {
     case "invalid_name_specials":
     case "invalid_name":
       return "Slack doesn't accept that channel name.";
+    case "not_connected":
+      return "Slack isn't connected.";
     case "unreadable_reply":
       return "Slack sent back something unreadable.";
     default:

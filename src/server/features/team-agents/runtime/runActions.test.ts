@@ -1,3 +1,6 @@
+import { AgentVersionRepository } from "@/server/features/team-agents/repositories/AgentVersionRepository";
+import { RunSideEffects } from "@/server/features/team-agents/runtime/runSideEffects";
+import { AgentActionRepository } from "@/server/features/team-agents/repositories/AgentActionRepository";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -21,13 +24,16 @@ vi.mock("@/db/schema", () => testDb.modules.schema);
 import type { AgentManifest } from "@/shared/team-agents";
 import { FREE } from "@/server/features/agent/runtime/budget";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
-import { TeamAgentRepository } from "../repositories/TeamAgentRepository";
 import { RunActions } from "./runActions";
 import { runnerTools } from "./runnerTools";
 
 const ORG = "org_a";
 
-const summary = { type: "run.summary", provider: "crm", summary: "Summarize" } as const;
+const summary = {
+  type: "run.summary",
+  provider: "crm",
+  summary: "Summarize",
+} as const;
 
 const manifest = (overrides: Partial<AgentManifest> = {}): AgentManifest => ({
   name: "Agent",
@@ -43,7 +49,7 @@ const manifest = (overrides: Partial<AgentManifest> = {}): AgentManifest => ({
 async function runningRun(value: AgentManifest): Promise<string> {
   const agentId = crypto.randomUUID();
   const versionId = crypto.randomUUID();
-  await TeamAgentRepository.saveVersion({
+  await AgentVersionRepository.saveVersion({
     agent: {
       id: agentId,
       organizationId: ORG,
@@ -69,7 +75,7 @@ async function runningRun(value: AgentManifest): Promise<string> {
     claimedArtifactIds: [],
     audit: [],
   });
-  await TeamAgentRepository.deploy({
+  await AgentVersionRepository.deploy({
     organizationId: ORG,
     agentId,
     versionId,
@@ -129,7 +135,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(Object.keys(tools)).not.toContain("create_crm_activity");
       expect(Object.keys(tools)).not.toContain("post_slack_message");
       await expect(
-        RunActions.createActivity(ORG, runId, "call_1", {
+        RunSideEffects.createActivity(ORG, runId, "call_1", {
           type: "NOTE",
           targetKind: "deal",
           targetId: "renewal",
@@ -161,7 +167,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         RunActions.readRecord(ORG, runId, { kind: "company", id: "acme" }),
       ).rejects.toThrow("outside this agent version's approved scope");
       await expect(
-        RunActions.createActivity(ORG, runId, "call_1", {
+        RunSideEffects.createActivity(ORG, runId, "call_1", {
           type: "NOTE",
           targetKind: "company",
           targetId: "acme",
@@ -175,7 +181,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(search.companies).toEqual([]);
       expect(search.deals.map((deal) => deal.id)).toEqual(["renewal"]);
       expect(
-        await RunActions.readRecord(ORG, runId, { kind: "deal", id: "renewal" }),
+        await RunActions.readRecord(ORG, runId, {
+          kind: "deal",
+          id: "renewal",
+        }),
       ).toMatchObject({ found: true, deal: { name: "Renewal" } });
     });
 
@@ -199,19 +208,32 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         targetId: "renewal",
         body: "Slipped a week",
       };
-      const first = await RunActions.createActivity(ORG, runId, "call_1", note);
-      const replay = await RunActions.createActivity(ORG, runId, "call_1", note);
+      const first = await RunSideEffects.createActivity(
+        ORG,
+        runId,
+        "call_1",
+        note,
+      );
+      const replay = await RunSideEffects.createActivity(
+        ORG,
+        runId,
+        "call_1",
+        note,
+      );
       expect(first).toMatchObject({ replayed: false });
       expect(replay).toEqual({ ...first, replayed: true });
       await expect(
-        RunActions.createActivity(ORG, runId, "call_1", { ...note, body: "Other" }),
+        RunSideEffects.createActivity(ORG, runId, "call_1", {
+          ...note,
+          body: "Other",
+        }),
       ).rejects.toThrow("already used for other input");
       expect(
         await count(
           "SELECT count(*) AS n FROM activity WHERE deal_id = 'renewal' AND company_id = 'acme'",
         ),
       ).toBe(1);
-      const [action] = await AgentRunRepository.actionsForRuns(ORG, [runId]);
+      const [action] = await AgentActionRepository.actionsForRuns(ORG, [runId]);
       expect(action).toMatchObject({ status: "SUCCEEDED", attemptCount: 1 });
     });
 
@@ -225,7 +247,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           dataScope: {
             mode: "WORKSPACE",
             summary: "Workspace",
-            resources: [{ kind: "integration", id: "slack:workspace", label: "Slack" }],
+            resources: [
+              { kind: "integration", id: "slack:workspace", label: "Slack" },
+            ],
           },
           actions: [
             summary,
@@ -248,12 +272,22 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
       vi.stubGlobal("fetch", fetch);
 
-      const posted = await RunActions.postSlackMessage(ORG, runId, "call_1", {
-        text: "Three deals slipped",
-      });
-      const replay = await RunActions.postSlackMessage(ORG, runId, "call_1", {
-        text: "Three deals slipped",
-      });
+      const posted = await RunSideEffects.postSlackMessage(
+        ORG,
+        runId,
+        "call_1",
+        {
+          text: "Three deals slipped",
+        },
+      );
+      const replay = await RunSideEffects.postSlackMessage(
+        ORG,
+        runId,
+        "call_1",
+        {
+          text: "Three deals slipped",
+        },
+      );
       expect(posted).toMatchObject({
         destination: "#sales",
         messageId: "C_SALES:1700000000.1",
@@ -266,7 +300,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(new Headers(init?.headers).get("authorization")).toBe(
         "Bearer xoxb-test-token",
       );
-      expect(JSON.parse(String(init?.body))).toMatchObject({
+      expect(
+        JSON.parse(typeof init?.body === "string" ? init.body : "null"),
+      ).toMatchObject({
         channel: "C_SALES",
         text: "Three deals slipped",
       });
@@ -281,7 +317,12 @@ for (const dialect of ["sqlite", "postgres"] as const) {
               type: "slack.message.post",
               provider: "slack",
               summary: "Post",
-              destination: { kind: "channel", resolution: "chosen", id: "C1", label: "#x" },
+              destination: {
+                kind: "channel",
+                resolution: "chosen",
+                id: "C1",
+                label: "#x",
+              },
             },
           ],
         }),
@@ -289,7 +330,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       const fetch = vi.fn();
       vi.stubGlobal("fetch", fetch);
       await expect(
-        RunActions.postSlackMessage(ORG, runId, "call_1", { text: "Hi" }),
+        RunSideEffects.postSlackMessage(ORG, runId, "call_1", { text: "Hi" }),
       ).rejects.toThrow("does not allow Slack");
       expect(fetch).not.toHaveBeenCalled();
     });

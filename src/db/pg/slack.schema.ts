@@ -61,15 +61,9 @@ export const slackChannel = pgTable(
     slackChannelId: text("slack_channel_id").notNull(),
     name: text("name").notNull(),
     memberCount: integer("member_count"),
-    available: boolean("available")
-      .notNull()
-      .default(true),
-    isPrivate: boolean("is_private")
-      .notNull()
-      .default(false),
-    isMember: boolean("is_member")
-      .notNull()
-      .default(false),
+    available: boolean("available").notNull().default(true),
+    isPrivate: boolean("is_private").notNull().default(false),
+    isMember: boolean("is_member").notNull().default(false),
     inviteRequestedAt: timestamp("invite_requested_at"),
     classifiedAt: timestamp("classified_at"),
     createdAt: timestamp("created_at").notNull().default(isoNow),

@@ -1,3 +1,4 @@
+import { AgentRevisionService } from "@/server/features/team-agents/services/AgentRevisionService";
 import { createServerFn } from "@tanstack/react-start";
 import { env, waitUntil } from "cloudflare:workers";
 import { forgetTranscript } from "@/server/features/agent/transcript";
@@ -82,13 +83,15 @@ export const deleteTeamAgent = createServerFn({ method: "POST" })
 export const reviseTeamAgent = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
   .validator(reviseAgentSchema)
-  .handler(async ({ data, context }) => TeamAgentService.revise(context, data));
+  .handler(async ({ data, context }) =>
+    AgentRevisionService.revise(context, data),
+  );
 
 export const saveTeamAgentInstructions = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
   .validator(saveInstructionsSchema)
   .handler(async ({ data, context }) =>
-    TeamAgentService.saveInstructions(context, data),
+    AgentRevisionService.saveInstructions(context, data),
   );
 
 export const runTeamAgent = createServerFn({ method: "POST" })

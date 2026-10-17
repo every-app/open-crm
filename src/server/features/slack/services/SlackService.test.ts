@@ -1,3 +1,4 @@
+import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Connecting Slack through the gateway's OAuth client: only an owner or admin,
@@ -57,7 +58,9 @@ describe("SlackService", () => {
   });
 
   it("connects once per state, for an owner or admin, keeping the tokens server-side", async () => {
-    await expect(SlackService.startConnect(member, web)).rejects.toThrow("FORBIDDEN");
+    await expect(SlackService.startConnect(member, web)).rejects.toThrow(
+      "FORBIDDEN",
+    );
     await expect(
       SlackService.startConnect(owner, { ...web, channel: "mcp" }),
     ).rejects.toThrow("FORBIDDEN");
@@ -67,14 +70,17 @@ describe("SlackService", () => {
     expect(await SlackService.completeConnect(outsider, callback)).toBe(
       "invalid_state",
     );
-    expect(await SlackService.completeConnect(owner, callback)).toBe("connected");
+    expect(await SlackService.completeConnect(owner, callback)).toBe(
+      "connected",
+    );
     // Spent: a replayed callback does nothing.
     expect(await SlackService.completeConnect(owner, callback)).toBe(
       "invalid_state",
     );
     const body = gateway.exchange.mock.calls[0]?.[1]?.body;
-    expect(String(body)).toContain("code=code-1");
-    expect(String(body)).not.toContain("client_secret");
+    const form = body instanceof URLSearchParams ? body : null;
+    expect(form?.get("code")).toBe("code-1");
+    expect(form?.has("client_secret")).toBe(false);
 
     const status = await SlackService.status(owner);
     expect(status).toMatchObject({
@@ -83,12 +89,19 @@ describe("SlackService", () => {
       canInviteItself: true,
     });
     expect(JSON.stringify(status)).not.toContain("secret");
-    expect(await SlackService.status(outsider)).toMatchObject({ connected: false });
+    expect(await SlackService.status(outsider)).toMatchObject({
+      connected: false,
+    });
   });
 
   it("matches members to Slack users by exact email and keeps the inventory per organization", async () => {
     const state = await startedState();
-    await SlackService.completeConnect(owner, { ...web, code: "c", state, error: null });
+    await SlackService.completeConnect(owner, {
+      ...web,
+      code: "c",
+      state,
+      error: null,
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: URL) => {
@@ -98,7 +111,12 @@ describe("SlackService", () => {
             ok: true,
             members: [
               { id: "U1", name: "ana", profile: { email: "ANA@a.test" } },
-              { id: "U2", name: "bot", is_bot: true, profile: { email: "bo@b.test" } },
+              {
+                id: "U2",
+                name: "bot",
+                is_bot: true,
+                profile: { email: "bo@b.test" },
+              },
             ],
           });
         }
@@ -111,21 +129,31 @@ describe("SlackService", () => {
         });
       }),
     );
-    await SlackService.sync("org_a");
+    await SlackInventoryService.sync("org_a");
     vi.unstubAllGlobals();
 
-    expect((await SlackService.matches(owner)).rows).toEqual([
-      expect.objectContaining({ userId: "user_a", slackHandle: "@ana", reviewed: true }),
+    expect((await SlackInventoryService.matches(owner)).rows).toEqual([
+      expect.objectContaining({
+        userId: "user_a",
+        slackHandle: "@ana",
+        reviewed: true,
+      }),
     ]);
-    const channels = await SlackService.channels(owner, { offset: 0 });
+    const channels = await SlackInventoryService.channels(owner, { offset: 0 });
     expect(channels.rows.map((row) => row.name)).toEqual(["sales"]);
-    await expect(SlackService.channels(outsider, { offset: 0 })).rejects.toThrow(
-      "SLACK_UNAVAILABLE",
-    );
-    expect((await SlackService.builderInventory("org_b")).channels).toEqual([]);
+    await expect(
+      SlackInventoryService.channels(outsider, { offset: 0 }),
+    ).rejects.toThrow("SLACK_UNAVAILABLE");
+    expect(
+      (await SlackInventoryService.builderInventory("org_b")).channels,
+    ).toEqual([]);
 
-    await expect(SlackService.disconnect(member, "web")).rejects.toThrow("FORBIDDEN");
+    await expect(SlackService.disconnect(member, "web")).rejects.toThrow(
+      "FORBIDDEN",
+    );
     await SlackService.disconnect(owner, "web");
-    expect(await SlackService.status(owner)).toMatchObject({ connected: false });
+    expect(await SlackService.status(owner)).toMatchObject({
+      connected: false,
+    });
   });
 });

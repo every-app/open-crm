@@ -1,12 +1,4 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gte,
-  lt,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { chunk } from "remeda";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
@@ -125,9 +117,7 @@ const channelColumns = () => ({
   inviteRequestedAt: slackChannel.inviteRequestedAt,
 });
 
-export type SlackChannelRow = Awaited<
-  ReturnType<typeof listChannels>
->[number];
+export type SlackChannelRow = Awaited<ReturnType<typeof listChannels>>[number];
 
 /** Available channels, the ones the app is in first, then by name. */
 async function listChannels(
@@ -217,7 +207,12 @@ async function replaceChannels(
           })
           .onConflictDoUpdate({
             target: [slackChannel.organizationId, slackChannel.slackChannelId],
-            set: { ...channel, available: true, classifiedAt: now, updatedAt: now },
+            set: {
+              ...channel,
+              available: true,
+              classifiedAt: now,
+              updatedAt: now,
+            },
           }),
       ),
     );

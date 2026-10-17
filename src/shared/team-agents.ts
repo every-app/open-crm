@@ -61,6 +61,17 @@ export const TEAM_AGENT_LIMITS = {
 } as const;
 
 // The CRM events an EVENT trigger can listen for, as the CRM's crm-events.ts.
+export const CRM_EVENT_TYPES = [
+  "company.created",
+  "contact.created",
+  "deal.created",
+  "deal.stage.changed",
+  "deal.opened",
+  "deal.closed",
+] as const;
+
+export type CrmEventType = (typeof CRM_EVENT_TYPES)[number];
+
 export const CRM_EVENT_CATALOG = {
   "company.created": {
     label: "Company created",
@@ -93,20 +104,13 @@ export const CRM_EVENT_CATALOG = {
     recordKind: "deal",
   },
 } as const satisfies Record<
-  string,
+  CrmEventType,
   {
     label: string;
     description: string;
     recordKind: "company" | "contact" | "deal";
   }
 >;
-
-export type CrmEventType = keyof typeof CRM_EVENT_CATALOG;
-
-export const CRM_EVENT_TYPES = Object.keys(CRM_EVENT_CATALOG) as [
-  CrmEventType,
-  ...CrmEventType[],
-];
 
 export const AGENT_ACTION_TYPES = {
   CRM_ACTIVITY_CREATE: "crm.activity.create",
@@ -236,7 +240,9 @@ export function recordResources(
   resources: readonly ManifestResource[],
 ): RecordResource[] {
   return resources.flatMap((resource) =>
-    resource.kind === "integration" ? [] : [{ ...resource, kind: resource.kind }],
+    resource.kind === "integration"
+      ? []
+      : [{ ...resource, kind: resource.kind }],
   );
 }
 

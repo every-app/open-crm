@@ -1,6 +1,9 @@
-import type { ToolSet, UIMessage } from "ai";
+import type { StopCondition, ToolSet, UIMessage } from "ai";
 import { z } from "zod";
-import { RUNTIME_INSTRUCTIONS, CHAT_TITLE_INSTRUCTION } from "@/server/features/agent/prompt/instructions";
+import {
+  RUNTIME_INSTRUCTIONS,
+  CHAT_TITLE_INSTRUCTION,
+} from "@/server/features/agent/prompt/instructions";
 import { FREE, type Spend } from "@/server/features/agent/runtime/budget";
 import type {
   ChatSession,
@@ -31,6 +34,14 @@ export const RUN_LIMITS = {
   /** A run that has read this much input stops where it is. */
   maxInputTokens: 300_000,
 } as const;
+
+export const RUN_STOPPED_REPLY =
+  "This run is no longer active, so it does nothing.";
+
+/** A run stops where it is once its steps have read this much input. */
+export const withinRunInput: StopCondition<ToolSet> = ({ steps }) =>
+  steps.reduce((total, step) => total + (step.usage.inputTokens ?? 0), 0) >
+  RUN_LIMITS.maxInputTokens;
 
 /**
  * A run's turn: the runner's instructions and the version's approved ones,
@@ -116,8 +127,12 @@ export function prepareBuilderTurn(
   session: ChatSession,
   input: { thinkSystem: string; messages: readonly UIMessage[] },
 ): { system: string; tools: ToolSet } {
-  const userMessages = input.messages.filter((message) => message.role === "user");
-  const extras = userMessages.map((message) => messageExtras.parse(message.metadata));
+  const userMessages = input.messages.filter(
+    (message) => message.role === "user",
+  );
+  const extras = userMessages.map((message) =>
+    messageExtras.parse(message.metadata),
+  );
   const tagged = extras.flatMap((extra) =>
     (extra.resources ?? []).flatMap((resource) =>
       resource.kind === "integration"

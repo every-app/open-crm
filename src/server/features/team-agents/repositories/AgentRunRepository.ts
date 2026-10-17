@@ -1,44 +1,17 @@
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  gte,
-  inArray,
-  isNull,
-  lt,
-  notExists,
-  or,
-  sql,
-} from "drizzle-orm";
-import { alias } from "drizzle-orm/sqlite-core";
-import { chunk } from "remeda";
+import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
-import { runBatch } from "@/db/runBatch";
-import {
-  agentAction,
-  agentAuditEvent,
-  agentDefinition,
-  agentEvent,
-  agentRun,
-  agentVersion,
-  user,
-} from "@/db/schema";
+import { agentDefinition, agentRun, agentVersion, user } from "@/db/schema";
 import {
   ACTIVE_RUN_STATUSES,
   type RunStatus,
   type TriggerType,
 } from "@/shared/team-agents";
-import type { NewAudit } from "./TeamAgentRepository";
 
 // Team agent runs and their action ledger. Runs are org-scoped like every
 // table; the dispatcher's scans (queued, overrunning, undelivered) are the
 // one place reads span organizations, and each returns the organization of
 // every run it hands back.
-
-const ID_CHUNK = 90;
 
 export type NewRun = {
   organizationId: string;
@@ -121,7 +94,9 @@ async function findById(organizationId: string, id: string) {
   const [row] = await db
     .select(runColumns())
     .from(agentRun)
-    .where(and(eq(agentRun.organizationId, organizationId), eq(agentRun.id, id)))
+    .where(
+      and(eq(agentRun.organizationId, organizationId), eq(agentRun.id, id)),
+    )
     .limit(1);
   return row ?? null;
 }
@@ -142,7 +117,9 @@ async function findWithVersion(organizationId: string, id: string) {
     .from(agentRun)
     .innerJoin(agentDefinition, eq(agentDefinition.id, agentRun.agentId))
     .innerJoin(agentVersion, eq(agentVersion.id, agentRun.versionId))
-    .where(and(eq(agentRun.organizationId, organizationId), eq(agentRun.id, id)))
+    .where(
+      and(eq(agentRun.organizationId, organizationId), eq(agentRun.id, id)),
+    )
     .limit(1);
   return row ?? null;
 }
@@ -285,80 +262,6 @@ async function settle(
   return row ?? null;
 }
 
-/**
- * What the winner of a settle writes after it: the run's terminal event, its
- * outstanding actions cancelled (when it was stopped) and the audit line, in
- * one batch. Each is idempotent, so writing them twice changes nothing.
- */
-async function recordEnding(input: {
-  organizationId: string;
-  runId: string;
-  sessionId: string;
-  type: "run.completed" | "run.failed" | "run.cancelled";
-  data: Record<string, unknown>;
-  cancelActions: { code: string; message: string } | null;
-  audit: NewAudit;
-}): Promise<void> {
-  const now = new Date().toISOString();
-  await runBatch((tx) => [
-    ...(input.cancelActions
-      ? [
-          tx
-            .update(agentAction)
-            .set({
-              status: "CANCELLED",
-              errorCode: input.cancelActions.code,
-              errorMessage: input.cancelActions.message,
-              completedAt: now,
-            })
-            .where(
-              and(
-                eq(agentAction.organizationId, input.organizationId),
-                eq(agentAction.runId, input.runId),
-                inArray(agentAction.status, ["PLANNED", "RUNNING"]),
-              ),
-            ),
-        ]
-      : []),
-    tx
-      .insert(agentEvent)
-      .values({
-        id: `${input.type}:${input.runId}`,
-        organizationId: input.organizationId,
-        sessionId: input.sessionId,
-        contactId: null,
-        companyId: null,
-        dealId: null,
-        conversationId: null,
-        type: input.type,
-        data: input.data,
-        emittedAt: now,
-      })
-      .onConflictDoNothing({ target: agentEvent.id }),
-    tx
-      .insert(agentAuditEvent)
-      .values({
-        id: crypto.randomUUID(),
-        organizationId: input.organizationId,
-        agentId: input.audit.agentId,
-        versionId: input.audit.versionId ?? null,
-        actorUserId: input.audit.actorUserId ?? null,
-        actorType: input.audit.actorType,
-        type: input.audit.type,
-        summary: input.audit.summary,
-        requestId: input.audit.requestId ?? null,
-        emittedAt: now,
-      })
-      .onConflictDoNothing({
-        target: [
-          agentAuditEvent.agentId,
-          agentAuditEvent.type,
-          agentAuditEvent.requestId,
-        ],
-      }),
-  ]);
-}
-
 /** The run's staged result (finish_run), while it is running. */
 async function stageResult(
   organizationId: string,
@@ -422,366 +325,6 @@ async function listForAgent(
     .limit(limit);
 }
 
-/** The steps of these runs' sessions, in order, at most `limit` each. */
-async function eventsForSessions(
-  organizationId: string,
-  sessionIds: string[],
-) {
-  const rows = [];
-  for (const ids of chunk(sessionIds, ID_CHUNK)) {
-    rows.push(
-      ...(await db
-        .select({
-          id: agentEvent.id,
-          sessionId: agentEvent.sessionId,
-          type: agentEvent.type,
-          data: agentEvent.data,
-          emittedAt: agentEvent.emittedAt,
-        })
-        .from(agentEvent)
-        .where(
-          and(
-            eq(agentEvent.organizationId, organizationId),
-            inArray(agentEvent.sessionId, ids),
-          ),
-        )
-        .orderBy(asc(agentEvent.emittedAt), asc(agentEvent.id))),
-    );
-  }
-  return rows;
-}
-
-/** A run event outside the session's own steps (queued, started). */
-async function insertEvent(input: {
-  organizationId: string;
-  sessionId: string;
-  type: string;
-  data: Record<string, unknown>;
-}): Promise<void> {
-  await db.insert(agentEvent).values({
-    id: crypto.randomUUID(),
-    organizationId: input.organizationId,
-    sessionId: input.sessionId,
-    contactId: null,
-    companyId: null,
-    dealId: null,
-    conversationId: null,
-    type: input.type,
-    data: input.data,
-    emittedAt: new Date().toISOString(),
-  });
-}
-
-// The dispatcher's scans, across organizations.
-
-
-/**
- * Queued runs of live agents with nothing running, oldest first: the next
- * runs to start, at most one per agent.
- */
-async function queuedAcrossOrganizations(
-  limit: number,
-  organizationId?: string,
-) {
-  const otherRun = alias(agentRun, "other_run");
-  const rows = await db
-    .select({
-      id: agentRun.id,
-      organizationId: agentRun.organizationId,
-      agentId: agentRun.agentId,
-      versionId: agentRun.versionId,
-    })
-    .from(agentRun)
-    .innerJoin(
-      agentDefinition,
-      and(
-        eq(agentDefinition.id, agentRun.agentId),
-        eq(agentDefinition.status, "LIVE"),
-      ),
-    )
-    .where(
-      and(
-        eq(agentRun.status, "QUEUED"),
-        organizationId ? eq(agentRun.organizationId, organizationId) : undefined,
-        notExists(
-          db
-            .select({ id: otherRun.id })
-            .from(otherRun)
-            .where(
-              and(
-                eq(otherRun.agentId, agentRun.agentId),
-                eq(otherRun.status, "RUNNING"),
-              ),
-            ),
-        ),
-      ),
-    )
-    .orderBy(asc(agentRun.createdAt), asc(agentRun.id))
-    .limit(limit * 4);
-  const seen = new Set<string>();
-  return rows
-    .filter((row) => {
-      if (seen.has(row.agentId)) return false;
-      seen.add(row.agentId);
-      return true;
-    })
-    .slice(0, limit);
-}
-
-/**
- * Running runs that started before `before`: delivered ones that never
- * finished (`delivered`), or ones whose delivery never landed.
- */
-async function runningSince(
-  before: string,
-  delivered: boolean,
-  limit: number,
-) {
-  return db
-    .select({
-      id: agentRun.id,
-      organizationId: agentRun.organizationId,
-      agentId: agentRun.agentId,
-      sessionId: agentRun.sessionId,
-    })
-    .from(agentRun)
-    .where(
-      and(
-        eq(agentRun.status, "RUNNING"),
-        lt(agentRun.startedAt, before),
-        delivered
-          ? sql`${agentRun.sessionId} is not null`
-          : isNull(agentRun.sessionId),
-      ),
-    )
-    .orderBy(asc(agentRun.startedAt))
-    .limit(limit);
-}
-
-/** Queued runs of an agent that is no longer live, to cancel. */
-async function queuedOfStoppedAgents(limit: number) {
-  return db
-    .select({
-      id: agentRun.id,
-      organizationId: agentRun.organizationId,
-      agentId: agentRun.agentId,
-      versionId: agentRun.versionId,
-      agentStatus: agentDefinition.status,
-    })
-    .from(agentRun)
-    .innerJoin(agentDefinition, eq(agentDefinition.id, agentRun.agentId))
-    .where(
-      and(
-        eq(agentRun.status, "QUEUED"),
-        or(
-          eq(agentDefinition.status, "DELETED"),
-          eq(agentDefinition.status, "ARCHIVED"),
-        ),
-      ),
-    )
-    .limit(limit);
-}
-
-// The action ledger.
-
-const actionColumns = () => ({
-  id: agentAction.id,
-  runId: agentAction.runId,
-  type: agentAction.type,
-  provider: agentAction.provider,
-  targetType: agentAction.targetType,
-  targetId: agentAction.targetId,
-  targetLabel: agentAction.targetLabel,
-  summary: agentAction.summary,
-  metadata: agentAction.metadata,
-  status: agentAction.status,
-  requestHash: agentAction.requestHash,
-  externalId: agentAction.externalId,
-  attemptCount: agentAction.attemptCount,
-  errorCode: agentAction.errorCode,
-  errorMessage: agentAction.errorMessage,
-  plannedAt: agentAction.plannedAt,
-  startedAt: agentAction.startedAt,
-  completedAt: agentAction.completedAt,
-});
-
-export type ActionRow = NonNullable<Awaited<ReturnType<typeof findAction>>>;
-
-async function findAction(organizationId: string, idempotencyKey: string) {
-  const [row] = await db
-    .select(actionColumns())
-    .from(agentAction)
-    .where(
-      and(
-        eq(agentAction.organizationId, organizationId),
-        eq(agentAction.idempotencyKey, idempotencyKey),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
-}
-
-/** Plans an action unless its key is taken; the action that holds the key. */
-async function planAction(input: {
-  organizationId: string;
-  agentId: string;
-  runId: string;
-  type: string;
-  provider: string;
-  targetType: string | null;
-  targetId: string | null;
-  targetLabel: string | null;
-  summary: string;
-  metadata: unknown;
-  idempotencyKey: string;
-  requestHash: string;
-  status?: "PLANNED" | "FAILED";
-  errorCode?: string | null;
-  errorMessage?: string | null;
-}): Promise<ActionRow> {
-  await db
-    .insert(agentAction)
-    .values({
-      id: crypto.randomUUID(),
-      ...input,
-      status: input.status ?? "PLANNED",
-      completedAt: input.status === "FAILED" ? new Date().toISOString() : null,
-    })
-    .onConflictDoNothing({
-      target: [agentAction.organizationId, agentAction.idempotencyKey],
-    });
-  const row = await findAction(input.organizationId, input.idempotencyKey);
-  if (!row) throw new Error("Action row missing after insert");
-  return row;
-}
-
-/**
- * Takes the action to perform it: a planned or failed one, or one whose last
- * holder's lease ran out. The claim's start time, or null when someone else
- * holds it.
- */
-async function claimAction(
-  organizationId: string,
-  id: string,
-  leaseMs: number,
-): Promise<string | null> {
-  const claimedAt = new Date().toISOString();
-  const expired = new Date(Date.now() - leaseMs).toISOString();
-  const rows = await db
-    .update(agentAction)
-    .set({
-      status: "RUNNING",
-      startedAt: claimedAt,
-      completedAt: null,
-      attemptCount: sql`${agentAction.attemptCount} + 1`,
-      errorCode: null,
-      errorMessage: null,
-    })
-    .where(
-      and(
-        eq(agentAction.organizationId, organizationId),
-        eq(agentAction.id, id),
-        or(
-          inArray(agentAction.status, ["PLANNED", "FAILED"]),
-          and(
-            eq(agentAction.status, "RUNNING"),
-            lt(agentAction.startedAt, expired),
-          ),
-        ),
-      ),
-    )
-    .returning({ id: agentAction.id });
-  return rows.length > 0 ? claimedAt : null;
-}
-
-/** Whether this claim still holds the action and its run still runs. */
-async function holdsAction(
-  organizationId: string,
-  id: string,
-  claimedAt: string,
-): Promise<boolean> {
-  const [row] = await db
-    .select({ id: agentAction.id })
-    .from(agentAction)
-    .innerJoin(agentRun, eq(agentRun.id, agentAction.runId))
-    .where(
-      and(
-        eq(agentAction.organizationId, organizationId),
-        eq(agentAction.id, id),
-        eq(agentAction.status, "RUNNING"),
-        eq(agentAction.startedAt, claimedAt),
-        eq(agentRun.status, "RUNNING"),
-      ),
-    )
-    .limit(1);
-  return Boolean(row);
-}
-
-/** Ends the claim as succeeded or failed; false when it was lost. */
-async function finishAction(
-  organizationId: string,
-  id: string,
-  claimedAt: string,
-  outcome:
-    | { status: "SUCCEEDED"; externalId: string }
-    | { status: "FAILED"; errorCode: string; errorMessage: string },
-): Promise<boolean> {
-  const rows = await db
-    .update(agentAction)
-    .set({ ...outcome, completedAt: new Date().toISOString() })
-    .where(
-      and(
-        eq(agentAction.organizationId, organizationId),
-        eq(agentAction.id, id),
-        eq(agentAction.status, "RUNNING"),
-        eq(agentAction.startedAt, claimedAt),
-      ),
-    )
-    .returning({ id: agentAction.id });
-  return rows.length > 0;
-}
-
-/**
- * Slack took a message after the run stopped holding the action: the message
- * exists, so the row says so even though the action is not SUCCEEDED.
- */
-async function noteDeliveredOutsideClaim(
-  organizationId: string,
-  id: string,
-  externalId: string,
-  note: string,
-): Promise<void> {
-  await db
-    .update(agentAction)
-    .set({ externalId, errorMessage: note })
-    .where(
-      and(
-        eq(agentAction.organizationId, organizationId),
-        eq(agentAction.id, id),
-        isNull(agentAction.externalId),
-      ),
-    );
-}
-
-async function actionsForRuns(organizationId: string, runIds: string[]) {
-  const rows = [];
-  for (const ids of chunk(runIds, ID_CHUNK)) {
-    rows.push(
-      ...(await db
-        .select(actionColumns())
-        .from(agentAction)
-        .where(
-          and(
-            eq(agentAction.organizationId, organizationId),
-            inArray(agentAction.runId, ids),
-          ),
-        )
-        .orderBy(asc(agentAction.plannedAt), asc(agentAction.id))),
-    );
-  }
-  return rows;
-}
-
 export const AgentRunRepository = {
   insertIfAbsent,
   findByKey,
@@ -793,20 +336,7 @@ export const AgentRunRepository = {
   setSession,
   requeue,
   settle,
-  recordEnding,
   stageResult,
   addUsage,
   listForAgent,
-  eventsForSessions,
-  insertEvent,
-  queuedAcrossOrganizations,
-  runningSince,
-  queuedOfStoppedAgents,
-  findAction,
-  planAction,
-  claimAction,
-  holdsAction,
-  finishAction,
-  noteDeliveredOutsideClaim,
-  actionsForRuns,
 };

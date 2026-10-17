@@ -1,7 +1,7 @@
+import { TriggerRepository } from "@/server/features/team-agents/repositories/TriggerRepository";
 import { scheduledResearchEnabled } from "@/server/lib/deployment-tier";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
 import { CRM_EVENT_CATALOG, type CrmEventType } from "@/shared/team-agents";
-import { TeamAgentRepository } from "../repositories/TeamAgentRepository";
 import { AgentRunService } from "./AgentRunService";
 
 // What starts a team agent without a person: its schedule, due on the minute
@@ -39,7 +39,7 @@ function nextSlot(from: string, intervalMinutes: number, now: Date): string {
  * slot: the run is keyed by the slot, and only one tick moves it.
  */
 async function queueDueSchedules(now = new Date()): Promise<number> {
-  const due = await TeamAgentRepository.dueSchedules(
+  const due = await TriggerRepository.dueSchedules(
     now.toISOString(),
     SCHEDULE_BATCH,
   );
@@ -58,7 +58,7 @@ async function queueDueSchedules(now = new Date()): Promise<number> {
       runInput: { scheduledFor: slot },
       requestedSummary: `Scheduled run (${trigger.name})`,
     });
-    await TeamAgentRepository.advanceSchedule(
+    await TriggerRepository.advanceSchedule(
       trigger.organizationId,
       trigger.id,
       slot,
@@ -73,19 +73,28 @@ async function queueDueSchedules(now = new Date()): Promise<number> {
  * Queues a run for every live agent listening for this event: one per
  * trigger. How many runs it queued.
  */
-async function emitEvent(organizationId: string, event: CrmEvent): Promise<number> {
-  const triggers = await TeamAgentRepository.eventTriggers(
+async function emitEvent(
+  organizationId: string,
+  event: CrmEvent,
+): Promise<number> {
+  const triggers = await TriggerRepository.eventTriggers(
     organizationId,
     event.type,
   );
   if (triggers.length === 0) return 0;
   if (!scheduledResearchEnabled((await getWorkersEnv()) ?? {})) {
-    console.log("[team-agents] event held", { organizationId, type: event.type });
+    console.log("[team-agents] event held", {
+      organizationId,
+      type: event.type,
+    });
     return 0;
   }
   const eventId = crypto.randomUUID();
   const occurredAt = new Date().toISOString();
-  const record = { kind: CRM_EVENT_CATALOG[event.type].recordKind, id: event.recordId };
+  const record = {
+    kind: CRM_EVENT_CATALOG[event.type].recordKind,
+    id: event.recordId,
+  };
   let queued = 0;
   for (const trigger of triggers) {
     const run = await AgentRunService.queueRun({
@@ -104,7 +113,11 @@ async function emitEvent(organizationId: string, event: CrmEvent): Promise<numbe
     });
     if (!run?.created) continue;
     queued += 1;
-    await TeamAgentRepository.markTriggerRan(organizationId, trigger.id, occurredAt);
+    await TriggerRepository.markTriggerRan(
+      organizationId,
+      trigger.id,
+      occurredAt,
+    );
   }
   return queued;
 }

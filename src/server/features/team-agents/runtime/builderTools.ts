@@ -1,13 +1,11 @@
+import { BuilderToolService } from "@/server/features/team-agents/services/BuilderToolService";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { AgentToolContext } from "@/server/features/agent/tools/context";
 import { conversationTools } from "@/server/features/agent/tools/conversation";
 import { historyTools } from "@/server/features/agent/tools/history";
 import { lookupTools } from "@/server/features/agent/tools/lookup";
-import {
-  BuilderService,
-  type BuilderToolContext,
-} from "../services/BuilderService";
+import type { BuilderToolContext } from "../services/BuilderToolService";
 import { BUILDER_FILE_PATHS, draftInputSchema } from "../services/draft";
 
 // The agent builder's tools, ported from the CRM's agent_builder tools. It
@@ -45,14 +43,14 @@ export function builderTools(
       description:
         "Read the authoritative builder context: supported CRM events, connected sources, matched Slack people, available Slack channels, the records tagged in this chat, the current time, the limits, and the latest draft.",
       inputSchema: z.object({}),
-      execute: () => BuilderService.builderContext(tool_),
+      execute: () => BuilderToolService.builderContext(tool_),
     }),
 
     read_attachment: tool({
       description:
         "Read the text of a file the person attached in this chat, by its id.",
       inputSchema: z.object({ id: z.string().min(1) }),
-      execute: ({ id }) => BuilderService.readAttachment(tool_, id),
+      execute: ({ id }) => BuilderToolService.readAttachment(tool_, id),
     }),
 
     ...(context.creating
@@ -66,7 +64,7 @@ export function builderTools(
             }),
             execute: async ({ path, content }) => {
               draftOpen();
-              return BuilderService.writeFile(tool_, path, content);
+              return BuilderToolService.writeFile(tool_, path, content);
             },
           }),
 
@@ -76,7 +74,7 @@ export function builderTools(
             inputSchema: draftInputSchema,
             execute: async (input) => {
               draftOpen();
-              const result = await BuilderService.saveDraft(tool_, input);
+              const result = await BuilderToolService.saveDraft(tool_, input);
               if (result.saved) saved = true;
               return result;
             },

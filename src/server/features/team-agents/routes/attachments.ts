@@ -7,7 +7,12 @@ import { BuilderService } from "../services/BuilderService";
 
 export const ATTACHMENT_ROUTE_PREFIX = "/api/agent-attachments/";
 
-const PREVIEWABLE = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
+const PREVIEWABLE = new Set([
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 export async function serveAttachment(request: Request): Promise<Response> {
   if (request.method !== "GET") {

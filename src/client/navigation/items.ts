@@ -1,4 +1,5 @@
 import {
+  Bot,
   Building2,
   CircleDollarSign,
   LayoutDashboard,
@@ -24,6 +25,7 @@ const recordNavItems = linkOptions([
 
 const workNavItems = linkOptions([
   { to: "/tasks" as const, label: "My tasks", icon: ListTodo },
+  { to: "/agents" as const, label: "Agents", icon: Bot },
 ]);
 
 export const navGroups = [
