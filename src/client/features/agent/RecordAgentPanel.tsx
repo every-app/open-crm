@@ -15,6 +15,7 @@ import {
 } from "@/client/components/ui/dropdown-menu";
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
+import { modelBlocked } from "@/shared/agent-availability";
 import type { RecordRef } from "@/shared/records";
 import {
   deleteAgentConversation,
@@ -91,10 +92,10 @@ function LoadedAgentPanel({
   } | null>(null);
   const current = conversations.find((row) => row.id === openId) ?? null;
 
-  // Without a model key the agent can't answer. While the check runs, or if
-  // it fails, the composer stays: a turn that can't run says so itself.
+  // Without a model the agent can't answer. While the check runs, or if it
+  // fails, the composer stays: a turn that can't run says so itself.
   const status = useQuery(agentStatusQueryOptions());
-  const canChat = status.data?.openRouter ?? true;
+  const canChat = status.data ? !modelBlocked(status.data.model) : true;
 
   // A conversation exists once there is something to say in it.
   const start = useMutation({

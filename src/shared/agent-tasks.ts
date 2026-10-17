@@ -41,6 +41,8 @@ export const RETIRED_OUTCOME = `Gave up after ${MAX_ATTEMPTS} attempts: the sess
 export const PRIORITY = {
   brand: 900,
   portrait: 800,
+  // Logos for records a CSV brought in: after a person's own adds.
+  importedBrand: 700,
   workspace: 500,
   requested: 300,
   meeting: 200,
@@ -48,6 +50,8 @@ export const PRIORITY = {
   sweep: 50,
   companyProfile: 40,
   fieldBackfill: 20,
+  // Research for records a CSV brought in, spaced out (AgentTaskService).
+  imported: 10,
   recheck: 0,
 } as const;
 

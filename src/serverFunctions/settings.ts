@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireOrgPermission } from "@/server/auth/org-gate";
+import { AgentAvailabilityService } from "@/server/features/agent/services/AgentAvailabilityService";
 import { SettingsService } from "@/server/features/settings/services/SettingsService";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
 import {
@@ -25,9 +26,15 @@ export const setAgentModel = createServerFn({ method: "POST" })
     return SettingsService.setAgentModel(context.organizationId, data.modelId);
   });
 
+/**
+ * Whether the agent can run: its model and Context.dev, as the gateway
+ * answers for them. Nothing here is a key: the gateway holds them all.
+ */
 export const getAgentStatus = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
-  .handler(async () => SettingsService.getAgentStatus());
+  .handler(async ({ context }) =>
+    AgentAvailabilityService.forOrganization(context.organizationId),
+  );
 
 export const getArchiveRetention = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)

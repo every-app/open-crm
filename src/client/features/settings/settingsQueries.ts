@@ -31,11 +31,13 @@ export const modelCatalogQueryOptions = () =>
     staleTime: 30 * 60 * 1000,
   });
 
-/** Whether the gateway holds the OpenRouter and Context.dev keys. */
+/** What the agent has to work with: its model and Context.dev. */
 export const agentStatusQueryOptions = () =>
   queryOptions({
     queryKey: ["settings", "agent-status"],
     queryFn: () => getAgentStatus(),
+    // It changes on the gateway, not here.
+    staleTime: 60_000,
   });
 
 export const archiveRetentionQueryOptions = () =>

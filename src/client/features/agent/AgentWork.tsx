@@ -11,6 +11,7 @@ import {
 } from "@/client/components/ui/collapsible";
 import { Skeleton } from "@/client/components/ui/skeleton";
 import { RelativeTime } from "@/client/features/records/LocalDateTime";
+import type { TaskHold } from "@/shared/agent-availability";
 import { MAX_ATTEMPTS } from "@/shared/agent-tasks";
 import type { RecordRef } from "@/shared/records";
 import { AgentStepLine } from "./AgentStepLine";
@@ -35,7 +36,21 @@ type OpenTask = {
   leasedUntil: string | null;
   attempts: number;
   startedAt: string | null;
+  hold: TaskHold;
 };
+
+const HELD = {
+  setup: {
+    label: "Waiting for setup",
+    title:
+      "The agent's model isn't set up on your Every App gateway yet. This runs once it is.",
+  },
+  schedule: {
+    label: "Held",
+    title:
+      "Background research is off on this deployment. Enrich now runs it.",
+  },
+} as const;
 
 /**
  * What the agent is doing on a record and what it did: its open tasks, and
@@ -162,13 +177,16 @@ function OpenTaskLine({ task }: { task: OpenTask }) {
     task.leasedUntil !== null && Date.parse(task.leasedUntil) > now;
   const due = Date.parse(task.dueAt) <= now;
   const failed = !running && task.attempts >= MAX_ATTEMPTS;
+  const held = !running && !failed && due && task.hold ? HELD[task.hold] : null;
   const status = running
     ? elapsedLabel("running", task.startedAt, now)
     : failed
       ? "Could not look this up"
-      : due
-        ? "Waiting"
-        : dueLabel(task.dueAt, now);
+      : held
+        ? held.label
+        : due
+          ? "Waiting"
+          : dueLabel(task.dueAt, now);
   return (
     <li className="space-y-0.5">
       <div className="flex items-center gap-2 text-sm">
@@ -180,7 +198,9 @@ function OpenTaskLine({ task }: { task: OpenTask }) {
               ? "animate-pulse bg-info"
               : failed
                 ? "bg-destructive"
-                : "bg-muted-foreground/60",
+                : held
+                  ? "bg-warning"
+                  : "bg-muted-foreground/60",
           )}
         />
         <span className="min-w-0 flex-1 truncate">
@@ -192,6 +212,7 @@ function OpenTaskLine({ task }: { task: OpenTask }) {
             failed ? "text-destructive" : "text-muted-foreground",
             running && "font-mono",
           )}
+          title={held?.title}
         >
           {status}
         </span>

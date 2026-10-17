@@ -128,7 +128,7 @@ describe("a research session", () => {
     const stub = model();
     const started = await runResearchLane({
       start: (task) => runSession(task, stub),
-      modelAvailable: () => true,
+      modelConfigured: true,
       askedForOnly: true,
       defer: vi.fn(),
     });

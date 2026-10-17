@@ -226,6 +226,7 @@ type NewContact = {
   title: string | null;
   companyId: string | null;
   ownerId: string | null;
+  linkedinUrl?: string | null;
   source?: RecordSource;
 };
 

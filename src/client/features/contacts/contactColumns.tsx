@@ -9,7 +9,7 @@ import { fullName } from "@/client/features/companies/companyFormat";
 import type { ContactRow } from "@/client/features/contacts/contactFormat";
 import {
   EnrichmentIndicator,
-  isEnriching,
+  hasAgentNote,
 } from "@/client/features/records/EnrichmentStatus";
 import {
   EmptyValue,
@@ -95,11 +95,12 @@ export function contactColumns({
                 name={name}
               />
             </Link>
-            {isEnriching(contact.enrichmentStatus, contact.queued) ? (
+            {hasAgentNote(contact) ? (
               <div className="pl-7.5">
                 <EnrichmentIndicator
                   status={contact.enrichmentStatus}
                   queued={contact.queued}
+                  waiting={contact.waiting}
                 />
               </div>
             ) : null}

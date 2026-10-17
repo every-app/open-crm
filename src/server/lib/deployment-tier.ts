@@ -1,3 +1,5 @@
+import type { DeploymentTier } from "@/shared/agent-availability";
+
 /**
  * Who runs this deployment and for whom. Limits read this (as in OpenSEO),
  * never "is there a pinned organization" directly:
@@ -13,9 +15,10 @@
  * DEPLOYMENT_TIER overrides it; unset, a deployment pinned to one
  * organization is a fork and an unpinned one is first party.
  */
-const DEPLOYMENT_TIERS = ["first_party", "fork"] as const;
-
-type DeploymentTier = (typeof DEPLOYMENT_TIERS)[number];
+const DEPLOYMENT_TIERS = [
+  "first_party",
+  "fork",
+] as const satisfies readonly DeploymentTier[];
 
 const warnedInvalidTiers = new Set<string>();
 
@@ -30,7 +33,7 @@ function read(env: object, name: string): string | undefined {
 }
 
 /** The tier for an env record (a Worker's env, or a Durable Object's). */
-function deploymentTierFor(env: object): DeploymentTier {
+export function deploymentTierFor(env: object): DeploymentTier {
   const declared = read(env, "DEPLOYMENT_TIER");
   if (declared === "first_party" || declared === "fork") return declared;
   if (declared && !warnedInvalidTiers.has(declared)) {

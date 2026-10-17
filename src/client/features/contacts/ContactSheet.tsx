@@ -217,6 +217,7 @@ function contactNote(contact: Contact): ReactNode {
         <EnrichmentIndicator
           status={contact.enrichmentStatus}
           queued={contact.queued}
+          waiting={contact.waiting}
           title={contact.enrichmentError}
         />
       ) : null}

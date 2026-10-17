@@ -239,6 +239,111 @@ async function fieldBackfillRecords(
 
 const BACKFILL_CHUNK = 90;
 
+/**
+ * How far apart research for imported records is booked: two records a
+ * minute, so a 5,000-row import trickles through the research lane over
+ * about two days instead of taking it (and its spend) over at once.
+ */
+const IMPORT_RESEARCH_SPACING_MS = 30_000;
+
+/** Records a CSV import created, by kind, and the custom fields the agent fills on each kind. */
+type ImportedRecords = {
+  entity: FieldEntity;
+  ids: string[];
+  agentFilledKeys: string[];
+}[];
+
+/**
+ * Records a CSV import created: the same work a person adding them queues,
+ * paced. A company's logo (no model) comes at once, after a person's own
+ * adds. Everything that needs the model (a company's profile, identifying a
+ * contact, the custom fields the agent fills) is booked at the lowest
+ * priority but rechecks, one record every IMPORT_RESEARCH_SPACING_MS after
+ * any earlier import's bookings. Where a first-party deployment holds
+ * scheduled research, that research waits for a person to ask, as all
+ * scheduled research does there.
+ */
+async function recordsImported(
+  organizationId: string,
+  imported: ImportedRecords,
+): Promise<void> {
+  const latest = await AgentTaskRepository.latestOpenDue(
+    organizationId,
+    PRIORITY.imported,
+  );
+  let slot = Math.max(Date.now(), latest ? Date.parse(latest) : 0);
+  const nextSlot = () => {
+    slot += IMPORT_RESEARCH_SPACING_MS;
+    return new Date(slot).toISOString();
+  };
+  const reason = "Imported from a CSV";
+  const tasks: NewAgentTask[] = [];
+  let brands = 0;
+  for (const { entity, ids, agentFilledKeys } of imported) {
+    const column = RECORD_COLUMN[entity];
+    for (const id of new Set(ids)) {
+      const record = { [column]: id };
+      const subject = taskSubject(record);
+      const research: Omit<NewAgentTask, "dueAt">[] = [];
+      if (entity === "COMPANY") {
+        tasks.push({
+          organizationId,
+          ...record,
+          subject,
+          kind: "brand",
+          reason,
+          priority: PRIORITY.importedBrand,
+          budget: 2,
+        });
+        brands += 1;
+        research.push({
+          organizationId,
+          ...record,
+          subject,
+          kind: "company-profile",
+          reason,
+          priority: PRIORITY.imported,
+          budget: 4,
+        });
+      }
+      if (entity === "CONTACT") {
+        research.push({
+          organizationId,
+          ...record,
+          subject,
+          kind: "identify",
+          reason,
+          priority: PRIORITY.imported,
+          budget: 4,
+        });
+      }
+      if (agentFilledKeys.length > 0) {
+        research.push({
+          organizationId,
+          ...record,
+          subject,
+          kind: "field-backfill",
+          reason,
+          priority: PRIORITY.imported,
+          budget: 8,
+          payload: { entity, keys: agentFilledKeys },
+        });
+      }
+      if (research.length === 0) continue;
+      const dueAt = nextSlot();
+      tasks.push(...research.map((task) => ({ ...task, dueAt })));
+    }
+  }
+  if (tasks.length === 0) return;
+  await AgentTaskRepository.upsertMany(tasks);
+  console.log("[agent] queued imported records", {
+    organizationId,
+    tasks: tasks.length,
+    lastDue: new Date(slot).toISOString(),
+  });
+  if (brands > 0) pokeDispatcher(organizationId);
+}
+
 export const AgentTaskService = {
   companyCreated,
   companyRequested,
@@ -246,4 +351,5 @@ export const AgentTaskService = {
   contactCreated,
   backfill,
   fieldBackfillRecords,
+  recordsImported,
 };

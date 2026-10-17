@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   gt,
+  gte,
   inArray,
   isNotNull,
   isNull,
@@ -14,6 +15,7 @@ import {
 import { chunk } from "remeda";
 import { db } from "@/db";
 import { agentTask, company, contact, deal } from "@/db/schema";
+import { DIRECT_KINDS } from "@/shared/agent-tasks";
 
 // The organization's view of the agent's queue, for the enrichment queue on
 // Home (the CRM's EnrichmentService): the open tasks about its records, due
@@ -26,6 +28,7 @@ const ID_CHUNK = 90;
 const taskColumns = {
   id: agentTask.id,
   kind: agentTask.kind,
+  priority: agentTask.priority,
   reason: agentTask.reason,
   contactId: agentTask.contactId,
   companyId: agentTask.companyId,
@@ -47,11 +50,26 @@ const openAboutARecord = (organizationId: string) =>
     ),
   );
 
-/** Open tasks due by `now`, most urgent first, and how many there are. */
-async function due(organizationId: string, now: string, limit: number) {
+/**
+ * Open tasks due by `now`, most urgent first, and how many there are. With
+ * `minPriority` (a first-party deployment holding scheduled research), the
+ * research below it is left out: it runs only when a person asks.
+ */
+async function due(
+  organizationId: string,
+  now: string,
+  limit: number,
+  minPriority: number | null = null,
+) {
   const where = and(
     openAboutARecord(organizationId),
     lte(agentTask.dueAt, now),
+    minPriority === null
+      ? undefined
+      : or(
+          inArray(agentTask.kind, [...DIRECT_KINDS]),
+          gte(agentTask.priority, minPriority),
+        ),
   );
   const [tasks, [total]] = await Promise.all([
     db

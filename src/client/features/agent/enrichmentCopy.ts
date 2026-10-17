@@ -6,8 +6,11 @@ import type { TaskKind } from "@/shared/agent-tasks";
 // lib/enrichment-queue.ts: what each kind of task is doing, when a booked one
 // is due, how long a running one has run.
 
-/** Running under a live lease, waiting its turn, or out of attempts. */
-export type QueueState = "running" | "queued" | "failed";
+/**
+ * Running under a live lease, waiting its turn, out of attempts, or waiting
+ * for the agent's model to be set up.
+ */
+export type QueueState = "running" | "queued" | "failed" | "waiting";
 
 const STEPS = {
   brand: "Fetching the logo",
@@ -30,6 +33,7 @@ export function enrichmentStep(kind: string): string {
 /** A queue row's line: the step while it runs. */
 export function queueLine(state: QueueState, kind: string): string {
   if (state === "queued") return "Waiting";
+  if (state === "waiting") return "Waiting for setup";
   if (state === "failed") return "Could not look this up";
   return enrichmentStep(kind);
 }
@@ -56,7 +60,9 @@ export function elapsedLabel(
   now: number,
 ): string {
   const started = startedAt ? Date.parse(startedAt) : Number.NaN;
-  if (state === "queued" || Number.isNaN(started)) return "—";
+  if (state === "queued" || state === "waiting" || Number.isNaN(started)) {
+    return "—";
+  }
   const seconds = Math.max(0, Math.floor((now - started) / 1000));
   const minutes = Math.floor((seconds % 3600) / 60);
   if (seconds < 3600) return `${minutes}:${pad(seconds % 60)}`;

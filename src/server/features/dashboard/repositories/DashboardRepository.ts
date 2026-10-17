@@ -13,7 +13,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { db } from "@/db";
-import { company, deal, user } from "@/db/schema";
+import { company, contact, deal, user } from "@/db/schema";
 import { countedIn } from "@/server/features/currency/repositories/DealConversionRepository";
 import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 
@@ -174,7 +174,22 @@ async function biggestOpen(scope: DealScope, base: string, limit: number) {
   );
 }
 
+/** Whether the organization has any live company, contact or deal yet. */
+async function hasRecords(organizationId: string): Promise<boolean> {
+  const live = (table: typeof company | typeof contact | typeof deal) =>
+    db
+      .select({ id: table.id })
+      .from(table)
+      .where(
+        and(eq(table.organizationId, organizationId), isNull(table.archivedAt)),
+      )
+      .limit(1);
+  const found = await Promise.all([live(company), live(contact), live(deal)]);
+  return found.some((rows) => rows.length > 0);
+}
+
 export const DashboardRepository = {
+  hasRecords,
   openByStage,
   createdOrClosedSince,
   closingBetween,

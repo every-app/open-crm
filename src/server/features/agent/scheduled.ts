@@ -37,8 +37,7 @@ export async function runScheduledWork(
       defer,
       askedForOnly,
       // Without the gateway's binding (or, in dev, a key) no session can run.
-      modelAvailable: (organizationId) =>
-        getOpenRouterFetch(env, organizationId) !== null,
+      modelConfigured: modelConfigured(env),
       start: (task) => startResearchSession(env, task),
     }),
   ]);
@@ -71,7 +70,20 @@ async function startResearchSession(
     crmAgentNamespace(env),
     sessionName("task", task.organizationId, task.id),
   );
-  return agent.startResearch({ taskId: task.id, attempts: task.attempts });
+  return agent.startResearch({
+    taskId: task.id,
+    attempts: task.attempts,
+    lease: task.leasedUntil,
+  });
+}
+
+/**
+ * Whether this deployment has a way to a model at all: the gateway binding
+ * (or, in dev, a key). The fetch is only built, never called, so the
+ * organization it names is a placeholder.
+ */
+function modelConfigured(env: Env): boolean {
+  return getOpenRouterFetch(env, "model-check") !== null;
 }
 
 /**

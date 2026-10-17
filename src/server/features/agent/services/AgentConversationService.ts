@@ -11,6 +11,7 @@ import { AgentEventRepository } from "../repositories/AgentEventRepository";
 import { AgentRecordRepository } from "../repositories/AgentRecordRepository";
 import { AgentTaskRepository } from "../repositories/AgentTaskRepository";
 import { sessionName } from "../sessionName";
+import { AgentAvailabilityService, taskHold } from "./AgentAvailabilityService";
 
 // A person's conversations with the agent about a record, and what the agent
 // has done there: what the Agent tab needs around the chat itself, which runs
@@ -111,11 +112,12 @@ async function list(
 
 /**
  * What the agent did about a record (its research and the person's own
- * conversations, newest first) and what it is doing (open tasks).
+ * conversations, newest first) and what it is doing (open tasks), each
+ * task with what holds it back, if anything.
  */
 async function activity(context: Context, record: RecordRef, limit: number) {
   const column = COLUMN[record.kind];
-  const [events, openTasks] = await Promise.all([
+  const [events, openTasks, hold] = await Promise.all([
     AgentEventRepository.listForRecord(
       context.organizationId,
       context.userId,
@@ -128,6 +130,7 @@ async function activity(context: Context, record: RecordRef, limit: number) {
       column,
       record.id,
     ),
+    AgentAvailabilityService.researchHold(context.organizationId),
   ]);
   return {
     // JSON columns come back as unknown; the client gets them as JSON.
@@ -135,7 +138,10 @@ async function activity(context: Context, record: RecordRef, limit: number) {
       ...event,
       data: eventData.parse(event.data),
     })),
-    openTasks,
+    openTasks: openTasks.map(({ priority, ...task }) => ({
+      ...task,
+      hold: taskHold({ kind: task.kind, priority }, hold),
+    })),
   };
 }
 

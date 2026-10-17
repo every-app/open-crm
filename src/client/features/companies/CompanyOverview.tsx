@@ -8,6 +8,10 @@ import {
 } from "@/client/features/companies/companyFormat";
 import type { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
 import { RecordFields } from "@/client/features/fields/RecordFields";
+import {
+  AgentSetupLink,
+  useAgentAvailability,
+} from "@/client/features/agent/AgentPaused";
 import { isEnriching } from "@/client/features/records/EnrichmentStatus";
 import {
   InlineField,
@@ -176,8 +180,12 @@ function OpenLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-/** What the agent hasn't found yet, and whether it's looking. */
+/**
+ * What the agent hasn't found yet, and whether it's looking, waiting for its
+ * model to be set up, or working without Context.dev (no logo or brand data).
+ */
 function AgentPending({ company }: { company: Company }) {
+  const availability = useAgentAvailability();
   const missing = [
     company.industry ? null : "industry",
     company.description ? null : "description",
@@ -187,12 +195,30 @@ function AgentPending({ company }: { company: Company }) {
   ].filter(Boolean);
   if (missing.length === 0) return null;
   const running = isEnriching(company.enrichmentStatus, company.queued);
+  const waiting = !running && company.waiting;
+  const noBrandData =
+    availability?.context === false && !company.logoUrl && !company.iconUrl;
   return (
     <div className="mt-3 space-y-1 rounded-md bg-foreground/[0.03] p-3 text-xs">
       <p className="font-medium">
-        {running ? "The agent is researching" : "Not known yet"}
+        {running
+          ? "The agent is researching"
+          : waiting
+            ? "Waiting for the agent's setup"
+            : "Not known yet"}
       </p>
       <p className="text-muted-foreground">{missing.join(", ")}</p>
+      {waiting ? (
+        <p className="text-muted-foreground">
+          The agent researches this company once its model is set up on your
+          Every App gateway. <AgentSetupLink />
+        </p>
+      ) : noBrandData ? (
+        <p className="text-muted-foreground">
+          Logos and brand data come from Context.dev, which isn't set up on
+          your Every App gateway.
+        </p>
+      ) : null}
     </div>
   );
 }

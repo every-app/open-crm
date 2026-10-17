@@ -15,7 +15,7 @@ import {
 } from "drizzle-orm";
 import { chunk, sort } from "remeda";
 import { db } from "@/db";
-import { agentTask } from "@/db/schema";
+import { agentTask, workspace } from "@/db/schema";
 import { MAX_ATTEMPTS, RETIRED_OUTCOME } from "@/shared/agent-tasks";
 import { subjectColumns, type TaskSubject } from "./AgentTaskRepository";
 
@@ -35,6 +35,7 @@ export type LeasedTask = TaskSubject & {
   attempts: number;
   priority: number;
   dueAt: string;
+  leasedUntil: string | null;
 };
 
 /** The dispatcher's two lanes: kinds it takes, or kinds it leaves. */
@@ -50,10 +51,18 @@ const leasedColumns = {
   attempts: agentTask.attempts,
   priority: agentTask.priority,
   dueAt: agentTask.dueAt,
+  leasedUntil: agentTask.leasedUntil,
 };
 
 const unleased = (now: string) =>
   or(isNull(agentTask.leasedUntil), lt(agentTask.leasedUntil, now));
+
+/**
+ * The task's organization had its model refused by the gateway at or after
+ * `since`, and the model hasn't answered since (AgentAvailabilityService).
+ */
+const modelRefusedSince = (since: string) =>
+  sql`exists (select 1 from ${workspace} where ${workspace.organizationId} = ${agentTask.organizationId} and ${workspace.modelRefusedAt} >= ${since} and (${workspace.modelAnsweredAt} is null or ${workspace.modelAnsweredAt} < ${workspace.modelRefusedAt}))`;
 
 /**
  * Leases up to `limit` due tasks of `lane`, most urgent first. Across every
@@ -64,6 +73,9 @@ const unleased = (now: string) =>
  * A lease is a conditional update (no SKIP LOCKED on D1): the UPDATE re-checks
  * that each row is still unleased, so of two dispatchers that picked the same
  * candidates only one gets each row back. Every claim counts an attempt.
+ *
+ * `heldSince` leaves the tasks of organizations whose model the gateway
+ * refused since then: they wait until the model is set up.
  */
 async function claimDue(input: {
   limit: number;
@@ -71,6 +83,7 @@ async function claimDue(input: {
   leaseMs: number;
   organizationId?: string;
   minPriority?: number;
+  heldSince?: string;
 }): Promise<LeasedTask[]> {
   const now = new Date().toISOString();
   const until = new Date(Date.now() + input.leaseMs).toISOString();
@@ -95,6 +108,9 @@ async function claimDue(input: {
         input.minPriority === undefined
           ? undefined
           : gte(agentTask.priority, input.minPriority),
+        input.heldSince === undefined
+          ? undefined
+          : sql`not ${modelRefusedSince(input.heldSince)}`,
       ),
     )
     .orderBy(desc(agentTask.priority), asc(agentTask.dueAt))

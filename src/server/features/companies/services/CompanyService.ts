@@ -9,7 +9,7 @@ import {
   blankToNull,
   bulkOutcome,
   isUniqueViolation,
-  queuedRecordIds,
+  recordAgentStates,
   runBulk,
 } from "@/server/features/records/recordRules";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
@@ -64,14 +64,15 @@ async function listCompanies(organizationId: string, input: CompanyListInput) {
     ),
   );
   const ids = rows.map((row) => row.id);
-  const [queued, fields] = await Promise.all([
-    queuedRecordIds(organizationId, "company", ids),
+  const [agent, fields] = await Promise.all([
+    recordAgentStates(organizationId, "company", ids),
     FieldValuesService.tableValues(organizationId, "COMPANY", ids),
   ]);
   return {
     rows: rows.map((row) => ({
       ...row,
-      queued: queued.has(row.id),
+      queued: agent.queued.has(row.id),
+      waiting: agent.waiting.has(row.id),
       fields: fields[row.id] ?? {},
     })),
     total,
@@ -88,7 +89,7 @@ async function getCompany(organizationId: string, id: string) {
     organizationId,
     id,
   );
-  const [contacts, deals, primaryContact, queued, workspace] =
+  const [contacts, deals, primaryContact, agent, workspace] =
     await Promise.all([
       CompanyRelationsRepository.listContacts(organizationId, id),
       CompanyRelationsRepository.listDeals(organizationId, id),
@@ -98,7 +99,7 @@ async function getCompany(organizationId: string, id: string) {
             found.primaryContactId,
           )
         : null,
-      queuedRecordIds(organizationId, "company", [id]),
+      recordAgentStates(organizationId, "company", [id]),
       WorkspaceRepository.getOrCreate(organizationId),
     ]);
   return {
@@ -106,7 +107,8 @@ async function getCompany(organizationId: string, id: string) {
     primaryContact,
     contacts,
     deals,
-    queued: queued.has(id),
+    queued: agent.queued.has(id),
+    waiting: agent.waiting.has(id),
     // Deal totals are summed in the workspace's reporting currency.
     reportingCurrency: workspace.reportingCurrency ?? "USD",
   };

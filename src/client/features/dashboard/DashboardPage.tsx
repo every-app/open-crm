@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { getRouteApi } from "@tanstack/react-router";
-import { UserRound, Users } from "lucide-react";
+import { getRouteApi, Link } from "@tanstack/react-router";
+import { Building2, UserRound, Users } from "lucide-react";
 import { cn } from "cn";
 import { z } from "zod";
+import { EmptyState } from "@/client/components/EmptyState";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import { SegmentedToggle } from "@/client/components/SegmentedToggle";
 import { SkeletonStatGrid } from "@/client/components/SkeletonPresets";
+import { Button } from "@/client/components/ui/button";
 import { Skeleton } from "@/client/components/ui/skeleton";
 import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
 import {
@@ -15,6 +17,7 @@ import {
   RecentActivity,
 } from "@/client/features/dashboard/DashboardLists";
 import { SalesSummary } from "@/client/features/dashboard/SalesSummary";
+import { HomeSetupChecklist } from "@/client/features/setup/SetupChecklist";
 import { dashboardSummaryQueryOptions } from "@/client/features/dashboard/dashboardQueries";
 import {
   DASHBOARD_SCOPES,
@@ -71,6 +74,8 @@ export function DashboardPage() {
           }
         />
 
+        <HomeSetupChecklist />
+
         {summary ? (
           <div
             className={cn(
@@ -87,6 +92,7 @@ export function DashboardPage() {
                 isRetrying={query.isFetching}
               />
             ) : null}
+            {summary.empty ? <GetStarted /> : null}
             <SalesSummary summary={summary} />
             <div className="grid gap-6 lg:grid-cols-2">
               <DealsInProgress summary={summary} />
@@ -117,5 +123,30 @@ export function DashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/** Home in a workspace with nothing in it yet: where to begin. */
+function GetStarted() {
+  return (
+    <EmptyState
+      icon={Building2}
+      title="Bring in the accounts you sell to"
+      description="Start with your companies, then their people and your deals. Import them from a CSV (a spreadsheet's export), or add the first one by hand: the agent fills in the rest."
+      action={
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button nativeButton={false} render={<Link to="/companies" />}>
+            Go to companies
+          </Button>
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link to="/contacts" />}
+          >
+            Go to contacts
+          </Button>
+        </div>
+      }
+    />
   );
 }

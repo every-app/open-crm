@@ -56,6 +56,14 @@ export const workspace = sqliteTable("workspace", {
   archiveRetentionDays: integer("archive_retention_days")
     .notNull()
     .default(180),
+  // The agent's model as last seen through the gateway: when the gateway
+  // refused it for want of a key (and its message), and when it last
+  // answered. The later of the two is the model's state.
+  modelRefusedAt: timestamp("model_refused_at"),
+  modelRefusal: text("model_refusal"),
+  modelAnsweredAt: timestamp("model_answered_at"),
+  // An owner or admin put the setup checklist away.
+  setupDismissedAt: timestamp("setup_dismissed_at"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -319,6 +327,10 @@ export const deal = sqliteTable(
     baseCurrency: text("base_currency"),
     fxRate: real("fx_rate"),
     fxRateAt: timestamp("fx_rate_at"),
+
+    source: text("source", { enum: RECORD_SOURCES })
+      .notNull()
+      .default("MANUAL"),
 
     lastActivityAt: timestamp("last_activity_at"),
     archivedAt: timestamp("archived_at"),

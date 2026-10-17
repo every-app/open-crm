@@ -9,6 +9,7 @@ import {
 } from "./repositories/AgentQueueRepository";
 import { AgentTaskRepository } from "./repositories/AgentTaskRepository";
 import { FREE } from "./runtime/budget";
+import { MODEL_RETRY_MS } from "./services/AgentAvailabilityService";
 import { brandOutcome, runBrand } from "./visible/brand";
 import { runPortrait } from "./visible/portrait";
 
@@ -31,9 +32,6 @@ export type Defer = (work: Promise<unknown>) => void;
 
 /** Starts a research session for a task: its session id once accepted. */
 type ResearchStart = (task: LeasedTask) => Promise<{ sessionId: string }>;
-
-export const MODEL_UNAVAILABLE_OUTCOME =
-  "The agent's model is not available on this install: the Every App gateway holds no OPENROUTER_API_KEY (in local development, set it in .dev.vars).";
 
 /**
  * Runs due brand and portrait tasks, `concurrency` at a time, up to the
@@ -138,20 +136,27 @@ async function handleDirect(task: LeasedTask): Promise<void> {
  * Leases due research tasks across organizations and starts a session for
  * each. `askedForOnly` (a first-party deployment holding its scheduled
  * research) leaves all but the work a person asked for.
+ *
+ * Research the model can't do waits rather than fails: with no way to a
+ * model at all (`modelConfigured` false) nothing is leased, and an
+ * organization whose model the gateway refused lately is left until
+ * MODEL_RETRY_MS has passed, when its next session finds out whether a key
+ * has been set meanwhile.
  */
 export async function runResearchLane(options: {
   start: ResearchStart;
-  modelAvailable: (organizationId: string) => boolean;
+  modelConfigured: boolean;
   askedForOnly: boolean;
   signal?: AbortSignal;
   defer: Defer;
 }): Promise<number> {
-  if (options.signal?.aborted) return 0;
+  if (options.signal?.aborted || !options.modelConfigured) return 0;
   const tasks = await AgentQueueRepository.claimDue({
     limit: DISPATCH.research.batch,
     lane: { except: DIRECT_KINDS },
     leaseMs: DISPATCH.research.leaseMs,
     minPriority: options.askedForOnly ? ASKED_FOR_PRIORITY : undefined,
+    heldSince: new Date(Date.now() - MODEL_RETRY_MS).toISOString(),
   });
   await Promise.all(tasks.map((task) => beginResearch(task, options)));
   return tasks.length;
@@ -165,20 +170,9 @@ async function beginResearch(
   task: LeasedTask,
   options: {
     start: ResearchStart;
-    modelAvailable: (organizationId: string) => boolean;
     defer: Defer;
   },
 ): Promise<void> {
-  if (!options.modelAvailable(task.organizationId)) {
-    // Retrying would not help: say so on the task rather than failing it
-    // three times over.
-    await AgentTaskRepository.complete(
-      task.organizationId,
-      task.id,
-      MODEL_UNAVAILABLE_OUTCOME,
-    );
-    return;
-  }
   try {
     await markRunning(task);
   } catch (error) {
