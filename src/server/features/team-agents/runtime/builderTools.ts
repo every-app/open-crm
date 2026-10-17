@@ -3,17 +3,36 @@ import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { AgentToolContext } from "@/server/features/agent/tools/context";
 import { conversationTools } from "@/server/features/agent/tools/conversation";
+import { fieldTools } from "@/server/features/agent/tools/fields";
 import { historyTools } from "@/server/features/agent/tools/history";
 import { lookupTools } from "@/server/features/agent/tools/lookup";
+import { peopleTools } from "@/server/features/agent/tools/people";
+import { researchTools } from "@/server/features/agent/tools/research";
+import { socialTools } from "@/server/features/agent/tools/socials";
 import type { BuilderToolContext } from "../services/BuilderToolService";
 import { BUILDER_FILE_PATHS, draftInputSchema } from "../services/draft";
 
-// The agent builder's tools, ported from the CRM's agent_builder tools. It
-// reads the CRM with the research agent's free read tools, and inspects what
-// it may build with; writing files and saving a draft exist only in a turn
-// the person opened with "/Create agent" (the CRM's CREATE_AGENT command),
-// and close once a draft is saved. ask_question is the chat client's tool
-// (src/client/features/team-agents/builderQuestion.ts).
+// The agent builder's tools, ported from the CRM's chat and agent_builder
+// tools. Every turn reads the CRM with the research agent's free read tools
+// and its custom fields, and inspects what it may build with. A question also
+// gets the research agent's people and company research (the CRM's chat could
+// research people and companies on the web), paid from the turn's budget.
+// Writing files and saving a draft exist only in a turn that asks for an
+// agent, and close once a draft is saved. ask_question is the chat client's
+// tool (src/client/features/team-agents/builderQuestion.ts).
+
+/**
+ * The research a question may use, as the research agent has it: LinkedIn
+ * lookups and open-web research about people, a company's site, and a
+ * contact's other profiles. Without Context.dev or web research, each says so.
+ */
+function chatResearch(context: AgentToolContext): ToolSet {
+  return {
+    ...peopleTools(context),
+    research_company: researchTools(context).research_company,
+    find_contact_socials: socialTools(context).find_contact_socials,
+  };
+}
 
 export function builderTools(
   context: BuilderToolContext & {
@@ -34,6 +53,7 @@ export function builderTools(
     ...lookupTools(context.agentContext),
     ...historyTools(context.agentContext),
     ...conversationTools(context.agentContext),
+    list_fields: fieldTools(context.agentContext).list_fields,
   };
   return {
     ...reads,
@@ -78,6 +98,6 @@ export function builderTools(
             },
           }),
         }
-      : {}),
+      : chatResearch(context.agentContext)),
   };
 }

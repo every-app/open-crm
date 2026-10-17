@@ -4,19 +4,21 @@ import {
   RUNTIME_INSTRUCTIONS,
   CHAT_TITLE_INSTRUCTION,
 } from "@/server/features/agent/prompt/instructions";
-import { FREE, type Spend } from "@/server/features/agent/runtime/budget";
+import type { Spend } from "@/server/features/agent/runtime/budget";
 import type {
   ChatSession,
   RunSession,
 } from "@/server/features/agent/runtime/session";
 import { scopeTools } from "@/server/features/agent/tools/registry";
+import { builderCommandType } from "@/shared/builder-command";
 import { agentManifest } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import { builderTools } from "./builderTools";
 import {
   approvedInstructions,
   BUILDER_INSTRUCTIONS,
-  isCreateAgentCommand,
+  CHAT_TURN_INSTRUCTIONS,
+  CREATE_TURN_INSTRUCTIONS,
   RUNNER_INSTRUCTIONS,
 } from "./prompts";
 import { runnerTools } from "./runnerTools";
@@ -119,13 +121,15 @@ function textOf(message: UIMessage): string {
 }
 
 /**
- * A builder chat's turn. The records the person tagged and the files they
- * attached ride on their messages' metadata; the tools re-check every
- * tagged record against the organization before anything is saved.
+ * A builder chat's turn: a question, or (when the person's latest message
+ * asks for an agent, builder-command.ts) a build. The records the person
+ * tagged and the files they attached ride on their messages' metadata; the
+ * tools re-check every tagged record against the organization before
+ * anything is saved. A question's research draws on the turn's budget.
  */
 export function prepareBuilderTurn(
   session: ChatSession,
-  input: { thinkSystem: string; messages: readonly UIMessage[] },
+  input: { thinkSystem: string; messages: readonly UIMessage[]; spend: Spend },
 ): { system: string; tools: ToolSet } {
   const userMessages = input.messages.filter(
     (message) => message.role === "user",
@@ -144,7 +148,9 @@ export function prepareBuilderTurn(
   );
   const attachments = extras.flatMap((extra) => extra.attachments ?? []);
   const last = userMessages.at(-1);
-  const creating = last ? isCreateAgentCommand(textOf(last)) : false;
+  const creating = last
+    ? builderCommandType(textOf(last)) === "CREATE_AGENT"
+    : false;
   const needsTitle = !session.conversation.title;
   const system = [
     RUNTIME_INSTRUCTIONS,
@@ -153,9 +159,7 @@ export function prepareBuilderTurn(
     attachments.length > 0
       ? `# Attached files\n\n${attachments.map((file) => `- ${file.name} (${file.mediaType}), id ${file.id}`).join("\n")}`
       : "",
-    creating
-      ? "This turn is a /Create agent request: the build tools are available."
-      : "This turn is a question, not a /Create agent request: answer it, and say how to ask for an agent if one is wanted.",
+    creating ? CREATE_TURN_INSTRUCTIONS : CHAT_TURN_INSTRUCTIONS,
     input.thinkSystem,
   ]
     .filter(Boolean)
@@ -177,7 +181,7 @@ export function prepareBuilderTurn(
         conversation: { id: session.conversation.id, needsTitle },
         attended: true,
         role: null,
-        spend: FREE,
+        spend: input.spend,
       },
     }),
   );
