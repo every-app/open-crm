@@ -438,5 +438,4 @@ CREATE INDEX `email_message_organization_gmail_idx` ON `email_message` (`organiz
 CREATE INDEX `email_message_organization_synced_by_idx` ON `email_message` (`organization_id`,`synced_by_user_id`);--> statement-breakpoint
 ALTER TABLE `workspace` ADD `model_refused_at` text;--> statement-breakpoint
 ALTER TABLE `workspace` ADD `model_refusal` text;--> statement-breakpoint
-ALTER TABLE `workspace` ADD `model_answered_at` text;--> statement-breakpoint
-ALTER TABLE `workspace` ADD `setup_dismissed_at` text;
+ALTER TABLE `workspace` ADD `model_answered_at` text;

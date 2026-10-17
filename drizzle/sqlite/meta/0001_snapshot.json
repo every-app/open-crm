@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3d875df7-e40e-4bba-8983-d7ed4ad017ba",
+  "id": "adc6d873-3904-4a96-b20e-1ff36ad4c42b",
   "prevId": "4faad0a5-2929-46de-883e-0d784300fef4",
   "tables": {
     "member": {
@@ -3934,13 +3934,6 @@
         },
         "model_answered_at": {
           "name": "model_answered_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "setup_dismissed_at": {
-          "name": "setup_dismissed_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

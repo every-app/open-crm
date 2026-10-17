@@ -1,5 +1,5 @@
 {
-  "id": "b43edb48-4cdc-423a-88cf-2f03ddc1c28e",
+  "id": "e3bf612a-7ca7-4485-927a-0270aedd4ec0",
   "prevId": "c81ea3f2-1dd6-40ba-8503-9d6c125728b7",
   "version": "7",
   "dialect": "postgresql",
@@ -4563,12 +4563,6 @@
         },
         "model_answered_at": {
           "name": "model_answered_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "setup_dismissed_at": {
-          "name": "setup_dismissed_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false
