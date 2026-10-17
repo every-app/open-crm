@@ -52,7 +52,7 @@ const STEPS: Record<
   slack: {
     title: "Connect Slack",
     description: "Messages to approved channels and people.",
-    link: { to: "/settings/connections" },
+    link: { to: "/settings/connections/slack" },
   },
   team: {
     title: "Invite your team",
