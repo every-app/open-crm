@@ -48,6 +48,7 @@ export function companyColumns({
         return (
           <div className="min-w-0 space-y-0.5">
             <Link
+              from="/companies"
               to="/companies"
               search={(prev) => ({
                 ...prev,

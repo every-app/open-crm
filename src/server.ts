@@ -4,9 +4,9 @@ import {
 } from "@tanstack/react-start/server";
 import { everyApp } from "@every-app/sdk/server";
 import { withPgClient } from "@/db";
+import { runCron } from "@/server/cron";
 import { withoutCookies } from "@/server/everyapp/cookies";
 import { routeAgentRequests } from "@/server/features/agent/agentRoutes";
-import { runScheduledWork } from "@/server/features/agent/scheduled";
 import { serveImage, IMAGE_ROUTE_PREFIX } from "@/server/lib/images";
 import { serveEveryAppRequest } from "@/server/lib/gateway-attribution";
 
@@ -92,13 +92,14 @@ export { CrmAgent } from "./server/features/agent/CrmAgent";
 export default {
   fetch,
   async scheduled(
-    _controller: ScheduledController,
+    controller: ScheduledController,
     env: Env,
     ctx: ExecutionContext,
   ) {
-    // The minute cron: the agent's dispatcher. It calls no provider itself:
-    // each session it starts names the organization that owns the work on
-    // every gateway call (gateway-attribution.ts).
-    await withPgClient(() => runScheduledWork(env, ctx));
+    // The minute cron (src/server/cron.ts): the agent's dispatcher, and the
+    // hourly and daily upkeep. It calls no provider on anyone's behalf
+    // without naming the organization the work is for
+    // (gateway-attribution.ts).
+    await withPgClient(() => runCron(controller.scheduledTime, env, ctx));
   },
 };

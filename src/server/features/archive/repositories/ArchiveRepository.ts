@@ -21,14 +21,17 @@ import {
   suppressedContact,
 } from "@/db/schema";
 
-// Purging: a company, contact or deal archived longer than its workspace
-// keeps archives is deleted for good. The database cascades what hangs off
-// it (deals of a company, activities, field values, conversations); the rest
-// goes in the same batch, and only while the record is still archived past
-// the cutoff, so a restore that lands first wins:
-// - the agent's queued work about it (agent_task has no foreign keys),
-// - a contact's agent events, and its address onto the suppression list, so
-//   captured mail never brings the person back.
+// Purging: an archived company, contact or deal is deleted for good, by a
+// person (Delete forever, with a cutoff of now) or by the retention sweep
+// (archived longer than the workspace keeps archives). The database cascades
+// what hangs off it (deals of a company, activities, field values,
+// conversations); the rest goes in the same batch, and only while the record
+// is still archived at or before the cutoff, so a restore that lands first
+// wins:
+// - the agent's queued work and journal about it (agent_task and agent_event
+//   carry record ids without foreign keys), a company's deals' included,
+// - a contact's address onto the suppression list, so captured mail never
+//   brings the person back.
 
 export type ArchivedKind = "company" | "contact" | "deal";
 
@@ -109,9 +112,10 @@ async function purge(
       .select({ id: table.id })
       .from(table)
       .where(expired(table, organizationId, before, ids));
-    const ofOrganization = eq(agentTask.organizationId, organizationId);
-
-    if (kind === "company") {
+    // The agent's rows about the purged records: a company's deals' too.
+    const about = (row: typeof agentTask | typeof agentEvent): SQL => {
+      if (kind === "contact") return inArray(row.contactId, purged);
+      if (kind === "deal") return inArray(row.dealId, purged);
       const theirDeals = tx
         .select({ id: deal.id })
         .from(deal)
@@ -121,41 +125,32 @@ async function purge(
             inArray(deal.companyId, purged),
           ),
         );
-      return [
-        tx
-          .delete(agentTask)
-          .where(
-            and(
-              ofOrganization,
-              or(
-                inArray(agentTask.companyId, purged),
-                inArray(agentTask.dealId, theirDeals),
-              ),
-            ),
-          ),
-        tx.delete(company).where(expired(company, organizationId, before, ids)),
-      ];
-    }
-    if (kind === "deal") {
-      return [
-        tx
-          .delete(agentTask)
-          .where(and(ofOrganization, inArray(agentTask.dealId, purged))),
-        tx.delete(deal).where(expired(deal, organizationId, before, ids)),
-      ];
-    }
-    return [
+      return (
+        or(inArray(row.companyId, purged), inArray(row.dealId, theirDeals)) ??
+        sql`false`
+      );
+    };
+    const agentRows = [
       tx
         .delete(agentTask)
-        .where(and(ofOrganization, inArray(agentTask.contactId, purged))),
+        .where(
+          and(eq(agentTask.organizationId, organizationId), about(agentTask)),
+        ),
       tx
         .delete(agentEvent)
         .where(
-          and(
-            eq(agentEvent.organizationId, organizationId),
-            inArray(agentEvent.contactId, purged),
-          ),
+          and(eq(agentEvent.organizationId, organizationId), about(agentEvent)),
         ),
+    ];
+
+    if (kind !== "contact") {
+      return [
+        ...agentRows,
+        tx.delete(table).where(expired(table, organizationId, before, ids)),
+      ];
+    }
+    return [
+      ...agentRows,
       tx
         .insert(suppressedContact)
         .select((qb) =>

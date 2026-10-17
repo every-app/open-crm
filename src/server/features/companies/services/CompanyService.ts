@@ -1,6 +1,8 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CompanyRelationsRepository } from "@/server/features/companies/repositories/CompanyRelationsRepository";
 import { CompanyRepository } from "@/server/features/companies/repositories/CompanyRepository";
+import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   assertOwner,
   blankToNull,
@@ -124,6 +126,7 @@ async function createCompany(
     domain,
   });
   await AgentTaskService.companyCreated(organizationId, row.id);
+  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", row.id);
   return { id: row.id, name: row.name, domain };
 }
 
@@ -232,7 +235,13 @@ async function purgeCompany(organizationId: string, id: string) {
       "Only an archived company can be deleted forever. Archive it first.",
     );
   }
-  if (!(await CompanyRepository.purge(organizationId, id))) {
+  const purged = await ArchiveService.purgeArchived(
+    organizationId,
+    "company",
+    [id],
+    new Date().toISOString(),
+  );
+  if (purged.length === 0) {
     throw new AppError(
       "CONFLICT",
       "The company was restored before it could be deleted.",
@@ -352,6 +361,11 @@ async function companyForEmail(
       organizationId,
       row.id,
       `Created from an email domain (${domain}): it has no name but the domain`,
+    );
+    await FieldsService.queueFillForNewRecord(
+      organizationId,
+      "COMPANY",
+      row.id,
     );
   }
   return row.id;

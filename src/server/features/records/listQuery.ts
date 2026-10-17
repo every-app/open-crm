@@ -30,19 +30,21 @@ function escapeLike(value: string) {
 }
 
 /**
- * A case-insensitive "contains" over any of `columns`. `lower()` is ASCII
- * only on SQLite, so accented capitals still match only themselves there.
+ * A case-insensitive "contains" over any of `columns` (or expressions).
+ * Both sides are lowered in SQL: `lower()` is ASCII only on SQLite, so there
+ * accented capitals match only themselves, which lowering the term in
+ * JavaScript would break.
  */
 export function searchCondition(
   q: string,
-  columns: AnyColumn[],
+  columns: SQLWrapper[],
 ): SQL | undefined {
-  const term = q.trim().toLowerCase();
+  const term = q.trim();
   if (!term) return undefined;
   const pattern = `%${escapeLike(term)}%`;
   return or(
     ...columns.map(
-      (column) => sql`lower(${column}) like ${pattern} escape '\\'`,
+      (column) => sql`lower(${column}) like lower(${pattern}) escape '\\'`,
     ),
   );
 }
@@ -65,8 +67,11 @@ export function archivedCondition(column: AnyColumn, archived: boolean): SQL {
   return archived ? isNotNull(column) : isNull(column);
 }
 
-/** What a sort key orders by. `nullsLast` keeps blanks at the bottom. */
-export type SortSpec = { by: SQLWrapper; nullsLast?: boolean };
+/**
+ * What a sort key orders by. `nullsLast` keeps blanks at the bottom; `ties`
+ * orders rows that tie on it, whichever way it sorts.
+ */
+export type SortSpec = { by: SQLWrapper; nullsLast?: boolean; ties?: SQL[] };
 
 /**
  * ORDER BY for a sort. The dialects disagree on where NULL sorts, so a
@@ -83,6 +88,7 @@ export function sortOrder(
     // false sorts before true on both: rows with a value come first.
     ...(spec.nullsLast ? [sql`(${spec.by} is null)`] : []),
     direction(spec.by),
+    ...(spec.ties ?? []),
     asc(tiebreak),
   ];
 }

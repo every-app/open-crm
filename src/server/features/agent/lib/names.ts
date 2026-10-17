@@ -12,7 +12,8 @@ export function domainOf(email: string): string | null {
   return at > 0 ? email.slice(at + 1).toLowerCase() : null;
 }
 
-function nameMatchesLocalPart(
+/** Whether a handle or an address's local part is a form of the name. */
+export function nameMatchesLocalPart(
   person: { firstName: string | null; lastName: string | null },
   local: string,
 ): boolean {
@@ -71,4 +72,51 @@ export function fullName(person: {
   lastName: string | null;
 }): string {
   return [person.firstName, person.lastName].filter(Boolean).join(" ");
+}
+
+/** A full name as the record stores it: the first word, then the rest. */
+export function splitName(
+  name: string,
+): { firstName: string; lastName: string | null } | null {
+  const [first, ...rest] = name.trim().split(/\s+/);
+  if (!first) return null;
+  return {
+    firstName: first,
+    lastName: rest.length > 0 ? rest.join(" ") : null,
+  };
+}
+
+/**
+ * Whether an employer's name is the company the CRM holds: the same name,
+ * one inside the other ("Northwind Bank" for "Northwind"), or its domain's
+ * name inside the employer's.
+ */
+export function looksLikeSameCompany(
+  employer: string,
+  companyName: string,
+  domain: string,
+): boolean {
+  const a = normalise(employer);
+  const b = normalise(companyName);
+  const c = normalise(domain.replace(/\.[a-z.]+$/, ""));
+  if (!a || (!b && !c)) return false;
+  return (
+    (b !== "" && (a === b || a.includes(b) || b.includes(a))) ||
+    (c !== "" && a.includes(c))
+  );
+}
+
+/** The same host however it is written; "foo-bar.com" is not "foobar.com". */
+export function sameDomain(left: string | null, right: string): boolean {
+  if (!left) return false;
+  const host = hostOf(left);
+  return host !== "" && host === hostOf(right);
+}
+
+function hostOf(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "") return "";
+  const withoutScheme = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
+  const host = withoutScheme.split("/")[0]?.split("@").pop() ?? "";
+  return host.replace(/^www\./, "").replace(/\.$/, "");
 }

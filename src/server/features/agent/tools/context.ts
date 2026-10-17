@@ -19,6 +19,12 @@ export type AgentToolContext = {
   conversation: { id: string; needsTitle: boolean } | null;
   /** A person is in the conversation, waiting on the reply. */
   attended: boolean;
+  /**
+   * That person's gateway role, as the gateway signed it when their chat
+   * connected (agentRoutes.ts); null with nobody there. Gates the tools only
+   * an owner or admin may use.
+   */
+  role: string | null;
   /** Draws on the session's research budget; vendor calls cost 2. */
   spend: Spend;
 };

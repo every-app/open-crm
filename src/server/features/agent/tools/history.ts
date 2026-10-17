@@ -71,7 +71,7 @@ export const historyTools: ToolGroup = (context) => ({
         note:
           history.people.length === 0
             ? "We have no contacts on file at this company, so there is nobody here to research yet."
-            : "Every person above carries their contact id — use it directly with read_crm_history and the other contact tools. Never ask a rep for an id that is in this list.",
+            : "Every person above carries their contact id — use it directly with read_crm_history, identify_contact or record_fact. Never ask a rep for an id that is in this list.",
       };
     },
   }),

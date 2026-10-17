@@ -26,6 +26,8 @@ export async function prepareTurn(
     thinkSystem: string;
     capabilities: readonly Capability[];
     spend: Spend;
+    /** The gateway role of the person in a chat (CrmAgent.onConnect). */
+    role: string | null;
   },
 ): Promise<{ system: string; tools: ToolSet }> {
   const opened: Opened =
@@ -65,6 +67,7 @@ export async function prepareTurn(
       ? { id: session.conversation.id, needsTitle }
       : null,
     attended: session.kind === "chat",
+    role: session.kind === "chat" ? input.role : null,
     spend: input.spend,
   });
   return { system, tools };

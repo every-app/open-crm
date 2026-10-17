@@ -17,20 +17,13 @@ import { chunk } from "remeda";
 import { db } from "@/db";
 import { company, contact, contactBrief, deal, user } from "@/db/schema";
 import type { DealStage } from "@/shared/crm-enums";
+import { LOSING_DEAL_STAGES, OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 import { ascNullsFirst, descNullsLast } from "./order";
 
 // The agent's free lookups across the CRM: find a record the way a person
 // would search for it, sweep the pipeline, and list contacts with research
 // outstanding. Ported from the CRM's lib/lookup.ts and lib/crm.ts. Archived
 // records stay out; every query is scoped to the organization.
-
-const OPEN_STAGES: DealStage[] = [
-  "DEMO_BOOKED",
-  "QUALIFIED_TO_BUY",
-  "DECISION_MAKER_BOUGHT_IN",
-  "CONTRACT_SENT",
-];
-const LOST_STAGES: DealStage[] = ["CLOSED_LOST", "UNQUALIFIED_TO_BUY"];
 
 /** Case-insensitive "contains", the same on both dialects. */
 function contains(column: SQLiteColumn, term: string): SQL {
@@ -205,11 +198,11 @@ async function listDeals(
 ) {
   const stages =
     input.status === "open"
-      ? OPEN_STAGES
+      ? OPEN_DEAL_STAGES
       : input.status === "won"
         ? (["CLOSED_WON"] satisfies DealStage[])
         : input.status === "lost"
-          ? LOST_STAGES
+          ? LOSING_DEAL_STAGES
           : null;
   const cutoff =
     input.inactiveForDays === undefined

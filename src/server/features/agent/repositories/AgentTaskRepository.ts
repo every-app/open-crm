@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { executeInBatches } from "@/db/runBatch";
 import { agentTask } from "@/db/schema";
 
 export type NewAgentTask = {
@@ -139,6 +140,90 @@ async function replaceOpenPayload(
  * its subject to the new time and reason rather than queueing a second one
  * (the CRM's scheduleTask, behind schedule_recheck).
  */
+/**
+ * The open tasks of `kind` for `subjects`, chunked to stay under D1's bound
+ * parameter limit.
+ */
+async function openBySubjects(
+  organizationId: string,
+  kind: string,
+  subjects: string[],
+) {
+  const rows: { id: string; subject: string | null; payload: unknown }[] = [];
+  for (let i = 0; i < subjects.length; i += SUBJECT_CHUNK) {
+    rows.push(
+      ...(await db
+        .select({
+          id: agentTask.id,
+          subject: agentTask.subject,
+          payload: agentTask.payload,
+        })
+        .from(agentTask)
+        .where(
+          and(
+            eq(agentTask.organizationId, organizationId),
+            eq(agentTask.kind, kind),
+            inArray(agentTask.subject, subjects.slice(i, i + SUBJECT_CHUNK)),
+            isNull(agentTask.finishedAt),
+          ),
+        )),
+    );
+  }
+  return rows;
+}
+
+const SUBJECT_CHUNK = 90;
+
+/**
+ * Queues many tasks in batched writes (one round trip per batch on D1),
+ * each the same no-op upsert as insertIfAbsent, so a task another request
+ * queued meanwhile is left as it is instead of failing the batch.
+ */
+async function upsertMany(tasks: NewAgentTask[]): Promise<void> {
+  await executeInBatches(tasks, (tx, task) =>
+    tx
+      .insert(agentTask)
+      .values({
+        id: crypto.randomUUID(),
+        organizationId: task.organizationId,
+        kind: task.kind,
+        reason: task.reason,
+        priority: task.priority,
+        budget: task.budget,
+        subject: task.subject,
+        contactId: task.contactId ?? null,
+        companyId: task.companyId ?? null,
+        dealId: task.dealId ?? null,
+        payload: task.payload ?? null,
+        dueAt: task.dueAt ?? new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: [agentTask.organizationId, agentTask.kind, agentTask.subject],
+        targetWhere: sql`${agentTask.finishedAt} is null`,
+        set: { kind: task.kind },
+      }),
+  );
+}
+
+/** Replaces open tasks' payloads in batched writes. */
+async function replaceOpenPayloads(
+  organizationId: string,
+  updates: { id: string; payload: unknown }[],
+): Promise<void> {
+  await executeInBatches(updates, (tx, update) =>
+    tx
+      .update(agentTask)
+      .set({ payload: update.payload })
+      .where(
+        and(
+          eq(agentTask.organizationId, organizationId),
+          eq(agentTask.id, update.id),
+          isNull(agentTask.finishedAt),
+        ),
+      ),
+  );
+}
+
 async function schedule(task: NewAgentTask & { dueAt: string }) {
   if (await insertIfAbsent(task)) {
     const created = await findOpen(
@@ -287,6 +372,9 @@ async function openForRecord(
 }
 
 export const AgentTaskRepository = {
+  openBySubjects,
+  upsertMany,
+  replaceOpenPayloads,
   insertIfAbsent,
   findOpen,
   openSubjects,

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SkeletonPage } from "@/client/components/SkeletonPresets";
 import { QueryError } from "@/client/components/QueryState";
 import { AppLayout } from "@/client/layout/AppShell";
+import { QuickSwitcher } from "@/client/features/search/QuickSwitcher";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 
 export const Route = createFileRoute("/_app")({
@@ -21,7 +22,10 @@ function AppRouteLayout() {
   }
 
   return (
-    <AppLayout workspaceName={workspace?.name ?? null}>
+    <AppLayout
+      workspaceName={workspace?.name ?? null}
+      sidebarHeader={<QuickSwitcher />}
+    >
       {workspace ? (
         <Outlet />
       ) : workspaceQuery.isError ? (

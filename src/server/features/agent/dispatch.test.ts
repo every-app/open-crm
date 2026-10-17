@@ -10,7 +10,7 @@ vi.mock("@/db", () => ({
   db: database.db,
   withPgClient: (fn: () => unknown) => fn(),
 }));
-vi.mock("@/db/runBatch", () => ({ runBatch: database.runBatch }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 // No Context.dev key on this install.
 vi.mock("@/server/lib/provider-access", () => ({
   getContextFetch: vi.fn(async () => null),

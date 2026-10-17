@@ -19,7 +19,7 @@ vi.mock("@/db", () => ({
   db: database.db,
   withPgClient: (fn: () => unknown) => fn(),
 }));
-vi.mock("@/db/runBatch", () => ({ runBatch: database.runBatch }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 vi.mock("@/server/lib/provider-access", () => ({
   getContextFetch: vi.fn(async () => null),
   hasContextAccess: vi.fn(async () => false),
@@ -91,6 +91,7 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
       { spent: 0, budget: session.task.budget, exhausted: false },
       () => {},
     ),
+    role: null,
   });
   const result = await generateText({
     model: stub,

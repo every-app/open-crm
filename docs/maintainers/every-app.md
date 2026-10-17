@@ -48,7 +48,16 @@ pnpm dev
 
 `everyapp dev` applies the D1 migrations to a local database in `.cloudflare/state`, then starts a gateway-lite on `http://crm.localhost:8787` with a seeded owner (`dev@everyapp.localhost` in `dev-org`) and the real identity checks. With no gateway binding locally, the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from `.dev.vars`. Local runs are the first-party shape on D1; to try the fork shape, set `EVERY_APP_ORG_ID=dev-org` in `.dev.vars`.
 
-The Postgres path runs locally too: set `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` in `.dev.vars` to a local Postgres and run `OPEN_CRM_DATABASE=postgres pnpm dev` after `POSTGRES_DATABASE_URL=<url> pnpm db:migrate:pg`.
+The first-party shape runs locally too, against a local Postgres:
+
+```bash
+POSTGRES_DATABASE_URL=postgres://<user>:<password>@localhost:5432/<database> pnpm db:migrate:pg
+# .dev.vars:
+# CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgres://<user>:<password>@localhost:5432/<database>
+OPEN_CRM_DATABASE=postgres pnpm dev
+```
+
+`everyapp dev` applies no migrations in this shape (it only migrates D1), hence the first step. The local Hyperdrive refuses a connection string without a password, even when the database itself doesn't ask for one. When a `.dev.vars` exists, the SDK reads the connection string from it alone, not from the environment.
 
 ## Deploy it
 

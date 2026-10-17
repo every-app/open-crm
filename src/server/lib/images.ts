@@ -31,6 +31,11 @@ const EXTENSIONS: Record<string, string> = {
   "image/vnd.microsoft.icon": "ico",
 };
 
+/** Whether this install has somewhere to keep a copy (the R2 binding). */
+export function imageStorageReady(): boolean {
+  return Boolean(Reflect.get(env, "R2"));
+}
+
 /** The path a record stores for an R2 key (`<organizationId>/<name>`). */
 function imagePath(key: string): string {
   return `${IMAGE_ROUTE_PREFIX}${key.split("/").map(encodeURIComponent).join("/")}`;
