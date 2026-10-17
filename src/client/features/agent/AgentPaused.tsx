@@ -50,10 +50,10 @@ export function AgentSetupLink({ className }: { className?: string }) {
   }
   return (
     <Link
-      to="/settings/agent"
+      to="/settings"
       className={className ?? "text-foreground underline underline-offset-4"}
     >
-      Set it up in Settings → Agent
+      Set it up in Settings → General
     </Link>
   );
 }

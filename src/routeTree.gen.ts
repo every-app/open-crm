@@ -12,26 +12,24 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppChatRouteImport } from './routes/_app/_chat'
 import { Route as AppCompaniesRouteImport } from './routes/_app/companies'
 import { Route as AppContactsRouteImport } from './routes/_app/contacts'
 import { Route as AppDealsRouteImport } from './routes/_app/deals'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
-import { Route as AppTasksRouteImport } from './routes/_app/tasks'
-import { Route as AppAgentsIndexRouteImport } from './routes/_app/agents/index'
-import { Route as AppAgentsAgentIdRouteImport } from './routes/_app/agents/$agentId'
-import { Route as AppAgentsNewRouteImport } from './routes/_app/agents/new'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
-import { Route as AppSettingsAgentRouteImport } from './routes/_app/settings/agent'
-import { Route as AppSettingsApiRouteImport } from './routes/_app/settings/api'
+import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/api-keys'
 import { Route as AppSettingsConnectionsRouteImport } from './routes/_app/settings/connections'
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
-import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
-import { Route as AppSettingsSetupRouteImport } from './routes/_app/settings/setup'
+import { Route as AppSettingsSsoRouteImport } from './routes/_app/settings/sso'
 import { Route as AppSettingsTrackingRouteImport } from './routes/_app/settings/tracking'
 import { Route as IntegrationsGoogleCallbackRouteImport } from './routes/integrations/google/callback'
 import { Route as IntegrationsMicrosoftCallbackRouteImport } from './routes/integrations/microsoft/callback'
-import { Route as AppAgentsChatConversationIdRouteImport } from './routes/_app/agents/chat.$conversationId'
+import { Route as AppChatAgentsIndexRouteImport } from './routes/_app/_chat/agents/index'
+import { Route as AppChatAgentsAgentIdRouteImport } from './routes/_app/_chat/agents/$agentId'
+import { Route as AppChatChatIndexRouteImport } from './routes/_app/_chat/chat/index'
+import { Route as AppChatChatChatIdRouteImport } from './routes/_app/_chat/chat/$chatId'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -45,6 +43,10 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppChatRoute = AppChatRouteImport.update({
+  id: '/_chat',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppCompaniesRoute = AppCompaniesRouteImport.update({
@@ -67,39 +69,14 @@ const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const AppTasksRoute = AppTasksRouteImport.update({
-  id: '/tasks',
-  path: '/tasks',
-  getParentRoute: () => AppRouteRoute,
-} as any)
-const AppAgentsIndexRoute = AppAgentsIndexRouteImport.update({
-  id: '/agents/',
-  path: '/agents/',
-  getParentRoute: () => AppRouteRoute,
-} as any)
-const AppAgentsAgentIdRoute = AppAgentsAgentIdRouteImport.update({
-  id: '/agents/$agentId',
-  path: '/agents/$agentId',
-  getParentRoute: () => AppRouteRoute,
-} as any)
-const AppAgentsNewRoute = AppAgentsNewRouteImport.update({
-  id: '/agents/new',
-  path: '/agents/new',
-  getParentRoute: () => AppRouteRoute,
-} as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
-const AppSettingsAgentRoute = AppSettingsAgentRouteImport.update({
-  id: '/agent',
-  path: '/agent',
-  getParentRoute: () => AppSettingsRouteRoute,
-} as any)
-const AppSettingsApiRoute = AppSettingsApiRouteImport.update({
-  id: '/api',
-  path: '/api',
+const AppSettingsApiKeysRoute = AppSettingsApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppSettingsConnectionsRoute = AppSettingsConnectionsRouteImport.update({
@@ -112,19 +89,14 @@ const AppSettingsCurrenciesRoute = AppSettingsCurrenciesRouteImport.update({
   path: '/currencies',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
-const AppSettingsDataRoute = AppSettingsDataRouteImport.update({
-  id: '/data',
-  path: '/data',
-  getParentRoute: () => AppSettingsRouteRoute,
-} as any)
 const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   id: '/members',
   path: '/members',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
-const AppSettingsSetupRoute = AppSettingsSetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const AppSettingsSsoRoute = AppSettingsSsoRouteImport.update({
+  id: '/sso',
+  path: '/sso',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppSettingsTrackingRoute = AppSettingsTrackingRouteImport.update({
@@ -144,12 +116,26 @@ const IntegrationsMicrosoftCallbackRoute =
     path: '/integrations/microsoft/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AppAgentsChatConversationIdRoute =
-  AppAgentsChatConversationIdRouteImport.update({
-    id: '/agents/chat/$conversationId',
-    path: '/agents/chat/$conversationId',
-    getParentRoute: () => AppRouteRoute,
-  } as any)
+const AppChatAgentsIndexRoute = AppChatAgentsIndexRouteImport.update({
+  id: '/agents/',
+  path: '/agents/',
+  getParentRoute: () => AppChatRoute,
+} as any)
+const AppChatAgentsAgentIdRoute = AppChatAgentsAgentIdRouteImport.update({
+  id: '/agents/$agentId',
+  path: '/agents/$agentId',
+  getParentRoute: () => AppChatRoute,
+} as any)
+const AppChatChatIndexRoute = AppChatChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => AppChatRoute,
+} as any)
+const AppChatChatChatIdRoute = AppChatChatChatIdRouteImport.update({
+  id: '/chat/$chatId',
+  path: '/chat/$chatId',
+  getParentRoute: () => AppChatRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -158,71 +144,63 @@ export interface FileRoutesByFullPath {
   '/companies': typeof AppCompaniesRoute
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
-  '/tasks': typeof AppTasksRoute
-  '/agents/$agentId': typeof AppAgentsAgentIdRoute
-  '/agents/new': typeof AppAgentsNewRoute
-  '/settings/agent': typeof AppSettingsAgentRoute
-  '/settings/api': typeof AppSettingsApiRoute
+  '/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
-  '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
-  '/settings/setup': typeof AppSettingsSetupRoute
+  '/settings/sso': typeof AppSettingsSsoRoute
   '/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
-  '/agents/': typeof AppAgentsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
-  '/agents/chat/$conversationId': typeof AppAgentsChatConversationIdRoute
+  '/agents/$agentId': typeof AppChatAgentsAgentIdRoute
+  '/chat/$chatId': typeof AppChatChatChatIdRoute
+  '/agents/': typeof AppChatAgentsIndexRoute
+  '/chat/': typeof AppChatChatIndexRoute
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
+  '/': typeof AppIndexRoute
   '/companies': typeof AppCompaniesRoute
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
-  '/tasks': typeof AppTasksRoute
-  '/': typeof AppIndexRoute
-  '/agents/$agentId': typeof AppAgentsAgentIdRoute
-  '/agents/new': typeof AppAgentsNewRoute
-  '/settings/agent': typeof AppSettingsAgentRoute
-  '/settings/api': typeof AppSettingsApiRoute
+  '/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
-  '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
-  '/settings/setup': typeof AppSettingsSetupRoute
+  '/settings/sso': typeof AppSettingsSsoRoute
   '/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
-  '/agents': typeof AppAgentsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
-  '/agents/chat/$conversationId': typeof AppAgentsChatConversationIdRoute
+  '/agents/$agentId': typeof AppChatAgentsAgentIdRoute
+  '/chat/$chatId': typeof AppChatChatChatIdRoute
+  '/agents': typeof AppChatAgentsIndexRoute
+  '/chat': typeof AppChatChatIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
+  '/_app/_chat': typeof AppChatRouteWithChildren
   '/_app/companies': typeof AppCompaniesRoute
   '/_app/contacts': typeof AppContactsRoute
   '/_app/deals': typeof AppDealsRoute
-  '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/agents/$agentId': typeof AppAgentsAgentIdRoute
-  '/_app/agents/new': typeof AppAgentsNewRoute
-  '/_app/settings/agent': typeof AppSettingsAgentRoute
-  '/_app/settings/api': typeof AppSettingsApiRoute
+  '/_app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/_app/settings/connections': typeof AppSettingsConnectionsRoute
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
-  '/_app/settings/data': typeof AppSettingsDataRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
-  '/_app/settings/setup': typeof AppSettingsSetupRoute
+  '/_app/settings/sso': typeof AppSettingsSsoRoute
   '/_app/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
-  '/_app/agents/': typeof AppAgentsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
-  '/_app/agents/chat/$conversationId': typeof AppAgentsChatConversationIdRoute
+  '/_app/_chat/agents/$agentId': typeof AppChatAgentsAgentIdRoute
+  '/_app/_chat/chat/$chatId': typeof AppChatChatChatIdRoute
+  '/_app/_chat/agents/': typeof AppChatAgentsIndexRoute
+  '/_app/_chat/chat/': typeof AppChatChatIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -233,70 +211,62 @@ export interface FileRouteTypes {
     | '/companies'
     | '/contacts'
     | '/deals'
-    | '/tasks'
-    | '/agents/$agentId'
-    | '/agents/new'
-    | '/settings/agent'
-    | '/settings/api'
+    | '/settings/api-keys'
     | '/settings/connections'
     | '/settings/currencies'
-    | '/settings/data'
     | '/settings/members'
-    | '/settings/setup'
+    | '/settings/sso'
     | '/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
-    | '/agents/'
     | '/settings/'
-    | '/agents/chat/$conversationId'
+    | '/agents/$agentId'
+    | '/chat/$chatId'
+    | '/agents/'
+    | '/chat/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
+    | '/'
     | '/companies'
     | '/contacts'
     | '/deals'
-    | '/tasks'
-    | '/'
-    | '/agents/$agentId'
-    | '/agents/new'
-    | '/settings/agent'
-    | '/settings/api'
+    | '/settings/api-keys'
     | '/settings/connections'
     | '/settings/currencies'
-    | '/settings/data'
     | '/settings/members'
-    | '/settings/setup'
+    | '/settings/sso'
     | '/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
-    | '/agents'
     | '/settings'
-    | '/agents/chat/$conversationId'
+    | '/agents/$agentId'
+    | '/chat/$chatId'
+    | '/agents'
+    | '/chat'
   id:
     | '__root__'
     | '/_app'
     | '/onboarding'
     | '/_app/settings'
+    | '/_app/_chat'
     | '/_app/companies'
     | '/_app/contacts'
     | '/_app/deals'
-    | '/_app/tasks'
     | '/_app/'
-    | '/_app/agents/$agentId'
-    | '/_app/agents/new'
-    | '/_app/settings/agent'
-    | '/_app/settings/api'
+    | '/_app/settings/api-keys'
     | '/_app/settings/connections'
     | '/_app/settings/currencies'
-    | '/_app/settings/data'
     | '/_app/settings/members'
-    | '/_app/settings/setup'
+    | '/_app/settings/sso'
     | '/_app/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
-    | '/_app/agents/'
     | '/_app/settings/'
-    | '/_app/agents/chat/$conversationId'
+    | '/_app/_chat/agents/$agentId'
+    | '/_app/_chat/chat/$chatId'
+    | '/_app/_chat/agents/'
+    | '/_app/_chat/chat/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -329,6 +299,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/_chat': {
+      id: '/_app/_chat'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppChatRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/companies': {
       id: '/_app/companies'
       path: '/companies'
@@ -357,34 +334,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/_app/tasks': {
-      id: '/_app/tasks'
-      path: '/tasks'
-      fullPath: '/tasks'
-      preLoaderRoute: typeof AppTasksRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
-    '/_app/agents/': {
-      id: '/_app/agents/'
-      path: '/agents'
-      fullPath: '/agents/'
-      preLoaderRoute: typeof AppAgentsIndexRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
-    '/_app/agents/$agentId': {
-      id: '/_app/agents/$agentId'
-      path: '/agents/$agentId'
-      fullPath: '/agents/$agentId'
-      preLoaderRoute: typeof AppAgentsAgentIdRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
-    '/_app/agents/new': {
-      id: '/_app/agents/new'
-      path: '/agents/new'
-      fullPath: '/agents/new'
-      preLoaderRoute: typeof AppAgentsNewRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
     '/_app/settings/': {
       id: '/_app/settings/'
       path: '/'
@@ -392,18 +341,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
-    '/_app/settings/agent': {
-      id: '/_app/settings/agent'
-      path: '/agent'
-      fullPath: '/settings/agent'
-      preLoaderRoute: typeof AppSettingsAgentRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
-    '/_app/settings/api': {
-      id: '/_app/settings/api'
-      path: '/api'
-      fullPath: '/settings/api'
-      preLoaderRoute: typeof AppSettingsApiRouteImport
+    '/_app/settings/api-keys': {
+      id: '/_app/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof AppSettingsApiKeysRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/connections': {
@@ -420,13 +362,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsCurrenciesRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
-    '/_app/settings/data': {
-      id: '/_app/settings/data'
-      path: '/data'
-      fullPath: '/settings/data'
-      preLoaderRoute: typeof AppSettingsDataRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
     '/_app/settings/members': {
       id: '/_app/settings/members'
       path: '/members'
@@ -434,11 +369,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
-    '/_app/settings/setup': {
-      id: '/_app/settings/setup'
-      path: '/setup'
-      fullPath: '/settings/setup'
-      preLoaderRoute: typeof AppSettingsSetupRouteImport
+    '/_app/settings/sso': {
+      id: '/_app/settings/sso'
+      path: '/sso'
+      fullPath: '/settings/sso'
+      preLoaderRoute: typeof AppSettingsSsoRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/tracking': {
@@ -462,36 +397,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsMicrosoftCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/agents/chat/$conversationId': {
-      id: '/_app/agents/chat/$conversationId'
-      path: '/agents/chat/$conversationId'
-      fullPath: '/agents/chat/$conversationId'
-      preLoaderRoute: typeof AppAgentsChatConversationIdRouteImport
-      parentRoute: typeof AppRouteRoute
+    '/_app/_chat/agents/': {
+      id: '/_app/_chat/agents/'
+      path: '/agents'
+      fullPath: '/agents/'
+      preLoaderRoute: typeof AppChatAgentsIndexRouteImport
+      parentRoute: typeof AppChatRoute
+    }
+    '/_app/_chat/agents/$agentId': {
+      id: '/_app/_chat/agents/$agentId'
+      path: '/agents/$agentId'
+      fullPath: '/agents/$agentId'
+      preLoaderRoute: typeof AppChatAgentsAgentIdRouteImport
+      parentRoute: typeof AppChatRoute
+    }
+    '/_app/_chat/chat/': {
+      id: '/_app/_chat/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof AppChatChatIndexRouteImport
+      parentRoute: typeof AppChatRoute
+    }
+    '/_app/_chat/chat/$chatId': {
+      id: '/_app/_chat/chat/$chatId'
+      path: '/chat/$chatId'
+      fullPath: '/chat/$chatId'
+      preLoaderRoute: typeof AppChatChatChatIdRouteImport
+      parentRoute: typeof AppChatRoute
     }
   }
 }
 
 interface AppSettingsRouteRouteChildren {
-  AppSettingsAgentRoute: typeof AppSettingsAgentRoute
-  AppSettingsApiRoute: typeof AppSettingsApiRoute
+  AppSettingsApiKeysRoute: typeof AppSettingsApiKeysRoute
   AppSettingsConnectionsRoute: typeof AppSettingsConnectionsRoute
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
-  AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
-  AppSettingsSetupRoute: typeof AppSettingsSetupRoute
+  AppSettingsSsoRoute: typeof AppSettingsSsoRoute
   AppSettingsTrackingRoute: typeof AppSettingsTrackingRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
-  AppSettingsAgentRoute: AppSettingsAgentRoute,
-  AppSettingsApiRoute: AppSettingsApiRoute,
+  AppSettingsApiKeysRoute: AppSettingsApiKeysRoute,
   AppSettingsConnectionsRoute: AppSettingsConnectionsRoute,
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
-  AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
-  AppSettingsSetupRoute: AppSettingsSetupRoute,
+  AppSettingsSsoRoute: AppSettingsSsoRoute,
   AppSettingsTrackingRoute: AppSettingsTrackingRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
@@ -499,30 +451,39 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
 const AppSettingsRouteRouteWithChildren =
   AppSettingsRouteRoute._addFileChildren(AppSettingsRouteRouteChildren)
 
+interface AppChatRouteChildren {
+  AppChatAgentsAgentIdRoute: typeof AppChatAgentsAgentIdRoute
+  AppChatChatChatIdRoute: typeof AppChatChatChatIdRoute
+  AppChatAgentsIndexRoute: typeof AppChatAgentsIndexRoute
+  AppChatChatIndexRoute: typeof AppChatChatIndexRoute
+}
+
+const AppChatRouteChildren: AppChatRouteChildren = {
+  AppChatAgentsAgentIdRoute: AppChatAgentsAgentIdRoute,
+  AppChatChatChatIdRoute: AppChatChatChatIdRoute,
+  AppChatAgentsIndexRoute: AppChatAgentsIndexRoute,
+  AppChatChatIndexRoute: AppChatChatIndexRoute,
+}
+
+const AppChatRouteWithChildren =
+  AppChatRoute._addFileChildren(AppChatRouteChildren)
+
 interface AppRouteRouteChildren {
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
+  AppChatRoute: typeof AppChatRouteWithChildren
   AppCompaniesRoute: typeof AppCompaniesRoute
   AppContactsRoute: typeof AppContactsRoute
   AppDealsRoute: typeof AppDealsRoute
-  AppTasksRoute: typeof AppTasksRoute
   AppIndexRoute: typeof AppIndexRoute
-  AppAgentsAgentIdRoute: typeof AppAgentsAgentIdRoute
-  AppAgentsNewRoute: typeof AppAgentsNewRoute
-  AppAgentsIndexRoute: typeof AppAgentsIndexRoute
-  AppAgentsChatConversationIdRoute: typeof AppAgentsChatConversationIdRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
+  AppChatRoute: AppChatRouteWithChildren,
   AppCompaniesRoute: AppCompaniesRoute,
   AppContactsRoute: AppContactsRoute,
   AppDealsRoute: AppDealsRoute,
-  AppTasksRoute: AppTasksRoute,
   AppIndexRoute: AppIndexRoute,
-  AppAgentsAgentIdRoute: AppAgentsAgentIdRoute,
-  AppAgentsNewRoute: AppAgentsNewRoute,
-  AppAgentsIndexRoute: AppAgentsIndexRoute,
-  AppAgentsChatConversationIdRoute: AppAgentsChatConversationIdRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(

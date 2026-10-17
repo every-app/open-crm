@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, ChevronLeft } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { ArrowRight } from "lucide-react";
 import { AgentUnavailable } from "@/client/features/agent/AgentThreadParts";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
 import { createBuilderChat } from "@/serverFunctions/teamAgents";
@@ -17,8 +17,8 @@ declare module "@tanstack/react-router" {
 }
 
 /**
- * Where a builder chat starts (the CRM's builder home): ask about the CRM, or
- * describe an agent. The chat exists once there is something to say in it.
+ * Chat's home (the CRM's builder home): ask about the CRM, or describe an
+ * agent. The chat exists once there is something to say in it.
  */
 export function BuilderHome() {
   const navigate = useNavigate();
@@ -34,32 +34,25 @@ export function BuilderHome() {
     onSuccess: async (chat, message) => {
       await queryClient.invalidateQueries({ queryKey: teamAgentKeys.chats() });
       await navigate({
-        to: "/agents/chat/$conversationId",
-        params: { conversationId: chat.id },
+        to: "/chat/$chatId",
+        params: { chatId: chat.id },
         state: { builderFirstMessage: message },
       });
     },
   });
 
   return (
-    <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <Link
-          to="/agents"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden />
-          Agents
-        </Link>
-        <div className="space-y-2 pt-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            What should an agent do for the team?
-          </h1>
-          <p className="text-sm text-balance text-muted-foreground">
-            Ask about your CRM, tag a record or integration, or switch on Create
-            agent and describe a job to automate.
-          </p>
-        </div>
+    <div className="flex min-h-full flex-col items-center justify-center px-4 pt-14 pb-20 sm:px-6 sm:pt-12 sm:pb-28">
+      <div className="flex w-full max-w-3xl flex-col items-center gap-3 pb-6 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+          What can I help with?
+        </h1>
+        <p className="max-w-xl text-sm text-balance text-muted-foreground">
+          Ask about your CRM, tag a record or integration, or describe an agent
+          to build to automate a task.
+        </p>
+      </div>
+      <div className="w-full max-w-3xl">
         <BuilderComposer
           key={suggestion ?? ""}
           conversationId={null}
@@ -68,19 +61,25 @@ export function BuilderHome() {
           initialCreating={suggestion !== null}
           onSend={(message) => start.mutate(message)}
         />
-        {canChat ? null : <AgentUnavailable />}
-        <p className="text-xs text-muted-foreground">
+        {canChat ? null : (
+          <div className="pt-2">
+            <AgentUnavailable />
+          </div>
+        )}
+        <p className="flex min-h-8 items-center py-1 text-xs text-muted-foreground">
           Chats and agent drafts stay private to you. Deploying an agent makes
           it available to the whole team.
         </p>
-        <div>
-          <p className="pb-1 text-xs text-muted-foreground">Suggested agents</p>
+        <div className="pt-1">
+          <p className="flex h-7 items-center text-xs text-muted-foreground">
+            Suggested agents
+          </p>
           {BUILDER_SUGGESTIONS.map((text) => (
             <button
               key={text}
               type="button"
               onClick={() => setSuggestion(text)}
-              className="flex h-10 w-full items-center border-t border-border text-left text-sm hover:bg-muted/50"
+              className="flex h-[42px] w-full items-center border-t border-border text-left text-sm outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.03]"
             >
               <span className="min-w-0 flex-1 font-medium">{text}</span>
               <ArrowRight className="size-4 text-muted-foreground" />

@@ -9,7 +9,7 @@ const LINK_CLASS =
   "inline-flex items-center gap-1 font-medium text-foreground underline underline-offset-4";
 
 /**
- * Settings → API: the CRM's REST API and how to call it. Tokens are made and
+ * Settings → API Keys: the CRM's REST API and how to call it. Tokens are made and
  * revoked on the Every App gateway; the CRM keeps no keys of its own.
  */
 export function ApiSettings() {

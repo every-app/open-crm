@@ -294,7 +294,7 @@ function Connected({
         {status.agents.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No deployed agents post to Slack yet.{" "}
-            <Link to="/agents/new" className="underline underline-offset-4">
+            <Link to="/chat" className="underline underline-offset-4">
               Describe one in the builder.
             </Link>
           </p>

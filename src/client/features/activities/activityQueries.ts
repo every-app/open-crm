@@ -16,12 +16,10 @@ import {
   getMeeting,
   getTimeline,
   getTimelineCounts,
-  listMyTasks,
 } from "@/serverFunctions/activities";
 import type { RecordRef } from "@/shared/records";
 import type {
   CreateActivityInput,
-  TaskWindow,
   TimelineFilter,
 } from "@/types/schemas/activities";
 
@@ -34,7 +32,6 @@ export const activityKeys = {
     ["activities", "outstanding", record.kind, record.id] as const,
   counts: (record: RecordRef) =>
     ["activities", "counts", record.kind, record.id] as const,
-  myTasks: (window: TaskWindow) => ["activities", "my-tasks", window] as const,
   thread: (id: string) => ["activities", "thread", id] as const,
   meeting: (id: string) => ["activities", "meeting", id] as const,
 };
@@ -64,13 +61,6 @@ export const timelineCountsQueryOptions = (record: RecordRef) =>
   queryOptions({
     queryKey: activityKeys.counts(record),
     queryFn: () => getTimelineCounts({ data: { record } }),
-  });
-
-/** The viewer's open tasks: all of them, the overdue or the upcoming ones. */
-export const myTasksQueryOptions = (window: TaskWindow) =>
-  queryOptions({
-    queryKey: activityKeys.myTasks(window),
-    queryFn: () => listMyTasks({ data: { window, limit: 100 } }),
   });
 
 export const emailThreadQueryOptions = (id: string) =>

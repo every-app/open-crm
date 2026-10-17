@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { groupBy } from "remeda";
 import { toast } from "sonner";
-import { SectionHeader } from "@/client/components/PageHeader";
 import { QueryState } from "@/client/components/QueryState";
+import {
+  SettingsCard,
+  SettingsRow,
+  SettingsSection,
+} from "@/client/components/SettingsSection";
 import {
   Combobox,
   ComboboxCollection,
@@ -19,6 +23,7 @@ import {
   modelCatalogQueryOptions,
   useCanManageWorkspace,
 } from "@/client/features/settings/settingsQueries";
+import { GatewayKeyRow } from "@/client/features/settings/GatewayKeyRow";
 import type { CatalogModel } from "@/server/features/settings/services/ModelCatalogService";
 import type { AgentModelSetting } from "@/server/features/settings/services/SettingsService";
 import { setAgentModel } from "@/serverFunctions/settings";
@@ -64,72 +69,69 @@ const matches = (choice: ModelChoice, query: string) =>
   choice.search.includes(query.trim().toLowerCase());
 
 /**
- * Settings → Agent: the model the research agent thinks with, from
- * OpenRouter's tool-using models. Owners and admins pick it; the agent uses
- * it from its next session.
+ * Settings → General: the model the research agent thinks with, from
+ * OpenRouter's tool-using models, and whether the gateway holds the key that
+ * reaches them. Owners and admins pick the model; the agent uses it from its
+ * next session.
  */
-export function AgentModelPicker() {
+export function ResearchAgentSection() {
   const canManage = useCanManageWorkspace();
   const settingQuery = useQuery(agentModelQueryOptions());
   const catalogQuery = useQuery(modelCatalogQueryOptions());
 
   return (
-    <section className="space-y-3">
-      <SectionHeader
-        title="Model"
-        hint={
-          canManage
-            ? undefined
-            : "Only an owner or an admin can change the agent's model."
-        }
-      />
-      <p className="max-w-2xl text-sm text-muted-foreground">
-        The model the research agent thinks with, through OpenRouter on your
-        Every App gateway.
-      </p>
-      <QueryState
-        query={settingQuery}
-        errorFallback="The agent's model could not be loaded."
-      >
-        {(setting) => {
-          const models = catalogQuery.data?.models ?? [];
-          const effective = models.find((model) => model.id === setting.id);
-          return (
-            <div className="max-w-xl space-y-2">
-              {canManage ? (
-                <ModelCombobox
-                  setting={setting}
-                  models={models}
-                  disabled={
-                    catalogQuery.isPending ||
-                    catalogQuery.data?.available === false
-                  }
-                />
-              ) : (
-                <p className="text-sm font-medium">
-                  {effective?.name ?? setting.id}
-                  {setting.isDefault ? " (default)" : null}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {catalogQuery.data?.available === false
-                  ? `Could not reach OpenRouter to list models. The agent is still running ${setting.id}.`
-                  : [
-                      setting.id,
-                      contextHint(
-                        effective?.contextWindowTokens ??
-                          setting.contextWindowTokens,
-                      ),
-                      effective ? priceHint(effective) : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-              </p>
-            </div>
-          );
-        }}
-      </QueryState>
-    </section>
+    <SettingsSection
+      title="Research agent"
+      description="The model the agent thinks with, routed through OpenRouter on your Every App gateway."
+    >
+      <SettingsCard>
+        <QueryState
+          query={settingQuery}
+          errorFallback="The agent's model could not be loaded."
+        >
+          {(setting) => {
+            const models = catalogQuery.data?.models ?? [];
+            const effective = models.find((model) => model.id === setting.id);
+            return (
+              <SettingsRow
+                label="Model"
+                description={
+                  catalogQuery.data?.available === false
+                    ? `Could not reach OpenRouter to list models. The agent is still running ${setting.id}.`
+                    : [
+                        setting.id,
+                        contextHint(
+                          effective?.contextWindowTokens ??
+                            setting.contextWindowTokens,
+                        ),
+                        effective ? priceHint(effective) : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                }
+              >
+                {canManage ? (
+                  <ModelCombobox
+                    setting={setting}
+                    models={models}
+                    disabled={
+                      catalogQuery.isPending ||
+                      catalogQuery.data?.available === false
+                    }
+                  />
+                ) : (
+                  <span className="text-sm font-medium">
+                    {effective?.name ?? setting.id}
+                    {setting.isDefault ? " (default)" : null}
+                  </span>
+                )}
+              </SettingsRow>
+            );
+          }}
+        </QueryState>
+        <GatewayKeyRow id="model" label="Model key" />
+      </SettingsCard>
+    </SettingsSection>
   );
 }
 
@@ -196,7 +198,7 @@ function ModelCombobox({
       }}
     >
       <ComboboxInput
-        className="w-full"
+        className="w-full sm:w-72"
         placeholder="Search models"
         aria-label="Model"
       />

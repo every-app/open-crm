@@ -30,15 +30,15 @@ function OnboardingPage() {
     <main className="flex min-h-[100dvh] items-center justify-center bg-background p-4">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <CardTitle className="text-xl">Set up your CRM</CardTitle>
+          <CardTitle className="text-xl">Tell us about your company</CardTitle>
         </CardHeader>
         <CardContent>
           {workspace ? (
             hasOrgPermission(workspace.role, { workspace: ["manage"] }) ? (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Tell the agent whose CRM this is. It reads your website to
-                  learn what you sell and who you sell to.
+                  Two things, once. The name is what the CRM calls you; the
+                  website is how the agent learns what you sell.
                 </p>
                 <WorkspaceForm
                   initial={{ name: "", website: null }}

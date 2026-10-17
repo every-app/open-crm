@@ -88,10 +88,10 @@ export function AgentUnavailable() {
       The agent can't answer yet: its model isn't set up on your Every App
       gateway. An owner or admin sets it up once, as{" "}
       <Link
-        to="/settings/agent"
+        to="/settings"
         className="text-foreground underline underline-offset-4"
       >
-        Settings → Agent
+        Settings → General
       </Link>{" "}
       shows.
     </p>

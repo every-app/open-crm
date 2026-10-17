@@ -1,5 +1,11 @@
-import { useId, type ComponentProps, type ReactNode } from "react";
+import {
+  useId,
+  type ChangeEvent,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { createFormHook } from "@tanstack/react-form";
+import { cn } from "cn";
 import { Button } from "@/client/components/ui/button";
 import { Checkbox } from "@/client/components/ui/checkbox";
 import {
@@ -10,6 +16,13 @@ import {
   FieldLabel,
 } from "@/client/components/ui/field";
 import { Input } from "@/client/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/client/components/ui/input-group";
+import { SettingsRow } from "@/client/components/SettingsSection";
 import {
   Select,
   SelectContent,
@@ -101,6 +114,63 @@ function TextField({
       />
       {control.messages}
     </Field>
+  );
+}
+
+/**
+ * A text field as one settings row: the label and hint on the left, the
+ * input and its error on the right. Goes inside a `SettingsCard`.
+ */
+function RowTextField({
+  label,
+  description,
+  prefix,
+  className,
+  ...inputProps
+}: FieldText & {
+  /** Fixed text before the value, such as "https://". */
+  prefix?: string;
+} & Omit<ComponentProps<typeof Input>, BoundProps>) {
+  const field = useFieldContext<string>();
+  const id = useId();
+  const error = getFieldError(field.state.meta.errors);
+  const descriptionId = description ? `${id}-description` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
+  const props = {
+    ...inputProps,
+    id,
+    name: field.name,
+    value: field.state.value,
+    onChange: (event: ChangeEvent<HTMLInputElement>) =>
+      field.handleChange(event.target.value),
+    onBlur: field.handleBlur,
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby":
+      [descriptionId, errorId].filter(Boolean).join(" ") || undefined,
+  };
+
+  return (
+    <SettingsRow
+      label={label}
+      htmlFor={id}
+      description={
+        description ? <span id={descriptionId}>{description}</span> : undefined
+      }
+    >
+      <div className={cn("flex w-full flex-col gap-1.5 sm:w-72", className)}>
+        {prefix ? (
+          <InputGroup>
+            <InputGroupAddon>
+              <InputGroupText>{prefix}</InputGroupText>
+            </InputGroupAddon>
+            <InputGroupInput {...props} />
+          </InputGroup>
+        ) : (
+          <Input {...props} />
+        )}
+        {error ? <FieldError id={errorId}>{error}</FieldError> : null}
+      </div>
+    </SettingsRow>
   );
 }
 
@@ -287,6 +357,7 @@ export const { useAppForm } = createFormHook({
   formContext,
   fieldComponents: {
     TextField,
+    RowTextField,
     TextareaField,
     SelectField,
     CheckboxField,

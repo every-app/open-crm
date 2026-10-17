@@ -23,7 +23,7 @@ const GATEWAY_BASE_URL =
  * The research agent's default model: deliberately not a frontier model. The
  * evidence ledger, not the model's judgement, decides what reaches a record,
  * so a fast, cheap model does the agent's work. A workspace picks another on
- * Settings → Agent.
+ * Settings → General.
  */
 export const DEFAULT_AGENT_MODEL = {
   id: "minimax/minimax-m3",

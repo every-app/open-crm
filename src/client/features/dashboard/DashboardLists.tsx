@@ -135,19 +135,9 @@ export function OverdueTasks({ summary }: { summary: DashboardSummary }) {
         <CardTitle>Overdue tasks</CardTitle>
         <CardDescription>
           {tasks.length === 0
-            ? "Every task you set is either done or still to come"
+            ? "Every task you have logged is either done or still to come"
             : `${formatCount(tasks.length, "task")} past due`}
         </CardDescription>
-        <CardAction>
-          <Button
-            variant="outline"
-            size="sm"
-            nativeButton={false}
-            render={<Link to="/tasks" />}
-          >
-            My tasks
-          </Button>
-        </CardAction>
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (

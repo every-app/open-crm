@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BuilderChatPage } from "@/client/features/team-agents/BuilderChatPage";
 
-export const Route = createFileRoute("/_app/agents/chat/$conversationId")({
+export const Route = createFileRoute("/_app/_chat/chat/$chatId")({
   component: BuilderChatRoute,
 });
 
 function BuilderChatRoute() {
-  const { conversationId } = Route.useParams();
-  return <BuilderChatPage conversationId={conversationId} />;
+  const { chatId } = Route.useParams();
+  return <BuilderChatPage key={chatId} conversationId={chatId} />;
 }

@@ -1,9 +1,9 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import type { LinkOptions } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
-import { LogOut, Settings, User } from "lucide-react";
-import { navGroups } from "@/client/navigation/items";
+import { LogOut, User } from "lucide-react";
+import { navItems } from "@/client/navigation/items";
 import { ThemePreferenceRadio } from "@/client/components/ThemePreferenceMenuItems";
 import { getEveryAppAccount } from "@/serverFunctions/everyApp";
 import {
@@ -12,7 +12,6 @@ import {
   SidebarFooter as UiSidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -42,13 +41,18 @@ export const everyAppAccountQueryOptions = () => ({
 function SidebarNavLink({
   icon: Icon,
   label,
+  related,
   linkProps,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
+  /** Another path prefix that counts as this item, as /agents does for Chat. */
+  related?: string;
   linkProps: LinkOptions;
 }) {
   const { setOpenMobile } = useSidebar();
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const inRelated = related !== undefined && pathname.startsWith(related);
   return (
     <SidebarMenuItem>
       <Link
@@ -63,7 +67,7 @@ function SidebarNavLink({
         {({ isActive }) => (
           <SidebarMenuButton
             render={<span />}
-            isActive={isActive}
+            isActive={isActive || inRelated}
             className={navButtonClass}
           >
             <Icon className="size-4" />
@@ -100,28 +104,21 @@ export function Sidebar({
 
       <SidebarContent>
         <nav aria-label="Main navigation">
-          {navGroups.map((group) => (
-            <SidebarGroup key={group.label} className="py-1">
-              <SidebarGroupLabel className="h-7 uppercase tracking-wider text-sidebar-foreground/40">
-                {group.label}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {group.items.map((item) => {
-                    const { icon, label, ...linkProps } = item;
-                    return (
-                      <SidebarNavLink
-                        key={linkProps.to}
-                        icon={icon}
-                        label={label}
-                        linkProps={linkProps}
-                      />
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))}
+          <SidebarGroup className="py-1">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navItems.map((item) => (
+                  <SidebarNavLink
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    related={item.related}
+                    linkProps={item.link}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         </nav>
       </SidebarContent>
       <AccountFooter />
@@ -133,7 +130,6 @@ export function Sidebar({
 // the person from the signed identity, no switcher, and signing out happens
 // on the gateway.
 function AccountFooter() {
-  const { setOpenMobile } = useSidebar();
   const accountQuery = useQuery(everyAppAccountQueryOptions());
   const account = accountQuery.data;
 
@@ -155,14 +151,6 @@ function AccountFooter() {
                 <span className="truncate">{account.email}</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" className="w-56">
-                <DropdownMenuItem
-                  render={
-                    <Link to="/settings" onClick={() => setOpenMobile(false)} />
-                  }
-                >
-                  <Settings className="size-4" />
-                  Settings
-                </DropdownMenuItem>
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>Theme</DropdownMenuLabel>
                   <div className="px-1 pb-1">

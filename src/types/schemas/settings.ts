@@ -22,7 +22,7 @@ export const setArchiveRetentionSchema = z.object({
     ),
 });
 
-/** Settings → Data's retention form, as typed: the days are still text. */
+/** Settings → General's retention form, as typed: the days are still text. */
 export const archiveRetentionFormSchema = z.object({
   days: z
     .string()

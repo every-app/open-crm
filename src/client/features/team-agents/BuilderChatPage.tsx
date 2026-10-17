@@ -1,7 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { InlineConfirm } from "@/client/components/InlineConfirm";
 import { QueryError } from "@/client/components/QueryState";
@@ -41,7 +40,7 @@ export function BuilderChatPage({
     onSuccess: async () => {
       toast.success("Chat deleted.");
       await queryClient.invalidateQueries({ queryKey: teamAgentKeys.chats() });
-      await navigate({ to: "/agents" });
+      await navigate({ to: "/chat" });
     },
   });
 
@@ -67,13 +66,6 @@ export function BuilderChatPage({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2 md:px-6">
-        <Link
-          to="/agents"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden />
-          Agents
-        </Link>
         <h1 className="min-w-0 flex-1 truncate text-sm font-medium">
           {conversation.title ?? "New chat"}
         </h1>

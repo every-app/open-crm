@@ -3,6 +3,10 @@ import { revalidateLogic } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import {
+  SettingsCard,
+  SettingsCardFooter,
+} from "@/client/components/SettingsSection";
+import {
   getErrorCode,
   getStandardErrorMessage,
 } from "@/client/lib/error-messages";
@@ -20,16 +24,10 @@ const SERVER_FIELD_ERRORS: Record<string, Record<string, string>> = {
   },
 };
 
-/** The workspace's name and website: onboarding and Settings → Workspace. */
-export function WorkspaceForm({
-  initial,
-  submitLabel,
-  onSaved,
-}: {
-  initial: { name: string; website: string | null };
-  submitLabel: string;
-  onSaved?: () => void;
-}) {
+type Workspace = { name: string; website: string | null };
+
+/** The workspace's name and website, saved; shared by both forms below. */
+function useWorkspaceForm(initial: Workspace, onSaved?: () => void) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (values: { name: string; website: string }) =>
@@ -44,7 +42,7 @@ export function WorkspaceForm({
     },
   });
 
-  const form = useAppForm({
+  return useAppForm({
     defaultValues: {
       name: initial.name,
       website: initial.website ?? "",
@@ -54,6 +52,8 @@ export function WorkspaceForm({
     onSubmit: async ({ value, formApi }) => {
       try {
         await mutation.mutateAsync(value);
+        // The saved values are the new baseline, so Save disables again.
+        formApi.reset(value);
       } catch (error) {
         const fields = SERVER_FIELD_ERRORS[getErrorCode(error) ?? ""];
         if (fields) {
@@ -64,6 +64,19 @@ export function WorkspaceForm({
       }
     },
   });
+}
+
+/** Onboarding: the workspace's name and website, stacked. */
+export function WorkspaceForm({
+  initial,
+  submitLabel,
+  onSaved,
+}: {
+  initial: Workspace;
+  submitLabel: string;
+  onSaved?: () => void;
+}) {
+  const form = useWorkspaceForm(initial, onSaved);
 
   return (
     <form.AppForm>
@@ -82,7 +95,7 @@ export function WorkspaceForm({
           {(field) => (
             <field.TextField
               label="Website"
-              description="The agent reads it to learn what your company sells and who it sells to."
+              description="Read once, so every answer afterwards knows what you sell."
               placeholder="acme.com"
               required
             />
@@ -91,6 +104,70 @@ export function WorkspaceForm({
         <div>
           <form.SubmitButton>{submitLabel}</form.SubmitButton>
         </div>
+      </form.Form>
+    </form.AppForm>
+  );
+}
+
+/** Settings → General: the same two fields as settings rows. */
+export function WorkspaceSettingsCard({
+  workspace,
+  canManage,
+}: {
+  workspace: Workspace;
+  canManage: boolean;
+}) {
+  const form = useWorkspaceForm(workspace, () =>
+    toast.success("Workspace saved."),
+  );
+
+  return (
+    <form.AppForm>
+      <form.Form>
+        <SettingsCard>
+          <form.AppField name="name">
+            {(field) => (
+              <field.RowTextField
+                label="Name"
+                description="Shown wherever the CRM refers to your own company."
+                placeholder="Acme Inc."
+                autoComplete="organization"
+                maxLength={WORKSPACE_NAME_MAX}
+                disabled={!canManage}
+                required
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="website">
+            {(field) => (
+              <field.RowTextField
+                label="Website"
+                description="Your own company's website."
+                prefix="https://"
+                placeholder="acme.com"
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                inputMode="url"
+                disabled={!canManage}
+                required
+              />
+            )}
+          </form.AppField>
+          <SettingsCardFooter
+            note={
+              canManage ? null : "Only an owner or an admin can change this."
+            }
+          >
+            <form.Subscribe selector={(state) => state.isDefaultValue}>
+              {(isDefaultValue) => (
+                <form.SubmitButton disabled={!canManage || isDefaultValue}>
+                  Save
+                </form.SubmitButton>
+              )}
+            </form.Subscribe>
+          </SettingsCardFooter>
+        </SettingsCard>
       </form.Form>
     </form.AppForm>
   );

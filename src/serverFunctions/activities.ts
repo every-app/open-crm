@@ -5,7 +5,6 @@ import {
   capturedIdSchema,
   completeTaskSchema,
   createActivitySchema,
-  myTasksSchema,
   timelineCountsSchema,
   timelineSchema,
 } from "@/types/schemas/activities";
@@ -47,13 +46,6 @@ export const completeTask = createServerFn({ method: "POST" })
       data.id,
       data.completed,
     ),
-  );
-
-export const listMyTasks = createServerFn({ method: "GET" })
-  .middleware(requireAuthenticatedContext)
-  .validator(myTasksSchema)
-  .handler(({ data, context }) =>
-    ActivityService.myTasks(context.organizationId, context.userId, data),
   );
 
 export const getEmailThread = createServerFn({ method: "GET" })

@@ -1,44 +1,39 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { NavTab, NavTabs } from "@/client/components/NavTabs";
-import { PageHeader } from "@/client/components/PageHeader";
+import {
+  SectionLayout,
+  SectionNavLink,
+} from "@/client/components/SectionLayout";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsLayout,
 });
 
-const tabs = [
-  { to: "/settings", label: "Workspace", exact: true },
-  { to: "/settings/setup", label: "Setup", exact: false },
-  { to: "/settings/members", label: "Members", exact: false },
+// The original CRM's settings, in its order.
+const sections = [
+  { to: "/settings", label: "General", exact: true },
+  { to: "/settings/tracking", label: "Tracking & Analytics", exact: false },
   { to: "/settings/connections", label: "Connections", exact: false },
   { to: "/settings/currencies", label: "Currencies", exact: false },
-  { to: "/settings/agent", label: "Agent", exact: false },
-  { to: "/settings/tracking", label: "Tracking", exact: false },
-  { to: "/settings/data", label: "Data", exact: false },
-  { to: "/settings/api", label: "API", exact: false },
+  { to: "/settings/members", label: "Members", exact: false },
+  { to: "/settings/api-keys", label: "API Keys", exact: false },
+  { to: "/settings/sso", label: "SSO", exact: false },
 ] as const;
 
 function SettingsLayout() {
   return (
-    <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <div className="space-y-4">
-          <PageHeader title="Settings" />
-          <NavTabs label="Settings sections">
-            {tabs.map((tab) => (
-              <NavTab
-                key={tab.to}
-                to={tab.to}
-                activeOptions={{ exact: tab.exact }}
-              >
-                {tab.label}
-              </NavTab>
-            ))}
-          </NavTabs>
-        </div>
-
-        <Outlet />
-      </div>
-    </div>
+    <SectionLayout
+      label="Workspace settings"
+      nav={sections.map((section) => (
+        <SectionNavLink
+          key={section.to}
+          to={section.to}
+          activeOptions={{ exact: section.exact, includeSearch: false }}
+        >
+          {section.label}
+        </SectionNavLink>
+      ))}
+    >
+      <Outlet />
+    </SectionLayout>
   );
 }

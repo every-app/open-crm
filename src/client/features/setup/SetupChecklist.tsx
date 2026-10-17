@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, CircleDashed, Clock3, X } from "lucide-react";
 import { cn } from "cn";
 import { CopyButton } from "@/client/components/CopyButton";
-import { QueryState } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import {
@@ -91,28 +90,6 @@ export function HomeSetupChecklist() {
         />
       </CardContent>
     </Card>
-  );
-}
-
-/** Settings: every item, or those of one `group`, always shown. */
-export function SetupChecklist({ group }: { group?: Item["group"] }) {
-  const query = useQuery(setupChecklistQueryOptions());
-  return (
-    <QueryState query={query} errorFallback="The setup could not be loaded.">
-      {(checklist) => (
-        <Card className="max-w-2xl">
-          <CardContent>
-            <SetupItems
-              items={checklist.items.filter(
-                (item) => !group || item.group === group,
-              )}
-              tier={checklist.tier}
-              local={checklist.local}
-            />
-          </CardContent>
-        </Card>
-      )}
-    </QueryState>
   );
 }
 

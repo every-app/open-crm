@@ -184,8 +184,8 @@ function LoadedAgent({ agent }: { agent: Agent }) {
                   variant="outline"
                   render={
                     <Link
-                      to="/agents/chat/$conversationId"
-                      params={{ conversationId: agent.conversationId }}
+                      to="/chat/$chatId"
+                      params={{ chatId: agent.conversationId }}
                     />
                   }
                 >

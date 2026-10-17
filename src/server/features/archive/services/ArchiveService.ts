@@ -8,7 +8,7 @@ import { MIN_ARCHIVE_RETENTION_DAYS } from "@/types/schemas/settings";
 
 // Archived records are hidden from lists, then purged for good: by an owner
 // or admin (Delete forever), or once they have been archived longer than the
-// workspace's retention (Settings → Data, 180 days unless an owner or admin
+// workspace's retention (Settings → General, 180 days unless an owner or admin
 // changes it). Both purge the same way.
 
 const DAY_MS = 24 * 60 * 60 * 1000;

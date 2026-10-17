@@ -40,9 +40,9 @@ export const TRIGGER_COPY: Record<TriggerType, string> = {
 
 /** Suggested agents, as the CRM's builder home offers them. */
 export const BUILDER_SUGGESTIONS = [
-  "Every Monday, post the deals that slipped to Slack",
+  "Brief every deal owner before a renewal call",
   "Flag deals with no activity for 14 days",
-  "When a deal closes, write a note with what won it",
+  "Hand new customers from Sales to Onboarding",
 ];
 
 export const CREATE_AGENT_PREFIX = "/Create agent ";
