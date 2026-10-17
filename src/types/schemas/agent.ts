@@ -29,3 +29,16 @@ export const agentEventsQuerySchema = z.object({
 export const agentConversationIdSchema = z.object({
   conversationId: z.string().trim().min(1).max(128),
 });
+
+/** The enrichment queue's page, and the most "Load more" reaches. */
+export const ENRICHMENT_PAGE = 20;
+export const ENRICHMENT_PAGE_MAX = 200;
+
+export const enrichmentQueueSchema = z.object({
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(ENRICHMENT_PAGE_MAX)
+    .default(ENRICHMENT_PAGE),
+});

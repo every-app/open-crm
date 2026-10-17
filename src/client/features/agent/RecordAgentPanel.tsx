@@ -1,9 +1,267 @@
+import { lazy, Suspense, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { InlineConfirm } from "@/client/components/InlineConfirm";
+import { QueryError } from "@/client/components/QueryState";
+import { Spinner } from "@/client/components/Spinner";
+import { Button } from "@/client/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/client/components/ui/dropdown-menu";
+import { LocalDateTime } from "@/client/features/records/LocalDateTime";
+import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
 import type { RecordRef } from "@/shared/records";
+import {
+  deleteAgentConversation,
+  openAgentConversation,
+} from "@/serverFunctions/agent";
+import { AgentComposer } from "./AgentComposer";
+import { AgentIdle, AgentUnavailable, ThreadFrame } from "./AgentThreadParts";
+import { AgentWork } from "./AgentWork";
+import { RECORD_COPY } from "./agentCopy";
+import { agentConversationsQueryOptions, agentKeys } from "./agentQueries";
+
+// The chat client (the agent socket, Think's chat hook, Markdown) loads when
+// a conversation opens, not with every list a record sheet opens over.
+const ConversationThread = lazy(() =>
+  import("./ConversationThread").then((module) => ({
+    default: module.ConversationThread,
+  })),
+);
+
+type Conversation = Awaited<ReturnType<typeof openAgentConversation>>;
 
 /**
- * A record's Agent tab: what the agent did and is doing, its open questions,
- * and the chat. Owned by the agent chat slice; a stub until it lands.
+ * A record's Agent tab: what the agent is doing and did on the record, and
+ * the person's conversations with it about the record (the CRM's AgentPanel).
  */
-export function RecordAgentPanel(_props: { record: RecordRef }) {
-  return null;
+export function RecordAgentPanel({ record }: { record: RecordRef }) {
+  const conversations = useQuery(agentConversationsQueryOptions(record));
+  // Nothing mounts until the list has loaded: it decides which conversation
+  // the tab opens on.
+  if (!conversations.data) {
+    return conversations.isError ? (
+      <div className="p-5">
+        <QueryError
+          error={conversations.error}
+          fallback="Your conversations about this record could not be loaded."
+          onRetry={() => void conversations.refetch()}
+          isRetrying={conversations.isFetching}
+        />
+      </div>
+    ) : (
+      <PanelLoading />
+    );
+  }
+  return (
+    <LoadedAgentPanel record={record} conversations={conversations.data} />
+  );
+}
+
+function PanelLoading() {
+  return (
+    <div className="flex flex-1 items-center justify-center p-10">
+      <Spinner />
+    </div>
+  );
+}
+
+function LoadedAgentPanel({
+  record,
+  conversations,
+}: {
+  record: RecordRef;
+  conversations: Conversation[];
+}) {
+  const queryClient = useQueryClient();
+  // The conversation the tab landed on is captured once, so a list refetch
+  // (a new title, a reply elsewhere) never swaps the open conversation out
+  // from under a live answer. Null is a new conversation, not started yet.
+  const [openId, setOpenId] = useState<string | null>(
+    () => conversations[0]?.id ?? null,
+  );
+  const [firstMessage, setFirstMessage] = useState<{
+    conversationId: string;
+    text: string;
+  } | null>(null);
+  const current = conversations.find((row) => row.id === openId) ?? null;
+
+  // Without a model key the agent can't answer. While the check runs, or if
+  // it fails, the composer stays: a turn that can't run says so itself.
+  const status = useQuery(agentStatusQueryOptions());
+  const canChat = status.data?.openRouter ?? true;
+
+  // A conversation exists once there is something to say in it.
+  const start = useMutation({
+    mutationFn: (_text: string) =>
+      openAgentConversation({ data: { record, fresh: true } }),
+    onSuccess: (conversation, text) => {
+      queryClient.setQueryData(
+        agentKeys.conversations(record),
+        (rows: Conversation[] | undefined) => [conversation, ...(rows ?? [])],
+      );
+      setFirstMessage({ conversationId: conversation.id, text });
+      setOpenId(conversation.id);
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (conversationId: string) =>
+      deleteAgentConversation({ data: { conversationId } }),
+    onSuccess: async () => {
+      setOpenId(null);
+      toast.success("Conversation deleted.");
+      await queryClient.invalidateQueries({
+        queryKey: agentKeys.conversations(record),
+      });
+      // The steps it took in that conversation went with it.
+      await queryClient.invalidateQueries({
+        queryKey: agentKeys.activity(record),
+      });
+    },
+  });
+
+  const work = (
+    <AgentWork
+      record={record}
+      conversations={conversations}
+      openConversationId={current?.id ?? null}
+      defaultOpen={current === null}
+    />
+  );
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-2">
+        <ConversationPicker
+          conversations={conversations}
+          current={current}
+          onSelect={setOpenId}
+          onNew={() => setOpenId(null)}
+        />
+        {current ? (
+          <InlineConfirm
+            label="Delete this conversation"
+            confirmLabel="Delete"
+            pending={remove.isPending}
+            onConfirm={() => remove.mutate(current.id)}
+          />
+        ) : null}
+      </div>
+      {current ? (
+        // The thread's code loads, then useAgentChat suspends while it reads
+        // the conversation's messages.
+        <Suspense fallback={<PanelLoading />}>
+          <ConversationThread
+            key={current.id}
+            record={record}
+            conversation={current}
+            header={work}
+            canChat={canChat}
+            firstMessage={
+              firstMessage?.conversationId === current.id
+                ? firstMessage.text
+                : null
+            }
+            onFirstMessageSent={() => setFirstMessage(null)}
+          />
+        </Suspense>
+      ) : (
+        <ThreadFrame
+          header={work}
+          footer={
+            canChat ? (
+              <AgentComposer
+                placeholder={RECORD_COPY[record.kind].placeholder}
+                busy={start.isPending}
+                onSend={(text) => start.mutate(text)}
+              />
+            ) : (
+              <AgentUnavailable />
+            )
+          }
+        >
+          <AgentIdle
+            kind={record.kind}
+            onAsk={
+              canChat && !start.isPending
+                ? (text) => start.mutate(text)
+                : undefined
+            }
+          />
+        </ThreadFrame>
+      )}
+    </div>
+  );
+}
+
+function ConversationPicker({
+  conversations,
+  current,
+  onSelect,
+  onNew,
+}: {
+  conversations: Conversation[];
+  current: Conversation | null;
+  onSelect: (id: string) => void;
+  onNew: () => void;
+}) {
+  const unread = conversations.some(
+    (row) => row.unread && row.id !== current?.id,
+  );
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-w-0 flex-1 justify-start font-normal"
+          />
+        }
+      >
+        <span className="truncate">
+          {current ? (current.title ?? "Untitled") : "New conversation"}
+        </span>
+        {unread ? (
+          <span
+            className="size-1.5 shrink-0 rounded-full bg-primary"
+            title="A reply you haven't read"
+          />
+        ) : null}
+        <ChevronDown data-icon="inline-end" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-80 max-w-[90vw]">
+        {conversations.length === 0 ? (
+          <DropdownMenuItem disabled>Nothing yet</DropdownMenuItem>
+        ) : (
+          conversations.map((row) => (
+            <DropdownMenuItem key={row.id} onClick={() => onSelect(row.id)}>
+              <span className="min-w-0 flex-1 truncate">
+                {row.title ?? "Untitled"}
+              </span>
+              {row.unread ? (
+                <span className="size-1.5 shrink-0 rounded-full bg-primary">
+                  <span className="sr-only">Unread</span>
+                </span>
+              ) : null}
+              <span className="shrink-0 text-xs text-muted-foreground">
+                <LocalDateTime date={row.lastMessageAt} />
+              </span>
+            </DropdownMenuItem>
+          ))
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onNew}>
+          <Plus />
+          New conversation
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }

@@ -154,9 +154,27 @@ async function markRead(
   return { id: conversationId };
 }
 
+/**
+ * Deletes one of the person's conversations and the steps filed under it.
+ * Returns its session, whose Durable Object still holds the messages.
+ */
+async function remove(
+  context: Context,
+  conversationId: string,
+): Promise<{ id: string; sessionId: string }> {
+  const removed = await AgentConversationRepository.remove(
+    context.organizationId,
+    context.userId,
+    conversationId,
+  );
+  if (!removed) throw new AppError("NOT_FOUND");
+  return removed;
+}
+
 export const AgentConversationService = {
   open,
   list,
   activity,
   markRead,
+  remove,
 };
