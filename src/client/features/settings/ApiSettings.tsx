@@ -39,7 +39,7 @@ export function ApiSettings() {
         <SettingsCard>
           <SettingsRow
             label="Personal access tokens"
-            description="Made in Admin → Tokens on your Every App gateway, which shows each one once. Limit it to this CRM. Only owners and admins can open Tokens today."
+            description="Create one in Admin → Tokens on your Every App gateway, limited to this CRM. The gateway shows it once. Only owners and admins can open Tokens today."
           >
             {tokensUrl ? (
               <Button
