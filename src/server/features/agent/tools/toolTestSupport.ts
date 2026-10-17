@@ -4,8 +4,8 @@ import type { AgentToolContext } from "./context";
 import { buildAgentTools } from "./registry";
 
 /**
- * The agent's tools as one session sees them (by default a chat about org_a's
- * contact `c_a`), a way to call one, and the research budget
+ * The agent's tools as one session sees them (by default a member's chat
+ * about org_a's contact `c_a`), a way to call one, and the research budget
  * the session spends.
  */
 export function toolSession(overrides: Partial<AgentToolContext> = {}) {
@@ -17,6 +17,7 @@ export function toolSession(overrides: Partial<AgentToolContext> = {}) {
     task: null,
     conversation: null,
     attended: true,
+    role: "member",
     spend: budgetSpender(budget, () => {}),
     ...overrides,
   });

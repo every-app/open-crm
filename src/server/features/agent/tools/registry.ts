@@ -5,6 +5,7 @@ import { capToolOutput } from "../runtime/toolOutput";
 import type { AgentToolContext, ToolGroup } from "./context";
 import { conversationTools } from "./conversation";
 import { factTools } from "./facts";
+import { fieldTools } from "./fields";
 import { historyTools } from "./history";
 import { lookupTools } from "./lookup";
 import { peopleTools } from "./people";
@@ -24,6 +25,7 @@ const TOOL_GROUPS: readonly ToolGroup[] = [
   peopleTools,
   socialTools,
   webTools,
+  fieldTools,
   conversationTools,
 ];
 

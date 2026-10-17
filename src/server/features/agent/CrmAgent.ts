@@ -20,6 +20,7 @@ import {
   staticAssistantModel,
 } from "@/server/lib/chatAgent";
 import { DEFAULT_AGENT_MODEL } from "@/server/lib/openrouter";
+import { CHAT_ROLE_HEADER } from "./agentRoutes";
 import { capabilityList, readCapabilities } from "./prompt/capabilities";
 import { AgentConversationRepository } from "./repositories/AgentConversationRepository";
 import { AgentProfileRepository } from "./repositories/AgentProfileRepository";
@@ -49,6 +50,7 @@ const COMPACT_AFTER_TOKENS = 100_000;
 const MAX_INPUT_TOKENS = 150_000;
 
 const BUDGET_KEY = "crm-agent:budget";
+const ROLE_KEY = "crm-agent:role";
 
 const budgetSchema = z.object({
   spent: z.number(),
@@ -161,6 +163,7 @@ export class CrmAgent extends Think {
         thinkSystem: turn.system,
         capabilities: capabilityList(install),
         spend: this.spender(session),
+        role: this.chatRole(),
       });
       return { system, tools, maxOutputTokens: MAX_OUTPUT_TOKENS };
     });
@@ -207,6 +210,12 @@ export class CrmAgent extends Think {
 
   private saveBudget(state: BudgetState): void {
     this.ctx.storage.kv.put(BUDGET_KEY, { ...state });
+  }
+
+  /** The chat's person's gateway role, as their socket connected with it. */
+  private chatRole(): string | null {
+    const stored = z.string().safeParse(this.ctx.storage.kv.get(ROLE_KEY));
+    return stored.success ? stored.data : null;
   }
 
   override async afterToolCall(call: ToolCallResultContext): Promise<void> {
@@ -319,6 +328,12 @@ export class CrmAgent extends Think {
   // client reconnects through the gateway (runtime/socketLifetime.ts). The
   // close is an alarm, so it outlives hibernation.
   override async onConnect(...args: Parameters<Think["onConnect"]>) {
+    // The role the Worker verified for the person connecting (agentRoutes.ts).
+    // A conversation is one person's, so the last connect's role is theirs,
+    // at most one socket lifetime old.
+    const role = args[1].request.headers.get(CHAT_ROLE_HEADER);
+    if (role) this.ctx.storage.kv.put(ROLE_KEY, role);
+    else this.ctx.storage.kv.delete(ROLE_KEY);
     await super.onConnect(...args);
     await this.schedule(SOCKET_LIFETIME_SECONDS, "closeSocket", args[0].id);
   }

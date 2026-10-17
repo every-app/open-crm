@@ -4,9 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // reaches the Durable Object. The agents router is stood in for by one that
 // runs the hooks the way routeAgentRequest does, and answers "routed" when
 // they let the request through.
-const { database, resolveUser } = await vi.hoisted(async () => {
+const { database, resolveUser, routed } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
-  return { database: await createSqliteTestDb(), resolveUser: vi.fn() };
+  return {
+    database: await createSqliteTestDb(),
+    resolveUser: vi.fn(),
+    routed: { request: null as Request | null },
+  };
 });
 vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
 vi.mock("@/db", () => ({ db: database.db }));
@@ -16,7 +20,7 @@ vi.mock("@/middleware/ensure-user/resolve", () => ({
 type Hook = (
   request: Request,
   route: { className: string; name: string },
-) => Promise<Response | undefined>;
+) => Promise<Response | Request>;
 vi.mock("agents", () => ({
   routeAgentRequest: async (
     request: Request,
@@ -32,11 +36,14 @@ vi.mock("agents", () => ({
       request.headers.get("upgrade") === "websocket"
         ? options.onBeforeConnect
         : options.onBeforeRequest;
-    return (await hook(request, route)) ?? new Response("routed");
+    const result = await hook(request, route);
+    if (result instanceof Response) return result;
+    routed.request = result;
+    return new Response("routed");
   },
 }));
 
-import { routeAgentRequests } from "./agentRoutes";
+import { CHAT_ROLE_HEADER, routeAgentRequests } from "./agentRoutes";
 import { sessionName } from "./sessionName";
 
 const chat = sessionName(
@@ -45,21 +52,25 @@ const chat = sessionName(
   "11111111-1111-1111-1111-111111111111",
 );
 
-function as(organizationId: string, userId: string) {
+function as(organizationId: string, userId: string, role = "member") {
   resolveUser.mockResolvedValue({
     userId,
     userEmail: "x@a.test",
     organizationId,
-    role: "member",
+    role,
   });
 }
 
-async function connect(name: string, websocket = true) {
+async function connect(
+  name: string,
+  websocket = true,
+  headers: Record<string, string> = {},
+) {
   const response = await routeAgentRequests(
     new Request(
       `https://crm.test/agents/crm-agent/${name}${websocket ? "" : "/get-messages"}`,
       {
-        headers: websocket ? { upgrade: "websocket" } : {},
+        headers: websocket ? { upgrade: "websocket", ...headers } : headers,
       },
     ),
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the stand-in router reads no bindings
@@ -99,5 +110,13 @@ describe("the agent's chat routes", () => {
   it("never lets a client reach a research session", async () => {
     as("org_a", "user_a");
     expect(await connect(sessionName("task", "org_a", "task-1"))).toBe(403);
+  });
+
+  it("tells the Durable Object the role the gateway signed, never the client's", async () => {
+    as("org_a", "user_a", "member");
+    expect(await connect(chat, true, { [CHAT_ROLE_HEADER]: "owner" })).toBe(
+      "routed",
+    );
+    expect(routed.request?.headers.get(CHAT_ROLE_HEADER)).toBe("member");
   });
 });

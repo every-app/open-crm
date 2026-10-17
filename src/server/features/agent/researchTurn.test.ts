@@ -91,6 +91,7 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
       { spent: 0, budget: session.task.budget, exhausted: false },
       () => {},
     ),
+    role: null,
   });
   const result = await generateText({
     model: stub,

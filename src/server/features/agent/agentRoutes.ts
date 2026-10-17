@@ -13,10 +13,17 @@ import { parseSessionName } from "./sessionName";
 
 const CRM_AGENT = "CRM_AGENT";
 
+/**
+ * The gateway role of the person a chat request is for, set here from their
+ * verified identity over anything the client sent. The Durable Object keeps
+ * it for the tools only an owner or admin may use (CrmAgent.onConnect).
+ */
+export const CHAT_ROLE_HEADER = "x-crm-chat-role";
+
 async function authorizeConversation(
   request: Request,
   route: { className: string; name: string },
-): Promise<Response | undefined> {
+): Promise<Response | Request> {
   if (route.className !== CRM_AGENT) return forbidden();
   const session = parseSessionName(route.name);
   if (session?.kind !== "chat") return forbidden();
@@ -33,7 +40,9 @@ async function authorizeConversation(
   );
   if (!conversation || conversation.userId !== context.userId)
     return forbidden();
-  return undefined;
+  const forwarded = new Request(request);
+  forwarded.headers.set(CHAT_ROLE_HEADER, context.role);
+  return forwarded;
 }
 
 function forbidden(): Response {
