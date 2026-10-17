@@ -176,7 +176,7 @@ async function companyPreamble(
     ),
     "",
     people
-      ? `### Who we know there (${company.peopleCount})\n\n${people}${more}\n\nThose are contact ids. Use them directly — with \`read_crm_history\` and the other contact tools. Never ask a rep which contact they mean without naming these first.`
+      ? `### Who we know there (${company.peopleCount})\n\n${people}${more}\n\nThose are contact ids. Use them directly — with \`read_crm_history\`, \`identify_contact\` or \`record_fact\`. Never ask a rep which contact they mean without naming these first.`
       : "We have no contacts on file here yet.",
     "",
     deals ? `Deals: ${deals}.` : "There are no deals here.",

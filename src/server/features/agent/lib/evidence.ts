@@ -81,7 +81,7 @@ const WEIGHTS: Record<EvidenceKind, Weighting> = {
   },
 };
 
-type Evidence = {
+export type Evidence = {
   kind: EvidenceKind;
   detail: string;
   sourceUrl?: string;

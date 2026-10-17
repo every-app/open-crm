@@ -4,6 +4,7 @@ import { forOrganization } from "@/server/lib/gateway-attribution";
 import { capToolOutput } from "../runtime/toolOutput";
 import type { AgentToolContext, ToolGroup } from "./context";
 import { conversationTools } from "./conversation";
+import { factTools } from "./facts";
 import { historyTools } from "./history";
 import { lookupTools } from "./lookup";
 import { recordTools } from "./records";
@@ -11,12 +12,12 @@ import { researchTools } from "./research";
 import { webTools } from "./web";
 
 // The agent's tools, built per session turn from what the session is
-// (tools/context.ts). A new family of tools (the evidence ledger, people and
-// LinkedIn, custom fields) is a ToolGroup added to this list.
+// (tools/context.ts). A new family of tools is a ToolGroup added to this list.
 const TOOL_GROUPS: readonly ToolGroup[] = [
   historyTools,
   lookupTools,
   recordTools,
+  factTools,
   researchTools,
   webTools,
   conversationTools,
