@@ -8,6 +8,7 @@ import {
   isNull,
   ne,
   sql,
+  type SQL,
 } from "drizzle-orm";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
@@ -68,12 +69,18 @@ function inOrganization(organizationId: string, id: string) {
   return and(eq(company.organizationId, organizationId), eq(company.id, id));
 }
 
-function listWhere(organizationId: string, input: CompanyListInput) {
+/** `fieldConditions`: the custom field filters' conditions on `company`. */
+function listWhere(
+  organizationId: string,
+  input: CompanyListInput,
+  fieldConditions: SQL[],
+) {
   return and(
     eq(company.organizationId, organizationId),
     archivedCondition(company.archivedAt, input.archived),
     searchCondition(input.q, [company.name, company.domain]),
     ownerCondition(company.ownerId, input.owner),
+    ...fieldConditions,
   );
 }
 
@@ -89,8 +96,12 @@ const openDealCount =
     Number,
   );
 
-async function list(organizationId: string, input: CompanyListInput) {
-  const where = listWhere(organizationId, input);
+async function list(
+  organizationId: string,
+  input: CompanyListInput,
+  fieldConditions: SQL[],
+) {
+  const where = listWhere(organizationId, input, fieldConditions);
   const { limit, offset } = pageWindow(input);
   const [rows, [total]] = await Promise.all([
     db

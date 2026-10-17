@@ -140,19 +140,43 @@ export const fieldFilterSchema = z.discriminatedUnion("op", [
 export type FieldFilter = z.infer<typeof fieldFilterSchema>;
 
 /**
- * Filters by field key. Each one binds a few parameters to the list's query
- * (and `anyOf` one per value); D1 takes about 100 per statement, so a list
- * stays well under that whatever else it filters on.
+ * What a filter binds to the list's query: its field, and each value it
+ * compares (a range or date range up to two bounds, `anyOf` one per value).
  */
+function boundParameters(filter: FieldFilter): number {
+  switch (filter.op) {
+    case "range":
+      return (
+        1 + Number(filter.min !== undefined) + Number(filter.max !== undefined)
+      );
+    case "dateRange":
+      return (
+        1 + Number(filter.from !== undefined) + Number(filter.to !== undefined)
+      );
+    case "anyOf":
+      return 1 + filter.values.length;
+    default:
+      return 2;
+  }
+}
+
+/**
+ * The most parameters a list's field filters may bind together. D1 binds
+ * at most 100 per statement; the rest of the fullest list (the deals list,
+ * with every built-in filter, search, sort and page at their limits) binds
+ * 53, and recordLists.test.ts holds every list to it.
+ */
+const FIELD_FILTER_PARAMETERS_MAX = 40;
+
+/** Filters by field key, within the parameter budget above. */
 export const fieldFiltersSchema = z
   .record(id, fieldFilterSchema)
   .refine(
     (filters) =>
       Object.values(filters).reduce(
-        (total, filter) =>
-          total + 4 + (filter.op === "anyOf" ? filter.values.length : 0),
+        (total, filter) => total + boundParameters(filter),
         0,
-      ) <= 64,
+      ) <= FIELD_FILTER_PARAMETERS_MAX,
     "Too many field filters at once.",
   );
 

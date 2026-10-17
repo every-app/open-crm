@@ -84,6 +84,8 @@ export async function createSqliteTestDb() {
   };
   return {
     db,
+    /** The libsql client under `db`: spy on `execute` to see each statement. */
+    client,
     runBatch: batch,
     runBatchModule: runBatchModule(batch),
     exec: (sql: string) => client.executeMultiple(sql),

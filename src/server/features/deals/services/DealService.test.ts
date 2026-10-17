@@ -62,6 +62,7 @@ const listInput: DealListInput = {
   q: "",
   owner: [],
   archived: false,
+  fields: {},
   sort: "name",
   dir: "asc",
   status: "all",

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
+  fieldFiltersInput,
+  resolveFieldFilters,
+} from "@/server/everyapp/tools/fieldFilters";
+import {
   ContactService,
   type ContactDetail,
   type ContactListRow,
@@ -56,6 +60,7 @@ function summary(row: ContactListRow) {
     lastActivityAt: row.lastActivityAt,
     enrichment: row.enrichmentStatus,
     archivedAt: row.archivedAt,
+    fields: row.fields,
   };
 }
 
@@ -119,7 +124,7 @@ function details(contact: ContactDetail) {
 export const contactTools = {
   list_contacts: crmTool({
     description:
-      "Search and list the CRM's contacts (people): email, title, company, owner, and when anything last happened. Every word of `query` must match their name, email or company name. 25 a page, newest first unless sorted.",
+      "Search and list the CRM's contacts (people): email, title, company, owner, and when anything last happened. Every word of `query` must match their name, email or company name; `fields` filters by custom fields, and each contact comes with the values of the fields shown as table columns (a select as its label). 25 a page, newest first unless sorted.",
     risk: "read",
     input: z
       .object({
@@ -139,6 +144,7 @@ export const contactTools = {
           .boolean()
           .optional()
           .describe("List archived contacts instead of live ones."),
+        fields: fieldFiltersInput,
         sort: z.enum(CONTACT_SORTS).optional(),
         direction: z.enum(SORT_DIRECTIONS).optional(),
         page: z.number().int().min(1).optional(),
@@ -153,6 +159,11 @@ export const contactTools = {
         ),
       );
       const list = contactListSchema.parse({
+        fields: await resolveFieldFilters(
+          context.organizationId,
+          "CONTACT",
+          input.fields,
+        ),
         q: input.query,
         owner: owners,
         archived: input.archived,

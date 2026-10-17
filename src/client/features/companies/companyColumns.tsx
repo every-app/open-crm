@@ -23,8 +23,8 @@ import {
 
 /**
  * The companies table. Name, last activity and created date sort on the
- * server; custom-field columns join after these when the fields feature adds
- * them to lists.
+ * server; the page adds the custom field columns (useFieldColumns) after
+ * these.
  */
 export function companyColumns({
   archived,

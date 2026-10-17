@@ -16,8 +16,8 @@ import {
 } from "@/client/components/ui/dropdown-menu";
 import { Spinner } from "@/client/components/ui/spinner";
 import {
-  entityFieldsKey,
   fieldsQueryOptions,
+  settleEntityFields,
 } from "@/client/features/fields/fieldQueries";
 import {
   ArchivedFields,
@@ -90,8 +90,7 @@ export function FieldsList({
 }) {
   const queryClient = useQueryClient();
   const listKey = fieldsQueryOptions(entity, true).queryKey;
-  const settle = () =>
-    queryClient.invalidateQueries({ queryKey: entityFieldsKey(entity) });
+  const settle = () => settleEntityFields(queryClient, entity);
 
   const reorder = useMutation({
     mutationFn: (ids: string[]) => reorderFields({ data: { entity, ids } }),

@@ -19,14 +19,20 @@ import { companyColumns } from "@/client/features/companies/companyColumns";
 import { companyListQueryOptions } from "@/client/features/companies/companyQueries";
 import {
   companyListInput,
+  companyListSearchSchema,
   type CompanyListSearch,
 } from "@/client/features/companies/companySearch";
+import type { CompanyRow } from "@/client/features/companies/companyFormat";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
+import { useFieldColumns } from "@/client/features/fields/fieldColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import {
   isListFiltered,
+  savedViewOf,
+  searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
+import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { COMPANY_SORTS } from "@/types/schemas/companies";
@@ -55,9 +61,13 @@ export function CompaniesPage() {
   const [creating, setCreating] = useState(false);
 
   const anchorRef = useSelectionAnchor();
+  const fieldColumns = useFieldColumns<CompanyRow>("COMPANY");
   const columns = useMemo(
-    () => companyColumns({ archived: input.archived, anchorRef }),
-    [input.archived, anchorRef],
+    () => [
+      ...companyColumns({ archived: input.archived, anchorRef }),
+      ...fieldColumns,
+    ],
+    [input.archived, anchorRef, fieldColumns],
   );
   const sorting: SortingState = [
     { id: input.sort, desc: input.dir === "desc" },
@@ -99,7 +109,12 @@ export function CompaniesPage() {
           isLoading={query.isPending}
           isFiltered={isListFiltered(search)}
           onClearFilters={() =>
-            setSearch({ q: undefined, owner: undefined, page: undefined })
+            setSearch({
+              q: undefined,
+              owner: undefined,
+              fields: undefined,
+              page: undefined,
+            })
           }
           error={
             query.isError ? (
@@ -127,10 +142,29 @@ export function CompaniesPage() {
           }
           toolbar={
             <RecordListToolbar
+              entity="COMPANY"
               search={search}
               onSearchChange={setSearch}
               placeholder="Search by name or domain"
-              actions={<FieldsSheetButton entity="COMPANY" />}
+              actions={
+                <>
+                  <SavedViewsMenu
+                    entity="COMPANY"
+                    current={savedViewOf(search)}
+                    onApply={(filters) =>
+                      void navigate({
+                        search: (prev) =>
+                          searchFromSavedView(
+                            companyListSearchSchema,
+                            filters,
+                            prev,
+                          ),
+                      })
+                    }
+                  />
+                  <FieldsSheetButton entity="COMPANY" />
+                </>
+              }
             />
           }
           footer={

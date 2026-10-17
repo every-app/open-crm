@@ -6,6 +6,7 @@ import type { ContactListInput } from "@/types/schemas/contacts";
 // Every contact query lives under ["contacts"]; a write invalidates them all.
 export const contactKeys = {
   all: ["contacts"] as const,
+  lists: ["contacts", "list"] as const,
   list: (input: ContactListInput) => ["contacts", "list", input] as const,
   detail: (id: string) => ["contacts", "detail", id] as const,
 };

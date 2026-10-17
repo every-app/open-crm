@@ -360,24 +360,26 @@ function nextDay(day: string): string {
 
 /**
  * The condition a list query puts on its record table (`company`, `contact`
- * or `deal`, selected under its own name) for one field filter: an EXISTS
- * over the record's value row, the same SQL on SQLite and Postgres. Null when
- * the filter doesn't fit the field's type.
+ * or `deal`, selected under its own name and filtered by its organization)
+ * for one field filter: an EXISTS over the record's value row, the same SQL
+ * on SQLite and Postgres. Null when the filter doesn't fit the field's type.
  */
 function filterCondition(
-  organizationId: string,
   entity: FieldEntity,
   field: { id: string; type: FieldType },
   filter: FieldFilter,
 ): SQL | null {
   const record = records(entity);
+  // The value row's organization is the record's, which the list binds
+  // once: each filter binds only its field and its values, so many filters
+  // fit D1's parameter limit (fieldFiltersSchema counts them).
   const valueWhere = (condition: SQL | undefined) =>
     db
       .select({ one: sql`1` })
       .from(fieldValue)
       .where(
         and(
-          eq(fieldValue.organizationId, organizationId),
+          eq(fieldValue.organizationId, record.organizationId),
           eq(fieldValue.fieldId, field.id),
           eq(record.valueRecordId, record.id),
           condition,

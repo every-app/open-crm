@@ -5,6 +5,7 @@ import { Skeleton } from "@/client/components/ui/skeleton";
 import {
   entityFieldsKey,
   recordFieldsQueryOptions,
+  recordListsKey,
 } from "@/client/features/fields/fieldQueries";
 import { InlineFieldValue } from "@/client/features/fields/FieldValue";
 import type { RecordField } from "@/server/features/fields/services/fieldShape";
@@ -80,16 +81,21 @@ function RecordFieldRow({
         data: { entity, recordId, values: { [field.key]: value } },
       }),
     // Stays pending until the record reads back, so the new value never
-    // flickers to the old one.
-    onSuccess: () =>
-      Promise.all([
+    // flickers to the old one. The list behind the sheet, whose columns may
+    // show the value, refetches without holding it up.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: recordListsKey(entity),
+      });
+      return Promise.all([
         queryClient.invalidateQueries({
           queryKey: recordFieldsQueryOptions(entity, recordId).queryKey,
         }),
         queryClient.invalidateQueries({
           queryKey: [...entityFieldsKey(entity), "coverage"],
         }),
-      ]),
+      ]);
+    },
   });
 
   return (

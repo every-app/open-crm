@@ -108,17 +108,27 @@ function searchWords(q: string): SQL | undefined {
   );
 }
 
-function listWhere(organizationId: string, input: ContactListInput) {
+/** `fieldConditions`: the custom field filters' conditions on `contact`. */
+function listWhere(
+  organizationId: string,
+  input: ContactListInput,
+  fieldConditions: SQL[],
+) {
   return and(
     eq(contact.organizationId, organizationId),
     archivedCondition(contact.archivedAt, input.archived),
     searchWords(input.q),
     ownerCondition(contact.ownerId, input.owner),
+    ...fieldConditions,
   );
 }
 
-async function list(organizationId: string, input: ContactListInput) {
-  const where = listWhere(organizationId, input);
+async function list(
+  organizationId: string,
+  input: ContactListInput,
+  fieldConditions: SQL[],
+) {
+  const where = listWhere(organizationId, input, fieldConditions);
   const { limit, offset } = pageWindow(input);
   const [rows, [total]] = await Promise.all([
     db

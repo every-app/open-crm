@@ -17,16 +17,22 @@ import { ContactSheet } from "@/client/features/contacts/ContactSheet";
 import { CreateContactDialog } from "@/client/features/contacts/CreateContactDialog";
 import { contactColumns } from "@/client/features/contacts/contactColumns";
 import { contactListQueryOptions } from "@/client/features/contacts/contactQueries";
+import type { ContactRow } from "@/client/features/contacts/contactFormat";
 import {
   contactListInput,
+  contactListSearchSchema,
   type ContactListSearch,
 } from "@/client/features/contacts/contactSearch";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
+import { useFieldColumns } from "@/client/features/fields/fieldColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import {
   isListFiltered,
+  savedViewOf,
+  searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
+import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { CONTACT_SORTS } from "@/types/schemas/contacts";
@@ -55,9 +61,13 @@ export function ContactsPage() {
   const [creating, setCreating] = useState(false);
 
   const anchorRef = useSelectionAnchor();
+  const fieldColumns = useFieldColumns<ContactRow>("CONTACT");
   const columns = useMemo(
-    () => contactColumns({ archived: input.archived, anchorRef }),
-    [input.archived, anchorRef],
+    () => [
+      ...contactColumns({ archived: input.archived, anchorRef }),
+      ...fieldColumns,
+    ],
+    [input.archived, anchorRef, fieldColumns],
   );
   const sorting: SortingState = [
     { id: input.sort, desc: input.dir === "desc" },
@@ -99,7 +109,12 @@ export function ContactsPage() {
           isLoading={query.isPending}
           isFiltered={isListFiltered(search)}
           onClearFilters={() =>
-            setSearch({ q: undefined, owner: undefined, page: undefined })
+            setSearch({
+              q: undefined,
+              owner: undefined,
+              fields: undefined,
+              page: undefined,
+            })
           }
           error={
             query.isError ? (
@@ -127,10 +142,29 @@ export function ContactsPage() {
           }
           toolbar={
             <RecordListToolbar
+              entity="CONTACT"
               search={search}
               onSearchChange={setSearch}
               placeholder="Search by name, email or company"
-              actions={<FieldsSheetButton entity="CONTACT" />}
+              actions={
+                <>
+                  <SavedViewsMenu
+                    entity="CONTACT"
+                    current={savedViewOf(search)}
+                    onApply={(filters) =>
+                      void navigate({
+                        search: (prev) =>
+                          searchFromSavedView(
+                            contactListSearchSchema,
+                            filters,
+                            prev,
+                          ),
+                      })
+                    }
+                  />
+                  <FieldsSheetButton entity="CONTACT" />
+                </>
+              }
             />
           }
           footer={
