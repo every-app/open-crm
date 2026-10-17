@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { crmTool } from "@/server/everyapp/crm-tool";
-import { memberId } from "@/server/everyapp/tools/companies";
+import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
   ContactService,
   type ContactDetail,

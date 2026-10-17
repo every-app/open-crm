@@ -6,7 +6,8 @@ import {
 import type { z } from "zod";
 import { resolveEveryAppUserContext } from "@/middleware/ensure-user/everyApp";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
-import { asAppError } from "@/server/lib/errors";
+import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
+import { AppError, asAppError } from "@/server/lib/errors";
 import {
   forOrganization,
   serveEveryAppRequest,
@@ -54,4 +55,19 @@ export function crmTool<Schema extends z.ZodObject>(definition: {
 
 function resolveContext(user: EveryAppUser): Promise<EnsuredUserContext> {
   return resolveEveryAppUserContext(user);
+}
+
+/** A member's user id from their email, as the tools take owners. */
+export async function memberId(organizationId: string, email: string) {
+  const members = await AuthRepository.listMembers(organizationId);
+  const member = members.find(
+    (candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase(),
+  );
+  if (!member) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      `No member of this organization has the email ${email}.`,
+    );
+  }
+  return member.userId;
 }
