@@ -25,7 +25,6 @@ const versionColumns = () => ({
   status: agentVersion.status,
   instructions: agentVersion.instructions,
   manifest: agentVersion.manifest,
-  modelId: agentVersion.modelId,
   sourceConversationId: agentVersion.sourceConversationId,
   createdById: agentVersion.createdById,
   approvedAt: agentVersion.approvedAt,
@@ -78,7 +77,6 @@ type NewVersion = {
   status: "READY" | "DEPLOYED";
   instructions: string;
   manifest: unknown;
-  modelId: string;
   sourceConversationId: string | null;
   createdById: string;
   approvedAt?: string | null;

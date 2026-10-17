@@ -20,7 +20,6 @@ import {
   openRouterCostUsd,
   staticAssistantModel,
 } from "@/server/lib/chatAgent";
-import { DEFAULT_AGENT_MODEL } from "@/server/lib/openrouter";
 import { AgentRunRepository } from "@/server/features/team-agents/repositories/AgentRunRepository";
 import {
   prepareBuilderTurn,
@@ -33,11 +32,14 @@ import {
 import { CHAT_ROLE_HEADER } from "./agentRoutes";
 import { capabilityList, readCapabilities } from "./prompt/capabilities";
 import { AgentConversationRepository } from "./repositories/AgentConversationRepository";
-import { AgentProfileRepository } from "./repositories/AgentProfileRepository";
 import { finalText, lastText, messageText, recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
 import { budgetSpender, type BudgetState, type Spend } from "./runtime/budget";
-import { buildCrmAgentModel, type ModelChoice } from "./runtime/model";
+import {
+  buildCrmAgentModel,
+  effortFor,
+  type ModelChoice,
+} from "./runtime/model";
 import { reportResearch } from "./runtime/research";
 import {
   loadAgentSession,
@@ -49,19 +51,18 @@ import {
   closeExpiredSocket,
   SOCKET_LIFETIME_SECONDS,
 } from "./runtime/socketLifetime";
-import { MAX_OUTPUT_TOKENS, MAX_STEPS, prepareTurn } from "./runtime/turn";
+import { MAX_STEPS, maxOutputTokens, prepareTurn } from "./runtime/turn";
 import { parseSessionName } from "./sessionName";
 import { normalizeTitle } from "./tools/conversation";
 
 // A person's turn in a conversation gets this much research budget.
 const CHAT_BUDGET = 4;
 
-// Long tool-heavy conversations outgrow the Durable Object's memory before a
-// model's window: compact between turns past this, and mid-turn as a step's
-// input nears the proactive ceiling (OpenSEO's SAM numbers, scaled to the
-// default model's 200k window).
-const COMPACT_AFTER_TOKENS = 100_000;
-const MAX_INPUT_TOKENS = 150_000;
+// Long tool-heavy conversations outgrow the Durable Object's memory before
+// the model's window: compact between turns past this, and mid-turn as a
+// step's input nears the proactive ceiling (OpenSEO's SAM numbers for Luna).
+const COMPACT_AFTER_TOKENS = 120_000;
+const MAX_INPUT_TOKENS = 160_000;
 
 const BUDGET_KEY = "crm-agent:budget";
 const ROLE_KEY = "crm-agent:role";
@@ -84,12 +85,6 @@ const TERMINAL_SUBMISSIONS = new Set([
   "skipped",
   "error",
 ]);
-
-/** The model the organization's workspace runs its agent on. */
-async function modelFor(organizationId: string): Promise<ModelChoice> {
-  const modelId = await AgentProfileRepository.agentModelId(organizationId);
-  return { organizationId, modelId: modelId ?? DEFAULT_AGENT_MODEL.id };
-}
 
 /**
  * The research agent's Durable Object, on Think. One instance per research
@@ -127,8 +122,15 @@ export class CrmAgent extends Think {
     return session
       .onCompaction(
         createCompactFunction({
-          summarize: async (prompt) =>
-            (await generateText({ model: this.getModel(), prompt })).text,
+          // At "low", whoever's turn the summary interrupts.
+          summarize: async (prompt) => {
+            const model = buildCrmAgentModel(
+              this.env,
+              () => this.chooseModel(),
+              "low",
+            );
+            return (await generateText({ model, prompt })).text;
+          },
         }),
       )
       .compactAfter(COMPACT_AFTER_TOKENS);
@@ -204,7 +206,10 @@ export class CrmAgent extends Think {
       if (!session) {
         return { model: staticAssistantModel(GONE_REPLY), activeTools: [] };
       }
-      this.modelChoice = await modelFor(session.organizationId);
+      this.modelChoice = {
+        organizationId: session.organizationId,
+        effort: effortFor(session.kind),
+      };
       if (session.kind === "run") {
         const prepared = await prepareRunTurn(session, {
           thinkSystem: turn.system,
@@ -216,11 +221,6 @@ export class CrmAgent extends Think {
             activeTools: [],
           };
         }
-        // A run uses the model its version was saved with.
-        this.modelChoice = {
-          organizationId: session.organizationId,
-          modelId: prepared.modelId,
-        };
         if (!turn.continuation) await this.openTurn(session);
         return {
           system: prepared.system,
@@ -238,7 +238,7 @@ export class CrmAgent extends Think {
           messages: this.messages,
           spend: this.spender(session),
         });
-        return { system, tools, maxOutputTokens: MAX_OUTPUT_TOKENS };
+        return { system, tools, maxOutputTokens: maxOutputTokens("chat") };
       }
       const install = await readCapabilities(this.env, session.organizationId);
       const { system, tools } = await prepareTurn(session, {
@@ -247,7 +247,7 @@ export class CrmAgent extends Think {
         spend: this.spender(session),
         role: this.chatRole(),
       });
-      return { system, tools, maxOutputTokens: MAX_OUTPUT_TOKENS };
+      return { system, tools, maxOutputTokens: maxOutputTokens(session.kind) };
     });
   }
 
@@ -289,11 +289,11 @@ export class CrmAgent extends Think {
     return this._resumableStream.hasActiveStream();
   }
 
-  // A call outside a turn (a compaction summary) reads the choice itself.
+  // A call outside a turn (a compaction summary) is background work.
   private async chooseModel(): Promise<ModelChoice | null> {
     if (this.modelChoice) return this.modelChoice;
     const name = parseSessionName(this.name);
-    return name ? withPgClient(() => modelFor(name.organizationId)) : null;
+    return name ? { organizationId: name.organizationId, effort: "low" } : null;
   }
 
   /**

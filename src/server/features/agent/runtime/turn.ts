@@ -17,7 +17,16 @@ import type { AgentSession } from "./session";
 // (the skills catalog). The tools are bound to the session's organization.
 
 export const MAX_STEPS = 24;
-export const MAX_OUTPUT_TOKENS = 8_000;
+
+/**
+ * A step's output tokens. A person's chat turn reasons at "max", and the
+ * budget is shared by that reasoning and the visible reply, so it stays well
+ * above what reasoning uses (OpenSEO's SAM limit): a tight cap lets
+ * reasoning eat the reply. Background work reasons at "low".
+ */
+export function maxOutputTokens(kind: AgentSession["kind"]): number {
+  return kind === "chat" ? 16_000 : 8_000;
+}
 
 export async function prepareTurn(
   session: AgentSession,

@@ -110,7 +110,6 @@ async function findWithVersion(organizationId: string, id: string) {
       versionNumber: agentVersion.number,
       instructions: agentVersion.instructions,
       manifest: agentVersion.manifest,
-      versionModelId: agentVersion.modelId,
     })
     .from(agentRun)
     .innerJoin(agentDefinition, eq(agentDefinition.id, agentRun.agentId))

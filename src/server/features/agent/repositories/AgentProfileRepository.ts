@@ -74,16 +74,6 @@ async function workspaceIdentity(
   };
 }
 
-/** The model the workspace's agent runs on; null for the default. */
-async function agentModelId(organizationId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ agentModelId: workspace.agentModelId })
-    .from(workspace)
-    .where(eq(workspace.organizationId, organizationId))
-    .limit(1);
-  return row?.agentModelId ?? null;
-}
-
 async function writeWorkspaceProfile(
   organizationId: string,
   input: {
@@ -195,7 +185,6 @@ async function addCompanyBrief(
 
 export const AgentProfileRepository = {
   workspaceIdentity,
-  agentModelId,
   writeWorkspaceProfile,
   writeContactBrief,
   addCompanyBrief,

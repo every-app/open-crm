@@ -1,9 +1,7 @@
 import { AgentVersionRepository } from "@/server/features/team-agents/repositories/AgentVersionRepository";
 import { env } from "cloudflare:workers";
-import { AgentProfileRepository } from "@/server/features/agent/repositories/AgentProfileRepository";
 import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
-import { DEFAULT_AGENT_MODEL } from "@/server/lib/openrouter";
 import type { RecordRef } from "@/shared/records";
 import {
   CAPTURE_GRANTS,
@@ -181,15 +179,13 @@ function sameVersion(
   latest: {
     status: string;
     instructions: string;
-    modelId: string;
     manifest: unknown;
   },
-  input: { instructions: string; modelId: string; manifest: unknown },
+  input: { instructions: string; manifest: unknown },
 ): boolean {
   return (
     latest.status === "READY" &&
     latest.instructions === input.instructions &&
-    latest.modelId === input.modelId &&
     JSON.stringify(latest.manifest) === JSON.stringify(input.manifest)
   );
 }
@@ -237,10 +233,6 @@ async function saveDraft(tool: BuilderToolContext, input: DraftInput) {
   const manifest = manifestOf(input);
   const files = versionFiles(input, manifest);
   for (const file of files) assertNoSecrets(file.content);
-  const modelId =
-    (await AgentProfileRepository.agentModelId(organizationId)) ??
-    DEFAULT_AGENT_MODEL.id;
-
   const agent = await TeamAgentRepository.findByConversation(
     organizationId,
     conversationId,
@@ -256,7 +248,7 @@ async function saveDraft(tool: BuilderToolContext, input: DraftInput) {
     : null;
   if (
     latest &&
-    sameVersion(latest, { instructions: input.instructions, modelId, manifest })
+    sameVersion(latest, { instructions: input.instructions, manifest })
   ) {
     return {
       saved: true as const,
@@ -347,7 +339,6 @@ async function saveDraft(tool: BuilderToolContext, input: DraftInput) {
       status: "READY",
       instructions: input.instructions,
       manifest,
-      modelId,
       sourceConversationId: conversationId,
       createdById: userId,
     },

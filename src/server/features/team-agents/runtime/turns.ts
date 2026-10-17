@@ -53,7 +53,7 @@ export const withinRunInput: StopCondition<ToolSet> = ({ steps }) =>
 export async function prepareRunTurn(
   session: RunSession,
   input: { thinkSystem: string; spend: Spend },
-): Promise<{ system: string; tools: ToolSet; modelId: string } | null> {
+): Promise<{ system: string; tools: ToolSet } | null> {
   const run = await AgentRunRepository.findWithVersion(
     session.organizationId,
     session.run.id,
@@ -80,7 +80,7 @@ export async function prepareRunTurn(
       spend: input.spend,
     }),
   );
-  return { system, tools, modelId: run.versionModelId };
+  return { system, tools };
 }
 
 /** The message that starts a run's session. */

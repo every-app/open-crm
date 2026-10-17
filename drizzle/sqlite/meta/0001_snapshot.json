@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e4f456f5-7c0c-4406-b639-2a982affa281",
+  "id": "8224d6e5-ef44-4fd1-833c-7262b30f7331",
   "prevId": "4faad0a5-2929-46de-883e-0d784300fef4",
   "tables": {
     "member": {
@@ -3882,20 +3882,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "agent_model_id": {
-          "name": "agent_model_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "agent_model_context_window": {
-          "name": "agent_model_context_window",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "reporting_currency": {
           "name": "reporting_currency",
           "type": "text",
@@ -6902,13 +6888,6 @@
         },
         "manifest": {
           "name": "manifest",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "model_id": {
-          "name": "model_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

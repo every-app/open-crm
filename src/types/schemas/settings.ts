@@ -3,11 +3,6 @@ import { z } from "zod";
 export const MIN_ARCHIVE_RETENTION_DAYS = 1;
 const MAX_ARCHIVE_RETENTION_DAYS = 3650;
 
-/** A model id from OpenRouter's catalog, or null to follow the default. */
-export const setAgentModelSchema = z.object({
-  modelId: z.string().trim().min(1).max(200).nullable(),
-});
-
 export const setArchiveRetentionSchema = z.object({
   days: z
     .number()

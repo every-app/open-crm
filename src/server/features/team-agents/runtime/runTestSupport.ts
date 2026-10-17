@@ -47,7 +47,6 @@ export async function runningRun(value: AgentManifest): Promise<string> {
       status: "READY",
       instructions: "Do the thing.",
       manifest: value,
-      modelId: "model",
       sourceConversationId: null,
       createdById: "user_a",
     },

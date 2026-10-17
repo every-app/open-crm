@@ -6,7 +6,6 @@ import {
   getAgentModel,
   getAgentStatus,
   getArchiveRetention,
-  getModelCatalog,
 } from "@/serverFunctions/settings";
 
 /** Reporting currency, effective rates, the currencies deals are in. */
@@ -16,19 +15,12 @@ export const currencySettingsQueryOptions = () =>
     queryFn: () => getCurrencySettings(),
   });
 
-/** The model the research agent runs on. */
+/** The model the research agent runs on; set by the deployment. */
 export const agentModelQueryOptions = () =>
   queryOptions({
     queryKey: ["settings", "agent-model"],
     queryFn: () => getAgentModel(),
-  });
-
-/** OpenRouter's tool-using models; the server caches the list too. */
-export const modelCatalogQueryOptions = () =>
-  queryOptions({
-    queryKey: ["settings", "model-catalog"],
-    queryFn: () => getModelCatalog(),
-    staleTime: 30 * 60 * 1000,
+    staleTime: Infinity,
   });
 
 /** What the agent has to work with: its model and Context.dev. */

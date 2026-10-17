@@ -3,28 +3,16 @@ import { requireOrgPermission } from "@/server/auth/org-gate";
 import { AgentAvailabilityService } from "@/server/features/agent/services/AgentAvailabilityService";
 import { SettingsService } from "@/server/features/settings/services/SettingsService";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
-import {
-  setAgentModelSchema,
-  setArchiveRetentionSchema,
-} from "@/types/schemas/settings";
+import { agentModelId } from "@/server/lib/openrouter";
+import { setArchiveRetentionSchema } from "@/types/schemas/settings";
 
+/**
+ * The model the agent runs on. It isn't chosen in the app: Luna, or a
+ * self-hosted copy's OPENROUTER_MODEL.
+ */
 export const getAgentModel = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
-  .handler(async ({ context }) =>
-    SettingsService.getAgentModel(context.organizationId),
-  );
-
-export const getModelCatalog = createServerFn({ method: "GET" })
-  .middleware(requireAuthenticatedContext)
-  .handler(async () => SettingsService.getModelCatalog());
-
-export const setAgentModel = createServerFn({ method: "POST" })
-  .middleware(requireAuthenticatedContext)
-  .validator(setAgentModelSchema)
-  .handler(async ({ data, context }) => {
-    requireOrgPermission(context, { workspace: ["manage"] });
-    return SettingsService.setAgentModel(context.organizationId, data.modelId);
-  });
+  .handler(async () => ({ id: await agentModelId() }));
 
 /**
  * Whether the agent can run: its model and Context.dev, as the gateway

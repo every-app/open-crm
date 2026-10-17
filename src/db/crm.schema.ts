@@ -52,9 +52,6 @@ export const workspace = sqliteTable("workspace", {
   website: text("website"),
   // Set once onboarding (name and website) is done.
   onboardedAt: timestamp("onboarded_at"),
-  // The model the research agent runs on; null is the default model.
-  agentModelId: text("agent_model_id"),
-  agentModelContextWindow: integer("agent_model_context_window"),
   // The currency deal totals are reported in; null is USD.
   reportingCurrency: text("reporting_currency"),
   ratesRefreshedAt: timestamp("rates_refreshed_at"),

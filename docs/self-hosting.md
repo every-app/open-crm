@@ -54,6 +54,12 @@ The research agent's keys live on the gateway, never in the CRM. Set each once:
 
 Each command asks for the value at a hidden prompt, so the key never appears in your shell history. The change is live on the gateway at once, with no redeploy of the gateway or the CRM. The CRM notices a newly set model key on its own: work waiting for it starts within about ten minutes, with no restart.
 
+The agent runs on GPT-5.6 Luna through OpenRouter. To use another OpenRouter model, set its id on the CRM (the key stays on the gateway):
+
+```bash
+pnpm everyapp secret set OPENROUTER_MODEL
+```
+
 ### Mail and calendar
 
 Members connect their own Gmail and Google Calendar, or Outlook, from Settings → Connections, and the CRM files their work conversations and meetings on companies and contacts. It only reads: it never sends, changes or drafts mail. The OAuth clients live on the gateway too, so set up whichever you want people to use:

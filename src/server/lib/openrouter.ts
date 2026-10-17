@@ -8,7 +8,9 @@ import {
   type LanguageModelV3,
   type OpenRouterProvider,
 } from "@openrouter/ai-sdk-provider";
+import { wrapLanguageModel } from "ai";
 import { gatewayCallFor } from "@/server/lib/gateway-attribution";
+import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 
 /**
  * How the CRM reaches OpenRouter: through the Every App gateway's AI proxy,
@@ -20,15 +22,57 @@ const GATEWAY_BASE_URL =
   "https://every-app-gateway.invalid/api/ai/openrouter/api/v1";
 
 /**
- * The research agent's default model: deliberately not a frontier model. The
- * evidence ledger, not the model's judgement, decides what reaches a record,
- * so a fast, cheap model does the agent's work. A workspace picks another on
- * Settings → General.
+ * The agent's model, as OpenSEO's SAM runs: GPT-5.6 Luna. A self-hosted copy
+ * picks another OpenRouter model with OPENROUTER_MODEL; nobody picks one in
+ * the app.
  */
-export const DEFAULT_AGENT_MODEL = {
-  id: "minimax/minimax-m3",
-  contextWindowTokens: 200_000,
-} as const;
+export const DEFAULT_AGENT_MODEL = "openai/gpt-5.6-luna";
+
+// OpenSEO's previous default: reachable through OPENROUTER_MODEL, and the
+// fallback where OpenAI is blocked. Its routing needs the ZDR and provider
+// tuning below.
+const MINIMAX_M3 = "minimax/minimax-m3";
+
+/**
+ * How hard the model reasons, as OpenSEO splits it: a person's chat turn at
+ * "max", background work (research, team agent runs, summaries) at "low".
+ */
+export type ReasoningEffort = "max" | "low";
+
+/** The model the agent runs on: OPENROUTER_MODEL, or Luna. */
+export async function agentModelId(): Promise<string> {
+  return (await getOptionalEnvValue("OPENROUTER_MODEL")) ?? DEFAULT_AGENT_MODEL;
+}
+
+// OpenRouter rejects OpenAI models for requests from these countries ("This
+// model is not available in your region"). Durable Objects run near the
+// person who opened them, outside the Worker's placement.
+const OPENAI_BLOCKED_COUNTRIES = [
+  "CN",
+  "HK",
+  "MO",
+  "RU",
+  "BY",
+  "IR",
+  "KP",
+  "SY",
+  "CU",
+];
+
+// The country this isolate's requests leave from. An isolate stays in one
+// location, so one lookup serves its lifetime. Caches the value, not the
+// promise: Workers can't share a pending fetch across requests. Fails open: a
+// slow or failed lookup leaves the country unknown, and calls stay on OpenAI.
+let egressCountry: string | undefined;
+async function openAiBlockedHere(): Promise<boolean> {
+  egressCountry ??= await fetch("https://www.cloudflare.com/cdn-cgi/trace", {
+    signal: AbortSignal.timeout(2000),
+  })
+    .then((response) => response.text())
+    .then((trace) => /^loc=(\w+)$/m.exec(trace)?.[1] ?? "")
+    .catch(() => "");
+  return OPENAI_BLOCKED_COUNTRIES.includes(egressCountry);
+}
 
 /** Perplexity's search model, for cited web research (research_person). */
 export const WEB_RESEARCH_MODEL = "perplexity/sonar";
@@ -68,23 +112,50 @@ export function openRouterProvider(
 }
 
 /**
- * The AI SDK model for `modelId` over `gatewayFetch`. `usage: { include: true }`
- * turns on OpenRouter usage accounting so each response carries its real USD
- * cost (providerMetadata.openrouter.usage.cost), which the agent's audit
- * records per session.
+ * The AI SDK model for `modelId` over `gatewayFetch` at `effort`, as OpenSEO
+ * builds SAM's (buildChatAgentModel). `usage: { include: true }` turns on
+ * OpenRouter usage accounting so each response carries its real USD cost
+ * (providerMetadata.openrouter.usage.cost). "max" is valid at the OpenRouter
+ * API for GPT-5.x but missing from the SDK's effort union, so the reasoning
+ * config rides in `extraBody`; reasoning tokens are billed as output tokens,
+ * which the usage accounting captures.
  */
 export function buildAgentModel(
   gatewayFetch: typeof fetch,
-  modelId: string = DEFAULT_AGENT_MODEL.id,
+  modelId: string,
+  effort: ReasoningEffort,
 ): LanguageModelV3 {
   const openrouter = openRouterProvider(gatewayFetch);
-  if (modelId === DEFAULT_AGENT_MODEL.id) {
-    // As OpenSEO routes MiniMax M3: Zero-Data-Retention endpoints only, with
-    // fallbacks on, since pinning one provider turned an upstream rate limit
-    // into an outage there.
-    return openrouter(modelId, {
+  const primary = openRouterModel(openrouter, modelId, effort);
+  if (!modelId.startsWith("openai/")) return primary;
+  // Where OpenRouter would reject OpenAI, pick MiniMax M3 before the request.
+  // The country lookup is async and getModel() is sync, so it runs per call.
+  const fallback = openRouterModel(openrouter, MINIMAX_M3, effort);
+  const pick = async () => ((await openAiBlockedHere()) ? fallback : primary);
+  return wrapLanguageModel({
+    model: primary,
+    middleware: {
+      specificationVersion: "v3",
+      wrapGenerate: async ({ params }) => (await pick()).doGenerate(params),
+      wrapStream: async ({ params }) => (await pick()).doStream(params),
+    },
+  });
+}
+
+function openRouterModel(
+  openrouter: OpenRouterProvider,
+  model: string,
+  effort: ReasoningEffort,
+): LanguageModelV3 {
+  // MiniMax M3 (an OPENROUTER_MODEL override or the OpenAI fallback), routed
+  // as OpenSEO routes it: Zero-Data-Retention endpoints only, Together then
+  // Atlas Cloud, with fallbacks on, since pinning one provider turned an
+  // upstream rate limit into an outage there. The explicit reasoning channel
+  // keeps its trace out of the visible answer.
+  if (model === MINIMAX_M3) {
+    return openrouter(model, {
       usage: { include: true },
-      reasoning: { effort: "medium" },
+      reasoning: { effort: effort === "low" ? "low" : "medium" },
       provider: {
         order: ["together", "atlas-cloud/fp8"],
         zdr: true,
@@ -92,5 +163,8 @@ export function buildAgentModel(
       },
     });
   }
-  return openrouter(modelId, { usage: { include: true } });
+  return openrouter(model, {
+    usage: { include: true },
+    extraBody: { reasoning: { effort } },
+  });
 }

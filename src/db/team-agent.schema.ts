@@ -84,7 +84,6 @@ export const agentVersion = sqliteTable(
       .default("READY"),
     instructions: text("instructions").notNull(),
     manifest: text("manifest", { mode: "json" }).$type<unknown>().notNull(),
-    modelId: text("model_id").notNull(),
     sourceConversationId: text("source_conversation_id").references(
       () => agentConversation.id,
       { onDelete: "set null" },

@@ -88,7 +88,6 @@ export const agentVersion = pgTable(
       .default("READY"),
     instructions: text("instructions").notNull(),
     manifest: jsonb("manifest").$type<unknown>().notNull(),
-    modelId: text("model_id").notNull(),
     sourceConversationId: text("source_conversation_id").references(
       () => agentConversation.id,
       { onDelete: "set null" },

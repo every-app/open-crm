@@ -1,5 +1,5 @@
 {
-  "id": "208b445d-8119-4e1a-a916-36cad58db9c1",
+  "id": "a7592e88-4eed-4e02-8a54-d990542a8f97",
   "prevId": "c81ea3f2-1dd6-40ba-8503-9d6c125728b7",
   "version": "7",
   "dialect": "postgresql",
@@ -4518,18 +4518,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "agent_model_id": {
-          "name": "agent_model_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "agent_model_context_window": {
-          "name": "agent_model_context_window",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "reporting_currency": {
           "name": "reporting_currency",
           "type": "text",
@@ -7918,12 +7906,6 @@
         "manifest": {
           "name": "manifest",
           "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "model_id": {
-          "name": "model_id",
-          "type": "text",
           "primaryKey": false,
           "notNull": true
         },

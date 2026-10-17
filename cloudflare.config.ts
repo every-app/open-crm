@@ -13,6 +13,10 @@ const CRM_SECRETS = [
   // Raises GitHub's rate limit when the agent matches people to GitHub
   // profiles. Any classic token with no scopes will do.
   "GITHUB_TOKEN",
+  // The OpenRouter model the agent runs on, for a self-hosted copy that
+  // wants another than GPT-5.6 Luna (src/server/lib/openrouter.ts). The key
+  // itself, OPENROUTER_API_KEY, is the gateway's.
+  "OPENROUTER_MODEL",
   // Overrides the deployment shape (src/server/lib/deployment-tier.ts). Its
   // use is local: `DEPLOYMENT_TIER=fork` in .dev.vars shows a fork's setup
   // commands, since `everyapp dev` pins no organization.

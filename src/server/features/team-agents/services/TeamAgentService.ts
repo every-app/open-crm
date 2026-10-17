@@ -76,7 +76,6 @@ function versionSummary(version: VersionRow) {
     id: version.id,
     number: version.number,
     status: version.status,
-    modelId: version.modelId,
     approvedAt: version.approvedAt,
     deployedAt: version.deployedAt,
     createdAt: version.createdAt,

@@ -354,7 +354,6 @@ CREATE TABLE `agent_version` (
 	`status` text DEFAULT 'READY' NOT NULL,
 	`instructions` text NOT NULL,
 	`manifest` text NOT NULL,
-	`model_id` text NOT NULL,
 	`source_conversation_id` text,
 	`created_by_id` text NOT NULL,
 	`approved_at` text,
@@ -439,4 +438,6 @@ CREATE INDEX `email_message_organization_gmail_idx` ON `email_message` (`organiz
 CREATE INDEX `email_message_organization_synced_by_idx` ON `email_message` (`organization_id`,`synced_by_user_id`);--> statement-breakpoint
 ALTER TABLE `workspace` ADD `model_refused_at` text;--> statement-breakpoint
 ALTER TABLE `workspace` ADD `model_refusal` text;--> statement-breakpoint
-ALTER TABLE `workspace` ADD `model_answered_at` text;
+ALTER TABLE `workspace` ADD `model_answered_at` text;--> statement-breakpoint
+ALTER TABLE `workspace` DROP COLUMN `agent_model_id`;--> statement-breakpoint
+ALTER TABLE `workspace` DROP COLUMN `agent_model_context_window`;

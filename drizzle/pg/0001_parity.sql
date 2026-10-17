@@ -281,7 +281,6 @@ CREATE TABLE "agent_version" (
 	"status" text DEFAULT 'READY' NOT NULL,
 	"instructions" text NOT NULL,
 	"manifest" jsonb NOT NULL,
-	"model_id" text NOT NULL,
 	"source_conversation_id" text,
 	"created_by_id" text NOT NULL,
 	"approved_at" text,
@@ -439,4 +438,6 @@ CREATE UNIQUE INDEX "slack_connection_organization_uidx" ON "slack_connection" U
 CREATE UNIQUE INDEX "slack_member_match_organization_user_uidx" ON "slack_member_match" USING btree ("organization_id","user_id");--> statement-breakpoint
 CREATE INDEX "calendar_event_organization_synced_by_idx" ON "calendar_event" USING btree ("organization_id","synced_by_user_id");--> statement-breakpoint
 CREATE INDEX "email_message_organization_gmail_idx" ON "email_message" USING btree ("organization_id","gmail_message_id");--> statement-breakpoint
-CREATE INDEX "email_message_organization_synced_by_idx" ON "email_message" USING btree ("organization_id","synced_by_user_id");
+CREATE INDEX "email_message_organization_synced_by_idx" ON "email_message" USING btree ("organization_id","synced_by_user_id");--> statement-breakpoint
+ALTER TABLE "workspace" DROP COLUMN "agent_model_id";--> statement-breakpoint
+ALTER TABLE "workspace" DROP COLUMN "agent_model_context_window";

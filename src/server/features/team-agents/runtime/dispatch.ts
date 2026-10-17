@@ -8,7 +8,7 @@ import type { CrmAgent } from "@/server/features/agent/CrmAgent";
 import { sessionName } from "@/server/features/agent/sessionName";
 import { SlackService } from "@/server/features/slack/services/SlackService";
 import { forOrganization } from "@/server/lib/gateway-attribution";
-import { getOpenRouterFetch } from "@/server/lib/openrouter";
+import { agentModelId, getOpenRouterFetch } from "@/server/lib/openrouter";
 import { AGENT_ACTION_TYPES, agentManifest } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import { MODEL_UNAVAILABLE } from "../services/RunSettlement";
@@ -149,15 +149,11 @@ async function start(
     );
     return false;
   }
-  const version = await AgentVersionRepository.findVersion(
-    run.organizationId,
-    run.agentId,
-    run.versionId,
-  );
+  // The run records the model it ran on, for its history.
   const claimed = await AgentRunRepository.claim(
     run.organizationId,
     run.id,
-    version?.modelId ?? "",
+    await agentModelId(),
   );
   if (!claimed) return false;
   const sessionId = sessionName("run", run.organizationId, run.id);
