@@ -242,6 +242,31 @@ const slackChannelItem = z.object({
   is_private: z.boolean().optional(),
 });
 
+const authTest = z
+  .object({ user: z.string().nullish(), bot_id: z.string().nullish() })
+  .catch({ user: null, bot_id: null });
+
+const botInfo = z
+  .object({ bot: z.object({ name: z.string().min(1) }).nullish() })
+  .catch({ bot: null });
+
+/**
+ * The app's name in the workspace, which `/invite @…` takes: its bot's
+ * name, or the bot user's when Slack won't give that. Null when Slack won't
+ * say at all.
+ */
+async function appName(token: string): Promise<string | null> {
+  const self = await slackCall(token, "auth.test");
+  if (!self.ok) return null;
+  const { user, bot_id: botId } = authTest.parse(self.body);
+  if (botId) {
+    const info = await slackCall(token, "bots.info", { query: { bot: botId } });
+    const name = info.ok ? botInfo.parse(info.body).bot?.name : null;
+    if (name) return name;
+  }
+  return user ?? null;
+}
+
 /**
  * Matches every member to a Slack user by exact email, and replaces the
  * channel inventory with what the app (and, with the installer's grant, the
@@ -259,26 +284,28 @@ async function sync(organizationId: string): Promise<string> {
       types: "public_channel,private_channel",
       exclude_archived: "true",
     };
-    const [people, botChannels, userChannels, members] = await Promise.all([
-      slackPages(bot, "users.list", "members", slackMember),
-      slackPages(
-        bot,
-        "conversations.list",
-        "channels",
-        slackChannelItem,
-        channelQuery,
-      ),
-      connection.userToken
-        ? slackPages(
-            connection.userToken,
-            "conversations.list",
-            "channels",
-            slackChannelItem,
-            channelQuery,
-          ).catch(() => [])
-        : Promise.resolve([]),
-      AuthRepository.listMembers(organizationId),
-    ]);
+    const [name, people, botChannels, userChannels, members] =
+      await Promise.all([
+        appName(bot),
+        slackPages(bot, "users.list", "members", slackMember),
+        slackPages(
+          bot,
+          "conversations.list",
+          "channels",
+          slackChannelItem,
+          channelQuery,
+        ),
+        connection.userToken
+          ? slackPages(
+              connection.userToken,
+              "conversations.list",
+              "channels",
+              slackChannelItem,
+              channelQuery,
+            ).catch(() => [])
+          : Promise.resolve([]),
+        AuthRepository.listMembers(organizationId),
+      ]);
     const byEmail = new Map(
       people
         .filter((person) => !person.deleted && !person.is_bot)
@@ -321,6 +348,7 @@ async function sync(organizationId: string): Promise<string> {
     await SlackRepository.markSync(organizationId, {
       syncedAt: new Date().toISOString(),
       syncError: null,
+      ...(name ? { botName: name } : {}),
     });
     const matched = memberMatches.filter((match) => match.slackUserId).length;
     return `Matched ${matched} of ${memberMatches.length} members by email and found ${available.length} available channels.`;

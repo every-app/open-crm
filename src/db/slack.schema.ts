@@ -28,6 +28,9 @@ export const slackConnection = sqliteTable(
     teamId: text("team_id").notNull(),
     teamName: text("team_name"),
     botUserId: text("bot_user_id"),
+    // The app's name in this workspace, as Slack reports it: what `/invite @…`
+    // takes. Read again with every sync.
+    botName: text("bot_name"),
     botToken: text("bot_token").notNull(),
     // Comma-separated, as Slack reports them.
     botScopes: text("bot_scopes").notNull(),

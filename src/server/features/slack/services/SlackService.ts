@@ -18,6 +18,7 @@ import {
   SLACK_BOT_SCOPES,
   SLACK_REDIRECT_PATH,
   SLACK_USER_SCOPES,
+  type SlackConnectError,
 } from "@/shared/slack";
 import {
   agentManifest,
@@ -106,6 +107,8 @@ async function status(context: Context) {
     ...base,
     connected: true as const,
     workspace: connection.teamName,
+    /** The app's name in the workspace; null until the first sync reads it. */
+    appName: connection.botName,
     connectedAt: connection.connectedAt,
     scopes,
     missing: missingSlackScopes(scopes).map((entry) => entry.scope),
@@ -203,7 +206,7 @@ const tokenError = z
  * Finishes connecting on Slack's redirect back: checks the state was minted
  * for this person minutes ago, has the gateway complete Slack's token
  * endpoint with its client, and keeps the tokens. The outcome code the
- * settings page shows ("connected", or why not).
+ * Slack page shows ("connected", or why not).
  */
 async function completeConnect(
   context: Context,
@@ -214,7 +217,7 @@ async function completeConnect(
     state: string | null;
     error: string | null;
   },
-): Promise<string> {
+): Promise<"connected" | SlackConnectError> {
   requireHuman(input.channel);
   if (!canManage(context)) return "forbidden";
   if (!input.state) return "invalid_state";

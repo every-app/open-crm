@@ -1,0 +1,1 @@
+ALTER TABLE "slack_connection" ADD COLUMN "bot_name" text;

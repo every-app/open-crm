@@ -15,6 +15,13 @@
       "when": 1792265367998,
       "tag": "0001_parity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792270154848,
+      "tag": "0002_clumsy_shape",
+      "breakpoints": true
     }
   ]
 }
