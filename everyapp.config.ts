@@ -68,7 +68,14 @@ export default {
   },
   // Every member of the organization works in the CRM.
   access: "everyone",
-  // Nothing reaches the CRM without a signed-in member; the gateway's tool
-  // calls (`/__everyapp/tools/*`) carry their own gateway-signed tokens.
-  public: [],
+  // Nothing reaches the CRM without a signed-in member but website tracking,
+  // which runs on the organization's own website for anonymous visitors
+  // (docs/maintainers/website-tracking.md): the loader and per-site tracker
+  // scripts, and the collector they POST to. The tracker never sends a
+  // preflight (a text/plain beacon), so OPTIONS stays private. The gateway's
+  // tool calls (`/__everyapp/tools/*`) carry their own gateway-signed tokens.
+  public: [
+    { path: "/t/*", methods: ["GET"] },
+    { path: "/t/e", methods: ["POST"] },
+  ],
 } as const;

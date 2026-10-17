@@ -36,21 +36,11 @@ export const trackingSite = pgTable(
     // Minted once an allowed domain makes tracking ready; rotating it is the
     // kill switch for a stolen snippet.
     siteId: text("site_id"),
-    crossDomain: boolean("cross_domain")
-      .notNull()
-      .default(true),
-    limitToDomains: boolean("limit_to_domains")
-      .notNull()
-      .default(true),
-    cookieSubdomains: boolean("cookie_subdomains")
-      .notNull()
-      .default(false),
-    secureCookies: boolean("secure_cookies")
-      .notNull()
-      .default(true),
-    honourDnt: boolean("honour_dnt")
-      .notNull()
-      .default(true),
+    crossDomain: boolean("cross_domain").notNull().default(true),
+    limitToDomains: boolean("limit_to_domains").notNull().default(true),
+    cookieSubdomains: boolean("cookie_subdomains").notNull().default(false),
+    secureCookies: boolean("secure_cookies").notNull().default(true),
+    honourDnt: boolean("honour_dnt").notNull().default(true),
     cookieDays: integer("cookie_days").notNull().default(395),
     paused: boolean("paused").notNull().default(false),
     createdAt: timestamp("created_at").notNull().default(isoNow),

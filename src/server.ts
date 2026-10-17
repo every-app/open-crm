@@ -7,6 +7,10 @@ import { withPgClient } from "@/db";
 import { runCron } from "@/server/cron";
 import { withoutCookies } from "@/server/everyapp/cookies";
 import { routeAgentRequests } from "@/server/features/agent/agentRoutes";
+import {
+  isTrackingPath,
+  serveTracking,
+} from "@/server/features/tracking/trackingRoutes";
 import { serveImage, IMAGE_ROUTE_PREFIX } from "@/server/lib/images";
 import { serveEveryAppRequest } from "@/server/lib/gateway-attribution";
 
@@ -54,8 +58,8 @@ function routeAppRequest(
 }
 
 // The CRM is private behind an Every App gateway, which signs the person's
-// identity onto every request it forwards. Fail closed on anything else before
-// routing. Gateway calls made while serving the request forward its identity
+// identity onto every request it forwards, or its public marker onto the
+// website tracking routes. Fail closed on anything else before routing. Gateway calls made while serving the request forward its identity
 // (gateway-attribution.ts). The gateway's tool calls (`/__everyapp/tools/*`)
 // load the agent tools on first use only.
 async function handleRequest(
@@ -68,11 +72,19 @@ async function handleRequest(
     return everyAppTools.fetch(request, env, ctx);
   }
   return withoutCookies(
-    await everyApp<Env>((verified, _env, _ctx, user) =>
-      serveEveryAppRequest(verified, user, () =>
+    await everyApp<Env>((verified, _env, _ctx, user) => {
+      // Website tracking is the CRM's one public surface: the gateway
+      // forwards it with no identity (a signed-in member's is ignored), and
+      // its organization comes from the site id alone. Nothing else answers
+      // a request without one.
+      if (isTrackingPath(new URL(verified.url).pathname)) {
+        return serveTracking(verified);
+      }
+      if (!user) return new Response("Not found", { status: 404 });
+      return serveEveryAppRequest(verified, user, () =>
         routeAppRequest(verified, env),
-      ),
-    ).fetch(request, env, ctx),
+      );
+    }).fetch(request, env, ctx),
   );
 }
 
