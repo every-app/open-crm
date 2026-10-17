@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { PRIORITY, taskSubject } from "@/shared/agent-tasks";
+import { hasOrgPermission } from "@/shared/org-permissions";
 import { EVIDENCE_KINDS, scoreEvidence } from "../lib/evidence";
 import { AgentProfileRepository } from "../repositories/AgentProfileRepository";
 import { AgentRecordRepository } from "../repositories/AgentRecordRepository";
@@ -104,6 +105,22 @@ export const recordTools: ToolGroup = (context) => ({
       sourceUrl: z.string().optional(),
     }),
     execute: async (input) => {
+      // Every session's prompt opens with the profile, so in a chat only an
+      // owner or admin may have it rewritten; the workspace-profile task
+      // writes it unattended from the website.
+      if (
+        context.attended &&
+        !(
+          context.role &&
+          hasOrgPermission(context.role, { workspace: ["manage"] })
+        )
+      ) {
+        return {
+          written: false as const,
+          reason:
+            "Only an owner or admin can change the company profile. Tell the rep what you would change and let them ask an admin.",
+        };
+      }
       const us = await AgentProfileRepository.workspaceIdentity(
         context.organizationId,
       );

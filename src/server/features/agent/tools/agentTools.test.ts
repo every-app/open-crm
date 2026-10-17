@@ -60,7 +60,7 @@ describe("the agent's ledger, people and field tools", () => {
     contextFetch.mockImplementation(async () => enriched(PAULA));
     await database.exec(
       `DELETE FROM activity; DELETE FROM contact_fact; DELETE FROM field_value; DELETE FROM field_option; DELETE FROM field_definition;
-       DELETE FROM agent_task; DELETE FROM contact; DELETE FROM company; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
+       DELETE FROM agent_task; DELETE FROM workspace_profile; DELETE FROM workspace; DELETE FROM contact; DELETE FROM company; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
     );
     await database.seedTwoOrganizations();
     await database.exec(
@@ -201,7 +201,7 @@ describe("the agent's ledger, people and field tools", () => {
     ]);
   });
 
-  it("changes fields only for an owner or admin, and archives only on their approval", async () => {
+  it("changes fields only for an owner or admin, and only on their approval", async () => {
     const create = {
       action: "create",
       entity: "CONTACT",
@@ -215,6 +215,7 @@ describe("the agent's ledger, people and field tools", () => {
       expect(await refused.call("manage_fields", create)).toMatchObject({
         created: false,
       });
+      expect(refused.tools.manage_fields?.needsApproval).toBe(false);
       expect(refused.tools.archive_field?.needsApproval).toBe(false);
       expect(
         await refused.call("archive_field", {
@@ -230,6 +231,7 @@ describe("the agent's ledger, people and field tools", () => {
       type: "DATE",
       agentFilled: true,
     });
+    expect(admin.tools.manage_fields?.needsApproval).toBe(true);
     expect(admin.tools.archive_field?.needsApproval).toBe(true);
     expect(
       await admin.call("archive_field", { entity: "CONTACT", key: "notes" }),
@@ -239,6 +241,32 @@ describe("the agent's ledger, people and field tools", () => {
         "SELECT key FROM field_definition WHERE organization_id = 'org_a' AND archived_at IS NULL ORDER BY key",
       ),
     ).toEqual([{ key: "renewal_date" }, { key: "seats" }]);
+  });
+
+  it("rewrites the company profile in a chat only for an owner or admin", async () => {
+    await database.exec(
+      "INSERT INTO workspace (organization_id, name, website) VALUES ('org_a', 'A', 'a.test');",
+    );
+    const profile = {
+      narrative:
+        "Fernhill sells fleet software to logistics companies and charges per vehicle.",
+      sells: "Fleet software",
+    };
+    expect(
+      await toolSession({ role: "member" }).call(
+        "write_workspace_profile",
+        profile,
+      ),
+    ).toMatchObject({ written: false });
+    expect(
+      await database.rows("SELECT narrative FROM workspace_profile"),
+    ).toEqual([]);
+    expect(
+      await toolSession({ role: "admin" }).call(
+        "write_workspace_profile",
+        profile,
+      ),
+    ).not.toMatchObject({ written: false });
   });
 
   it("sets a custom value as a person would, never a manual one, and backfills only a blank", async () => {

@@ -11,13 +11,15 @@ import { toolVerb, type Step } from "./agentSteps";
 
 // A step the agent waits on the rep to allow, in place of the composer: the
 // CRM's sensitive writes, which pause for a person in a chat and are refused
-// unattended (`needsApproval` on record_job_change and archive_field). The
+// unattended (`needsApproval` on record_job_change, manage_fields and
+// archive_field). The
 // request is worded from the tool's input, names looked up as the rest of
 // the app shows them.
 
 // What each gated tool asks to do, before it has done it.
 const ASKS: Record<string, string> = {
   record_job_change: "Raise a job change",
+  manage_fields: "Change a custom field",
   archive_field: "Archive a custom field",
 };
 
@@ -46,6 +48,15 @@ const jobChangeInput = z.object({
   moveToCompanyId: z.string().optional(),
 });
 
+const manageFieldInput = z.object({
+  action: z.enum(["create", "update-brief"]),
+  entity: z.enum(FIELD_ENTITIES),
+  label: z.string().optional(),
+  key: z.string().optional(),
+  type: z.string().optional(),
+  agentBrief: z.string().optional(),
+});
+
 const archiveFieldInput = z.object({
   entity: z.enum(FIELD_ENTITIES),
   key: z.string(),
@@ -64,6 +75,8 @@ export function ApprovalPrompt({
 }) {
   const jobChange =
     tool === "record_job_change" ? jobChangeInput.safeParse(input) : null;
+  const manage =
+    tool === "manage_fields" ? manageFieldInput.safeParse(input) : null;
   const archive =
     tool === "archive_field" ? archiveFieldInput.safeParse(input) : null;
   return (
@@ -74,6 +87,8 @@ export function ApprovalPrompt({
     >
       {jobChange?.success ? (
         <JobChangeRequest {...jobChange.data} />
+      ) : manage?.success ? (
+        <ManageFieldRequest {...manage.data} />
       ) : archive?.success ? (
         <ArchiveFieldRequest
           entity={archive.data.entity}
@@ -146,6 +161,37 @@ function ArchiveFieldRequest({
     <Request
       title={`Archive the “${label}” field on ${ENTITY_NOUNS[entity].many}?`}
       detail="It leaves every sheet and table and stops being filled. The values already recorded are kept."
+    />
+  );
+}
+
+function ManageFieldRequest({
+  action,
+  entity,
+  label,
+  key,
+  type,
+  agentBrief,
+}: z.infer<typeof manageFieldInput>) {
+  const fields = useQuery(fieldsQueryOptions(entity, true));
+  const brief = agentBrief?.trim()
+    ? `What the agent will look for: ${agentBrief.trim()}`
+    : "The agent will work from the label and type alone.";
+  if (action === "create") {
+    const kind = type ? ` (${type.toLowerCase().replaceAll("_", " ")})` : "";
+    return (
+      <Request
+        title={`Add a “${label ?? "new"}” field${kind} to ${ENTITY_NOUNS[entity].many}?`}
+        detail={`Every rep sees it on sheets and tables. ${brief}`}
+      />
+    );
+  }
+  const current =
+    fields.data?.find((field) => field.key === key)?.label ?? key ?? "a";
+  return (
+    <Request
+      title={`Change what the agent looks for in the “${current}” field on ${ENTITY_NOUNS[entity].many}?`}
+      detail={brief}
     />
   );
 }

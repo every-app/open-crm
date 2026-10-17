@@ -170,6 +170,10 @@ export const fieldTools: ToolGroup = (context) => ({
         .optional()
         .describe("False hands the field back to the rep entirely."),
     }),
+    // A schema change every rep sees: the owner or admin in the conversation
+    // approves it first, so nothing planted in a prompt changes fields
+    // unseen.
+    needsApproval: refusal(context) === null,
     execute: async (input) => {
       const refused = refusal(context);
       if (input.action === "create") {
