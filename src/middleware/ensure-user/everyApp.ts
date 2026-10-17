@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import {
   ConfigurationError,
   getEveryAppUser,
+  hasScope,
   type EveryAppUser,
 } from "@every-app/sdk/server";
 import { ensureEveryAppMembership } from "@/server/auth/delegated-organization";
@@ -49,6 +50,11 @@ export async function resolveEveryAppContext(
     throw new AppError("UNAUTHENTICATED");
   }
   if (!user) throw new AppError("UNAUTHENTICATED");
+  // A personal access token made with scopes (`api:read`) is limited to what
+  // the REST API lets those scopes do (src/server/api/handler.ts). The app's
+  // own server functions and the agent's chats assume everything a signed-in
+  // member may do, so they take only a credential that holds all of it.
+  if (!hasScope(user, "*")) throw new AppError("FORBIDDEN");
   return resolveEveryAppUserContext(user);
 }
 

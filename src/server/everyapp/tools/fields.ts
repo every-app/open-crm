@@ -109,6 +109,28 @@ export const fieldTools = {
     },
   }),
 
+  restore_field: crmTool({
+    description:
+      "Restore an archived custom field (owners and admins only), with the values it kept.",
+    risk: "write",
+    input: fieldIdSchema.strict(),
+    handler: ({ id }, context) => {
+      requireOrgPermission(context, { field: ["manage"] });
+      return FieldsService.restore(context.organizationId, id);
+    },
+  }),
+
+  delete_field: crmTool({
+    description:
+      "Delete a custom field and every value it holds, for good (owners and admins only). archive_field keeps the values.",
+    risk: "destructive",
+    input: fieldIdSchema.strict(),
+    handler: ({ id }, context) => {
+      requireOrgPermission(context, { field: ["manage"] });
+      return FieldsService.remove(context.organizationId, id);
+    },
+  }),
+
   fill_field: crmTool({
     description:
       "Ask the research agent to fill a custom field on the records that have no value yet, up to 500 at a time (owners and admins only, and only for fields the agent fills). Returns how many records were queued, and how many already-queued ones had this field added.",

@@ -19,6 +19,7 @@ import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/rou
 import { Route as AppTasksRouteImport } from './routes/_app/tasks'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsAgentRouteImport } from './routes/_app/settings/agent'
+import { Route as AppSettingsApiRouteImport } from './routes/_app/settings/api'
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
@@ -72,6 +73,11 @@ const AppSettingsAgentRoute = AppSettingsAgentRouteImport.update({
   path: '/agent',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsApiRoute = AppSettingsApiRouteImport.update({
+  id: '/api',
+  path: '/api',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsCurrenciesRoute = AppSettingsCurrenciesRouteImport.update({
   id: '/currencies',
   path: '/currencies',
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/deals': typeof AppDealsRoute
   '/tasks': typeof AppTasksRoute
   '/settings/agent': typeof AppSettingsAgentRoute
+  '/settings/api': typeof AppSettingsApiRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AppTasksRoute
   '/': typeof AppIndexRoute
   '/settings/agent': typeof AppSettingsAgentRoute
+  '/settings/api': typeof AppSettingsApiRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
   '/_app/settings/agent': typeof AppSettingsAgentRoute
+  '/_app/settings/api': typeof AppSettingsApiRoute
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/data': typeof AppSettingsDataRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/deals'
     | '/tasks'
     | '/settings/agent'
+    | '/settings/api'
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/'
     | '/settings/agent'
+    | '/settings/api'
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/_app/tasks'
     | '/_app/'
     | '/_app/settings/agent'
+    | '/_app/settings/api'
     | '/_app/settings/currencies'
     | '/_app/settings/data'
     | '/_app/settings/members'
@@ -253,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsAgentRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/api': {
+      id: '/_app/settings/api'
+      path: '/api'
+      fullPath: '/settings/api'
+      preLoaderRoute: typeof AppSettingsApiRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/_app/settings/currencies': {
       id: '/_app/settings/currencies'
       path: '/currencies'
@@ -279,6 +298,7 @@ declare module '@tanstack/react-router' {
 
 interface AppSettingsRouteRouteChildren {
   AppSettingsAgentRoute: typeof AppSettingsAgentRoute
+  AppSettingsApiRoute: typeof AppSettingsApiRoute
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
@@ -287,6 +307,7 @@ interface AppSettingsRouteRouteChildren {
 
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsAgentRoute: AppSettingsAgentRoute,
+  AppSettingsApiRoute: AppSettingsApiRoute,
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,

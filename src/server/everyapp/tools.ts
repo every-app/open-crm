@@ -1,10 +1,12 @@
 import { defineTools, everyApp } from "@every-app/sdk/server";
 import { activityTools } from "@/server/everyapp/tools/activities";
+import { bulkTools } from "@/server/everyapp/tools/bulk";
 import { companyTools } from "@/server/everyapp/tools/companies";
 import { contactTools } from "@/server/everyapp/tools/contacts";
 import { dashboardTools } from "@/server/everyapp/tools/dashboard";
 import { dealTools } from "@/server/everyapp/tools/deals";
 import { fieldTools } from "@/server/everyapp/tools/fields";
+import { savedViewTools } from "@/server/everyapp/tools/savedViews";
 import { searchTools } from "@/server/everyapp/tools/search";
 import { workspaceTools } from "@/server/everyapp/tools/workspace";
 
@@ -28,6 +30,8 @@ const tools = {
   ...fieldTools,
   ...activityTools,
   ...dashboardTools,
+  ...bulkTools,
+  ...savedViewTools,
 };
 
 /**

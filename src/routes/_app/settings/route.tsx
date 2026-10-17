@@ -12,6 +12,7 @@ const tabs = [
   { to: "/settings/currencies", label: "Currencies", exact: false },
   { to: "/settings/agent", label: "Agent", exact: false },
   { to: "/settings/data", label: "Data", exact: false },
+  { to: "/settings/api", label: "API", exact: false },
 ] as const;
 
 function SettingsLayout() {
