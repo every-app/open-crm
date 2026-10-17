@@ -2,7 +2,7 @@ import {
   createStartHandler,
   defaultStreamHandler,
 } from "@tanstack/react-start/server";
-import { everyApp } from "@every-app/sdk/server";
+import { everyApp, type EveryAppUser } from "@every-app/sdk/server";
 import { withPgClient } from "@/db";
 import { runCron } from "@/server/cron";
 import { withoutCookies } from "@/server/everyapp/cookies";
@@ -40,8 +40,16 @@ async function appFetch(request: Request): Promise<Response> {
 function routeAppRequest(
   request: Request,
   env: Env,
+  user: EveryAppUser | null,
 ): Response | Promise<Response> {
   const pathname = new URL(request.url).pathname;
+  // The REST API (docs/maintainers/rest-api.md), for scripts with a member's
+  // personal access token. Loaded on its first request only.
+  if (pathname.startsWith("/api/v1/")) {
+    return import("@/server/api/handler").then(({ handleApiRequest }) =>
+      handleApiRequest(request, user),
+    );
+  }
   // The agent's chats (WebSocket and history) and its Durable Objects.
   if (pathname.startsWith("/agents/")) {
     return routeAgentRequests(request, env);
@@ -70,7 +78,7 @@ async function handleRequest(
   return withoutCookies(
     await everyApp<Env>((verified, _env, _ctx, user) =>
       serveEveryAppRequest(verified, user, () =>
-        routeAppRequest(verified, env),
+        routeAppRequest(verified, env, user),
       ),
     ).fetch(request, env, ctx),
   );
