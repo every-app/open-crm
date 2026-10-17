@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { activityKeys } from "@/client/features/activities/activityQueries";
 import { companyKeys } from "@/client/features/companies/companyQueries";
+import { contactKeys } from "@/client/features/contacts/contactQueries";
 import { dashboardKeys } from "@/client/features/dashboard/dashboardQueries";
 import { dealKeys } from "@/client/features/deals/dealQueries";
 import {
@@ -24,8 +25,8 @@ import type { SetDealStageInput } from "@/types/schemas/deals";
 export type DealPatch = Omit<Parameters<typeof updateDeal>[0]["data"], "id">;
 
 /**
- * Deals, the companies whose sheets and counts show them, the timelines a
- * stage move lands on, and Home's figures.
+ * Deals, the companies and contacts whose sheets and counts show them, the
+ * timelines a stage move lands on, and Home's figures.
  */
 export function useInvalidateDeals() {
   const queryClient = useQueryClient();
@@ -33,6 +34,7 @@ export function useInvalidateDeals() {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: dealKeys.all }),
       queryClient.invalidateQueries({ queryKey: companyKeys.all }),
+      queryClient.invalidateQueries({ queryKey: contactKeys.all }),
       queryClient.invalidateQueries({ queryKey: activityKeys.all }),
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
     ]);

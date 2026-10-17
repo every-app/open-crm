@@ -1,7 +1,5 @@
 import type { MutableRefObject, ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
-import { cn } from "cn";
 import { SortableHeader } from "@/client/components/table/SortableHeader";
 import { makeSelectionColumn } from "@/client/components/table/DataTable";
 import type { SelectionAnchor } from "@/client/components/table/tableSelection";
@@ -11,6 +9,7 @@ import {
   EnrichmentIndicator,
   hasAgentNote,
 } from "@/client/features/records/EnrichmentStatus";
+import { RecordLink } from "@/client/features/records/RecordLink";
 import {
   EmptyValue,
   EntityLogo,
@@ -18,7 +17,11 @@ import {
   PersonAvatar,
   dateColumn,
   ownerColumn,
+  recordDateColumns,
 } from "@/client/features/records/cells";
+
+/** The columns the contacts list hides until the Columns menu shows them. */
+export const CONTACT_HIDDEN_COLUMNS = ["createdAt"];
 
 /**
  * A text column the server sorts, blanks last either way. Its value doubles
@@ -28,6 +31,7 @@ function sortableColumn(options: {
   id: "title" | "email" | "company";
   header: string;
   value: (row: ContactRow) => string | null;
+  width: string;
   cell?: (row: ContactRow) => ReactNode;
   className?: string;
 }): ColumnDef<ContactRow> {
@@ -38,7 +42,11 @@ function sortableColumn(options: {
     header: ({ column }) => (
       <SortableHeader column={column} label={options.header} />
     ),
-    meta: { cellClassName: cn("max-w-56", options.className) },
+    meta: {
+      label: options.header,
+      width: options.width,
+      cellClassName: options.className,
+    },
     cell: ({ row }) => {
       const value = options.value(row.original);
       if (!value) return <EmptyValue />;
@@ -52,9 +60,8 @@ function sortableColumn(options: {
 }
 
 /**
- * The contacts table. Name, title, email, company, last activity and created
- * date sort on the server; the page adds the custom field columns
- * (useFieldColumns) after these.
+ * The contacts table. Every column sorts on the server; the page adds the
+ * custom field columns (useFieldColumns) after these.
  */
 export function contactColumns({
   archived,
@@ -69,24 +76,17 @@ export function contactColumns({
       id: "name",
       accessorFn: (row) => fullName(row),
       enableSorting: true,
+      enableHiding: false,
       header: ({ column }) => <SortableHeader column={column} label="Name" />,
-      meta: { cellClassName: "max-w-72" },
+      meta: { width: "w-[20%]" },
       cell: ({ row }) => {
         const contact = row.original;
         const name = fullName(contact);
         return (
           <div className="min-w-0 space-y-0.5">
-            <Link
-              from="/contacts"
-              to="/contacts"
-              search={(prev) => ({
-                ...prev,
-                record: contact.id,
-                tab: undefined,
-              })}
-              // The row opens it too; one navigation is enough.
-              onClick={(event) => event.stopPropagation()}
-              className="block min-w-0 underline-offset-4 hover:underline"
+            <RecordLink
+              record={{ kind: "contact", id: contact.id }}
+              className="block"
             >
               <NameCell
                 media={
@@ -94,7 +94,7 @@ export function contactColumns({
                 }
                 name={name}
               />
-            </Link>
+            </RecordLink>
             {hasAgentNote(contact) ? (
               <div className="pl-7.5">
                 <EnrichmentIndicator
@@ -112,17 +112,20 @@ export function contactColumns({
       id: "title",
       header: "Title",
       value: (row) => row.title,
+      width: "w-[17%]",
     }),
     sortableColumn({
       id: "email",
       header: "Email",
       value: (row) => row.email,
+      width: "w-[20%]",
       className: "text-muted-foreground",
     }),
     sortableColumn({
       id: "company",
       header: "Company",
       value: (row) => row.company?.name ?? null,
+      width: "w-[17%]",
       cell: ({ company }) =>
         company ? (
           <span className="flex min-w-0 items-center gap-2">
@@ -137,24 +140,14 @@ export function contactColumns({
           </span>
         ) : null,
     }),
-    ownerColumn(),
+    ownerColumn("w-[14%]"),
     dateColumn({
       id: "lastActivity",
       header: "Last activity",
       value: (row) => row.lastActivityAt,
       sortable: true,
+      width: "w-[12%]",
     }),
-    archived
-      ? dateColumn({
-          id: "archivedAt",
-          header: "Archived",
-          value: (row) => row.archivedAt,
-        })
-      : dateColumn({
-          id: "createdAt",
-          header: "Created",
-          value: (row) => row.createdAt,
-          sortable: true,
-        }),
+    ...recordDateColumns<ContactRow>(archived),
   ];
 }

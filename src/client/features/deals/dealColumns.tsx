@@ -1,5 +1,4 @@
 import type { MutableRefObject } from "react";
-import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { makeSelectionColumn } from "@/client/components/table/DataTable";
 import { SortableHeader } from "@/client/components/table/SortableHeader";
@@ -11,14 +10,18 @@ import { RecordLink } from "@/client/features/records/RecordLink";
 import {
   EmptyValue,
   EntityLogo,
-  OwnerCell,
   dateColumn,
+  ownerColumn,
+  recordDateColumns,
 } from "@/client/features/records/cells";
 
+/** The columns the deals list hides until the Columns menu shows them. */
+export const DEAL_HIDDEN_COLUMNS = ["createdAt"];
+
 /**
- * The deals table. Every column but the archive date sorts on the server;
- * the amount sorts by its value in the reporting currency, the only figure
- * that compares across currencies.
+ * The deals table. Every column sorts on the server; the amount by its
+ * value in the reporting currency, the only figure that compares across
+ * currencies.
  */
 export function dealColumns({
   archived,
@@ -33,23 +36,16 @@ export function dealColumns({
       id: "name",
       accessorFn: (row) => row.name,
       enableSorting: true,
+      enableHiding: false,
       header: ({ column }) => <SortableHeader column={column} label="Deal" />,
-      meta: { cellClassName: "max-w-64" },
+      meta: { width: "w-[21%]" },
       cell: ({ row }) => (
-        <Link
-          from="/deals"
-          to="/deals"
-          search={(prev) => ({
-            ...prev,
-            record: row.original.id,
-            tab: undefined,
-          })}
-          // The row opens it too; one navigation is enough.
-          onClick={(event) => event.stopPropagation()}
-          className="block truncate font-medium underline-offset-4 hover:underline"
+        <RecordLink
+          record={{ kind: "deal", id: row.original.id }}
+          className="block font-medium"
         >
           {row.original.name}
-        </Link>
+        </RecordLink>
       ),
     },
     {
@@ -59,7 +55,7 @@ export function dealColumns({
       header: ({ column }) => (
         <SortableHeader column={column} label="Company" />
       ),
-      meta: { cellClassName: "max-w-52" },
+      meta: { label: "Company", width: "w-[16%]" },
       cell: ({ row }) => {
         const { company } = row.original;
         return (
@@ -72,14 +68,9 @@ export function dealColumns({
               size="sm"
             />
             {/* The link opens the company, not the deal the row opens. */}
-            <span
-              className="min-w-0 truncate"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <RecordLink record={{ kind: "company", id: company.id }}>
-                {company.name}
-              </RecordLink>
-            </span>
+            <RecordLink record={{ kind: "company", id: company.id }}>
+              {company.name}
+            </RecordLink>
           </span>
         );
       },
@@ -89,7 +80,7 @@ export function dealColumns({
       accessorFn: (row) => row.stage,
       enableSorting: true,
       header: ({ column }) => <SortableHeader column={column} label="Stage" />,
-      meta: { cellClassName: "max-w-48" },
+      meta: { label: "Stage", width: "w-[15%]" },
       cell: ({ row }) => (
         <DealStageMenu dealId={row.original.id} stage={row.original.stage} />
       ),
@@ -102,7 +93,11 @@ export function dealColumns({
       header: ({ column }) => (
         <SortableHeader column={column} label="Amount" align="right" />
       ),
-      meta: { cellClassName: "text-right whitespace-nowrap" },
+      meta: {
+        label: "Amount",
+        width: "w-[11%]",
+        cellClassName: "text-right whitespace-nowrap",
+      },
       cell: ({ row }) =>
         row.original.amount === null ? (
           <EmptyValue />
@@ -112,14 +107,7 @@ export function dealColumns({
           </span>
         ),
     },
-    {
-      id: "owner",
-      accessorFn: (row) => row.owner.name,
-      enableSorting: true,
-      header: ({ column }) => <SortableHeader column={column} label="Owner" />,
-      meta: { cellClassName: "max-w-44" },
-      cell: ({ row }) => <OwnerCell owner={row.original.owner} />,
-    },
+    ownerColumn("w-[13%]"),
     {
       id: "expectedCloseDate",
       accessorFn: (row) => row.expectedCloseDate,
@@ -128,6 +116,8 @@ export function dealColumns({
         <SortableHeader column={column} label="Close date" align="right" />
       ),
       meta: {
+        label: "Close date",
+        width: "w-[12%]",
         cellClassName: "text-right whitespace-nowrap text-muted-foreground",
       },
       cell: ({ row }) =>
@@ -142,18 +132,8 @@ export function dealColumns({
       header: "Last activity",
       value: (row) => row.lastActivityAt,
       sortable: true,
+      width: "w-[12%]",
     }),
-    archived
-      ? dateColumn({
-          id: "archivedAt",
-          header: "Archived",
-          value: (row) => row.archivedAt,
-        })
-      : dateColumn({
-          id: "createdAt",
-          header: "Created",
-          value: (row) => row.createdAt,
-          sortable: true,
-        }),
+    ...recordDateColumns<DealRow>(archived),
   ];
 }

@@ -13,67 +13,30 @@ import { EnrichmentIndicator } from "@/client/features/records/EnrichmentStatus"
 import { RecordActionsMenu } from "@/client/features/records/RecordActionsMenu";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import {
-  RecordSheet,
   RecordSheetFrame,
   SheetStat,
   SheetStats,
-  useShownRecordId,
 } from "@/client/features/records/RecordSheet";
+import { useRecordStack } from "@/client/features/records/recordStack";
 import {
   EmptyValue,
   EntityLogo,
   OwnerCell,
   PersonAvatar,
 } from "@/client/features/records/cells";
-import type { RecordTab } from "@/client/features/records/listSearch";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
 
-/** The contact whose id is in the list's URL, in a sheet over the list. */
-export function ContactSheet({
-  contactId,
-  tab,
-  onTabChange,
-  onClose,
-}: {
-  contactId: string | undefined;
-  tab: RecordTab;
-  onTabChange: (tab: RecordTab) => void;
-  onClose: () => void;
-}) {
-  const shownId = useShownRecordId(contactId);
-  return (
-    <RecordSheet open={contactId !== undefined} onClose={onClose}>
-      {shownId ? (
-        <ContactSheetContent
-          key={shownId}
-          contactId={shownId}
-          tab={tab}
-          onTabChange={onTabChange}
-          onClose={onClose}
-        />
-      ) : null}
-    </RecordSheet>
-  );
-}
-
-function ContactSheetContent({
-  contactId,
-  tab,
-  onTabChange,
-  onClose,
-}: {
-  contactId: string;
-  tab: RecordTab;
-  onTabChange: (tab: RecordTab) => void;
-  onClose: () => void;
-}) {
+/** A contact's sheet, over whatever page opened it (RecordSheetHost). */
+export function ContactSheet({ contactId }: { contactId: string }) {
   const query = useQuery(contactQueryOptions(contactId));
   const workspace = useQuery(workspaceQueryOptions());
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
-  const mutations = useContactMutations(contactId, { onPurged: onClose });
+  const { back } = useRecordStack();
+  // Deleted forever: their sheet goes, and the one under it shows again.
+  const mutations = useContactMutations(contactId, { onPurged: back });
   const contact = query.data;
 
   return (
@@ -113,8 +76,6 @@ function ContactSheetContent({
         ) : undefined
       }
       stats={contact ? <ContactStats contact={contact} /> : undefined}
-      tab={tab}
-      onTabChange={onTabChange}
       overview={
         contact ? (
           <ContactOverview contact={contact} mutations={mutations} />
@@ -146,7 +107,7 @@ function ContactActions({
         {mutations.enrich.isPending ? null : (
           <RefreshCw data-icon="inline-start" />
         )}
-        <span className="max-sm:sr-only">Enrich now</span>
+        <span className="max-sm:sr-only">Re-enrich</span>
       </Button>
       {contact.email ? (
         <Button
@@ -163,7 +124,6 @@ function ContactActions({
         <Button
           variant="outline"
           size="sm"
-          title={`Make ${contact.firstName} ${company.name}'s primary contact`}
           pending={mutations.setPrimary.isPending}
           onClick={() => mutations.setPrimary.mutate(company.id)}
         >
@@ -284,6 +244,6 @@ function purgeConsequence(contact: Contact): string {
   const gone =
     "Their notes, agent conversations and everything the agent found go too; emails and meetings stay filed against the company.";
   return contact.email
-    ? `${gone} Captured mail will not bring ${contact.email} back: only adding them yourself will.`
+    ? `${gone} The sync will not bring ${contact.email} back — only adding them yourself will.`
     : gone;
 }

@@ -44,7 +44,7 @@ export function DealContacts({
     <SheetSection
       title={`Contacts (${deal.contacts.length})`}
       action={
-        adding ? null : (
+        adding || deal.contacts.length === 0 ? null : (
           <Button variant="ghost" size="xs" onClick={() => setAdding(true)}>
             <Plus data-icon="inline-start" />
             Add contact
@@ -63,7 +63,17 @@ export function DealContacts({
         adding ? null : (
           <SheetEmpty
             title="No contacts on this deal"
-            description={`Nobody from ${deal.company.name} is on it yet. Bring the people you are selling to onto the deal and it says who to chase.`}
+            description={`Nobody from ${deal.company.name} is attached yet. Bring the people you are selling to onto the deal and it says who to chase.`}
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAdding(true)}
+              >
+                <Plus data-icon="inline-start" />
+                Add contact
+              </Button>
+            }
           />
         )
       ) : (
@@ -197,7 +207,7 @@ function AddDealContact({
                         options.isPending
                           ? "Loading…"
                           : nobody
-                            ? `No one else at ${deal.company.name} to add`
+                            ? `Everybody at ${deal.company.name} is already on it`
                             : "Choose somebody"
                       }
                     />

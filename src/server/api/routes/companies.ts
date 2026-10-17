@@ -26,7 +26,7 @@ export const companyRoutes = [
     path: "/companies/search",
     tag,
     summary:
-      "List companies: search, owner, archived and custom field filters, sorting and paging, as the Companies list takes them.",
+      "List companies: search, owner, industry, enrichment, activity, archived and custom field filters, sorting and paging, as the Companies list takes them.",
     input: companyListSchema,
     handler: (data, context) =>
       CompanyService.listCompanies(context.organizationId, data),

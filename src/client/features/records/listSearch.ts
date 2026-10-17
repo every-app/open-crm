@@ -1,27 +1,32 @@
 import { useState } from "react";
-import type { OnChangeFn, RowSelectionState } from "@tanstack/react-table";
+import type {
+  OnChangeFn,
+  RowSelectionState,
+  VisibilityState,
+} from "@tanstack/react-table";
 import { z } from "zod";
+import type { RecordTab } from "@/client/features/records/recordStack";
 import { fieldFiltersSchema, type FieldFilters } from "@/types/schemas/fields";
 import {
+  ACTIVITY_WINDOWS,
+  FACET_FILTER_MAX,
   LIST_PAGE_SIZE,
   SORT_DIRECTIONS,
+  type ActivityWindow,
   type SortDirection,
 } from "@/types/schemas/records";
 
 // A record list's state lives in its URL, so a link (or the back button)
 // brings back the same search, filters (custom field ones included), sort,
-// page and open record. Each list route validates `recordListSearchSchema`
-// extended with its own sort keys:
+// hidden columns and page. Each list route validates `recordListSearchSchema`
+// extended with its own sort keys and filters:
 //
 //   validateSearch: recordListSearchSchema.extend({
 //     sort: z.enum(COMPANY_SORTS).optional().catch(undefined),
 //   })
 //
-// A saved view is that state without the page and the open record
+// A saved view is that state without the page and the open sheets
 // (`savedViewOf`), parsed back with the same schema when it's applied.
-
-export const RECORD_TABS = ["overview", "activity", "agent"] as const;
-export type RecordTab = (typeof RECORD_TABS)[number];
 
 // The router reads `?q=42` (or an id of digits) as a number: keep it text.
 const textParam = z
@@ -29,6 +34,28 @@ const textParam = z
   .transform(String)
   .optional()
   .catch(undefined);
+
+/** A filter's chosen values; one that doesn't parse drops the filter. */
+export const valuesParam = z
+  .array(z.union([z.string(), z.number()]).transform(String))
+  .max(FACET_FILTER_MAX)
+  .optional()
+  .catch(undefined);
+
+/** The Activity filter's windows, in days. */
+export const ACTIVITY_DAYS = [7, 30, 90] as const;
+
+/** The Activity filter: its days, a number in the URL (`?activity=30`). */
+export const activityParam = z.coerce
+  .number()
+  .pipe(z.literal([...ACTIVITY_DAYS]))
+  .optional()
+  .catch(undefined);
+
+/** The list input's Activity filter, from the URL's. */
+export function activityWindow(days: number | undefined) {
+  return ACTIVITY_WINDOWS.find((window) => window === String(days));
+}
 
 /**
  * Custom field filters by field key, each checked on its own against the
@@ -50,8 +77,8 @@ const fieldFiltersParam = z
 
 /**
  * Every param is optional and a value that doesn't parse is dropped, so a
- * stale or hand-edited link still opens the list. `record` is the id of the
- * record whose sheet is open over the list, and `tab` the sheet's tab.
+ * stale or hand-edited link still opens the list. `hide` is the columns the
+ * Columns menu hid; absent, the list's own default ones are hidden.
  */
 export const recordListSearchSchema = z.object({
   q: textParam,
@@ -60,8 +87,7 @@ export const recordListSearchSchema = z.object({
   fields: fieldFiltersParam,
   dir: z.enum(SORT_DIRECTIONS).optional().catch(undefined),
   page: z.coerce.number().int().positive().optional().catch(undefined),
-  record: textParam,
-  tab: z.enum(RECORD_TABS).optional().catch(undefined),
+  hide: z.array(z.string()).optional().catch(undefined),
 });
 
 export type RecordListSearch = z.infer<typeof recordListSearchSchema>;
@@ -71,33 +97,65 @@ export function listInputFromSearch<TSort extends string>(
   search: RecordListSearch & { sort?: TSort },
   defaults: { sort: TSort; dir: SortDirection },
 ) {
+  const archived = search.archived ?? false;
+  // The Archived column, and its sort, are the Archived view's alone.
+  const sort =
+    search.sort === "archivedAt" && !archived ? undefined : search.sort;
   return {
     q: search.q?.trim() ?? "",
     owner: search.owner ?? [],
-    archived: search.archived ?? false,
+    archived,
     fields: search.fields ?? {},
-    sort: search.sort ?? defaults.sort,
-    dir: search.dir ?? (search.sort ? "asc" : defaults.dir),
+    sort: sort ?? defaults.sort,
+    dir: search.dir ?? (sort ? "asc" : defaults.dir),
     page: search.page ?? 1,
     pageSize: LIST_PAGE_SIZE,
   };
 }
 
-/** Whether the search or a filter narrows the list (not the view or sort). */
-export function isListFiltered(search: RecordListSearch): boolean {
-  return (
-    Boolean(search.q?.trim()) ||
-    (search.owner?.length ?? 0) > 0 ||
-    Object.keys(search.fields ?? {}).length > 0
-  );
+/** The Activity filter's choices, as the CRM words them. */
+export const ACTIVITY_OPTIONS: { value: ActivityWindow; label: string }[] = [
+  { value: "7", label: "Active within 7 days" },
+  { value: "30", label: "Active within 30 days" },
+  { value: "90", label: "Active within 90 days" },
+];
+
+/** The URL params every list filters by, besides its own. */
+export const SHARED_FILTER_KEYS = ["q", "owner", "fields"] as const;
+
+/** Whether any of `keys` (a list's filter params) narrows the list. */
+export function isListFiltered(
+  search: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  return keys.some((key) => {
+    const value = search[key];
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "string") return value.trim() !== "";
+    if (value && typeof value === "object")
+      return Object.keys(value).length > 0;
+    return value !== undefined;
+  });
 }
 
+/** The URL update that clears every filter in `keys`, on the first page. */
+export function clearedFilters<TKey extends string>(
+  keys: readonly TKey[],
+): Partial<Record<TKey | "page", undefined>> {
+  const cleared: Partial<Record<TKey | "page", undefined>> = {};
+  for (const key of [...keys, "page" as const]) cleared[key] = undefined;
+  return cleared;
+}
+
+/** The sheets open over the list (RecordSheetHost's params). */
+type SheetSearch = { record?: string; tab?: RecordTab };
+
 /**
- * What a saved view keeps of a list's URL: its search, filters and sort, not
- * the page or the record open over it.
+ * What a saved view keeps of a list's URL: its search, filters, sort and
+ * columns, not the page or the sheets open over it.
  */
 export function savedViewOf<TSearch extends RecordListSearch>(
-  search: TSearch,
+  search: TSearch & SheetSearch,
 ): Omit<TSearch, "page" | "record" | "tab"> {
   const { page: _page, record: _record, tab: _tab, ...view } = search;
   return view;
@@ -106,19 +164,44 @@ export function savedViewOf<TSearch extends RecordListSearch>(
 /**
  * A saved view applied: the list's URL becomes what of the view still
  * parses with the list's own schema (a view outlives the shape it was saved
- * in), on the first page, the record open over the list left open.
+ * in), on the first page, the sheets open over the list left open.
  */
 export function searchFromSavedView<TSearch extends RecordListSearch>(
   schema: { parse: (filters: unknown) => TSearch },
   filters: Record<string, unknown>,
-  current: TSearch,
-): TSearch {
+  current: SheetSearch,
+): TSearch & SheetSearch {
   return {
     ...schema.parse(filters),
     page: undefined,
     record: current.record,
     tab: current.tab,
   };
+}
+
+/**
+ * The table's column visibility from the URL's `hide` (the list's default
+ * hidden columns when it has none), and a change to it written back: no
+ * `hide` once it's the default again.
+ */
+export function columnVisibility(
+  hide: string[] | undefined,
+  defaults: readonly string[],
+  onHide: (hide: string[] | undefined) => void,
+) {
+  const hidden = hide ?? defaults;
+  const state: VisibilityState = Object.fromEntries(
+    hidden.map((id) => [id, false]),
+  );
+  const onChange: OnChangeFn<VisibilityState> = (updater) => {
+    const next = typeof updater === "function" ? updater(state) : updater;
+    const nextHidden = Object.keys(next).filter((id) => !next[id]);
+    const isDefault =
+      nextHidden.length === defaults.length &&
+      defaults.every((id) => nextHidden.includes(id));
+    onHide(isDefault ? undefined : nextHidden);
+  };
+  return { state, onChange };
 }
 
 /**

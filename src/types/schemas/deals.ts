@@ -16,6 +16,7 @@ export const DEAL_SORTS = [
   "expectedCloseDate",
   "lastActivity",
   "createdAt",
+  "archivedAt",
 ] as const;
 export type DealSort = (typeof DEAL_SORTS)[number];
 

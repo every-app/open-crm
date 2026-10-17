@@ -84,6 +84,13 @@ export type CompanyListRow = Awaited<
   ReturnType<typeof listCompanies>
 >["rows"][number];
 
+/** What the list's Industry filter offers, in its live or Archived view. */
+async function filterOptions(organizationId: string, archived: boolean) {
+  return {
+    industries: await CompanyRepository.industries(organizationId, archived),
+  };
+}
+
 /** A company with what its sheet shows: owner, people, deals, queue state. */
 async function getCompany(organizationId: string, id: string) {
   const { organizationId: _, ...found } = await requireCompany(
@@ -408,6 +415,7 @@ async function companyForEmail(
 
 export const CompanyService = {
   listCompanies,
+  filterOptions,
   getCompany,
   companyOptions,
   createCompany,

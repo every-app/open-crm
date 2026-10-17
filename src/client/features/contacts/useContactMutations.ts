@@ -115,8 +115,8 @@ export function useContactMutations(
     onSuccess: async (result) => {
       toast.success(
         result.queued
-          ? "The agent is taking another look. This updates when it finishes."
-          : "The agent is already on it.",
+          ? "Taking another look — this page will update when it finishes."
+          : "Already running.",
       );
       await invalidate();
     },

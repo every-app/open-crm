@@ -36,12 +36,8 @@ export function closeDay(value: string | null): string | null {
   return value ? value.slice(0, 10) : null;
 }
 
-/** "Acme stays in the CRM", for what deleting a deal forever leaves behind. */
+/** What deleting a deal forever takes with it, and what it leaves. */
 export function purgeConsequence(deal: Deal): string {
-  const people = deal.contacts.length;
-  const stays =
-    people === 0
-      ? `${deal.company.name} stays in the CRM.`
-      : `${deal.company.name} and the ${people === 1 ? "person" : `${people} people`} on it stay in the CRM.`;
-  return `Its stage history, notes and agent conversations go too. ${stays}`;
+  const people = deal.contacts.length === 1 ? "person" : "people";
+  return `Its stage history, notes and agent conversations go too. ${deal.company.name} and the ${people} on it stay in the CRM.`;
 }

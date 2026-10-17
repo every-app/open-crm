@@ -17,66 +17,29 @@ import {
 import { RecordActionsMenu } from "@/client/features/records/RecordActionsMenu";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import {
-  RecordSheet,
   RecordSheetFrame,
   SheetStat,
   SheetStats,
-  useShownRecordId,
 } from "@/client/features/records/RecordSheet";
+import { useRecordStack } from "@/client/features/records/recordStack";
 import {
   EmptyValue,
   EntityLogo,
   OwnerCell,
 } from "@/client/features/records/cells";
-import type { RecordTab } from "@/client/features/records/listSearch";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
 
-/** The deal whose id is in the list's URL, in a sheet over the list. */
-export function DealSheet({
-  dealId,
-  tab,
-  onTabChange,
-  onClose,
-}: {
-  dealId: string | undefined;
-  tab: RecordTab;
-  onTabChange: (tab: RecordTab) => void;
-  onClose: () => void;
-}) {
-  const shownId = useShownRecordId(dealId);
-  return (
-    <RecordSheet open={dealId !== undefined} onClose={onClose}>
-      {shownId ? (
-        <DealSheetContent
-          key={shownId}
-          dealId={shownId}
-          tab={tab}
-          onTabChange={onTabChange}
-          onClose={onClose}
-        />
-      ) : null}
-    </RecordSheet>
-  );
-}
-
-function DealSheetContent({
-  dealId,
-  tab,
-  onTabChange,
-  onClose,
-}: {
-  dealId: string;
-  tab: RecordTab;
-  onTabChange: (tab: RecordTab) => void;
-  onClose: () => void;
-}) {
+/** A deal's sheet, over whatever page opened it (RecordSheetHost). */
+export function DealSheet({ dealId }: { dealId: string }) {
   const query = useQuery(dealQueryOptions(dealId));
   const workspace = useQuery(workspaceQueryOptions());
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
-  const mutations = useDealMutations(dealId, { onPurged: onClose });
+  const { back } = useRecordStack();
+  // Deleted forever: its sheet goes, and the one under it shows again.
+  const mutations = useDealMutations(dealId, { onPurged: back });
   const deal = query.data;
 
   return (
@@ -144,8 +107,6 @@ function DealSheetContent({
         ) : undefined
       }
       stats={deal ? <DealStats deal={deal} /> : undefined}
-      tab={tab}
-      onTabChange={onTabChange}
       overview={
         deal ? <DealOverview deal={deal} mutations={mutations} /> : null
       }

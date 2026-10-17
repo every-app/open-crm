@@ -95,6 +95,14 @@ export type ContactListRow = Awaited<
 >["rows"][number];
 
 /**
+ * What the list's Title, Seniority and Persona filters offer, in its live or
+ * Archived view.
+ */
+async function filterOptions(organizationId: string, archived: boolean) {
+  return ContactRepository.filterValues(organizationId, archived);
+}
+
+/**
  * A contact with what its sheet shows: owner, company, the agent's brief
  * and open facts, the deals they're on, the colleagues and mail around them,
  * and whether the agent is queued for them.
@@ -393,6 +401,7 @@ function bulkPurge(organizationId: string, ids: string[]) {
 
 export const ContactService = {
   listContacts,
+  filterOptions,
   getContact,
   createContact,
   updateContact,

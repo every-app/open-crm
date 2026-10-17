@@ -32,6 +32,7 @@ vi.mock("@/db/runBatch", () => ({
     databases[current.dialect].runBatch(build),
 }));
 
+import { companyListSchema } from "@/types/schemas/companies";
 import { CompanyService } from "./CompanyService";
 
 const A = "org_a";
@@ -55,17 +56,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       organizationId: string,
       input: Record<string, unknown> = {},
     ) => {
-      const { rows } = await CompanyService.listCompanies(organizationId, {
-        q: "",
-        owner: [],
-        archived: false,
-        fields: {},
-        sort: "name",
-        dir: "asc",
-        page: 1,
-        pageSize: 25,
-        ...input,
-      });
+      const { rows } = await CompanyService.listCompanies(
+        organizationId,
+        companyListSchema.parse({ sort: "name", dir: "asc", ...input }),
+      );
       return rows.map((row) => row.name);
     };
 
@@ -139,16 +133,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await CompanyService.bulkArchive(A, [beta.id]);
       expect(await names(A)).toEqual(["Acme", "Gamma"]);
       expect(await names(A, { archived: true })).toEqual(["beta labs"]);
-      const { total } = await CompanyService.listCompanies(A, {
-        q: "",
-        owner: [],
-        archived: false,
-        fields: {},
-        sort: "name",
-        dir: "asc",
-        page: 2,
-        pageSize: 1,
-      });
+      const { total } = await CompanyService.listCompanies(
+        A,
+        companyListSchema.parse({ sort: "name", page: 2, pageSize: 1 }),
+      );
       expect(total).toBe(2);
     });
 
@@ -162,16 +150,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         INSERT INTO deal (id, organization_id, name, company_id, owner_id, stage, archived_at) VALUES ('d3', 'org_a', 'Dead', '${acme.id}', 'user_a', 'DEMO_BOOKED', '2026-10-01T00:00:00.000Z');
       `);
 
-      const { rows } = await CompanyService.listCompanies(A, {
-        q: "",
-        owner: [],
-        archived: false,
-        fields: {},
-        sort: "createdAt",
-        dir: "desc",
-        page: 1,
-        pageSize: 25,
-      });
+      const { rows } = await CompanyService.listCompanies(
+        A,
+        companyListSchema.parse({}),
+      );
       expect(rows[0]).toMatchObject({ contactCount: 1, openDealCount: 1 });
 
       const company = await CompanyService.getCompany(A, acme.id);

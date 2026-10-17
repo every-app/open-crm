@@ -17,6 +17,9 @@ import { Route as AppCompaniesRouteImport } from './routes/_app/companies'
 import { Route as AppContactsRouteImport } from './routes/_app/contacts'
 import { Route as AppDealsRouteImport } from './routes/_app/deals'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
+import { Route as AppCompaniesCompanyIdRouteImport } from './routes/_app/companies_.$companyId'
+import { Route as AppContactsContactIdRouteImport } from './routes/_app/contacts_.$contactId'
+import { Route as AppDealsDealIdRouteImport } from './routes/_app/deals_.$dealId'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/api-keys'
 import { Route as AppSettingsConnectionsRouteImport } from './routes/_app/settings/connections'
@@ -67,6 +70,21 @@ const AppDealsRoute = AppDealsRouteImport.update({
 const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppCompaniesCompanyIdRoute = AppCompaniesCompanyIdRouteImport.update({
+  id: '/companies_/$companyId',
+  path: '/companies/$companyId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppContactsContactIdRoute = AppContactsContactIdRouteImport.update({
+  id: '/contacts_/$contactId',
+  path: '/contacts/$contactId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppDealsDealIdRoute = AppDealsDealIdRouteImport.update({
+  id: '/deals_/$dealId',
+  path: '/deals/$dealId',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
@@ -144,6 +162,9 @@ export interface FileRoutesByFullPath {
   '/companies': typeof AppCompaniesRoute
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
+  '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
+  '/contacts/$contactId': typeof AppContactsContactIdRoute
+  '/deals/$dealId': typeof AppDealsDealIdRoute
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
@@ -164,6 +185,9 @@ export interface FileRoutesByTo {
   '/companies': typeof AppCompaniesRoute
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
+  '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
+  '/contacts/$contactId': typeof AppContactsContactIdRoute
+  '/deals/$dealId': typeof AppDealsDealIdRoute
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
@@ -188,6 +212,9 @@ export interface FileRoutesById {
   '/_app/contacts': typeof AppContactsRoute
   '/_app/deals': typeof AppDealsRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/companies_/$companyId': typeof AppCompaniesCompanyIdRoute
+  '/_app/contacts_/$contactId': typeof AppContactsContactIdRoute
+  '/_app/deals_/$dealId': typeof AppDealsDealIdRoute
   '/_app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/_app/settings/connections': typeof AppSettingsConnectionsRoute
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
@@ -211,6 +238,9 @@ export interface FileRouteTypes {
     | '/companies'
     | '/contacts'
     | '/deals'
+    | '/companies/$companyId'
+    | '/contacts/$contactId'
+    | '/deals/$dealId'
     | '/settings/api-keys'
     | '/settings/connections'
     | '/settings/currencies'
@@ -231,6 +261,9 @@ export interface FileRouteTypes {
     | '/companies'
     | '/contacts'
     | '/deals'
+    | '/companies/$companyId'
+    | '/contacts/$contactId'
+    | '/deals/$dealId'
     | '/settings/api-keys'
     | '/settings/connections'
     | '/settings/currencies'
@@ -254,6 +287,9 @@ export interface FileRouteTypes {
     | '/_app/contacts'
     | '/_app/deals'
     | '/_app/'
+    | '/_app/companies_/$companyId'
+    | '/_app/contacts_/$contactId'
+    | '/_app/deals_/$dealId'
     | '/_app/settings/api-keys'
     | '/_app/settings/connections'
     | '/_app/settings/currencies'
@@ -332,6 +368,27 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/companies_/$companyId': {
+      id: '/_app/companies_/$companyId'
+      path: '/companies/$companyId'
+      fullPath: '/companies/$companyId'
+      preLoaderRoute: typeof AppCompaniesCompanyIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/contacts_/$contactId': {
+      id: '/_app/contacts_/$contactId'
+      path: '/contacts/$contactId'
+      fullPath: '/contacts/$contactId'
+      preLoaderRoute: typeof AppContactsContactIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/deals_/$dealId': {
+      id: '/_app/deals_/$dealId'
+      path: '/deals/$dealId'
+      fullPath: '/deals/$dealId'
+      preLoaderRoute: typeof AppDealsDealIdRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/settings/': {
@@ -475,6 +532,9 @@ interface AppRouteRouteChildren {
   AppContactsRoute: typeof AppContactsRoute
   AppDealsRoute: typeof AppDealsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppCompaniesCompanyIdRoute: typeof AppCompaniesCompanyIdRoute
+  AppContactsContactIdRoute: typeof AppContactsContactIdRoute
+  AppDealsDealIdRoute: typeof AppDealsDealIdRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
@@ -484,6 +544,9 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppContactsRoute: AppContactsRoute,
   AppDealsRoute: AppDealsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppCompaniesCompanyIdRoute: AppCompaniesCompanyIdRoute,
+  AppContactsContactIdRoute: AppContactsContactIdRoute,
+  AppDealsDealIdRoute: AppDealsDealIdRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(

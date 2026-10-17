@@ -11,11 +11,16 @@ import {
 } from "@/server/features/contacts/services/ContactService";
 import {
   CONTACT_SORTS,
+  NO_COMPANY,
   contactListSchema,
   createContactSchema,
   updateContactSchema,
 } from "@/types/schemas/contacts";
-import { SORT_DIRECTIONS, UNASSIGNED } from "@/types/schemas/records";
+import {
+  FACET_FILTER_MAX,
+  SORT_DIRECTIONS,
+  UNASSIGNED,
+} from "@/types/schemas/records";
 
 // The contacts (people) as an AI client sees them. Owners are named by email
 // here, as a model knows them; the app's own forms use member ids.
@@ -140,6 +145,38 @@ export const contactTools = {
           .describe(
             `Only contacts these members own, by email; "${UNASSIGNED}" for contacts nobody owns.`,
           ),
+        companyIds: z
+          .array(z.string())
+          .max(FACET_FILTER_MAX)
+          .optional()
+          .describe(
+            `Only contacts at these companies, by id from list_companies; "${NO_COMPANY}" for contacts at no company.`,
+          ),
+        titles: z
+          .array(z.string())
+          .max(FACET_FILTER_MAX)
+          .optional()
+          .describe("Only contacts with exactly these titles."),
+        seniorities: z
+          .array(z.string())
+          .max(FACET_FILTER_MAX)
+          .optional()
+          .describe(
+            "Only contacts at these seniorities, as get_contact gives them.",
+          ),
+        personas: z
+          .array(z.string())
+          .max(FACET_FILTER_MAX)
+          .optional()
+          .describe(
+            "Only contacts in these functions (get_contact's `function`).",
+          ),
+        activeWithinDays: z
+          .literal([7, 30, 90])
+          .optional()
+          .describe(
+            "Only contacts with activity in the last 7, 30 or 90 days.",
+          ),
         archived: z
           .boolean()
           .optional()
@@ -166,6 +203,11 @@ export const contactTools = {
         ),
         q: input.query,
         owner: owners,
+        company: input.companyIds,
+        title: input.titles,
+        seniority: input.seniorities,
+        persona: input.personas,
+        activity: input.activeWithinDays?.toString(),
         archived: input.archived,
         sort: input.sort,
         dir: input.direction,

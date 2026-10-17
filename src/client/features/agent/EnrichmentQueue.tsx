@@ -75,17 +75,18 @@ export function EnrichmentQueue() {
     limit,
   });
 
+  const show = (next: boolean) => {
+    setOpen(next);
+    if (next) return;
+    setExpanded(false);
+    setLimit(ENRICHMENT_PAGE);
+  };
+
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) return;
-        setExpanded(false);
-        setLimit(ENRICHMENT_PAGE);
-      }}
-    >
-      <PopoverTrigger render={<Button variant="outline" size="sm" />}>
+    <Popover open={open} onOpenChange={show}>
+      <PopoverTrigger
+        render={<Button variant="outline" size="sm" className="h-8" />}
+      >
         <span
           aria-hidden
           className={cn(
@@ -103,7 +104,7 @@ export function EnrichmentQueue() {
             ? `Enriching ${total}`
             : "Enriching"}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96">
+      <PopoverContent align="start" className="w-96">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <PopoverTitle>
             {paused ? "The agent is paused" : "Enriching now"}
@@ -117,10 +118,7 @@ export function EnrichmentQueue() {
             <p className="text-muted-foreground">
               {availability
                 ? agentPausedReason(availability)
-                : "The agent's model isn't set up."}{" "}
-              {total > 0
-                ? "The records below wait until it is."
-                : "New records will wait until it is."}
+                : "The agent's model isn't set up."}
             </p>
             <AgentSetupLink className="text-foreground underline underline-offset-4" />
           </div>
@@ -139,14 +137,19 @@ export function EnrichmentQueue() {
         ) : visible.length === 0 ? (
           <div className="flex flex-col gap-1 px-6 py-8 text-center">
             <span className="text-sm font-medium">Nothing right now</span>
-            <span className="text-xs text-muted-foreground">
-              {paused
-                ? "New companies and contacts show up here, waiting for the agent."
-                : "New companies and contacts show up here while the agent looks them up."}
-            </span>
+            {paused ? null : (
+              <span className="text-xs text-muted-foreground">
+                New companies and contacts show up here while your agents look
+                them up.
+              </span>
+            )}
           </div>
         ) : (
-          <ul className={cn(expanded && "max-h-80 overflow-y-auto")}>
+          // A row opens its record's sheet over the page: the queue closes.
+          <ul
+            className={cn(expanded && "max-h-80 overflow-y-auto")}
+            onClickCapture={() => show(false)}
+          >
             {visible.map((row) => (
               <QueueRowLink key={row.id} row={row} />
             ))}
@@ -190,6 +193,7 @@ export function EnrichmentQueue() {
           <Booked
             rows={queue.data.scheduled}
             total={queue.data.scheduledTotal}
+            onOpen={() => show(false)}
           />
         ) : null}
       </PopoverContent>
@@ -240,7 +244,16 @@ function QueueRowLink({ row }: { row: QueueRow }) {
 }
 
 /** Records the agent has booked a later look at, soonest first. */
-function Booked({ rows, total }: { rows: ScheduledRow[]; total: number }) {
+function Booked({
+  rows,
+  total,
+  onOpen,
+}: {
+  rows: ScheduledRow[];
+  total: number;
+  /** A row was opened. */
+  onOpen: () => void;
+}) {
   const now = useSeconds();
   return (
     <Collapsible className="border-t border-border">
@@ -256,7 +269,7 @@ function Booked({ rows, total }: { rows: ScheduledRow[]; total: number }) {
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent className="max-h-60 overflow-y-auto border-t border-border">
-        <ul>
+        <ul onClickCapture={onOpen}>
           {rows.map((row) => (
             <li key={row.id} className="border-b border-border last:border-b-0">
               <RecordLink

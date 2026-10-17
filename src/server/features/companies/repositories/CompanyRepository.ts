@@ -2,6 +2,7 @@ import {
   and,
   asc,
   count,
+  desc,
   eq,
   inArray,
   isNotNull,
@@ -16,6 +17,9 @@ import { company, contact, deal, user } from "@/db/schema";
 import type { RecordSource } from "@/shared/crm-enums";
 import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 import {
+  FILTER_OPTIONS_MAX,
+  activityCondition,
+  anyOfCondition,
   archivedCondition,
   ownerCondition,
   pageWindow,
@@ -25,12 +29,6 @@ import {
 } from "@/server/features/records/listQuery";
 import { idChunks } from "@/server/features/records/recordRules";
 import type { CompanyListInput, CompanySort } from "@/types/schemas/companies";
-
-const SORTS = {
-  name: { by: sql`lower(${company.name})` },
-  lastActivity: { by: company.lastActivityAt, nullsLast: true },
-  createdAt: { by: company.createdAt },
-} satisfies Record<CompanySort, SortSpec>;
 
 const ownerColumns = {
   ownerId: company.ownerId,
@@ -80,6 +78,9 @@ function listWhere(
     archivedCondition(company.archivedAt, input.archived),
     searchCondition(input.q, [company.name, company.domain]),
     ownerCondition(company.ownerId, input.owner),
+    anyOfCondition(company.industry, input.industry),
+    anyOfCondition(company.enrichmentStatus, input.enrichment),
+    activityCondition(company.lastActivityAt, input.activity),
     ...fieldConditions,
   );
 }
@@ -95,6 +96,25 @@ const openDealCount =
   sql<number>`(select count(*) from ${deal} where ${deal.organizationId} = ${company.organizationId} and ${deal.companyId} = ${company.id} and ${deal.archivedAt} is null and ${inArray(deal.stage, OPEN_DEAL_STAGES)})`.mapWith(
     Number,
   );
+
+const byName = sql`lower(${company.name})`;
+
+const SORTS = {
+  name: { by: byName },
+  // Domains are stored lowercased.
+  domain: { by: company.domain, nullsLast: true, ties: [byName] },
+  industry: {
+    by: sql`lower(${company.industry})`,
+    nullsLast: true,
+    ties: [byName],
+  },
+  owner: { by: sql`lower(${user.name})`, nullsLast: true, ties: [byName] },
+  contacts: { by: contactCount, ties: [byName] },
+  deals: { by: openDealCount, ties: [byName] },
+  lastActivity: { by: company.lastActivityAt, nullsLast: true },
+  createdAt: { by: company.createdAt },
+  archivedAt: { by: company.archivedAt, nullsLast: true },
+} satisfies Record<CompanySort, SortSpec>;
 
 async function list(
   organizationId: string,
@@ -154,6 +174,27 @@ async function findById(organizationId: string, id: string) {
     .limit(1);
   if (!row) return null;
   return { ...row.company, owner: ownerOf(row) };
+}
+
+/**
+ * The industries of the organization's live (or archived) companies, the
+ * commonest first: what the list's Industry filter offers.
+ */
+async function industries(organizationId: string, archived: boolean) {
+  const rows = await db
+    .select({ value: company.industry })
+    .from(company)
+    .where(
+      and(
+        eq(company.organizationId, organizationId),
+        archivedCondition(company.archivedAt, archived),
+        isNotNull(company.industry),
+      ),
+    )
+    .groupBy(company.industry)
+    .orderBy(desc(count()), asc(company.industry))
+    .limit(FILTER_OPTIONS_MAX);
+  return rows.flatMap((row) => (row.value ? [row.value] : []));
 }
 
 /** Live companies whose name or domain contains `q`, for pickers. */
@@ -361,6 +402,7 @@ async function markEnrichmentRequested(
 export const CompanyRepository = {
   list,
   findById,
+  industries,
   options,
   insert,
   update,

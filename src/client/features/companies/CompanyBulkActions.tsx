@@ -81,6 +81,7 @@ export function CompanyBulkActions({
       onArchive={() => archive.mutate(ids)}
       onRestore={() => restore.mutate(ids)}
       onPurge={() => purge.mutate(ids)}
+      purgeWarning="This cannot be undone."
     />
   );
 }

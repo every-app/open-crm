@@ -90,7 +90,7 @@ export function RecordActionsMenu({
           }}
           onClose={() => setConfirming(false)}
         >
-          {consequence} This cannot be undone.
+          {consequence}
         </ConfirmDialog>
       ) : null}
     </>

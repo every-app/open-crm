@@ -1,18 +1,13 @@
 import type { ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { cn } from "cn";
+import { useRecordStack } from "@/client/features/records/recordStack";
 import type { RecordRef } from "@/shared/records";
 
-/** Each kind of record's list, where its sheet opens. */
-const LIST_ROUTES = {
-  company: "/companies",
-  contact: "/contacts",
-  deal: "/deals",
-} as const;
-
 /**
- * Opens a related record: its sheet over its own list, so the back button
- * returns to the record this link was on.
+ * Opens a record's sheet over the current page, on top of any sheet already
+ * open: that one's Back comes back to it. A link, so it also opens in a new
+ * tab. Inside a clickable row, it opens only its own record.
  */
 export function RecordLink({
   record,
@@ -23,10 +18,13 @@ export function RecordLink({
   className?: string;
   children: ReactNode;
 }) {
+  const { stack, openSearch } = useRecordStack();
   return (
     <Link
-      to={LIST_ROUTES[record.kind]}
-      search={{ record: record.id }}
+      to="."
+      search={openSearch(record)}
+      replace={stack.length > 0}
+      onClick={(event) => event.stopPropagation()}
       className={cn(
         "min-w-0 truncate underline-offset-4 hover:underline",
         className,
@@ -35,14 +33,4 @@ export function RecordLink({
       {children}
     </Link>
   );
-}
-
-/** Opens a record's sheet over its own list from code, as RecordLink does. */
-export function useOpenRecord() {
-  const navigate = useNavigate();
-  return (record: RecordRef) =>
-    void navigate({
-      to: LIST_ROUTES[record.kind],
-      search: { record: record.id },
-    });
 }

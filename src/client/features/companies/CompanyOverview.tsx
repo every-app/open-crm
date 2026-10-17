@@ -1,37 +1,30 @@
-import { ExternalLink, Star } from "lucide-react";
-import { Badge } from "@/client/components/ui/badge";
+import { ExternalLink } from "lucide-react";
+import { cn } from "cn";
 import { Button } from "@/client/components/ui/button";
 import {
-  formatMoney,
   fullName,
   type Company,
 } from "@/client/features/companies/companyFormat";
 import type { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
+import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { RecordFields } from "@/client/features/fields/RecordFields";
-import {
-  AgentSetupLink,
-  useAgentAvailability,
-} from "@/client/features/agent/AgentPaused";
 import { isEnriching } from "@/client/features/records/EnrichmentStatus";
 import {
   InlineField,
   InlineTextArea,
 } from "@/client/features/records/InlineField";
-import {
-  LocalDateTime,
-  LocalDay,
-} from "@/client/features/records/LocalDateTime";
+import { LocalDateTime } from "@/client/features/records/LocalDateTime";
 import { RecordLink } from "@/client/features/records/RecordLink";
-import {
-  SheetEmpty,
-  SheetSection,
-} from "@/client/features/records/RecordSheet";
-import { EmptyValue, PersonAvatar } from "@/client/features/records/cells";
+import { SheetSection } from "@/client/features/records/RecordSheet";
+import { PersonAvatar } from "@/client/features/records/cells";
 import { OwnerField } from "@/client/features/records/owners";
-import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 import { safeHttpUrl } from "@/shared/safe-url";
 import type { UpdateCompanyInput } from "@/types/schemas/companies";
 import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
+import {
+  CompanyContacts,
+  CompanyDeals,
+} from "@/client/features/companies/CompanySections";
 
 type Mutations = ReturnType<typeof useCompanyMutations>;
 type CompanyPatch = Omit<UpdateCompanyInput, "id">;
@@ -64,7 +57,10 @@ export function CompanyOverview({
         />
       </SheetSection>
 
-      <SheetSection title="Details">
+      <SheetSection
+        title="Details"
+        action={<FieldsSheetButton entity="COMPANY" cog />}
+      >
         <div className="space-y-0.5">
           <InlineField
             label="Name"
@@ -125,8 +121,8 @@ export function CompanyOverview({
 
       <CompanyLinks company={company} />
 
-      <SheetSection title="Primary contact">
-        {company.primaryContact ? (
+      {company.primaryContact ? (
+        <SheetSection title="Primary contact">
           <div className="flex min-w-0 items-center gap-2.5 text-sm">
             <PersonAvatar src={null} name={fullName(company.primaryContact)} />
             <div className="min-w-0">
@@ -147,12 +143,8 @@ export function CompanyOverview({
               </p>
             </div>
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Nobody yet. Star one of the people below.
-          </p>
-        )}
-      </SheetSection>
+        </SheetSection>
+      ) : null}
 
       <CompanyContacts company={company} mutations={mutations} />
       <WebsiteActivity record={{ companyId: company.id }} />
@@ -182,12 +174,8 @@ function OpenLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-/**
- * What the agent hasn't found yet, and whether it's looking, waiting for its
- * model to be set up, or working without Context.dev (no logo or brand data).
- */
+/** What the agent hasn't found yet, and whether it's looking. */
 function AgentPending({ company }: { company: Company }) {
-  const availability = useAgentAvailability();
   const missing = [
     company.industry ? null : "industry",
     company.description ? null : "description",
@@ -197,30 +185,21 @@ function AgentPending({ company }: { company: Company }) {
   ].filter(Boolean);
   if (missing.length === 0) return null;
   const running = isEnriching(company.enrichmentStatus, company.queued);
-  const waiting = !running && company.waiting;
-  const noBrandData =
-    availability?.context === false && !company.logoUrl && !company.iconUrl;
   return (
-    <div className="mt-3 space-y-1 rounded-md bg-foreground/[0.03] p-3 text-xs">
-      <p className="font-medium">
-        {running
-          ? "The agent is researching"
-          : waiting
-            ? "Waiting for the agent's setup"
-            : "Not known yet"}
-      </p>
-      <p className="text-muted-foreground">{missing.join(", ")}</p>
-      {waiting ? (
-        <p className="text-muted-foreground">
-          The agent researches this company once its model is set up on your
-          Every App gateway. <AgentSetupLink />
-        </p>
-      ) : noBrandData ? (
-        <p className="text-muted-foreground">
-          Logos and brand data come from Context.dev, which isn't set up on your
-          Every App gateway.
-        </p>
-      ) : null}
+    <div className="mt-3 space-y-1.5 rounded-md bg-foreground/[0.03] p-3">
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className={cn(
+            "size-1.5 shrink-0 rounded-full",
+            running ? "bg-primary" : "bg-muted-foreground",
+          )}
+        />
+        <span className="text-xs font-medium">
+          {running ? "Agent is researching" : "Not known yet"}
+        </span>
+      </div>
+      <p className="text-xs/5 text-muted-foreground">{missing.join(", ")}</p>
     </div>
   );
 }
@@ -255,123 +234,6 @@ function CompanyLinks({ company }: { company: Company }) {
           </a>
         ))}
       </div>
-    </SheetSection>
-  );
-}
-
-function CompanyContacts({
-  company,
-  mutations,
-}: {
-  company: Company;
-  mutations: Mutations;
-}) {
-  const { setPrimary } = mutations;
-  return (
-    <SheetSection title={`People (${company.contacts.length})`}>
-      {company.contacts.length === 0 ? (
-        <SheetEmpty
-          title="No contacts yet"
-          description={`Everyone you talk to at ${company.name} shows up here.`}
-        />
-      ) : (
-        <ul className="-mx-2 divide-y divide-border">
-          {company.contacts.map((contact) => {
-            const name = fullName(contact);
-            const primary = contact.id === company.primaryContactId;
-            return (
-              <li
-                key={contact.id}
-                className="flex min-w-0 items-center gap-2.5 px-2 py-2"
-              >
-                <PersonAvatar src={contact.imageUrl} name={name} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <RecordLink
-                    record={{ kind: "contact", id: contact.id }}
-                    className="block text-sm font-medium"
-                  >
-                    {name}
-                  </RecordLink>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {[contact.title, contact.email].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-pressed={primary}
-                  aria-label={
-                    primary
-                      ? `${name} is the primary contact`
-                      : `Make ${name} primary`
-                  }
-                  title={primary ? "Primary contact" : "Make primary"}
-                  disabled={setPrimary.isPending}
-                  onClick={() => setPrimary.mutate(primary ? null : contact.id)}
-                >
-                  <Star
-                    className={
-                      primary ? "fill-current text-warning" : undefined
-                    }
-                  />
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </SheetSection>
-  );
-}
-
-function CompanyDeals({ company }: { company: Company }) {
-  return (
-    <SheetSection title={`Deals (${company.deals.length})`}>
-      {company.deals.length === 0 ? (
-        <SheetEmpty
-          title="No deals yet"
-          description={`Nothing is being sold to ${company.name} right now.`}
-        />
-      ) : (
-        <ul className="-mx-2 divide-y divide-border">
-          {company.deals.map((deal) => (
-            <li
-              key={deal.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-2 py-2 text-sm"
-            >
-              <div className="min-w-0">
-                <RecordLink
-                  record={{ kind: "deal", id: deal.id }}
-                  className="block font-medium"
-                >
-                  {deal.name}
-                </RecordLink>
-                <p className="text-xs text-muted-foreground">
-                  {deal.expectedCloseDate ? (
-                    <>
-                      Closes <LocalDay date={deal.expectedCloseDate} />
-                    </>
-                  ) : (
-                    "No close date"
-                  )}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-right tabular-nums">
-                  {deal.amount === null ? (
-                    <EmptyValue />
-                  ) : (
-                    formatMoney(deal.amount, deal.currency)
-                  )}
-                </span>
-                <Badge variant={deal.open ? "outline" : "secondary"}>
-                  {DEAL_STAGE_LABELS[deal.stage]}
-                </Badge>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
     </SheetSection>
   );
 }

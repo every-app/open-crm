@@ -219,10 +219,6 @@ export function ImportDialog({
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-border px-6 py-10 text-center hover:bg-muted/50 focus-within:ring-3 focus-within:ring-ring/50">
               <FileUp aria-hidden className="size-6 text-muted-foreground" />
               <span className="text-sm font-medium">Choose a CSV file</span>
-              <span className="text-xs text-muted-foreground">
-                The first row names the columns; you choose where each goes
-                next.
-              </span>
               <input
                 type="file"
                 accept=".csv,text/csv"
@@ -266,7 +262,6 @@ export function ImportDialog({
             headers={targets}
             results={step.results}
             error={step.error}
-            total={rows.length}
           />
         ) : null}
 
@@ -287,7 +282,6 @@ export function ImportDialog({
             stoppedAt={step.stoppedAt}
             error={step.error}
             total={rows.length}
-            research={research}
           />
         ) : null}
 

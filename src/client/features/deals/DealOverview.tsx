@@ -12,6 +12,7 @@ import type {
   DealPatch,
   useDealMutations,
 } from "@/client/features/deals/useDealMutations";
+import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { RecordFields } from "@/client/features/fields/RecordFields";
 import { CompanyPicker } from "@/client/features/records/CompanyPicker";
 import {
@@ -25,7 +26,7 @@ import {
 } from "@/client/features/records/LocalDateTime";
 import { SheetSection } from "@/client/features/records/RecordSheet";
 import { useOwnerOptions } from "@/client/features/records/owners";
-import { CURRENCIES, currencyName, normalizeCurrency } from "@/shared/currency";
+import { CURRENCIES, normalizeCurrency } from "@/shared/currency";
 import { UNASSIGNED } from "@/types/schemas/records";
 
 type Mutations = ReturnType<typeof useDealMutations>;
@@ -88,7 +89,10 @@ export function DealOverview({
         </dl>
       </SheetSection>
 
-      <SheetSection title="Details">
+      <SheetSection
+        title="Details"
+        action={<FieldsSheetButton entity="DEAL" cog />}
+      >
         <div className="space-y-0.5">
           <InlineField
             label="Name"
@@ -196,7 +200,7 @@ function ReportedValue({ deal, currency }: { deal: Deal; currency: string }) {
             ≈ {formatAmount(deal.baseAmount, deal.reportingCurrency)}
           </span>
         ) : (
-          `No ${currencyName(currency) ?? currency} rate: left out of totals`
+          `No ${currency} rate — left out of totals`
         )}
       </span>
     </div>

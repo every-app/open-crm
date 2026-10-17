@@ -43,7 +43,7 @@ const HELD: Record<NonNullable<TaskHold>, { label: string; title?: string }> = {
   setup: { label: "Waiting for setup" },
   schedule: {
     label: "Held",
-    title: "Background research is off on this deployment. Enrich now runs it.",
+    title: "Background research is off on this deployment. Re-enrich runs it.",
   },
 };
 

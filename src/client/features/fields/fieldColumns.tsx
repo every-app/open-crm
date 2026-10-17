@@ -55,7 +55,7 @@ export function useFieldColumns<
             id: `field:${field.key}`,
             header: field.label,
             enableSorting: false,
-            meta: { cellClassName: "max-w-56" },
+            meta: { width: "w-[12%]" },
             cell: ({ row }) => (
               <FieldCell
                 field={field}

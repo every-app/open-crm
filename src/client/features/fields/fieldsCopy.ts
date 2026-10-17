@@ -1,8 +1,8 @@
 import type { FieldEntity, FieldType } from "@/shared/crm-enums";
 import { ENTITY_NOUNS } from "@/shared/fields";
 
-// The fields sheet's words, from the CRM. The product says "the agent", never
-// the runtime's name.
+// The fields sheet's words, from the CRM. The product says "your agents",
+// never the runtime's name.
 
 export const SHEET_TITLE = "Fields";
 
@@ -11,7 +11,7 @@ export function sheetSubtitle(entity: FieldEntity): string {
 }
 
 export const STANDARD_ROW = "Standard fields";
-export const STANDARD_NOTE = "built in";
+export const STANDARD_NOTE = "reorder and hide only";
 export const SUGGESTED_ROW = "Suggested fields";
 export const SUGGESTED_NOTE = "one click to add";
 export const CUSTOM_GROUP = "Custom fields";
@@ -26,7 +26,7 @@ export const MANAGE_HINT = "Only an owner or an admin can change fields.";
 
 export const EMPTY_TITLE = "No custom fields yet";
 export const EMPTY_BODY =
-  "Create fields that the agent can research and fill in for you.";
+  "Create dynamic fields that your agents can research and pre-fill.";
 export const EMPTY_BODY_READ_ONLY =
   "An owner or an admin adds the fields everyone fills in here.";
 
@@ -37,13 +37,13 @@ export const ERROR_BODY =
 export const LABEL_LABEL = "Label";
 export const KEY_LABEL = "Key";
 export const KEY_HELP =
-  "What the API and the agent call it. Set from the label, fixed once saved — renaming the label later never breaks a caller.";
-export const AGENT_LABEL = "Let the agent fill this";
+  "What the API and your agents call it. Set from the label, fixed once saved — renaming the label later never breaks a caller.";
+export const AGENT_LABEL = "Let your agents fill this";
 export const AGENT_HELP =
-  "It fills the field on records where it's empty, from sources it can cite.";
+  "They fill it on records where it's empty, from sources they can cite.";
 export const BRIEF_LABEL = "What counts as an answer";
 export const BRIEF_HELP =
-  "Leave it empty and the agent works from the label and type alone.";
+  "Leave it empty and your agents work from the label and type alone.";
 export const TYPE_LABEL = "Type";
 export const TYPE_LOCKED =
   "It holds values, so its type is fixed. Archive it and make a new field to change it.";

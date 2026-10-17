@@ -9,13 +9,18 @@ import {
   type CompanyDetail,
   type CompanyListRow,
 } from "@/server/features/companies/services/CompanyService";
+import { ENRICHMENT_STATUSES } from "@/shared/crm-enums";
 import {
   COMPANY_SORTS,
   companyListSchema,
   createCompanySchema,
   updateCompanySchema,
 } from "@/types/schemas/companies";
-import { SORT_DIRECTIONS, UNASSIGNED } from "@/types/schemas/records";
+import {
+  FACET_FILTER_MAX,
+  SORT_DIRECTIONS,
+  UNASSIGNED,
+} from "@/types/schemas/records";
 
 // The companies (accounts) as an AI client sees them. People are named by
 // email here, as a model knows them; the app's own forms use member ids.
@@ -130,6 +135,23 @@ export const companyTools = {
           .describe(
             `Only companies these members own, by email; "${UNASSIGNED}" for companies nobody owns.`,
           ),
+        industries: z
+          .array(z.string())
+          .max(FACET_FILTER_MAX)
+          .optional()
+          .describe("Only companies in these industries, as listed."),
+        enrichment: z
+          .array(z.enum(ENRICHMENT_STATUSES))
+          .optional()
+          .describe(
+            "Only companies the research agent has left in these states: PENDING (not researched), RUNNING, COMPLETE, FAILED or SKIPPED (nothing found).",
+          ),
+        activeWithinDays: z
+          .literal([7, 30, 90])
+          .optional()
+          .describe(
+            "Only companies with activity in the last 7, 30 or 90 days.",
+          ),
         archived: z
           .boolean()
           .optional()
@@ -156,6 +178,9 @@ export const companyTools = {
         ),
         q: input.query,
         owner: owners,
+        industry: input.industries,
+        enrichment: input.enrichment,
+        activity: input.activeWithinDays?.toString(),
         archived: input.archived,
         sort: input.sort,
         dir: input.direction,

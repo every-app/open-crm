@@ -7,6 +7,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  or,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -16,6 +17,9 @@ import { company, contact, suppressedContact, user } from "@/db/schema";
 import type { RecordSource } from "@/shared/crm-enums";
 import { leaveOtherCompanies } from "@/server/features/contacts/repositories/ContactRelationsRepository";
 import {
+  FILTER_OPTIONS_MAX,
+  activityCondition,
+  anyOfCondition,
   archivedCondition,
   ownerCondition,
   pageWindow,
@@ -24,7 +28,11 @@ import {
   type SortSpec,
 } from "@/server/features/records/listQuery";
 import { idChunks } from "@/server/features/records/recordRules";
-import type { ContactListInput, ContactSort } from "@/types/schemas/contacts";
+import {
+  NO_COMPANY,
+  type ContactListInput,
+  type ContactSort,
+} from "@/types/schemas/contacts";
 
 // Contacts: the people in the pipeline. A live contact's email is unique in
 // its organization (the partial unique index contact_organization_email_
@@ -35,8 +43,14 @@ const SORTS = {
   title: { by: sql`lower(${contact.title})`, nullsLast: true },
   email: { by: contact.email, nullsLast: true },
   company: { by: sql`lower(${company.name})`, nullsLast: true },
+  owner: {
+    by: sql`lower(${user.name})`,
+    nullsLast: true,
+    ties: [sql`lower(${contact.lastName})`],
+  },
   lastActivity: { by: contact.lastActivityAt, nullsLast: true },
   createdAt: { by: contact.createdAt },
+  archivedAt: { by: contact.archivedAt, nullsLast: true },
 } satisfies Record<Exclude<ContactSort, "name">, SortSpec>;
 
 /**
@@ -84,27 +98,36 @@ const companySummary = {
   logoUrl: company.logoUrl,
 };
 
-// Each word binds a pattern per column, and D1 binds at most 100 parameters
-// a statement (the owner filter takes up to 50): six words are plenty.
+// Each word binds a pattern, and D1 binds at most 100 parameters a
+// statement: six words are plenty.
 const MAX_SEARCH_WORDS = 6;
+
+// The name, email and company name, joined by spaces. A word has no spaces,
+// so it turns up in the joined text exactly when it turns up in one of them,
+// and binds one pattern instead of one per column.
+const searchable = sql`coalesce(${contact.firstName}, '') || ' ' || coalesce(${contact.lastName}, '') || ' ' || coalesce(${contact.email}, '') || ' ' || coalesce(${company.name}, '')`;
 
 /**
  * The search: every word must turn up in the first name, last name, email or
  * company name, so "ana acme" finds Ana at Acme.
  */
 function searchWords(q: string): SQL | undefined {
-  const columns = [
-    contact.firstName,
-    contact.lastName,
-    contact.email,
-    company.name,
-  ];
   return and(
     ...q
       .trim()
       .split(/\s+/)
       .slice(0, MAX_SEARCH_WORDS)
-      .map((word) => searchCondition(word, columns)),
+      .map((word) => searchCondition(word, [searchable])),
+  );
+}
+
+/** The company filter: the chosen companies, and `NO_COMPANY` for none. */
+function companyCondition(values: string[]): SQL | undefined {
+  if (values.length === 0) return undefined;
+  const ids = values.filter((value) => value !== NO_COMPANY);
+  return or(
+    ids.length > 0 ? inArray(contact.companyId, ids) : undefined,
+    ids.length < values.length ? isNull(contact.companyId) : undefined,
   );
 }
 
@@ -119,8 +142,51 @@ function listWhere(
     archivedCondition(contact.archivedAt, input.archived),
     searchWords(input.q),
     ownerCondition(contact.ownerId, input.owner),
+    companyCondition(input.company),
+    anyOfCondition(contact.title, input.title),
+    anyOfCondition(contact.seniority, input.seniority),
+    anyOfCondition(contact.function, input.persona),
+    activityCondition(contact.lastActivityAt, input.activity),
     ...fieldConditions,
   );
+}
+
+/**
+ * The values of `column` among the organization's live (or archived)
+ * contacts, the commonest first: what a list filter offers.
+ */
+async function commonValues(
+  organizationId: string,
+  archived: boolean,
+  column:
+    | typeof contact.title
+    | typeof contact.seniority
+    | typeof contact.function,
+) {
+  const rows = await db
+    .select({ value: column })
+    .from(contact)
+    .where(
+      and(
+        eq(contact.organizationId, organizationId),
+        archivedCondition(contact.archivedAt, archived),
+        isNotNull(column),
+      ),
+    )
+    .groupBy(column)
+    .orderBy(desc(count()), asc(column))
+    .limit(FILTER_OPTIONS_MAX);
+  return rows.flatMap((row) => (row.value ? [row.value] : []));
+}
+
+/** What the list's Title, Seniority and Persona filters offer. */
+async function filterValues(organizationId: string, archived: boolean) {
+  const [titles, seniorities, personas] = await Promise.all([
+    commonValues(organizationId, archived, contact.title),
+    commonValues(organizationId, archived, contact.seniority),
+    commonValues(organizationId, archived, contact.function),
+  ]);
+  return { titles, seniorities, personas };
 }
 
 async function list(
@@ -366,6 +432,7 @@ async function markEnrichmentRequested(
 
 export const ContactRepository = {
   list,
+  filterValues,
   findById,
   findLiveByEmail,
   insert,

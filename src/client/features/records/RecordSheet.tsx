@@ -1,11 +1,11 @@
-import { useState, type ReactNode } from "react";
-import { XIcon } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, XIcon } from "lucide-react";
 import { EmptyState } from "@/client/components/EmptyState";
 import { SkeletonTableRows } from "@/client/components/SkeletonPresets";
 import { Button } from "@/client/components/ui/button";
+import { Separator } from "@/client/components/ui/separator";
 import {
   Sheet,
-  SheetClose,
   SheetContent,
   SheetDescription,
   SheetTitle,
@@ -21,24 +21,17 @@ import { RecordTimeline } from "@/client/features/activities/RecordTimeline";
 import { RecordAgentPanel } from "@/client/features/agent/RecordAgentPanel";
 import {
   RECORD_TABS,
+  useRecordStack,
+  useRecordTab,
   type RecordTab,
-} from "@/client/features/records/listSearch";
+} from "@/client/features/records/recordStack";
 import type { RecordRef } from "@/shared/records";
 
-// A record opens in a sheet over its list, from the list's URL (`record`,
-// `tab`). The shell is the same for companies, contacts and deals: a header
-// with the record's picture, name, status and actions; optional stats; and
+// A record opens in a sheet over the page it was opened from
+// (RecordSheetHost). The shell is the same for companies, contacts and
+// deals: a header with Back (when it sits on another record's sheet), the
+// record's picture, name, status and actions, and Close; optional stats; and
 // three tabs: the record's own Overview, its Activity timeline and its Agent.
-
-/**
- * The record to show: the open one, or the one just closed, so its content
- * stays while the sheet animates shut.
- */
-export function useShownRecordId(recordId: string | undefined) {
-  const [shown, setShown] = useState(recordId);
-  if (recordId !== undefined && recordId !== shown) setShown(recordId);
-  return recordId ?? shown;
-}
 
 export function RecordSheet({
   open,
@@ -49,6 +42,9 @@ export function RecordSheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  // The sheet itself takes focus as it opens, not its first button: Tab
+  // reaches its controls from there.
+  const popup = useRef<HTMLDivElement>(null);
   return (
     <Sheet
       open={open}
@@ -57,9 +53,11 @@ export function RecordSheet({
       }}
     >
       <SheetContent
+        ref={popup}
+        initialFocus={popup}
         side="right"
         showCloseButton={false}
-        className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"
+        className="gap-0 p-0 outline-none data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"
       >
         {children}
       </SheetContent>
@@ -86,21 +84,29 @@ export function RecordSheetFrame({
   header,
   error,
   stats,
-  tab,
-  onTabChange,
   overview,
 }: {
   record: RecordRef;
   header: RecordHeader | undefined;
   error?: ReactNode;
   stats?: ReactNode;
-  tab: RecordTab;
-  onTabChange: (tab: RecordTab) => void;
   overview: ReactNode;
 }) {
+  const { stack, back, close } = useRecordStack();
+  const [tab, setTab] = useRecordTab();
   return (
     <>
-      <div className="flex shrink-0 items-start gap-3 border-b border-border px-5 py-4">
+      <div className="flex shrink-0 items-start gap-3 border-b border-border px-5 py-3">
+        {stack.length > 1 ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Back"
+            onClick={back}
+          >
+            <ArrowLeft />
+          </Button>
+        ) : null}
         {header ? header.media : <Skeleton className="size-10 rounded-md" />}
         <div className="min-w-0 flex-1 space-y-1">
           <SheetTitle className="text-lg leading-snug font-semibold [overflow-wrap:anywhere]">
@@ -130,14 +136,20 @@ export function RecordSheetFrame({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {header?.actions}
-          <SheetClose
-            render={
-              <Button variant="ghost" size="icon-sm" aria-label="Close" />
-            }
+          {header?.actions ? (
+            <>
+              {header.actions}
+              <Separator orientation="vertical" className="mx-1 h-5" />
+            </>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close"
+            onClick={close}
           >
             <XIcon />
-          </SheetClose>
+          </Button>
         </div>
       </div>
       {header ? (
@@ -146,7 +158,7 @@ export function RecordSheetFrame({
           <RecordTabs
             record={record}
             tab={tab}
-            onTabChange={onTabChange}
+            onTabChange={setTab}
             overview={overview}
           />
         </>
@@ -192,7 +204,7 @@ function RecordTabs({
     >
       <TabsList
         variant="line"
-        className="w-full shrink-0 justify-start gap-4 border-b border-border px-5 *:flex-none"
+        className="w-full shrink-0 justify-start gap-6 border-b border-border px-5 *:flex-none"
       >
         {RECORD_TABS.map((value) => (
           <TabsTrigger key={value} value={value}>
@@ -228,9 +240,9 @@ export function SheetSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-2 border-b border-border px-5 py-4 last:border-b-0">
+    <section className="space-y-2 border-b border-border px-5 py-3 last:border-b-0">
       {title || action ? (
-        <div className="flex min-h-6 items-center justify-between gap-3">
+        <div className="flex min-h-5 items-center justify-between gap-3">
           {title ? (
             <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
               {title}

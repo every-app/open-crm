@@ -1,7 +1,23 @@
 import { z } from "zod";
-import { SORT_DIRECTIONS, listInputSchema } from "@/types/schemas/records";
+import { ENRICHMENT_STATUSES } from "@/shared/crm-enums";
+import {
+  ACTIVITY_WINDOWS,
+  SORT_DIRECTIONS,
+  facetFilterSchema,
+  listInputSchema,
+} from "@/types/schemas/records";
 
-export const COMPANY_SORTS = ["name", "lastActivity", "createdAt"] as const;
+export const COMPANY_SORTS = [
+  "name",
+  "domain",
+  "industry",
+  "owner",
+  "contacts",
+  "deals",
+  "lastActivity",
+  "createdAt",
+  "archivedAt",
+] as const;
 export type CompanySort = (typeof COMPANY_SORTS)[number];
 
 export const COMPANY_NAME_MAX = 200;
@@ -10,6 +26,13 @@ export const COMPANY_NAME_MAX = 200;
 export const companyListSchema = listInputSchema.extend({
   sort: z.enum(COMPANY_SORTS).default("createdAt"),
   dir: z.enum(SORT_DIRECTIONS).default("desc"),
+  industry: facetFilterSchema,
+  /** Where the research agent is with them. */
+  enrichment: z
+    .array(z.enum(ENRICHMENT_STATUSES))
+    .max(ENRICHMENT_STATUSES.length)
+    .default([]),
+  activity: z.enum(ACTIVITY_WINDOWS).optional(),
 });
 
 export type CompanyListInput = z.infer<typeof companyListSchema>;

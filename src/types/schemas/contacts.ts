@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+  ACTIVITY_WINDOWS,
   SORT_DIRECTIONS,
   bulkIdsSchema,
+  facetFilterSchema,
   listInputSchema,
 } from "@/types/schemas/records";
 
@@ -10,8 +12,10 @@ export const CONTACT_SORTS = [
   "title",
   "email",
   "company",
+  "owner",
   "lastActivity",
   "createdAt",
+  "archivedAt",
 ] as const;
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 
@@ -19,10 +23,20 @@ export const CONTACT_NAME_MAX = 100;
 export const CONTACT_EMAIL_MAX = 320;
 export const CONTACT_TITLE_MAX = 200;
 
+/** The company filter's value for contacts who are at no company. */
+export const NO_COMPANY = "none";
+
 /** The contacts list: newest first unless a column says otherwise. */
 export const contactListSchema = listInputSchema.extend({
   sort: z.enum(CONTACT_SORTS).default("createdAt"),
   dir: z.enum(SORT_DIRECTIONS).default("desc"),
+  /** Company ids, and `NO_COMPANY` for contacts at none. */
+  company: facetFilterSchema,
+  title: facetFilterSchema,
+  seniority: facetFilterSchema,
+  /** The contact's function, as the original CRM's Persona filter. */
+  persona: facetFilterSchema,
+  activity: z.enum(ACTIVITY_WINDOWS).optional(),
 });
 
 export type ContactListInput = z.infer<typeof contactListSchema>;

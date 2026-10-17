@@ -116,7 +116,7 @@ export function CreateCompanyDialog({
                 placeholder="stripe.com"
                 inputMode="url"
                 autoComplete="off"
-                description="A full URL is fine: it's reduced to the host, which no other company may have."
+                description="A full URL is fine — it is reduced to the bare host, which has to be unique."
               />
             )}
           </form.AppField>

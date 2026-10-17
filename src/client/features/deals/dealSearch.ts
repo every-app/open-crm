@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  isListFiltered,
+  SHARED_FILTER_KEYS,
   listInputFromSearch,
   recordListSearchSchema,
 } from "@/client/features/records/listSearch";
@@ -22,6 +22,14 @@ export const dealListSearchSchema = recordListSearchSchema.extend({
 
 export type DealListSearch = z.infer<typeof dealListSearchSchema>;
 
+/** The params the deals list filters by. */
+export const DEAL_FILTER_KEYS = [
+  ...SHARED_FILTER_KEYS,
+  "status",
+  "stage",
+  "closing",
+] as const;
+
 /** Newest first, as the CRM lists deals. */
 export function dealListInput(search: DealListSearch): DealListInput {
   return {
@@ -30,14 +38,4 @@ export function dealListInput(search: DealListSearch): DealListInput {
     stage: search.stage ?? [],
     closing: search.closing ?? [],
   };
-}
-
-/** Whether the search or a filter narrows the list (not the view or sort). */
-export function isDealListFiltered(search: DealListSearch): boolean {
-  return (
-    isListFiltered(search) ||
-    search.status !== undefined ||
-    (search.stage?.length ?? 0) > 0 ||
-    (search.closing?.length ?? 0) > 0
-  );
 }

@@ -18,7 +18,10 @@ vi.mock("@/server/lib/openrouter", () => ({
 }));
 
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
-import type { CreateContactInput } from "@/types/schemas/contacts";
+import {
+  contactListSchema,
+  type CreateContactInput,
+} from "@/types/schemas/contacts";
 import { ContactService } from "./ContactService";
 
 const A = "org_a";
@@ -40,17 +43,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       organizationId: string,
       input: Record<string, unknown> = {},
     ) => {
-      const { rows } = await ContactService.listContacts(organizationId, {
-        q: "",
-        owner: [],
-        archived: false,
-        fields: {},
-        sort: "name",
-        dir: "asc",
-        page: 1,
-        pageSize: 25,
-        ...input,
-      });
+      const { rows } = await ContactService.listContacts(
+        organizationId,
+        contactListSchema.parse({ sort: "name", dir: "asc", ...input }),
+      );
       return rows.map((row) =>
         [row.firstName, row.lastName].filter(Boolean).join(" "),
       );

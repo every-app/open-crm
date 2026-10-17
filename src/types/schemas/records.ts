@@ -21,6 +21,28 @@ export const UNASSIGNED = "unassigned";
 /** The most owners a list filters by at once. */
 export const OWNER_FILTER_MAX = 20;
 
+/**
+ * The most values one of a list's own filters (industry, company, title…)
+ * takes at once. Each binds a parameter; recordLists.test.ts holds the
+ * fullest list to D1's 100.
+ */
+export const FACET_FILTER_MAX = 6;
+
+/** A list filter on a column's values: rows with any of them. */
+export const facetFilterSchema = z
+  .array(z.string().trim().min(1).max(200))
+  .max(FACET_FILTER_MAX)
+  .default([]);
+
+/** The Activity filter: records something happened on in the last 7, 30 or 90 days. */
+export const ACTIVITY_WINDOWS = ["7", "30", "90"] as const;
+export type ActivityWindow = (typeof ACTIVITY_WINDOWS)[number];
+
+/** What a list's filters offer to pick from, in its live or Archived view. */
+export const filterOptionsSchema = z.object({
+  archived: z.boolean().default(false),
+});
+
 export const listInputSchema = z.object({
   q: z.string().trim().max(200).default(""),
   /**

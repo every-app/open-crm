@@ -8,7 +8,6 @@ import { QueryError } from "@/client/components/QueryState";
 import { SegmentedToggle } from "@/client/components/SegmentedToggle";
 import { SkeletonStatGrid } from "@/client/components/SkeletonPresets";
 import { Skeleton } from "@/client/components/ui/skeleton";
-import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
 import {
   DealsInProgress,
   OverdueTasks,
@@ -56,7 +55,6 @@ export function DashboardPage() {
           description={DESCRIPTIONS[scope]}
           actions={
             <>
-              <EnrichmentQueue />
               <SegmentedToggle
                 items={SCOPES}
                 value={scope}
