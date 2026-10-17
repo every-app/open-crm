@@ -26,7 +26,7 @@ import type {
 } from "@/types/schemas/activities";
 
 // Every activity query lives under ["activities"].
-const activityKeys = {
+export const activityKeys = {
   all: ["activities"] as const,
   timeline: (record: RecordRef, filter: TimelineFilter) =>
     ["activities", "timeline", record.kind, record.id, filter] as const,
