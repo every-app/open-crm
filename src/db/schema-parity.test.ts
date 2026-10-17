@@ -8,9 +8,11 @@ import { describe, expect, it } from "vitest";
 import * as sqliteCrm from "./crm.schema";
 import * as sqliteAgent from "./agent.schema";
 import * as sqliteAuth from "./auth.schema";
+import * as sqliteTracking from "./tracking.schema";
 import * as pgCrm from "./pg/crm.schema";
 import * as pgAgent from "./pg/agent.schema";
 import * as pgAuth from "./pg/auth.schema";
+import * as pgTracking from "./pg/tracking.schema";
 
 // Guards the ONE structural artifact `db:generate` does not regenerate: the
 // hand-written Postgres schema. The provider-aware `db`/`@/db/schema` barrel
@@ -132,8 +134,8 @@ function checkNames(table: Table, dialect: Dialect): string[] {
   );
 }
 
-const sqliteAppTables = tablesFrom(sqliteCrm, sqliteAgent);
-const pgAppTables = tablesFrom(pgCrm, pgAgent);
+const sqliteAppTables = tablesFrom(sqliteCrm, sqliteAgent, sqliteTracking);
+const pgAppTables = tablesFrom(pgCrm, pgAgent, pgTracking);
 const sqliteAuthTables = tablesFrom(sqliteAuth);
 const pgAuthTables = tablesFrom(pgAuth);
 
