@@ -1,15 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { runBatch } from "@/db/runBatch";
 import {
-  activity,
   company,
   contact,
   contactBrief,
   workspace,
   workspaceProfile,
 } from "@/db/schema";
+import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
 
 // What the agent writes down: the profile of the organization's own business,
 // a contact's background brief, and research briefs on a company's timeline.
@@ -160,7 +159,12 @@ async function writeContactBrief(
  */
 async function addCompanyBrief(
   organizationId: string,
-  input: { companyId: string; subject: string; body: string; meta: unknown },
+  input: {
+    companyId: string;
+    subject: string;
+    body: string;
+    meta: Record<string, unknown>;
+  },
 ): Promise<string | null> {
   const [owned] = await db
     .select({ id: company.id })
@@ -173,32 +177,20 @@ async function addCompanyBrief(
     )
     .limit(1);
   if (!owned) return null;
-  const id = crypto.randomUUID();
-  const now = new Date().toISOString();
-  await runBatch((tx) => [
-    tx.insert(activity).values({
-      id,
-      organizationId,
-      type: "ENRICHMENT",
-      subject: input.subject,
-      body: input.body,
-      occurredAt: now,
-      companyId: input.companyId,
-      // Null: the research agent wrote it.
-      createdById: null,
-      meta: input.meta,
-    }),
-    tx
-      .update(company)
-      .set({ lastActivityAt: now })
-      .where(
-        and(
-          eq(company.organizationId, organizationId),
-          eq(company.id, input.companyId),
-        ),
-      ),
-  ]);
-  return id;
+  return ActivityRepository.insert({
+    organizationId,
+    type: "ENRICHMENT",
+    subject: input.subject,
+    body: input.body,
+    occurredAt: new Date().toISOString(),
+    dueAt: null,
+    companyId: input.companyId,
+    contactId: null,
+    dealId: null,
+    // Null: the research agent wrote it.
+    createdById: null,
+    meta: input.meta,
+  });
 }
 
 export const AgentProfileRepository = {
