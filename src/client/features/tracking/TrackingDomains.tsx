@@ -66,7 +66,7 @@ export function TrackingDomains({ settings }: { settings: TrackingSettings }) {
           size="sm"
         />
       ) : (
-        <TableCard className="max-w-2xl">
+        <TableCard>
           <Table>
             <TableHeader>
               <TableRow>

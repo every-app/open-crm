@@ -4,7 +4,7 @@ import type { DomainScope } from "@/shared/tracking";
 // share. The tracker's source interpolates these, so the browser and the
 // server cannot disagree about a limit.
 
-export const SITE_ID_PREFIX = "cmp_";
+const SITE_ID_PREFIX = "cmp_";
 /** The visitor cookie, and the first-touch cookie beside it. */
 export const COOKIE_NAME = "_crm_v";
 export const COOKIE_FIRST_TOUCH = "_crm_fs";
@@ -38,9 +38,9 @@ export const LINKER_MAX_AGE_SECONDS = 120;
 /** Verify: how recent a page view proves the install, and what it reads. */
 export const VERIFY_WINDOW_MS = 5 * 60_000;
 export const MAX_VERIFY_BYTES = 2_000_000;
-export const MAX_CONTAINERS = 2;
+const MAX_CONTAINERS = 2;
 
-export type GtmTagState = "absent" | "url" | "attribute";
+type GtmTagState = "absent" | "url" | "attribute";
 
 export interface TrackedHost {
   host: string;

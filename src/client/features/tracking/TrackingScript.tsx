@@ -23,7 +23,7 @@ import {
 function Snippet({ code, label }: { code: string; label: string }) {
   return (
     <div className="flex items-start gap-2">
-      <pre className="min-w-0 flex-1 overflow-x-auto rounded-md border bg-muted p-3 font-mono text-xs leading-5">
+      <pre className="min-w-0 flex-1 rounded-md border bg-muted p-3 font-mono text-xs leading-5 break-all whitespace-pre-wrap">
         {code}
       </pre>
       <CopyButton value={code} successMessage="Script copied" label={label} />
@@ -79,12 +79,12 @@ export function TrackingScript({
         title="Tracking script"
         action={<Status settings={settings} />}
       />
-      <p className="max-w-2xl text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         One tag, under 4 KB, in the head of every page you want to measure. It
         records page views and outbound clicks, and adds a contact when someone
         submits a form with their email address.
       </p>
-      <Tabs defaultValue="html" className="max-w-2xl">
+      <Tabs defaultValue="html">
         <TabsList>
           <TabsTrigger value="html">HTML</TabsTrigger>
           <TabsTrigger value="gtm">Google Tag Manager</TabsTrigger>
@@ -116,7 +116,7 @@ export function TrackingScript({
           </p>
         </TabsContent>
       </Tabs>
-      <div className="max-w-2xl space-y-3">
+      <div className="space-y-3">
         <SettingSwitch
           label="Pause tracking"
           hint="The script keeps loading and records nothing. Your domains and settings are kept."

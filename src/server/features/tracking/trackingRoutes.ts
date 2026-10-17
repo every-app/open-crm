@@ -21,7 +21,7 @@ import {
 // resource-policy headers. They read nothing from the request but the path,
 // the body, Origin and User-Agent; the organization comes from the site id.
 
-export const COLLECTOR_PATH = "/t/e";
+const COLLECTOR_PATH = "/t/e";
 const LOADER_PATH = "/t/crm.js";
 const TRACKER_PATH = /^\/t\/([^/]+)\.js$/;
 

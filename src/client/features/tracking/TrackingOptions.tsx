@@ -112,7 +112,7 @@ function FlagSwitches({
       setTrackingFlag({ data: input }),
   );
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="space-y-4">
       {switches.map((entry) => (
         <SettingSwitch
           key={entry.flag}
@@ -204,7 +204,7 @@ export function TrafficSources() {
               size="sm"
             />
           ) : (
-            <TableCard className="max-w-2xl">
+            <TableCard>
               <Table>
                 <TableHeader>
                   <TableRow>

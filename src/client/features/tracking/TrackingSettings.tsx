@@ -44,7 +44,7 @@ function TrackingSections() {
     >
       {(settings) =>
         settings.ready && settings.siteId ? (
-          <div className="space-y-10">
+          <div className="max-w-2xl space-y-10">
             <TrackingScript settings={settings} siteId={settings.siteId} />
             <VerifyInstallation />
             <TrafficSources />
@@ -53,7 +53,7 @@ function TrackingSections() {
             <TrackingCookies settings={settings} />
           </div>
         ) : (
-          <div className="space-y-10">
+          <div className="max-w-2xl space-y-10">
             <section className="space-y-3">
               <SectionHeader title="Website tracking" />
               <p className="max-w-2xl text-sm text-muted-foreground">

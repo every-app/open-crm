@@ -36,13 +36,13 @@ export function VerifyInstallation() {
   return (
     <section className="space-y-3">
       <SectionHeader title="Verify installation" />
-      <p className="max-w-2xl text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         We load one page and look for the script, then read your Tag Manager
         container if it is not in the HTML. The page has to be public and served
         over https.
       </p>
       <form.AppForm>
-        <form.Form className="flex max-w-2xl flex-wrap items-end gap-3">
+        <form.Form className="flex flex-wrap items-end gap-3">
           <div className="min-w-64 flex-1">
             <form.AppField name="url">
               {(field) => (
@@ -68,7 +68,7 @@ export function VerifyInstallation() {
 function Outcome({ result }: { result: VerifyResult }) {
   if (result.status === "unreachable") {
     return (
-      <Alert variant="destructive" className="max-w-2xl">
+      <Alert variant="destructive">
         <CircleAlert />
         <AlertTitle>Could not open {result.host}</AlertTitle>
         <AlertDescription>
@@ -82,7 +82,7 @@ function Outcome({ result }: { result: VerifyResult }) {
   }
   if (result.status === "missing") {
     return (
-      <Alert variant="destructive" className="max-w-2xl">
+      <Alert variant="destructive">
         <CircleAlert />
         <AlertTitle>No script on {result.host}</AlertTitle>
         <AlertDescription>
@@ -98,7 +98,7 @@ function Outcome({ result }: { result: VerifyResult }) {
   }
   if (result.container && !result.container.carriesSiteId) {
     return (
-      <Alert variant="warning" className="max-w-2xl">
+      <Alert variant="warning">
         <CircleAlert />
         <AlertTitle>Tag Manager will drop the site ID</AlertTitle>
         <AlertDescription>
@@ -111,7 +111,7 @@ function Outcome({ result }: { result: VerifyResult }) {
     );
   }
   return (
-    <Alert className="max-w-2xl">
+    <Alert>
       <CircleCheck className="text-success" />
       <AlertTitle>
         {result.container

@@ -29,7 +29,15 @@ export type AddTrackedDomainInput = z.infer<typeof addTrackedDomainSchema>;
 export const removeTrackedDomainSchema = z.object({ id: z.string().min(1) });
 
 export const verifyTrackingSchema = z.object({
-  url: z.string().trim().min(1, "Enter a page to check").max(2048),
+  url: z
+    .string()
+    .trim()
+    .min(1, "Enter a page to check")
+    .max(2048)
+    .refine(
+      (url) => !/^http:\/\//i.test(url),
+      "Only https pages can be checked",
+    ),
 });
 
 export const websiteActivitySchema = z.union([

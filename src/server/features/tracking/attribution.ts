@@ -9,7 +9,7 @@
 // - Webmail is checked before search (mail.google.com is not organic).
 // - Direct is a source, not a null.
 
-export const MEDIUMS = [
+const MEDIUMS = [
   "organic",
   "social",
   "referral",

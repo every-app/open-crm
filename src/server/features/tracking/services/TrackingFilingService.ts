@@ -31,7 +31,7 @@ import {
 // out), bounds a scripted form's damage with CONTACTS_PER_HOUR, and tells the
 // research agent about a new contact without asking it anything.
 
-export type Submission = {
+type Submission = {
   id: string;
   email: string | null;
   name: string | null;

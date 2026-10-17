@@ -81,6 +81,4 @@ async function forRecord(organizationId: string, record: WebsiteActivityInput) {
   };
 }
 
-export type WebsiteActivity = Awaited<ReturnType<typeof forRecord>>;
-
 export const WebsiteActivityService = { forRecord };
