@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { agentRuns } from "./agentLog";
 import { describeStep } from "./agentSteps";
-import { pendingQuestion } from "./agentTranscript";
+import { pendingApproval, pendingQuestion } from "./agentTranscript";
 
 describe("describeStep", () => {
   it("says why a lead was turned down, with the page it read", () => {
@@ -92,6 +92,38 @@ describe("pendingQuestion", () => {
     };
     expect(pendingQuestion([answered])).toBeNull();
     expect(pendingQuestion([asked, later])).toBeNull();
+  });
+});
+
+describe("pendingApproval", () => {
+  it("finds a step waiting on the rep, and not once they answered", () => {
+    const part = {
+      type: "tool-record_job_change",
+      toolCallId: "call_2",
+      input: { contactId: "c1" },
+    } as const;
+    expect(
+      pendingApproval([
+        assistant([
+          { ...part, state: "approval-requested", approval: { id: "ap_1" } },
+        ]),
+      ]),
+    ).toEqual({
+      approvalId: "ap_1",
+      tool: "record_job_change",
+      input: { contactId: "c1" },
+    });
+    expect(
+      pendingApproval([
+        assistant([
+          {
+            ...part,
+            state: "output-denied",
+            approval: { id: "ap_1", approved: false },
+          },
+        ]),
+      ]),
+    ).toBeNull();
   });
 });
 

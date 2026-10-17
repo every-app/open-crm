@@ -4,7 +4,6 @@ import { Button } from "@/client/components/ui/button";
 import { Input } from "@/client/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/client/components/ui/radio-group";
 import type { AgentQuestion } from "./askQuestion";
-import { toolVerb } from "./agentSteps";
 
 const FRAME = "space-y-3 rounded-lg border border-border bg-muted/40 p-3";
 
@@ -93,54 +92,5 @@ export function QuestionComposer({
         </Button>
       </div>
     </form>
-  );
-}
-
-// The approval-gated tools say what they would do (the CRM's sensitive
-// writes: they wait for a person, and refuse to run unattended).
-const ASKS: Record<string, string> = {
-  record_job_change:
-    "Raise this job change on their timeline and tell their owner?",
-  archive_field: "Retire this field?",
-};
-
-/** A step the agent waits on the rep to allow. */
-export function ApprovalPrompt({
-  tool,
-  pending,
-  onDecide,
-}: {
-  tool: string;
-  pending: boolean;
-  onDecide: (approved: boolean) => void;
-}) {
-  return (
-    <div
-      className={FRAME}
-      role="group"
-      aria-label="The agent needs your go-ahead"
-    >
-      <div className="space-y-1">
-        <p className="text-sm font-medium">
-          {ASKS[tool] ?? `Let it go ahead: ${toolVerb(tool).toLowerCase()}?`}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          It changes the CRM, so the agent waits for you.
-        </p>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={pending}
-          onClick={() => onDecide(false)}
-        >
-          Don't
-        </Button>
-        <Button size="sm" pending={pending} onClick={() => onDecide(true)}>
-          Go ahead
-        </Button>
-      </div>
-    </div>
   );
 }

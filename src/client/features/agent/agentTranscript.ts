@@ -34,11 +34,19 @@ export function pendingQuestion(messages: readonly UIMessage[]) {
   return null;
 }
 
-/** A tool call in the last message that waits for the rep to approve it. */
+/**
+ * A tool call in the last message that waits for the rep to approve it
+ * (`needsApproval`). Think replays it to a client that reconnects, so it is
+ * read from the transcript like the question.
+ */
 export function pendingApproval(messages: readonly UIMessage[]) {
   for (const part of lastAssistantParts(messages)) {
     if (isToolUIPart(part) && part.state === "approval-requested") {
-      return { approvalId: part.approval.id, tool: getToolName(part) };
+      return {
+        approvalId: part.approval.id,
+        tool: getToolName(part),
+        input: part.input,
+      };
     }
   }
   return null;

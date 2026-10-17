@@ -17,7 +17,8 @@ import { Button } from "@/client/components/ui/button";
 import type { RecordRef } from "@/shared/records";
 import { markAgentConversationRead } from "@/serverFunctions/agent";
 import { AgentComposer } from "./AgentComposer";
-import { ApprovalPrompt, QuestionComposer } from "./AgentQuestion";
+import { ApprovalPrompt, approvalStep } from "./AgentApproval";
+import { QuestionComposer } from "./AgentQuestion";
 import { AgentStepLine } from "./AgentStepLine";
 import { AgentIdle, AgentUnavailable, ThreadFrame } from "./AgentThreadParts";
 import { RECORD_COPY } from "./agentCopy";
@@ -218,6 +219,7 @@ export function ConversationThread({
         <ApprovalPrompt
           key={approval.approvalId}
           tool={approval.tool}
+          input={approval.input}
           pending={busy}
           onDecide={(approved) =>
             addToolApprovalResponse({ id: approval.approvalId, approved })
@@ -324,26 +326,30 @@ function ToolPart({
       </div>
     );
   }
+  if (part.state === "approval-requested") {
+    return <AgentStepLine step={approvalStep(tool, "waiting")} />;
+  }
+  if (part.state === "approval-responded" || part.state === "output-denied") {
+    return (
+      <AgentStepLine
+        step={approvalStep(
+          tool,
+          part.approval.approved ? "approved" : "denied",
+        )}
+      />
+    );
+  }
   const done =
-    part.state === "output-available" ||
-    part.state === "output-error" ||
-    part.state === "output-denied";
-  const waiting =
-    part.state === "approval-requested" || part.state === "approval-responded";
-  const step = describeStep(tool, {
-    output: part.state === "output-available" ? part.output : undefined,
-    // A call still open in a reply that is no longer streaming never
-    // finished: the turn was interrupted.
-    failed: part.state === "output-error" || (!done && !waiting && !live),
-  });
+    part.state === "output-available" || part.state === "output-error";
   return (
     <AgentStepLine
-      step={
-        part.state === "output-denied"
-          ? { ...step, label: `${step.label} — you said no` }
-          : step
-      }
-      pending={!done && (live || waiting)}
+      step={describeStep(tool, {
+        output: part.state === "output-available" ? part.output : undefined,
+        // A call still open in a reply that is no longer streaming never
+        // finished: the turn was interrupted.
+        failed: part.state === "output-error" || (!done && !live),
+      })}
+      pending={!done && live}
     />
   );
 }
