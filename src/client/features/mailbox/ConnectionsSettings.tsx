@@ -164,13 +164,23 @@ function NotSetUp({ status }: { status: ProviderStatus }) {
   }
   return (
     <div className="space-y-3 text-xs text-muted-foreground">
-      <p>
-        {name} isn't set up on this Every App gateway. Register an OAuth client
-        with {name}, allow this redirect URI, then give the client to the
-        gateway:
-      </p>
+      {status.setup.devVars ? (
+        <p>
+          {name} isn't set up for local development. Register an OAuth client
+          with {name}, allow this redirect URI, then put the client in .dev.vars
+          as {status.setup.devVars.join(" and ")}:
+        </p>
+      ) : (
+        <p>
+          {name} isn't set up on this Every App gateway. Register an OAuth
+          client with {name}, allow this redirect URI, then give the client to
+          the gateway:
+        </p>
+      )}
       <CommandLine value={status.setup.redirectUri} label="redirect URI" />
-      <CommandLine value={status.setup.command} label="command" />
+      {status.setup.command ? (
+        <CommandLine value={status.setup.command} label="command" />
+      ) : null}
       {status.provider === "google" ? (
         <p>
           Gmail's read scope is restricted: an Internal consent screen (your own

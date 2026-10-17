@@ -13,6 +13,10 @@ const CRM_SECRETS = [
   // Raises GitHub's rate limit when the agent matches people to GitHub
   // profiles. Any classic token with no scopes will do.
   "GITHUB_TOKEN",
+  // Overrides the deployment shape (src/server/lib/deployment-tier.ts). Its
+  // use is local: `DEPLOYMENT_TIER=fork` in .dev.vars shows a fork's setup
+  // commands, since `everyapp dev` pins no organization.
+  "DEPLOYMENT_TIER",
 ] as const;
 
 export default defineConfig((ctx) => {

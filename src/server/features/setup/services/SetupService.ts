@@ -76,8 +76,10 @@ const SETUP_ITEMS: SetupItemSpec[] = [
     setting: "GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECRET",
     check: async () =>
       (await clientStatus("google")).ready ? "done" : "missing",
-    note: () =>
-      "The gateway holds the OAuth client; Settings → Connections shows the redirect URI to register with it.",
+    note: ({ availability }) =>
+      availability.tier === "fork"
+        ? "The gateway holds the OAuth client; Settings → Connections shows the redirect URI to register with it."
+        : null,
   },
   {
     id: "microsoft",
@@ -89,8 +91,10 @@ const SETUP_ITEMS: SetupItemSpec[] = [
     setting: "MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET",
     check: async () =>
       (await clientStatus("microsoft")).ready ? "done" : "missing",
-    note: () =>
-      "The gateway holds the OAuth client; Settings → Connections shows the redirect URI to register with it.",
+    note: ({ availability }) =>
+      availability.tier === "fork"
+        ? "The gateway holds the OAuth client; Settings → Connections shows the redirect URI to register with it."
+        : null,
   },
 ];
 
@@ -129,7 +133,8 @@ async function checklist(
   ]);
   const local = Boolean(dev);
   const context = { organizationId, availability };
-  const showCommands = canManage && availability.tier === "fork";
+  // Locally the keys go in .dev.vars instead (each item's note says so).
+  const showCommands = canManage && availability.tier === "fork" && !local;
   const items = await Promise.all(
     SETUP_ITEMS.map(async (spec): Promise<SetupItem> => {
       const state = await spec.check(context);

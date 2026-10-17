@@ -222,9 +222,13 @@ async function status(member: Member & { role: string }, origin: string) {
   ]);
   const now = new Date().toISOString();
   const env = (await getWorkersEnv()) ?? {};
+  // `everyapp dev` has no gateway: the developer's own client goes in
+  // .dev.vars under the gateway's names.
+  const local = Boolean((env as { EVERYAPP_DEV?: string }).EVERYAPP_DEV);
   const showSetup =
-    deploymentTierFor(env) === "fork" &&
-    hasOrgPermission(member.role, { workspace: ["manage"] });
+    local ||
+    (deploymentTierFor(env) === "fork" &&
+      hasOrgPermission(member.role, { workspace: ["manage"] }));
 
   const providers = MAILBOX_PROVIDERS.map((provider, index) => {
     const connection = connections.find((row) => row.provider === provider);
@@ -234,7 +238,10 @@ async function status(member: Member & { role: string }, origin: string) {
       ready: clients[index]?.ready ?? false,
       setup: showSetup
         ? {
-            command: `pnpm everyapp secret set ${GATEWAY_SECRETS[provider].join(" ")} --for gateway`,
+            command: local
+              ? null
+              : `pnpm everyapp secret set ${GATEWAY_SECRETS[provider].join(" ")} --for gateway`,
+            devVars: local ? [...GATEWAY_SECRETS[provider]] : null,
             redirectUri: redirectUri(origin, provider),
           }
         : null,

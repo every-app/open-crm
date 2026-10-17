@@ -47,7 +47,7 @@ pnpm install
 pnpm dev
 ```
 
-`everyapp dev` applies the D1 migrations to a local database in `.cloudflare/state`, then starts a gateway-lite on `http://crm.localhost:8787` with a seeded owner (`dev@everyapp.localhost` in `dev-org`) and the real identity checks. With no gateway binding locally, the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from `.dev.vars`. Local runs are the first-party shape on D1; to try the fork shape, set `EVERY_APP_ORG_ID=dev-org` in `.dev.vars`.
+`everyapp dev` applies the D1 migrations to a local database in `.cloudflare/state`, then starts a gateway-lite on `http://crm.localhost:8787` with a seeded owner (`dev@everyapp.localhost` in `dev-org`) and the real identity checks. With no gateway binding locally, the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from `.dev.vars`. Local runs are the first-party shape on D1 (`everyapp dev` pins no organization); to see what a fork's owners see, such as the setup commands, set `DEPLOYMENT_TIER=fork` in `.dev.vars`.
 
 The first-party shape runs locally too, against a local Postgres:
 
