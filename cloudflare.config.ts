@@ -21,6 +21,15 @@ const CRM_SECRETS = [
   // use is local: `DEPLOYMENT_TIER=fork` in .dev.vars shows a fork's setup
   // commands, since `everyapp dev` pins no organization.
   "DEPLOYMENT_TIER",
+  // First party only: Autumn, which bills the hosted CRM's usage on
+  // OpenSEO's account (src/server/billing, docs/maintainers/billing.md).
+  // This breaks "keys live in the gateway" on purpose, until the gateway's
+  // wallet can bill for the apps; forks never set it.
+  "AUTUMN_SECRET_KEY",
+  // Local dev only, in .dev.vars: BILLING=on bills a local run as the first
+  // party does, and AUTUMN_DEV_STUB=free|paid|low|out stands in for Autumn.
+  "BILLING",
+  "AUTUMN_DEV_STUB",
 ] as const;
 
 export default defineConfig((ctx) => {

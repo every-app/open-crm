@@ -1,4 +1,3 @@
-import { RunSettlement } from "@/server/features/team-agents/services/RunSettlement";
 import { Think } from "@cloudflare/think";
 import type {
   ChatErrorContext,
@@ -16,6 +15,7 @@ import { createCompactFunction } from "agents/experimental/memory/utils";
 import { generateText } from "ai";
 import { z } from "zod";
 import { withPgClient } from "@/db";
+import { OUT_OF_CREDITS_REPLY, SessionMeter } from "@/server/billing/meter";
 import {
   openRouterCostUsd,
   staticAssistantModel,
@@ -32,7 +32,7 @@ import {
 import { CHAT_ROLE_HEADER } from "./agentRoutes";
 import { capabilityList, readCapabilities } from "./prompt/capabilities";
 import { AgentConversationRepository } from "./repositories/AgentConversationRepository";
-import { finalText, lastText, messageText, recordEvent } from "./runtime/audit";
+import { lastText, messageText, recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
 import { budgetSpender, type BudgetState, type Spend } from "./runtime/budget";
 import {
@@ -40,13 +40,13 @@ import {
   effortFor,
   type ModelChoice,
 } from "./runtime/model";
-import { reportResearch } from "./runtime/research";
 import {
   loadAgentSession,
   type AgentSession,
   type ChatSession,
 } from "./runtime/session";
 import { agentSkillSource } from "./runtime/skills";
+import { endSubmission } from "./runtime/submission";
 import {
   closeExpiredSocket,
   SOCKET_LIFETIME_SECONDS,
@@ -79,13 +79,6 @@ const INTERRUPTED_TURN_NOTICE =
 const GONE_REPLY =
   "This conversation no longer exists. Start a new one from the record.";
 
-const TERMINAL_SUBMISSIONS = new Set([
-  "completed",
-  "aborted",
-  "skipped",
-  "error",
-]);
-
 /**
  * The research agent's Durable Object, on Think. One instance per research
  * session (a task the dispatcher started) or per person's conversation about
@@ -110,6 +103,9 @@ export class CrmAgent extends Think {
   private turnSession: AgentSession | null = null;
   private modelChoice: ModelChoice | null = null;
 
+  // Hosted billing: what the session spends (server/billing/meter.ts).
+  private readonly meter = new SessionMeter((p) => this.ctx.waitUntil(p));
+
   getModel() {
     return buildCrmAgentModel(this.env, () => this.chooseModel());
   }
@@ -129,7 +125,9 @@ export class CrmAgent extends Think {
               () => this.chooseModel(),
               "low",
             );
-            return (await generateText({ model, prompt })).text;
+            const result = await generateText({ model, prompt });
+            this.meter.record(openRouterCostUsd(result.providerMetadata));
+            return result.text;
           },
         }),
       )
@@ -210,10 +208,17 @@ export class CrmAgent extends Think {
         organizationId: session.organizationId,
         effort: effortFor(session.kind),
       };
+      if (await this.meter.admit(session)) {
+        return {
+          model: staticAssistantModel(OUT_OF_CREDITS_REPLY),
+          activeTools: [],
+        };
+      }
       if (session.kind === "run") {
         const prepared = await prepareRunTurn(session, {
           thinkSystem: turn.system,
           spend: this.spender(session),
+          sink: this.meter.sink,
         });
         if (!prepared) {
           return {
@@ -237,6 +242,7 @@ export class CrmAgent extends Think {
           thinkSystem: turn.system,
           messages: this.messages,
           spend: this.spender(session),
+          sink: this.meter.sink,
         });
         return { system, tools, maxOutputTokens: maxOutputTokens("chat") };
       }
@@ -246,6 +252,7 @@ export class CrmAgent extends Think {
         capabilities: capabilityList(install),
         spend: this.spender(session),
         role: this.chatRole(),
+        sink: this.meter.sink,
       });
       return { system, tools, maxOutputTokens: maxOutputTokens(session.kind) };
     });
@@ -342,9 +349,10 @@ export class CrmAgent extends Think {
   }
 
   override async onStepFinish(step: StepContext): Promise<void> {
+    const costUsd = openRouterCostUsd(step.providerMetadata);
+    this.meter.record(costUsd);
     const session = this.turnSession;
     if (!session) return;
-    const costUsd = openRouterCostUsd(step.providerMetadata);
     await withPgClient(async () => {
       await recordEvent(session, "step.completed", {
         stepNumber: step.stepNumber,
@@ -369,6 +377,7 @@ export class CrmAgent extends Think {
   }
 
   override async onChatResponse(result: ChatResponseResult): Promise<void> {
+    this.meter.flush();
     const session = this.turnSession;
     if (!session) return;
     await withPgClient(async () => {
@@ -406,6 +415,8 @@ export class CrmAgent extends Think {
       { name: this.name, stage: context?.stage },
       error,
     );
+    // A stopped or failed turn still consumed what it consumed.
+    this.meter.flush();
     const session = this.turnSession;
     if (session) {
       this.ctx.waitUntil(
@@ -420,39 +431,12 @@ export class CrmAgent extends Think {
     return error;
   }
 
-  /**
-   * A research turn ended: finish its task, or fail it for a retry. A run's
-   * turn ended: it succeeds, fails or is cancelled, once (AgentRunService).
-   */
   override async onSubmissionStatus(
     submission: ThinkSubmissionInspection,
   ): Promise<void> {
-    if (!TERMINAL_SUBMISSIONS.has(submission.status)) return;
-    await withPgClient(async () => {
-      const session = await loadAgentSession(this.name);
-      if (session?.kind === "run") {
-        await RunSettlement.endTurn(
-          session.organizationId,
-          session.run.id,
-          submission,
-        );
-        return;
-      }
-      if (session?.kind !== "research") return;
-      if (submission.status === "completed") {
-        await reportResearch(session, {
-          status: "completed",
-          text: finalText(this.messages),
-        });
-      } else if (submission.status === "error") {
-        await reportResearch(session, {
-          status: "error",
-          error: submission.error ?? "The agent turn failed.",
-        });
-      } else {
-        await reportResearch(session, { status: "aborted" });
-      }
-    });
+    await withPgClient(() =>
+      endSubmission(this.name, submission, this.messages),
+    );
   }
 
   // Each chat socket closes SOCKET_LIFETIME_SECONDS after it connects and the

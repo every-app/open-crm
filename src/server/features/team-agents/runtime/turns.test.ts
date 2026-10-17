@@ -30,6 +30,7 @@ function toolsFor(text: string): string[] {
     thinkSystem: "",
     messages: [message],
     spend: FREE,
+    sink: () => {},
   });
   return Object.keys(tools);
 }

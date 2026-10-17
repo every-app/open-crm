@@ -347,6 +347,7 @@ ALTER TABLE "email_message" ADD COLUMN "outlook_web_link" text;--> statement-bre
 ALTER TABLE "workspace" ADD COLUMN "model_refused_at" text;--> statement-breakpoint
 ALTER TABLE "workspace" ADD COLUMN "model_refusal" text;--> statement-breakpoint
 ALTER TABLE "workspace" ADD COLUMN "model_answered_at" text;--> statement-breakpoint
+ALTER TABLE "workspace" ADD COLUMN "credits_depleted_at" text;--> statement-breakpoint
 ALTER TABLE "mailbox_connection" ADD CONSTRAINT "mailbox_connection_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "mailbox_connection" ADD CONSTRAINT "mailbox_connection_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "mailbox_sync" ADD CONSTRAINT "mailbox_sync_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

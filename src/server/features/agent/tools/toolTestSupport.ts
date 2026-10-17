@@ -10,17 +10,20 @@ import { buildAgentTools } from "./registry";
  */
 export function toolSession(overrides: Partial<AgentToolContext> = {}) {
   const budget = { spent: 0, budget: 4, exhausted: false };
-  const tools = buildAgentTools({
-    organizationId: "org_a",
-    sessionId: "chat.x",
-    record: { contactId: "c_a", companyId: null, dealId: null },
-    task: null,
-    conversation: null,
-    attended: true,
-    role: "member",
-    spend: budgetSpender(budget, () => {}),
-    ...overrides,
-  });
+  const tools = buildAgentTools(
+    {
+      organizationId: "org_a",
+      sessionId: "chat.x",
+      record: { contactId: "c_a", companyId: null, dealId: null },
+      task: null,
+      conversation: null,
+      attended: true,
+      role: "member",
+      spend: budgetSpender(budget, () => {}),
+      ...overrides,
+    },
+    () => {},
+  );
   const call = async (name: string, input: unknown): Promise<unknown> =>
     tools[name]?.execute?.(input, { toolCallId: "call", messages: [] });
   return { tools, call, budget };

@@ -1,4 +1,5 @@
 import type { ToolSet } from "ai";
+import type { SpendSink } from "@/server/billing/spendSink";
 import type { Capability } from "../prompt/capabilities";
 import {
   CHAT_TITLE_INSTRUCTION,
@@ -37,6 +38,8 @@ export async function prepareTurn(
     spend: Spend;
     /** The gateway role of the person in a chat (CrmAgent.onConnect). */
     role: string | null;
+    /** Where the tools' paid calls report their cost (CrmAgent's meter). */
+    sink: SpendSink;
   },
 ): Promise<{ system: string; tools: ToolSet }> {
   const opened: Opened =
@@ -65,19 +68,22 @@ export async function prepareTurn(
   ]
     .filter(Boolean)
     .join("\n\n");
-  const tools = buildAgentTools({
-    organizationId: session.organizationId,
-    sessionId: session.sessionId,
-    record: session.record,
-    task: session.task
-      ? { id: session.task.id, kind: session.task.kind }
-      : null,
-    conversation: session.conversation
-      ? { id: session.conversation.id, needsTitle }
-      : null,
-    attended: session.kind === "chat",
-    role: session.kind === "chat" ? input.role : null,
-    spend: input.spend,
-  });
+  const tools = buildAgentTools(
+    {
+      organizationId: session.organizationId,
+      sessionId: session.sessionId,
+      record: session.record,
+      task: session.task
+        ? { id: session.task.id, kind: session.task.kind }
+        : null,
+      conversation: session.conversation
+        ? { id: session.conversation.id, needsTitle }
+        : null,
+      attended: session.kind === "chat",
+      role: session.kind === "chat" ? input.role : null,
+      spend: input.spend,
+    },
+    input.sink,
+  );
   return { system, tools };
 }

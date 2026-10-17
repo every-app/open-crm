@@ -13,6 +13,7 @@ import {
   runBulk,
 } from "@/server/features/records/recordRules";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
+import { requireCredits } from "@/server/billing/credits";
 import { AppError } from "@/server/lib/errors";
 import type { RecordSource } from "@/shared/crm-enums";
 import { domainFromEmail, normalizeDomain } from "@/shared/domain";
@@ -286,9 +287,15 @@ async function purgeCompany(organizationId: string, id: string) {
 
 /**
  * A person asked the agent to look at the company again. True when anything
- * was queued; false when the agent is already on it.
+ * was queued; false when the agent is already on it. Refused when the
+ * workspace is out of credits (hosted billing).
  */
 async function enrichCompany(organizationId: string, id: string) {
+  await requireCredits({ organizationId });
+  return requestEnrichment(organizationId, id);
+}
+
+async function requestEnrichment(organizationId: string, id: string) {
   const found = await requireCompany(organizationId, id);
   const queued = await AgentTaskService.companyRequested(
     organizationId,
@@ -358,8 +365,9 @@ async function bulkArchive(
   return bulkOutcome(unique.length, archived.length);
 }
 
-function bulkEnrich(organizationId: string, ids: string[]) {
-  return runBulk(ids, (id) => enrichCompany(organizationId, id));
+async function bulkEnrich(organizationId: string, ids: string[]) {
+  await requireCredits({ organizationId });
+  return runBulk(ids, (id) => requestEnrichment(organizationId, id));
 }
 
 function bulkRestore(organizationId: string, ids: string[]) {

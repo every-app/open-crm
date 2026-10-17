@@ -1,4 +1,5 @@
 import { getAgentByName } from "agents";
+import { laneCreditCheck } from "@/server/billing/credits";
 import { scheduledResearchEnabled } from "@/server/lib/deployment-tier";
 import { getOpenRouterFetch } from "@/server/lib/openrouter";
 import { runResearchLane, runVisibleLane, type Defer } from "./dispatch";
@@ -31,15 +32,23 @@ export async function runScheduledWork(
   await reconcileStaleTasks();
   const signal = AbortSignal.timeout(DISPATCH.sweep.timeoutMs);
   const askedForOnly = !scheduledResearchEnabled(env);
+  // Where usage is billed, organizations out of credits wait.
+  const credits = laneCreditCheck(env);
   const lanes = await Promise.allSettled([
-    runVisibleLane({ signal, defer }),
+    runVisibleLane({ signal, defer, credits }),
     // Team agents' runs: their schedules are unattended spending, held with
     // the scheduled research.
-    runTeamAgentLane(env, { signal, defer, holdUnattended: askedForOnly }),
+    runTeamAgentLane(env, {
+      signal,
+      defer,
+      holdUnattended: askedForOnly,
+      credits,
+    }),
     runResearchLane({
       signal,
       defer,
       askedForOnly,
+      credits,
       // Without the gateway's binding (or, in dev, a key) no session can run.
       modelConfigured: modelConfigured(env),
       start: (task) => startResearchSession(env, task),

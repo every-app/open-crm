@@ -439,5 +439,6 @@ CREATE INDEX `email_message_organization_synced_by_idx` ON `email_message` (`org
 ALTER TABLE `workspace` ADD `model_refused_at` text;--> statement-breakpoint
 ALTER TABLE `workspace` ADD `model_refusal` text;--> statement-breakpoint
 ALTER TABLE `workspace` ADD `model_answered_at` text;--> statement-breakpoint
+ALTER TABLE `workspace` ADD `credits_depleted_at` text;--> statement-breakpoint
 ALTER TABLE `workspace` DROP COLUMN `agent_model_id`;--> statement-breakpoint
 ALTER TABLE `workspace` DROP COLUMN `agent_model_context_window`;

@@ -1,5 +1,7 @@
 import { gatewayRefusal } from "@every-app/sdk/server";
 import { z } from "zod";
+import { contextDevSpend } from "@/server/billing/contextDevPricing";
+import { reportSpend } from "@/server/billing/spendSink";
 import { personFromMatch, type PersonMatch } from "./people";
 
 // The agent's Context.dev client: brand data by domain, a person read back
@@ -9,7 +11,8 @@ import { personFromMatch, type PersonMatch } from "./people";
 // here the calls go to the REST API (https://api.context.dev/v1) over the
 // gateway's fetch (getContextFetch()), which holds the key and attributes each
 // call to the organization whose work it is. Answers are untrusted and parsed
-// leniently: a field Context.dev leaves out is simply missing.
+// leniently: a field Context.dev leaves out is simply missing. Each answer's
+// charge is reported to the work it ran in (billing/spendSink.ts).
 
 const API = "https://api.context.dev/v1";
 const TIMEOUT_MS = 60_000;
@@ -120,6 +123,7 @@ async function post(
     };
   }
   const json: unknown = await response.json().catch(() => null);
+  reportSpend(contextDevSpend(path, response.ok, json));
   if (response.ok) return { ok: true, body: json };
   const parsed = errorBody.parse(json);
   return {
