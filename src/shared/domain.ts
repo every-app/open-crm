@@ -39,7 +39,8 @@ export function domainFromEmail(
     : domain;
 }
 
-function isMachineDomain(input: string | null | undefined): boolean {
+/** A sending domain no person reads: calendars, groups, bulk mailers. */
+export function isMachineDomain(input: string | null | undefined): boolean {
   const domain = normalizeDomain(input);
   if (!domain) return false;
 

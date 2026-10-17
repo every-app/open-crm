@@ -14,6 +14,7 @@ import {
 } from "@/server/features/records/recordRules";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { AppError } from "@/server/lib/errors";
+import type { RecordSource } from "@/shared/crm-enums";
 import { domainFromEmail, normalizeDomain } from "@/shared/domain";
 import type {
   CompanyListInput,
@@ -358,11 +359,14 @@ function bulkPurge(organizationId: string, ids: string[]) {
  * The live company behind a work email's domain, added (named after the
  * domain, for the agent to research) when there isn't one; null for free
  * mail and machine senders. For contacts: `ownerId` is one the caller checked.
+ * `source` says where an added company came from (mail capture's EMAIL or
+ * CALENDAR).
  */
 async function companyForEmail(
   organizationId: string,
   email: string,
   ownerId: string | null = null,
+  source?: RecordSource,
 ): Promise<string | null> {
   const domain = domainFromEmail(email);
   if (!domain) return null;
@@ -372,6 +376,7 @@ async function companyForEmail(
     domain,
     website: `https://${domain}`,
     ownerId,
+    source,
   });
   if (row.created) {
     await AgentTaskService.companyCreated(

@@ -4,6 +4,7 @@
 export const TASK_KINDS = [
   "brand",
   "portrait",
+  "meeting-prep",
   "identify",
   "profile",
   "recheck",

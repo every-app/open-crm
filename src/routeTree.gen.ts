@@ -19,9 +19,12 @@ import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/rou
 import { Route as AppTasksRouteImport } from './routes/_app/tasks'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsAgentRouteImport } from './routes/_app/settings/agent'
+import { Route as AppSettingsConnectionsRouteImport } from './routes/_app/settings/connections'
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as IntegrationsGoogleCallbackRouteImport } from './routes/integrations/google/callback'
+import { Route as IntegrationsMicrosoftCallbackRouteImport } from './routes/integrations/microsoft/callback'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -72,6 +75,11 @@ const AppSettingsAgentRoute = AppSettingsAgentRouteImport.update({
   path: '/agent',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsConnectionsRoute = AppSettingsConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsCurrenciesRoute = AppSettingsCurrenciesRouteImport.update({
   id: '/currencies',
   path: '/currencies',
@@ -87,6 +95,18 @@ const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const IntegrationsGoogleCallbackRoute =
+  IntegrationsGoogleCallbackRouteImport.update({
+    id: '/integrations/google/callback',
+    path: '/integrations/google/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsMicrosoftCallbackRoute =
+  IntegrationsMicrosoftCallbackRouteImport.update({
+    id: '/integrations/microsoft/callback',
+    path: '/integrations/microsoft/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -97,9 +117,12 @@ export interface FileRoutesByFullPath {
   '/deals': typeof AppDealsRoute
   '/tasks': typeof AppTasksRoute
   '/settings/agent': typeof AppSettingsAgentRoute
+  '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
+  '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
   '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -110,9 +133,12 @@ export interface FileRoutesByTo {
   '/tasks': typeof AppTasksRoute
   '/': typeof AppIndexRoute
   '/settings/agent': typeof AppSettingsAgentRoute
+  '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
+  '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
   '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -126,9 +152,12 @@ export interface FileRoutesById {
   '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
   '/_app/settings/agent': typeof AppSettingsAgentRoute
+  '/_app/settings/connections': typeof AppSettingsConnectionsRoute
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/data': typeof AppSettingsDataRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
+  '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -142,9 +171,12 @@ export interface FileRouteTypes {
     | '/deals'
     | '/tasks'
     | '/settings/agent'
+    | '/settings/connections'
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/integrations/google/callback'
+    | '/integrations/microsoft/callback'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -155,9 +187,12 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/'
     | '/settings/agent'
+    | '/settings/connections'
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/integrations/google/callback'
+    | '/integrations/microsoft/callback'
     | '/settings'
   id:
     | '__root__'
@@ -170,15 +205,20 @@ export interface FileRouteTypes {
     | '/_app/tasks'
     | '/_app/'
     | '/_app/settings/agent'
+    | '/_app/settings/connections'
     | '/_app/settings/currencies'
     | '/_app/settings/data'
     | '/_app/settings/members'
+    | '/integrations/google/callback'
+    | '/integrations/microsoft/callback'
     | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
+  IntegrationsGoogleCallbackRoute: typeof IntegrationsGoogleCallbackRoute
+  IntegrationsMicrosoftCallbackRoute: typeof IntegrationsMicrosoftCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -253,6 +293,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsAgentRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/connections': {
+      id: '/_app/settings/connections'
+      path: '/connections'
+      fullPath: '/settings/connections'
+      preLoaderRoute: typeof AppSettingsConnectionsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/_app/settings/currencies': {
       id: '/_app/settings/currencies'
       path: '/currencies'
@@ -274,11 +321,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/integrations/google/callback': {
+      id: '/integrations/google/callback'
+      path: '/integrations/google/callback'
+      fullPath: '/integrations/google/callback'
+      preLoaderRoute: typeof IntegrationsGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/microsoft/callback': {
+      id: '/integrations/microsoft/callback'
+      path: '/integrations/microsoft/callback'
+      fullPath: '/integrations/microsoft/callback'
+      preLoaderRoute: typeof IntegrationsMicrosoftCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AppSettingsRouteRouteChildren {
   AppSettingsAgentRoute: typeof AppSettingsAgentRoute
+  AppSettingsConnectionsRoute: typeof AppSettingsConnectionsRoute
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
@@ -287,6 +349,7 @@ interface AppSettingsRouteRouteChildren {
 
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsAgentRoute: AppSettingsAgentRoute,
+  AppSettingsConnectionsRoute: AppSettingsConnectionsRoute,
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
@@ -321,6 +384,8 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   OnboardingRoute: OnboardingRoute,
+  IntegrationsGoogleCallbackRoute: IntegrationsGoogleCallbackRoute,
+  IntegrationsMicrosoftCallbackRoute: IntegrationsMicrosoftCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

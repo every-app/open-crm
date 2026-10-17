@@ -135,6 +135,24 @@ async function contactCreated(
   );
 }
 
+/**
+ * A captured meeting within a week has a contact the agent has written no
+ * brief on: get the record ready before it (the CRM's meetingSoon).
+ */
+async function meetingSoon(
+  organizationId: string,
+  contactId: string,
+  startsAt: string,
+): Promise<void> {
+  await enqueue(organizationId, {
+    contactId,
+    kind: "meeting-prep",
+    reason: `Meeting on ${new Date(startsAt).toDateString()} with someone we know nothing about`,
+    priority: PRIORITY.meeting,
+    budget: 10,
+  });
+}
+
 /** Queues `kind` for each record that has no open task of that kind. */
 async function backfill(
   organizationId: string,
@@ -244,6 +262,7 @@ export const AgentTaskService = {
   companyRequested,
   workspaceChanged,
   contactCreated,
+  meetingSoon,
   backfill,
   fieldBackfillRecords,
 };

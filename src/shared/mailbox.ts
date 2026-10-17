@@ -65,7 +65,6 @@ export const CONNECT_ERRORS = [
   "state_mismatch",
   "exchange_failed",
   "mailbox_unknown",
-  "not_configured",
 ] as const;
 export type ConnectError = (typeof CONNECT_ERRORS)[number];
 
