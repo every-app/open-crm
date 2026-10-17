@@ -31,6 +31,7 @@ import {
   parseQuestion,
   type QuestionAnswer,
 } from "./askQuestion";
+import { useOutOfCreditsReplies } from "@/client/features/billing/OutOfCreditsDialog";
 
 type Conversation = {
   id: string;
@@ -102,6 +103,8 @@ export function ConversationThread({
     messages,
     status,
   );
+  // A turn refused for credits opens the out-of-credits dialog.
+  useOutOfCreditsReplies(messages, status);
 
   const send = (text: string) => {
     pinToBottom();

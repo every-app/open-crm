@@ -15,7 +15,8 @@ import { createCompactFunction } from "agents/experimental/memory/utils";
 import { generateText } from "ai";
 import { z } from "zod";
 import { withPgClient } from "@/db";
-import { OUT_OF_CREDITS_REPLY, SessionMeter } from "@/server/billing/meter";
+import { SessionMeter } from "@/server/billing/meter";
+import { OUT_OF_CREDITS_REPLY } from "@/shared/billing";
 import {
   openRouterCostUsd,
   staticAssistantModel,

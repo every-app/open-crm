@@ -22,6 +22,13 @@ export const AUTUMN_SEO_DATA_CREDITS_PER_USD = 1000;
 const SEO_DATA_COST_MARKUP = 1.28;
 export const LOW_CREDITS_THRESHOLD_USD = 0.25;
 
+/**
+ * A chat turn refused for credits says this instead (OpenSEO's SAM copy).
+ * The chat views know it, and open the out-of-credits dialog when it arrives.
+ */
+export const OUT_OF_CREDITS_REPLY =
+  "You're out of credits. Upgrade your plan or buy more credits on the Billing page to keep using the agent.";
+
 // Passed through to Stripe's checkout.sessions.create so checkout collects the
 // legal business name, tax ID (EU VAT etc.), and full billing address — makes
 // invoices valid for business customers. Display only, no Stripe Tax. Stripe

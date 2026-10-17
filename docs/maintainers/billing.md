@@ -21,7 +21,7 @@ The hosted CRM bills each organization's usage exactly as OpenSEO bills it, on t
 - Sonar and Context.dev report each call from inside the tool that made it (`spendSink.ts`): the agent's tools run inside their session's sink (`tools/registry.ts`), the cron's lookups inside the lane's.
 - Context.dev: what it reports in `key_metadata.credits_consumed`, at $0.0025 a credit, else its list price (`contextDevPricing.ts`), as `company_data`, with overdraft.
 
-**Settings → Billing** (hosted only): the plan with OpenSEO's Upgrade (Autumn checkout) and Manage subscription (Stripe's portal), monthly and top-up credits, Buy credits for $10–$99, and the last 30 days' usage by feature. Only the owner acts (`billing: ["manage"]`). The low and out-of-credits banner is OpenSEO's.
+**Settings → Billing** (hosted only): the plan with OpenSEO's Upgrade (Autumn checkout) and Manage subscription (Stripe's portal), monthly and top-up credits, Buy credits for $10–$99, and the last 30 days' usage by feature. Only the owner acts (`billing: ["manage"]`). The low and out-of-credits banner is OpenSEO's. Every refusal for credits opens one dialog with OpenSEO's offer (`OutOfCreditsDialog.tsx`), dismissed each time: a refused action through the mutation cache (`INSUFFICIENT_CREDITS`), and a chat turn when its refusal reply arrives in the open chat.
 
 **OpenSEO's billing page** names usage by `creditFeature` and shows a key it doesn't know as "Other". It needs `crm_agent` ("CRM Agent") and `company_data` ("Company Data") in `CREDIT_FEATURE_LABELS` (`src/shared/billing-credit-features.ts`) to name the CRM's usage.
 

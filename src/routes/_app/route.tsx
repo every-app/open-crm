@@ -5,6 +5,7 @@ import { QueryError } from "@/client/components/QueryState";
 import { AppLayout } from "@/client/layout/AppShell";
 import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
 import { CreditsBanner } from "@/client/features/billing/CreditsBanner";
+import { OutOfCreditsDialog } from "@/client/features/billing/OutOfCreditsDialog";
 import { RecordSheetHost } from "@/client/features/records/RecordSheetHost";
 import { appSearchSchema } from "@/client/features/records/recordStack";
 import { QuickSwitcher } from "@/client/features/search/QuickSwitcher";
@@ -42,6 +43,7 @@ function AppRouteLayout() {
         <>
           <Outlet />
           <RecordSheetHost />
+          <OutOfCreditsDialog />
         </>
       ) : workspaceQuery.isError ? (
         <div className="p-6">

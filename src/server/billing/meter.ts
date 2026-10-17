@@ -22,10 +22,6 @@ import { trackUsageCreditSpend } from "./subscription";
 // turn's actual cost (times the markup) whatever this is.
 const BILLING_CHUNK_USD = 0.05;
 
-/** A chat turn refused for credits says this instead (OpenSEO's SAM copy). */
-export const OUT_OF_CREDITS_REPLY =
-  "You're out of credits. Upgrade your plan or buy more credits on the Billing page to keep using the agent.";
-
 /** A turn the gate admitted, as its charges name it. */
 type MeteredTurn = {
   organizationId: string;
