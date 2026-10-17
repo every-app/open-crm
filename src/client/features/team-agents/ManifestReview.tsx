@@ -9,8 +9,9 @@ import {
 } from "@/shared/team-agents";
 
 /**
- * What a version may do, in the review's plain words: when it runs, what it
- * can see, what it can do, and the access that adds up to.
+ * What a version may do, in the review's plain words (the CRM's review
+ * card): when it runs, what it finds, what it does then, and the access that
+ * adds up to.
  */
 export function ManifestReview({ manifest }: { manifest: AgentManifest }) {
   const records = recordResources(manifest.dataScope.resources);
@@ -24,7 +25,7 @@ export function ManifestReview({ manifest }: { manifest: AgentManifest }) {
           ))}
         </ul>
       </Row>
-      <Row label="Sees">
+      <Row label="Find">
         {manifest.dataScope.mode === "WORKSPACE"
           ? "Every record in the workspace"
           : records.map((record) => record.label).join(" · ")}
@@ -32,7 +33,7 @@ export function ManifestReview({ manifest }: { manifest: AgentManifest }) {
           {captured}
         </span>
       </Row>
-      <Row label="Does">
+      <Row label="Then">
         <ul className="space-y-0.5">
           {manifest.actions.map((action) => (
             <li key={action.type}>
@@ -51,7 +52,7 @@ export function ManifestReview({ manifest }: { manifest: AgentManifest }) {
           ))}
         </ul>
       </Row>
-      <Row label="Access">
+      <Row label="Scope">
         <ul className="space-y-0.5">
           {manifest.access.map((line) => (
             <li key={line}>{line}</li>

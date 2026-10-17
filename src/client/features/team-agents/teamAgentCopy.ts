@@ -32,6 +32,9 @@ export const RUN_STATUS_COPY: Record<RunStatus, { label: string; tone: Tone }> =
     CANCELLED: { label: "Cancelled", tone: "secondary" },
   };
 
+/** A change that waits for review was saved as a new version. */
+export const REVIEW_SAVED = "Saved. Review and deploy the new version.";
+
 export const TRIGGER_COPY: Record<TriggerType, string> = {
   MANUAL: "Manual",
   SCHEDULE: "Schedule",

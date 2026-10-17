@@ -1,9 +1,10 @@
-import { AgentVersionRepository } from "@/server/features/team-agents/repositories/AgentVersionRepository";
+import { sortBy } from "remeda";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { AppError } from "@/server/lib/errors";
 import {
   AGENT_ACTION_TYPES,
+  agentManifest,
   CAPTURE_GRANTS,
   CAPTURE_KINDS,
   captureGrants,
@@ -14,116 +15,43 @@ import {
   type CaptureKind,
   type RecordResource,
 } from "@/shared/team-agents";
-import {
-  AgentFileRepository,
-  type NewArtifact,
-} from "../repositories/AgentFileRepository";
-import { AuditRepository } from "../repositories/AuditRepository";
+import { AgentFileRepository } from "../repositories/AgentFileRepository";
 import { BuilderRepository } from "../repositories/BuilderRepository";
-import { manageableAgent } from "./access";
 import { assertNoSecrets } from "./draft";
-import { readable } from "./TeamAgentService";
+import {
+  deployedVersion,
+  deployNow,
+  INSTRUCTIONS_PATH,
+  MANIFEST_PATH,
+  manifestFile,
+  replayed,
+  saveForReview,
+  type FileEdit,
+  type RevisionOutcome,
+} from "./revisionVersions";
 
 // Changing a deployed agent from its page, as the CRM's revise and saveFile:
-// turn actions off, move its Slack channel, narrow its records, take away its
-// captured email or meetings, or edit its instructions. Each change is a new deployed version at once (the person
-// making it is approving it), with the triggers moved over and the old
-// version kept in the history.
+// turn actions off, move its Slack channel, change its records and its
+// captured email or meetings, or edit its files. Taking something away is a
+// new deployed version at once (the person making it is approving it); giving
+// it more, or editing its manifest, makes a version that waits for review
+// (revisionVersions.ts).
 
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
-const INSTRUCTIONS_PATH = "agent/instructions.md";
+const grantedSources = (manifest: AgentManifest) => {
+  const granted = captureGrants(manifest.dataScope.resources);
+  return CAPTURE_KINDS.filter((kind) => granted[kind]);
+};
 
-/** The deployed version, for a change made from the detail page. */
-async function deployedVersion(context: Context, agentId: string) {
-  const agent = await manageableAgent(context, agentId);
-  if (!agent.currentVersionId) {
-    throw new AppError("CONFLICT", "Deploy this agent before changing it.");
-  }
-  const version = await AgentVersionRepository.findVersion(
-    context.organizationId,
-    agent.id,
-    agent.currentVersionId,
-  );
-  if (!version) throw new AppError("NOT_FOUND");
-  const manifest = readable(version.manifest);
-  if (!manifest.readable) {
-    throw new AppError(
-      "VALIDATION_ERROR",
-      "This version's manifest is unreadable, so it can't be changed.",
-    );
-  }
-  return { agent, version, manifest: manifest.manifest };
-}
+const recordKey = (record: { kind: string; id: string }) =>
+  `${record.kind}:${record.id}`;
 
-/** The deployed version's files carried onto `versionId`, `edit` applied. */
-async function carriedFiles(
-  organizationId: string,
-  fromVersionId: string,
-  versionId: string,
-  edit: { path: string; content: string } | null,
-): Promise<NewArtifact[]> {
-  const rows = await AgentFileRepository.versionFiles(
-    organizationId,
-    fromVersionId,
-  );
-  return rows.map((row) => {
-    const edited = edit?.path === row.path ? edit.content : null;
-    return {
-      id: crypto.randomUUID(),
-      organizationId,
-      conversationId: null,
-      versionId,
-      path: row.path,
-      language: row.language,
-      content: edited ?? row.content,
-      previousContent: edited === null ? row.previousContent : row.content,
-      revision: edited === null ? row.revision : row.revision + 1,
-      status: "READY",
-    };
-  });
-}
-
-async function nextNumber(organizationId: string, agentId: string) {
-  const latest = await AgentVersionRepository.latestVersion(
-    organizationId,
-    agentId,
-  );
-  return (latest?.number ?? 0) + 1;
-}
-
-/**
- * A change from the detail page, as the CRM's revise: turn actions off, move
- * the Slack destination, change the selected records, or keep only some of
- * its captured sources (a grant is never added here: that goes through the
- * builder and a review). It becomes a new
- * deployed version at once (the person changing it is approving it), and
- * the triggers move with it. A replayed request changes nothing.
- */
-async function revise(
-  context: Context,
-  input: {
-    agentId: string;
-    clientRequestId: string;
-    actions?: string[];
-    channel?: { id: string; name: string };
-    resources?: RecordResource[];
-    /** The captured sources to keep, of those the version grants. */
-    sources?: CaptureKind[];
-  },
-) {
-  const { organizationId } = context;
-  const { agent, version, manifest } = await deployedVersion(
-    context,
-    input.agentId,
-  );
-  const replay = await AuditRepository.findAudit(
-    organizationId,
-    agent.id,
-    "agent.revised",
-    input.clientRequestId,
-  );
-  if (replay) return { versionId: replay.versionId };
+/** The actions kept, and the Slack destination moved, as `input` asks. */
+function revisedActions(
+  manifest: AgentManifest,
+  input: { actions?: string[]; channel?: { id: string; name: string } },
+): AgentManifest["actions"] {
   let actions = manifest.actions;
   if (input.actions) {
     const keep = new Set(input.actions);
@@ -134,33 +62,43 @@ async function revise(
       throw new AppError("VALIDATION_ERROR", "An agent keeps its run summary.");
     }
   }
-  const before = slackDestinationOf(manifest);
-  if (input.channel) {
-    if (
-      !actions.some(
-        (action) => action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST,
-      )
-    ) {
-      throw new AppError(
-        "VALIDATION_ERROR",
-        "None of this agent's actions post to Slack.",
-      );
-    }
-    const channel = input.channel;
-    actions = actions.map((action) =>
-      action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST
-        ? {
-            ...action,
-            destination: {
-              kind: "channel",
-              resolution: "chosen",
-              id: channel.id,
-              label: `#${channel.name}`,
-            },
-          }
-        : action,
+  const channel = input.channel;
+  if (!channel) return actions;
+  if (
+    !actions.some(
+      (action) => action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST,
+    )
+  ) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "None of this agent's actions post to Slack.",
     );
   }
+  return actions.map((action) =>
+    action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST
+      ? {
+          ...action,
+          destination: {
+            kind: "channel",
+            resolution: "chosen",
+            id: channel.id,
+            label: `#${channel.name}`,
+          },
+        }
+      : action,
+  );
+}
+
+/**
+ * The resources `next` reads: the records asked for (by the CRM's labels),
+ * the captured sources asked for, and Slack only while it still posts there.
+ */
+async function revisedScope(
+  organizationId: string,
+  manifest: AgentManifest,
+  input: { resources?: RecordResource[]; sources?: CaptureKind[] },
+  postsToSlack: boolean,
+): Promise<AgentManifest["dataScope"]> {
   let dataScope = manifest.dataScope;
   if (input.resources) {
     if (
@@ -169,15 +107,16 @@ async function revise(
     ) {
       throw new AppError(
         "VALIDATION_ERROR",
-        "Keep one record: an empty list would open every record.",
+        "Add one record. An empty list opens every record in the workspace.",
       );
     }
-    const described = await BuilderRepository.describeRecords(
-      organizationId,
-      input.resources,
+    // The CRM's own labels, in the order they were asked for.
+    const order = new Map(
+      input.resources.map((record, index) => [recordKey(record), index]),
     );
-    const integrations = manifest.dataScope.resources.filter(
-      (resource) => resource.kind === "integration",
+    const described = sortBy(
+      await BuilderRepository.describeRecords(organizationId, input.resources),
+      (record) => order.get(recordKey(record)) ?? 0,
     );
     dataScope = {
       mode: described.length > 0 ? "SELECTED" : manifest.dataScope.mode,
@@ -187,97 +126,58 @@ async function revise(
           : manifest.dataScope.summary,
       resources: [
         ...described.map(({ kind, id, label }) => ({ kind, id, label })),
-        ...integrations,
+        ...manifest.dataScope.resources.filter(
+          (resource) => resource.kind === "integration",
+        ),
       ],
     };
   }
-  const slackKept = actions.some(
-    (action) => action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST,
+  const sourceId = (kind: CaptureKind) => CAPTURE_GRANTS[kind].resource.id;
+  const captureIds = new Set<string>(CAPTURE_KINDS.map(sourceId));
+  const keep = input.sources
+    ? new Set<string>(input.sources.map(sourceId))
+    : null;
+  const resources = dataScope.resources.filter((resource) =>
+    resource.id === SLACK_RESOURCE.id
+      ? postsToSlack
+      : !captureIds.has(resource.id) || !keep || keep.has(resource.id),
   );
-  if (!slackKept) {
-    dataScope = {
-      ...dataScope,
-      resources: dataScope.resources.filter(
-        (resource) => resource.id !== SLACK_RESOURCE.id,
-      ),
-    };
-  }
-  let access = manifest.access;
-  const keep = input.sources;
-  if (keep) {
-    const dropped = CAPTURE_KINDS.filter((kind) => !keep.includes(kind)).map(
-      (kind) => CAPTURE_GRANTS[kind],
-    );
-    const droppedIds = new Set<string>(
-      dropped.map((grant) => grant.resource.id),
-    );
-    const droppedAccess = new Set<string>(dropped.map((grant) => grant.access));
-    dataScope = {
-      ...dataScope,
-      resources: dataScope.resources.filter(
-        (resource) => !droppedIds.has(resource.id),
-      ),
-    };
-    access = access.filter((line) => !droppedAccess.has(line));
-  }
-  const next: AgentManifest = { ...manifest, actions, dataScope, access };
-  const versionId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  await AgentVersionRepository.replaceCurrentVersion({
-    version: {
-      id: versionId,
-      organizationId,
-      agentId: agent.id,
-      number: await nextNumber(organizationId, agent.id),
-      status: "DEPLOYED",
-      instructions: version.instructions,
-      manifest: next,
-      modelId: version.modelId,
-      sourceConversationId: version.sourceConversationId,
-      createdById: context.userId,
-      approvedAt: now,
-      deployedAt: now,
-    },
-    fromVersionId: version.id,
-    artifacts: await carriedFiles(organizationId, version.id, versionId, {
-      path: "agent/manifest.json",
-      content: `${JSON.stringify(next, null, 2)}\n`,
-    }),
-    audit: {
-      organizationId,
-      agentId: agent.id,
-      versionId,
-      actorUserId: context.userId,
-      actorType: "USER",
-      type: "agent.revised",
-      summary: reviseSummary(input),
-      before: {
-        channel: before?.label ?? null,
-        actions: manifest.actions.map((action) => action.type),
-        records: recordResources(manifest.dataScope.resources).length,
-        sources: CAPTURE_KINDS.filter(
-          (kind) => captureGrants(manifest.dataScope.resources)[kind],
-        ),
-      },
-      after: {
-        channel: input.channel ? `#${input.channel.name}` : null,
-        actions: input.actions ?? null,
-        records: input.resources?.length ?? null,
-        sources: input.sources ?? null,
-      },
-      requestId: input.clientRequestId,
-    },
+  const added = CAPTURE_KINDS.filter(
+    (kind) =>
+      keep?.has(sourceId(kind)) &&
+      !resources.some((resource) => resource.id === sourceId(kind)),
+  ).map((kind) => CAPTURE_GRANTS[kind].resource);
+  return { ...dataScope, resources: [...resources, ...added] };
+}
+
+/** Before and after of just what the request changed, for the activity. */
+function revisionChange(
+  input: {
+    actions?: string[];
+    channel?: { name: string };
+    resources?: unknown[];
+    sources?: CaptureKind[];
+  },
+  manifest: AgentManifest,
+  next: AgentManifest,
+) {
+  const side = (version: AgentManifest) => ({
+    ...(input.channel
+      ? { channel: slackDestinationOf(version)?.label ?? null }
+      : {}),
+    ...(input.actions
+      ? { actions: version.actions.map((action) => action.type) }
+      : {}),
+    ...(input.resources
+      ? {
+          records: recordResources(version.dataScope.resources).map(
+            (record) => record.label,
+          ),
+        }
+      : {}),
+    ...(input.sources ? { sources: grantedSources(version) } : {}),
   });
-  // Put the app in its new channel; a channel it can't join shows on the
-  // Slack card, and the run says so if it can't post.
-  if (input.channel && input.channel.id !== before?.id) {
-    await SlackInventoryService.joinChannel(context, input.channel.id).catch(
-      (error: unknown) => {
-        console.warn("[team-agents] could not join the new channel", error);
-      },
-    );
-  }
-  return { versionId };
+  return { before: side(manifest), after: side(next) };
 }
 
 function reviseSummary(input: {
@@ -295,76 +195,214 @@ function reviseSummary(input: {
 }
 
 /**
- * Edits the deployed version's instructions: a new deployed version with the
- * same manifest and the edited file, as the CRM's saveFile.
+ * A change from the agent's page, as the CRM's revise: turn actions off, move
+ * the Slack destination, set its records, or set which captured sources it
+ * reads. Taking away is a new deployed version at once, with the triggers
+ * moved over; a record or a captured source it didn't have makes a version
+ * that waits for review. A replayed request changes nothing.
  */
-async function saveInstructions(
+async function revise(
   context: Context,
-  input: { agentId: string; clientRequestId: string; content: string },
-) {
+  input: {
+    agentId: string;
+    clientRequestId: string;
+    actions?: string[];
+    channel?: { id: string; name: string };
+    resources?: RecordResource[];
+    /** The captured sources it reads. */
+    sources?: CaptureKind[];
+  },
+): Promise<RevisionOutcome> {
   const { organizationId } = context;
   const { agent, version, manifest } = await deployedVersion(
     context,
     input.agentId,
   );
-  const replay = await AuditRepository.findAudit(
+  const replay = await replayed(
     organizationId,
     agent.id,
-    "agent.file.saved",
     input.clientRequestId,
+    "agent.revised",
   );
-  if (replay) return { saved: false, versionId: replay.versionId };
-  const content = input.content.trim();
-  try {
-    assertNoSecrets(content);
-  } catch {
-    throw new AppError(
-      "VALIDATION_ERROR",
-      "Agent files cannot contain credentials or secret values.",
+  if (replay) return replay;
+
+  const actions = revisedActions(manifest, input);
+  const postsToSlack = actions.some(
+    (action) => action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST,
+  );
+  const dataScope = await revisedScope(
+    organizationId,
+    manifest,
+    input,
+    postsToSlack,
+  );
+  const droppedAccess = new Set<string>(
+    CAPTURE_KINDS.filter(
+      (kind) => input.sources && !input.sources.includes(kind),
+    ).map((kind) => CAPTURE_GRANTS[kind].access),
+  );
+  const next: AgentManifest = {
+    ...manifest,
+    actions,
+    dataScope,
+    access: manifest.access.filter((line) => !droppedAccess.has(line)),
+  };
+  const audit = {
+    summary: reviseSummary(input),
+    ...revisionChange(input, manifest, next),
+    requestId: input.clientRequestId,
+  };
+
+  const had = new Set(manifest.dataScope.resources.map(recordKey));
+  if (
+    next.dataScope.resources.some((resource) => !had.has(recordKey(resource)))
+  ) {
+    return saveForReview(context, {
+      from: version,
+      manifest: next,
+      instructions: version.instructions,
+      edits: [],
+      audit,
+    });
+  }
+  const versionId = await deployNow(context, {
+    from: version,
+    instructions: version.instructions,
+    manifest: next,
+    edits: [{ path: MANIFEST_PATH, content: manifestFile(next) }],
+    audit: { type: "agent.revised", ...audit },
+  });
+  // Put the app in its new channel; a channel it can't join shows on the
+  // Slack card, and the run says so if it can't post.
+  const before = slackDestinationOf(manifest);
+  if (input.channel && input.channel.id !== before?.id) {
+    await SlackInventoryService.joinChannel(context, input.channel.id).catch(
+      (error: unknown) => {
+        console.warn("[team-agents] could not join the new channel", error);
+      },
     );
   }
-  if (content === version.instructions.trim()) {
-    return { saved: false, versionId: version.id };
+  return { saved: true, versionId, review: false };
+}
+
+/** The edited manifest, or what is wrong with it. */
+function parseManifest(
+  content: string,
+): { manifest: AgentManifest } | { issues: string[] } {
+  let json: unknown;
+  try {
+    json = JSON.parse(content);
+  } catch (error) {
+    return {
+      issues: [
+        `${MANIFEST_PATH} isn't valid JSON: ${error instanceof Error ? error.message : "it can't be read"}.`,
+      ],
+    };
   }
-  const versionId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  await AgentVersionRepository.replaceCurrentVersion({
-    version: {
-      id: versionId,
-      organizationId,
-      agentId: agent.id,
-      number: await nextNumber(organizationId, agent.id),
-      status: "DEPLOYED",
-      instructions: content,
-      manifest,
-      modelId: version.modelId,
-      sourceConversationId: version.sourceConversationId,
-      createdById: context.userId,
-      approvedAt: now,
-      deployedAt: now,
-    },
-    fromVersionId: version.id,
-    artifacts: await carriedFiles(organizationId, version.id, versionId, {
-      path: INSTRUCTIONS_PATH,
-      content: `${content}\n`,
-    }),
-    audit: {
-      organizationId,
-      agentId: agent.id,
-      versionId,
-      actorUserId: context.userId,
-      actorType: "USER",
-      type: "agent.file.saved",
-      summary: `Edited ${INSTRUCTIONS_PATH}`,
-      before: { bytes: version.instructions.length },
-      after: { bytes: content.length },
-      requestId: input.clientRequestId,
-    },
+  const parsed = agentManifest.safeParse(json);
+  if (parsed.success) return { manifest: parsed.data };
+  return {
+    issues: parsed.error.issues.map(
+      (issue) => `${issue.path.join(".") || "manifest"}: ${issue.message}`,
+    ),
+  };
+}
+
+const MIN_INSTRUCTIONS = 40;
+
+/**
+ * Saves edits to the deployed version's files, as the CRM's saveFile: one
+ * new revision of each edited file in one new version. Instructions and the
+ * README are a new deployed version at once; a changed manifest is checked
+ * and waits for review. A replayed request changes nothing.
+ */
+async function saveFiles(
+  context: Context,
+  input: { agentId: string; clientRequestId: string; files: FileEdit[] },
+): Promise<RevisionOutcome> {
+  const { organizationId } = context;
+  const { agent, version, manifest } = await deployedVersion(
+    context,
+    input.agentId,
+  );
+  const replay = await replayed(
+    organizationId,
+    agent.id,
+    input.clientRequestId,
+    "agent.file.saved",
+  );
+  if (replay) return replay;
+  const files = await AgentFileRepository.versionFiles(
+    organizationId,
+    version.id,
+  );
+  const edits: Array<FileEdit & { was: string }> = [];
+  for (const file of input.files) {
+    const held = files.find((row) => row.path === file.path);
+    if (!held) throw new AppError("NOT_FOUND", `No file at ${file.path}.`);
+    // Files end in one newline, as the builder writes them.
+    const content = `${file.content.trimEnd()}\n`;
+    if (content !== held.content) {
+      edits.push({ path: file.path, content, was: held.content });
+    }
+  }
+  if (edits.length === 0) {
+    return { saved: true, versionId: version.id, review: false };
+  }
+  try {
+    for (const edit of edits) assertNoSecrets(edit.content);
+  } catch {
+    return {
+      saved: false,
+      issues: ["Agent files cannot contain credentials or secret values."],
+    };
+  }
+  const instructions =
+    edits.find((edit) => edit.path === INSTRUCTIONS_PATH)?.content.trim() ??
+    version.instructions;
+  if (instructions.length < MIN_INSTRUCTIONS) {
+    return {
+      saved: false,
+      issues: [
+        `The instructions need at least ${MIN_INSTRUCTIONS} characters.`,
+      ],
+    };
+  }
+  const manifestEdit = edits.find((edit) => edit.path === MANIFEST_PATH);
+  const proposed = manifestEdit
+    ? parseManifest(manifestEdit.content)
+    : { manifest };
+  if ("issues" in proposed) return { saved: false, issues: proposed.issues };
+
+  const audit = {
+    summary: `Edited ${edits.map((edit) => edit.path).join(", ")}`,
+    before: edits.map((edit) => ({ path: edit.path, bytes: edit.was.length })),
+    after: edits.map((edit) => ({
+      path: edit.path,
+      bytes: edit.content.length,
+    })),
+    requestId: input.clientRequestId,
+  };
+  if (JSON.stringify(proposed.manifest) !== JSON.stringify(manifest)) {
+    return saveForReview(context, {
+      from: version,
+      manifest: proposed.manifest,
+      instructions,
+      edits,
+      audit,
+    });
+  }
+  const versionId = await deployNow(context, {
+    from: version,
+    instructions,
+    manifest,
+    edits,
+    audit: { type: "agent.file.saved", ...audit },
   });
-  return { saved: true, versionId };
+  return { saved: true, versionId, review: false };
 }
 
 export const AgentRevisionService = {
   revise,
-  saveInstructions,
+  saveFiles,
 };

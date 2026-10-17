@@ -24,6 +24,8 @@ export function ChannelPicker({
   pending = false,
   onSelect,
   onAdd,
+  onRequest = onAdd,
+  className,
 }: {
   channels: PickerChannel[];
   canInviteItself: boolean;
@@ -32,9 +34,17 @@ export function ChannelPicker({
   pending?: boolean;
   onSelect?: (channel: PickerChannel) => void;
   onAdd?: (channel: PickerChannel) => void;
+  /** Asks for the app to be invited to a private channel; `onAdd` by default. */
+  onRequest?: (channel: PickerChannel) => void;
+  className?: string;
 }) {
   return (
-    <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+    <div
+      className={cn(
+        "divide-y divide-border overflow-hidden rounded-lg border border-border",
+        className,
+      )}
+    >
       {channels.length === 0 ? empty : null}
       {channels.map((channel) => {
         const selected = value === channel.id;
@@ -78,6 +88,15 @@ export function ChannelPicker({
             <span className="relative flex w-24 justify-end">
               {selected || (value === null && channel.isMember) ? (
                 <Check className="size-4 text-success" />
+              ) : needsInvite && onRequest ? (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  disabled={pending}
+                  onClick={() => onRequest(channel)}
+                >
+                  {channel.inviteRequestedAt ? "Ask again" : "Request"}
+                </Button>
               ) : !channel.isMember && onAdd ? (
                 <Button
                   variant="outline"
@@ -85,11 +104,7 @@ export function ChannelPicker({
                   disabled={pending}
                   onClick={() => onAdd(channel)}
                 >
-                  {needsInvite
-                    ? channel.inviteRequestedAt
-                      ? "Ask again"
-                      : "Request"
-                    : "Add"}
+                  Add
                 </Button>
               ) : null}
             </span>

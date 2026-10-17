@@ -23,7 +23,11 @@ export type CrmEvent = {
 };
 
 /** The next slot after `from` that is still in the future. */
-function nextSlot(from: string, intervalMinutes: number, now: Date): string {
+export function nextSlot(
+  from: string,
+  intervalMinutes: number,
+  now: Date,
+): string {
   const intervalMs = intervalMinutes * 60_000;
   const start = Date.parse(from);
   const missed = Math.max(
