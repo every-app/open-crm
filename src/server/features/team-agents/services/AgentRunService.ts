@@ -27,7 +27,7 @@ type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
 const DAY_MS = 86_400_000;
 
-export const RUN_ERRORS = {
+const RUN_ERRORS = {
   cancelled: {
     code: "CANCELLED",
     message: "Stopped by a person before it finished.",

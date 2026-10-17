@@ -42,7 +42,7 @@ const AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const TOKEN_URL = "https://slack.com/api/oauth.v2.access";
 const STATE_TTL_MS = 10 * 60_000;
 
-export const SLACK_GATEWAY_COMMAND =
+const SLACK_GATEWAY_COMMAND =
   "everyapp secret set SLACK_CLIENT_ID SLACK_CLIENT_SECRET --for gateway";
 
 async function gatewayEnv(): Promise<object> {

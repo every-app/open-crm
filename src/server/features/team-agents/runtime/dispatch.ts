@@ -34,7 +34,7 @@ const RUNS = {
   startTimeoutMs: MINUTE_MS,
 } as const;
 
-export type Defer = (work: Promise<unknown>) => void;
+type Defer = (work: Promise<unknown>) => void;
 
 function crmAgents(env: Env): DurableObjectNamespace<CrmAgent> {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- CRM_AGENT is always the CrmAgent class (everyapp.config.ts); only its generated type lacks the class

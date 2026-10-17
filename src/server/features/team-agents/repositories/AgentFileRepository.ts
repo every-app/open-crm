@@ -32,8 +32,6 @@ const artifactColumns = () => ({
   createdAt: agentBuilderArtifact.createdAt,
 });
 
-export type ArtifactRow = Awaited<ReturnType<typeof versionFiles>>[number];
-
 /** The newest revision of each of `rows`' paths. */
 function latestPerPath<Row extends { path: string; revision: number }>(
   rows: Row[],

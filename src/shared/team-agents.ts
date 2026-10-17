@@ -153,7 +153,7 @@ const slackDestination = z.object({
   label: z.string().trim().min(1).max(120),
 });
 
-export const manifestAction = z.discriminatedUnion("type", [
+const manifestAction = z.discriminatedUnion("type", [
   z.object({
     type: z.literal(AGENT_ACTION_TYPES.CRM_ACTIVITY_CREATE),
     provider: z.literal("crm"),
@@ -176,7 +176,6 @@ export const manifestAction = z.discriminatedUnion("type", [
   }),
 ]);
 
-export type ManifestAction = z.infer<typeof manifestAction>;
 export type SlackDestination = z.infer<typeof slackDestination>;
 
 const manifestTrigger = z.discriminatedUnion("type", [
@@ -199,8 +198,6 @@ const manifestTrigger = z.discriminatedUnion("type", [
     event: z.enum(CRM_EVENT_TYPES),
   }),
 ]);
-
-export type ManifestTrigger = z.infer<typeof manifestTrigger>;
 
 /**
  * A version's manifest: what it may read, what it may do and when it runs.

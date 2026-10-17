@@ -4,16 +4,16 @@
 // into them. The settings page shows each grant in plain words, and which
 // ones Slack held back.
 
-export type SlackScopeGroup = "people" | "read" | "send" | "change";
+type SlackScopeGroup = "people" | "read" | "send" | "change";
 
-export type SlackScope = {
+type SlackScope = {
   scope: string;
   group?: SlackScopeGroup;
   grant: string;
   sensitive: boolean;
 };
 
-export const SLACK_SCOPES: readonly SlackScope[] = [
+const SLACK_SCOPES: readonly SlackScope[] = [
   {
     scope: "users:read",
     group: "people",

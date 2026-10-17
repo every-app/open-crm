@@ -24,7 +24,7 @@ type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
 const SYNC_STALLED_MS = 3 * 60_000;
 
-export type SyncState = "idle" | "syncing" | "stalled";
+type SyncState = "idle" | "syncing" | "stalled";
 
 export function syncState(connection: SlackConnectionRow): SyncState {
   const started = connection.syncStartedAt;
@@ -36,7 +36,7 @@ export function syncState(connection: SlackConnectionRow): SyncState {
     : "stalled";
 }
 
-export async function requireConnection(
+async function requireConnection(
   organizationId: string,
 ): Promise<SlackConnectionRow> {
   const connection = await SlackRepository.getConnection(organizationId);

@@ -13,7 +13,7 @@ import {
 // one place reads span organizations, and each returns the organization of
 // every run it hands back.
 
-export type NewRun = {
+type NewRun = {
   organizationId: string;
   agentId: string;
   versionId: string;
@@ -87,8 +87,6 @@ const runColumns = () => ({
   startedAt: agentRun.startedAt,
   finishedAt: agentRun.finishedAt,
 });
-
-export type RunRow = NonNullable<Awaited<ReturnType<typeof findById>>>;
 
 async function findById(organizationId: string, id: string) {
   const [row] = await db

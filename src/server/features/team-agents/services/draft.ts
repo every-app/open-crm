@@ -91,7 +91,7 @@ export const draftInputSchema = z.object({
 
 export type DraftInput = z.infer<typeof draftInputSchema>;
 
-export type SlackInventory = {
+type SlackInventory = {
   connected: boolean;
   channels: Array<{ id: string; label: string }>;
   people: Array<{ id: string; label: string }>;

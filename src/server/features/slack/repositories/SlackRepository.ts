@@ -117,8 +117,6 @@ const channelColumns = () => ({
   inviteRequestedAt: slackChannel.inviteRequestedAt,
 });
 
-export type SlackChannelRow = Awaited<ReturnType<typeof listChannels>>[number];
-
 /** Available channels, the ones the app is in first, then by name. */
 async function listChannels(
   organizationId: string,
@@ -174,7 +172,7 @@ async function findChannelByName(organizationId: string, name: string) {
   return row ?? null;
 }
 
-export type ChannelWrite = {
+type ChannelWrite = {
   slackChannelId: string;
   name: string;
   memberCount: number | null;

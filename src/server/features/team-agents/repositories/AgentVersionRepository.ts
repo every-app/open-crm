@@ -70,7 +70,7 @@ async function latestVersion(organizationId: string, agentId: string) {
   return row ?? null;
 }
 
-export type NewVersion = {
+type NewVersion = {
   id: string;
   organizationId: string;
   agentId: string;

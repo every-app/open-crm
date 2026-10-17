@@ -2,7 +2,7 @@ import { Check, Lock } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/client/components/ui/button";
 
-export type PickerChannel = {
+type PickerChannel = {
   id: string;
   name: string;
   memberCount: number | null;

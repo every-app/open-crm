@@ -17,7 +17,7 @@ const envelope = z
   })
   .catch({ ok: false, error: "unreadable_reply" });
 
-export type SlackReply = { ok: boolean; error?: string; body: unknown };
+type SlackReply = { ok: boolean; error?: string; body: unknown };
 
 export class SlackError extends Error {
   constructor(readonly code: string) {
