@@ -24,10 +24,10 @@ type QueueSubject =
   | { kind: "deal"; id: string; name: string };
 
 /**
- * Running under a live lease, waiting its turn, out of attempts, or waiting
- * for the agent's model to be set up or the workspace's credits.
+ * Running under a live lease, waiting its turn, out of attempts, waiting
+ * for the agent's model to be set up, or for the workspace's credits.
  */
-type QueueState = "running" | "queued" | "failed" | "waiting";
+type QueueState = "running" | "queued" | "failed" | "waiting" | "credits";
 
 type Task = Awaited<
   ReturnType<typeof EnrichmentQueueRepository.due>
@@ -37,7 +37,8 @@ function stateOf(task: Task, now: string, hold: ResearchHold): QueueState {
   if (task.leasedUntil !== null && task.leasedUntil > now) return "running";
   if (task.attempts >= MAX_ATTEMPTS) return "failed";
   const held = taskHold(task, hold);
-  return held === "setup" || held === "credits" ? "waiting" : "queued";
+  if (held === "credits") return "credits";
+  return held === "setup" ? "waiting" : "queued";
 }
 
 function unique(ids: (string | null)[]): string[] {
