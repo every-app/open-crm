@@ -11,6 +11,7 @@ const tabs = [
   { to: "/settings/members", label: "Members", exact: false },
   { to: "/settings/currencies", label: "Currencies", exact: false },
   { to: "/settings/agent", label: "Agent", exact: false },
+  { to: "/settings/tracking", label: "Tracking", exact: false },
   { to: "/settings/data", label: "Data", exact: false },
 ] as const;
 
