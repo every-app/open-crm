@@ -165,8 +165,6 @@ export function prepareBuilderTurn(
       userId: session.conversation.userId,
       conversationId: session.conversation.id,
       tagged,
-      sessionId: session.sessionId,
-      needsTitle,
       creating,
       agentContext: {
         organizationId: session.organizationId,

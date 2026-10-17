@@ -58,18 +58,15 @@ export function BuilderHome() {
             agent and describe a job to automate.
           </p>
         </div>
-        {canChat ? (
-          <BuilderComposer
-            key={suggestion ?? ""}
-            conversationId={null}
-            busy={start.isPending}
-            initialText={suggestion ?? ""}
-            initialCreating={suggestion !== null}
-            onSend={(message) => start.mutate(message)}
-          />
-        ) : (
-          <AgentUnavailable />
-        )}
+        <BuilderComposer
+          key={suggestion ?? ""}
+          conversationId={null}
+          busy={start.isPending || !canChat}
+          initialText={suggestion ?? ""}
+          initialCreating={suggestion !== null}
+          onSend={(message) => start.mutate(message)}
+        />
+        {canChat ? null : <AgentUnavailable />}
         <p className="text-xs text-muted-foreground">
           Chats and agent drafts stay private to you. Deploying an agent makes
           it available to the whole team.

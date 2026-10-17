@@ -17,8 +17,6 @@ import { BUILDER_FILE_PATHS, draftInputSchema } from "../services/draft";
 
 export function builderTools(
   context: BuilderToolContext & {
-    sessionId: string;
-    needsTitle: boolean;
     creating: boolean;
     agentContext: AgentToolContext;
   },

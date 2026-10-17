@@ -31,7 +31,7 @@ export function AgentsPage() {
           title="Agents"
           description="Durable automations created from private agent-builder chats."
           actions={
-            <Button render={<Link to="/agents/new" />}>
+            <Button nativeButton={false} render={<Link to="/agents/new" />}>
               <Plus data-icon="inline-start" />
               New agent
             </Button>
@@ -52,6 +52,7 @@ export function AgentsPage() {
                   description="Describe one in a private chat, then review its access before deploying it."
                   action={
                     <Button
+nativeButton={false}
                       variant="outline"
                       size="sm"
                       render={<Link to="/agents/new" />}

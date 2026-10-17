@@ -48,8 +48,9 @@ function routeAppRequest(
   env: Env,
 ): Response | Promise<Response> {
   const pathname = new URL(request.url).pathname;
-  // The agent's chats (WebSocket and history) and its Durable Objects.
-  if (pathname.startsWith("/agents/")) {
+  // The agent's chats (WebSocket and history) and its Durable Objects. Only
+  // the CrmAgent's own prefix: the rest of /agents/* is the team agents' pages.
+  if (pathname.startsWith("/agents/crm-agent/")) {
     return routeAgentRequests(request, env);
   }
   // Logos and photographs the agent copied into R2.

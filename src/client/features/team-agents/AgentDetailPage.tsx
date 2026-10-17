@@ -180,6 +180,7 @@ function LoadedAgent({ agent }: { agent: Agent }) {
               </Button>
               {agent.conversationId ? (
                 <Button
+nativeButton={false}
                   variant="outline"
                   render={
                     <Link

@@ -54,6 +54,7 @@ export function DraftPanel({ chat }: { chat: Chat }) {
           </p>
           <ManifestReview manifest={version.manifest} />
           <Button
+nativeButton={false}
             size="sm"
             className="w-full"
             render={
