@@ -4,10 +4,14 @@ import { SlackInventoryService } from "@/server/features/slack/services/SlackInv
 import { AppError } from "@/server/lib/errors";
 import {
   AGENT_ACTION_TYPES,
+  CAPTURE_GRANTS,
+  CAPTURE_KINDS,
+  captureGrants,
   recordResources,
   SLACK_RESOURCE,
   slackDestinationOf,
   type AgentManifest,
+  type CaptureKind,
   type RecordResource,
 } from "@/shared/team-agents";
 import {
@@ -21,8 +25,8 @@ import { assertNoSecrets } from "./draft";
 import { readable } from "./TeamAgentService";
 
 // Changing a deployed agent from its page, as the CRM's revise and saveFile:
-// turn actions off, move its Slack channel, narrow its records, or edit its
-// instructions. Each change is a new deployed version at once (the person
+// turn actions off, move its Slack channel, narrow its records, take away its
+// captured email or meetings, or edit its instructions. Each change is a new deployed version at once (the person
 // making it is approving it), with the triggers moved over and the old
 // version kept in the history.
 
@@ -90,7 +94,9 @@ async function nextNumber(organizationId: string, agentId: string) {
 
 /**
  * A change from the detail page, as the CRM's revise: turn actions off, move
- * the Slack destination, or change the selected records. It becomes a new
+ * the Slack destination, change the selected records, or keep only some of
+ * its captured sources (a grant is never added here: that goes through the
+ * builder and a review). It becomes a new
  * deployed version at once (the person changing it is approving it), and
  * the triggers move with it. A replayed request changes nothing.
  */
@@ -102,6 +108,8 @@ async function revise(
     actions?: string[];
     channel?: { id: string; name: string };
     resources?: RecordResource[];
+    /** The captured sources to keep, of those the version grants. */
+    sources?: CaptureKind[];
   },
 ) {
   const { organizationId } = context;
@@ -194,7 +202,25 @@ async function revise(
       ),
     };
   }
-  const next: AgentManifest = { ...manifest, actions, dataScope };
+  let access = manifest.access;
+  const keep = input.sources;
+  if (keep) {
+    const dropped = CAPTURE_KINDS.filter((kind) => !keep.includes(kind)).map(
+      (kind) => CAPTURE_GRANTS[kind],
+    );
+    const droppedIds = new Set<string>(
+      dropped.map((grant) => grant.resource.id),
+    );
+    const droppedAccess = new Set<string>(dropped.map((grant) => grant.access));
+    dataScope = {
+      ...dataScope,
+      resources: dataScope.resources.filter(
+        (resource) => !droppedIds.has(resource.id),
+      ),
+    };
+    access = access.filter((line) => !droppedAccess.has(line));
+  }
+  const next: AgentManifest = { ...manifest, actions, dataScope, access };
   const versionId = crypto.randomUUID();
   const now = new Date().toISOString();
   await AgentVersionRepository.replaceCurrentVersion({
@@ -229,11 +255,15 @@ async function revise(
         channel: before?.label ?? null,
         actions: manifest.actions.map((action) => action.type),
         records: recordResources(manifest.dataScope.resources).length,
+        sources: CAPTURE_KINDS.filter(
+          (kind) => captureGrants(manifest.dataScope.resources)[kind],
+        ),
       },
       after: {
         channel: input.channel ? `#${input.channel.name}` : null,
         actions: input.actions ?? null,
         records: input.resources?.length ?? null,
+        sources: input.sources ?? null,
       },
       requestId: input.clientRequestId,
     },
@@ -254,11 +284,13 @@ function reviseSummary(input: {
   channel?: { name: string };
   actions?: string[];
   resources?: unknown[];
+  sources?: CaptureKind[];
 }): string {
   const parts: string[] = [];
   if (input.channel) parts.push(`moved to #${input.channel.name}`);
   if (input.actions) parts.push(`${input.actions.length} actions`);
   if (input.resources) parts.push(`${input.resources.length} records`);
+  if (input.sources) parts.push(`${input.sources.length} captured sources`);
   return parts.length > 0 ? `Changed ${parts.join(", ")}` : "Changed settings";
 }
 

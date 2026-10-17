@@ -2,7 +2,11 @@ import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { mailboxConnection, oauthState } from "@/db/schema";
 import { randomToken } from "@/server/lib/pkce";
-import type { MailboxProvider } from "@/shared/mailbox";
+import {
+  grantedSources,
+  type MailboxProvider,
+  type SyncSource,
+} from "@/shared/mailbox";
 
 // A member's mailbox connections and the single-use states of the connects
 // they start. Tokens are read only by the token service; nothing here hands
@@ -243,6 +247,22 @@ async function accountEmails(organizationId: string): Promise<string[]> {
   return rows.map((row) => row.email);
 }
 
+/** The sources any member of the organization has connected. */
+async function connectedSources(
+  organizationId: string,
+): Promise<Set<SyncSource>> {
+  const rows = await db
+    .select({
+      provider: mailboxConnection.provider,
+      scopes: mailboxConnection.scopes,
+    })
+    .from(mailboxConnection)
+    .where(eq(mailboxConnection.organizationId, organizationId));
+  return new Set(
+    rows.flatMap((row) => grantedSources(row.provider, row.scopes)),
+  );
+}
+
 export const ConnectionRepository = {
   createState,
   consumeState,
@@ -254,4 +274,5 @@ export const ConnectionRepository = {
   markNeedsReconnect,
   remove,
   accountEmails,
+  connectedSources,
 };

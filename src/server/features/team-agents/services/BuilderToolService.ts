@@ -1,10 +1,17 @@
 import { AgentVersionRepository } from "@/server/features/team-agents/repositories/AgentVersionRepository";
 import { env } from "cloudflare:workers";
 import { AgentProfileRepository } from "@/server/features/agent/repositories/AgentProfileRepository";
+import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { DEFAULT_AGENT_MODEL } from "@/server/lib/openrouter";
 import type { RecordRef } from "@/shared/records";
-import { TEAM_AGENT_LIMITS } from "@/shared/team-agents";
+import {
+  CAPTURE_GRANTS,
+  CAPTURE_KINDS,
+  SLACK_RESOURCE,
+  TEAM_AGENT_LIMITS,
+  type CaptureGrants,
+} from "@/shared/team-agents";
 import {
   AgentFileRepository,
   type NewArtifact,
@@ -37,7 +44,25 @@ export type BuilderToolContext = {
   conversationId: string;
   /** Records the person tagged in the chat's messages. */
   tagged: RecordRef[];
+  /** Integration ids the person tagged (Email, Calendar, Slack). */
+  taggedIntegrations: string[];
 };
+
+/**
+ * Whether a version could be granted the captured email and meetings: some
+ * member of the workspace has connected a mailbox, or a calendar.
+ */
+async function captureConnections(
+  organizationId: string,
+): Promise<CaptureGrants> {
+  const sources = await ConnectionRepository.connectedSources(organizationId);
+  return {
+    email: CAPTURE_GRANTS.email.sources.some((source) => sources.has(source)),
+    calendar: CAPTURE_GRANTS.calendar.sources.some((source) =>
+      sources.has(source),
+    ),
+  };
+}
 
 function isText(mediaType: string): boolean {
   return /^text\/|^application\/(json|xml|csv|x-yaml|yaml)/i.test(mediaType);
@@ -81,13 +106,14 @@ async function describeTagged(tool: BuilderToolContext) {
  */
 async function builderContext(tool: BuilderToolContext) {
   const { organizationId, conversationId } = tool;
-  const [conversation, slack, resources, agent] = await Promise.all([
+  const [conversation, slack, capture, resources, agent] = await Promise.all([
     BuilderRepository.findConversation(
       organizationId,
       tool.userId,
       conversationId,
     ),
     SlackInventoryService.builderInventory(organizationId),
+    captureConnections(organizationId),
     describeTagged(tool),
     TeamAgentRepository.findByConversation(organizationId, conversationId),
   ]);
@@ -102,13 +128,15 @@ async function builderContext(tool: BuilderToolContext) {
       slack: slack.connected,
       slackChannels: slack.channels,
       slackPeople: slack.people,
-      // Gmail and Calendar grants need mail capture, which this CRM doesn't
-      // have yet.
-      gmail: false,
-      calendar: false,
+      email: capture.email,
+      calendar: capture.calendar,
     },
     crmEvents: eventCatalog(),
     resources,
+    taggedIntegrations: [
+      ...CAPTURE_KINDS.map((kind) => CAPTURE_GRANTS[kind].resource),
+      SLACK_RESOURCE,
+    ].filter((resource) => tool.taggedIntegrations.includes(resource.id)),
     limits: {
       minScheduleMinutes: TEAM_AGENT_LIMITS.minScheduleMinutes,
       maxRunsPerDay: TEAM_AGENT_LIMITS.maxRunsPerDay,
@@ -182,16 +210,17 @@ async function saveDraft(tool: BuilderToolContext, input: DraftInput) {
   );
   if (!conversation)
     throw new Error("This builder conversation is unavailable.");
-  const [tagged, slack] = await Promise.all([
+  const [tagged, slack, capture] = await Promise.all([
     describeTagged(tool),
     SlackInventoryService.builderInventory(organizationId),
+    captureConnections(organizationId),
   ]);
   const existing = await BuilderRepository.describeRecords(
     organizationId,
     input.resources,
   );
   const now = new Date();
-  const issues = draftIssues(input, tagged, existing, slack, now);
+  const issues = draftIssues(input, tagged, existing, { slack, capture }, now);
   if (issues.length > 0) {
     return {
       saved: false as const,
@@ -200,6 +229,8 @@ async function saveDraft(tool: BuilderToolContext, input: DraftInput) {
         slack: slack.connected,
         slackChannels: slack.channels,
         slackPeople: slack.people,
+        email: capture.email,
+        calendar: capture.calendar,
       },
     };
   }
@@ -357,6 +388,7 @@ async function saveDraft(tool: BuilderToolContext, input: DraftInput) {
 }
 
 export const BuilderToolService = {
+  captureConnections,
   readAttachment,
   builderContext,
   writeFile,

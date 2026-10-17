@@ -3,6 +3,7 @@ import { cn } from "cn";
 import {
   ACTION_LABELS,
   AGENT_ACTION_TYPES,
+  captureGrants,
   recordResources,
   type AgentManifest,
 } from "@/shared/team-agents";
@@ -13,6 +14,7 @@ import {
  */
 export function ManifestReview({ manifest }: { manifest: AgentManifest }) {
   const records = recordResources(manifest.dataScope.resources);
+  const captured = capturedCopy(manifest);
   return (
     <dl className="space-y-3 text-sm">
       <Row label="When">
@@ -26,6 +28,9 @@ export function ManifestReview({ manifest }: { manifest: AgentManifest }) {
         {manifest.dataScope.mode === "WORKSPACE"
           ? "Every record in the workspace"
           : records.map((record) => record.label).join(" · ")}
+        <span className="block text-xs font-normal text-muted-foreground">
+          {captured}
+        </span>
       </Row>
       <Row label="Does">
         <ul className="space-y-0.5">
@@ -55,6 +60,23 @@ export function ManifestReview({ manifest }: { manifest: AgentManifest }) {
       </Row>
     </dl>
   );
+}
+
+/** The captured mail and meetings a version reads, in plain words. */
+function capturedCopy(manifest: AgentManifest): string {
+  const { email, calendar } = captureGrants(manifest.dataScope.resources);
+  const on =
+    manifest.dataScope.mode === "WORKSPACE" ? "every record" : "those records";
+  if (email && calendar) {
+    return `Plus the email and meetings your team's connected mailboxes and calendars captured on ${on}.`;
+  }
+  if (email) {
+    return `Plus the email your team's connected mailboxes captured on ${on}. No meetings.`;
+  }
+  if (calendar) {
+    return `Plus the meetings your team's connected calendars captured on ${on}. No email.`;
+  }
+  return "No captured email or meetings.";
 }
 
 function Row({

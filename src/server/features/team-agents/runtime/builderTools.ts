@@ -68,7 +68,7 @@ export function builderTools(
 
           save_agent_draft: tool({
             description:
-              "Validate and save one immutable agent version for human review. Copy tagged CRM records exactly into resources; declare slack in integrations when the agent posts to Slack. This never deploys the agent.",
+              "Validate and save one immutable agent version for human review. Copy tagged CRM records exactly into resources; declare slack in integrations when the agent posts to Slack, and email or calendar when it must read the captured mail or meetings on its records. This never deploys the agent.",
             inputSchema: draftInputSchema,
             execute: async (input) => {
               draftOpen();

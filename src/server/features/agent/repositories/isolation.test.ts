@@ -144,25 +144,41 @@ describe("organization isolation", () => {
 
   it("AgentHistoryRepository, AgentAccountRepository and AgentDealRepository", async () => {
     expect(
-      await AgentHistoryRepository.contactHistory(OWN, "c_a", { threads: 5 }),
+      await AgentHistoryRepository.contactHistory(OWN, "c_a", {
+        threads: 5,
+        email: true,
+        calendar: true,
+      }),
     ).toMatchObject({ contact: { fullName: "Paula Marchetti" } });
     expect(
       await AgentAccountRepository.companyHistory(OWN, "co_a", {
         threads: 5,
         people: 25,
+        email: true,
+        calendar: true,
       }),
     ).toMatchObject({ people: [expect.objectContaining({ id: "c_a" })] });
     expect(
-      await AgentHistoryRepository.contactHistory(OTHER, "c_a", { threads: 5 }),
+      await AgentHistoryRepository.contactHistory(OTHER, "c_a", {
+        threads: 5,
+        email: true,
+        calendar: true,
+      }),
     ).toBeNull();
     expect(
       await AgentAccountRepository.companyHistory(OTHER, "co_a", {
         threads: 5,
         people: 25,
+        email: true,
+        calendar: true,
       }),
     ).toBeNull();
     expect(
-      await AgentDealRepository.dealHistory(OTHER, "d_a", { threads: 5 }),
+      await AgentDealRepository.dealHistory(OTHER, "d_a", {
+        threads: 5,
+        email: true,
+        calendar: true,
+      }),
     ).toBeNull();
   });
 

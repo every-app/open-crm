@@ -259,7 +259,10 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   );
 }
 
-/** Search the CRM's records (and Slack, when connected) to tag one. */
+/**
+ * Search the CRM's records to tag one, or tag Email, Calendar or Slack (Email
+ * and Calendar show why they can't be granted until someone connects one).
+ */
 function TagPicker({ onPick }: { onPick: (tag: TaggedResource) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -294,7 +297,8 @@ function TagPicker({ onPick }: { onPick: (tag: TaggedResource) => void }) {
             <Button
               key={`${resource.kind}:${resource.id}`}
               variant="ghost"
-              className="h-auto flex-col items-start rounded-none px-3 py-2 text-left font-normal"
+              className="h-auto flex-col items-start rounded-none px-3 py-2 text-left font-normal whitespace-normal"
+              disabled={resource.unavailable !== null}
               onClick={() => {
                 onPick({
                   kind: resource.kind,
@@ -307,11 +311,12 @@ function TagPicker({ onPick }: { onPick: (tag: TaggedResource) => void }) {
             >
               <span className="text-sm">{resource.label}</span>
               <span className="text-xs text-muted-foreground">
-                {resource.kind === "integration"
-                  ? resource.detail
-                  : [resource.kind, resource.detail]
-                      .filter(Boolean)
-                      .join(" · ")}
+                {resource.unavailable ??
+                  (resource.kind === "integration"
+                    ? resource.detail
+                    : [resource.kind, resource.detail]
+                        .filter(Boolean)
+                        .join(" · "))}
               </span>
             </Button>
           ))}

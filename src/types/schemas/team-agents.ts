@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FEEDBACK_RATINGS } from "@/shared/team-agents";
+import { CAPTURE_KINDS, FEEDBACK_RATINGS } from "@/shared/team-agents";
 
 const id = z.string().trim().min(1).max(128);
 const requestId = z.uuid();
@@ -54,6 +54,7 @@ export const reviseAgentSchema = z.object({
     )
     .max(30)
     .optional(),
+  sources: z.array(z.enum(CAPTURE_KINDS)).max(2).optional(),
 });
 
 export const saveInstructionsSchema = z.object({
