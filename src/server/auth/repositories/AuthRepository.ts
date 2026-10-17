@@ -51,21 +51,26 @@ async function upsertMember(input: {
 
 /**
  * The people the gateway has let into the organization's CRM so far, oldest
- * first. A member appears once they have opened the CRM.
+ * first, with when each joined (first opened the CRM).
  */
 async function listMembers(organizationId: string) {
-  return db
+  const rows = await db
     .select({
       userId: user.id,
       name: user.name,
       email: user.email,
       image: user.image,
       role: member.role,
+      joinedAt: member.createdAt,
     })
     .from(member)
     .innerJoin(user, eq(user.id, member.userId))
     .where(eq(member.organizationId, organizationId))
     .orderBy(asc(member.createdAt));
+  return rows.map((row) => ({
+    ...row,
+    joinedAt: row.joinedAt.toISOString(),
+  }));
 }
 
 /** Whether `userId` is a mirrored member of `organizationId`. */
