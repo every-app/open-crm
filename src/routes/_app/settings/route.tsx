@@ -8,6 +8,7 @@ export const Route = createFileRoute("/_app/settings")({
 
 const tabs = [
   { to: "/settings", label: "Workspace", exact: true },
+  { to: "/settings/setup", label: "Setup", exact: false },
   { to: "/settings/members", label: "Members", exact: false },
   { to: "/settings/connections", label: "Connections", exact: false },
   { to: "/settings/currencies", label: "Currencies", exact: false },

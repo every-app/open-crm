@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2ebafa9b-6f42-41fa-a195-b61e541fc6b9",
+  "id": "97fb06cb-c257-49fb-84b6-ff18566c8bab",
   "prevId": "4faad0a5-2929-46de-883e-0d784300fef4",
   "tables": {
     "member": {
@@ -1957,6 +1957,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'MANUAL'"
+        },
         "last_activity_at": {
           "name": "last_activity_at",
           "type": "text",
@@ -3909,6 +3917,34 @@
           "notNull": true,
           "autoincrement": false,
           "default": 180
+        },
+        "model_refused_at": {
+          "name": "model_refused_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "model_refusal": {
+          "name": "model_refusal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "model_answered_at": {
+          "name": "model_answered_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "setup_dismissed_at": {
+          "name": "setup_dismissed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",

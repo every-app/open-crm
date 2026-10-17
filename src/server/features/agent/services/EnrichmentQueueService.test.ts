@@ -6,7 +6,12 @@ const { database } = await vi.hoisted(async () => {
 });
 vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
 vi.mock("@/db", () => ({ db: database.db }));
+// The gateway is connected: research isn't waiting for the model's setup.
+vi.mock("@/server/lib/openrouter", () => ({
+  getOpenRouterFetch: vi.fn(),
+}));
 
+import { getOpenRouterFetch } from "@/server/lib/openrouter";
 import { EnrichmentQueueService } from "./EnrichmentQueueService";
 
 const PAST = "2026-01-01T00:00:00.000Z";
@@ -14,6 +19,7 @@ const FUTURE = "2999-01-01T00:00:00.000Z";
 
 describe("EnrichmentQueueService", () => {
   beforeEach(async () => {
+    vi.mocked(getOpenRouterFetch).mockReturnValue(fetch);
     await database.exec(
       `DELETE FROM agent_task; DELETE FROM deal; DELETE FROM contact; DELETE FROM company; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
     );
@@ -70,6 +76,7 @@ describe("EnrichmentQueueService", () => {
         },
       ],
       total: 3,
+      paused: false,
       scheduled: [
         {
           id: "recheck",
@@ -88,6 +95,17 @@ describe("EnrichmentQueueService", () => {
     });
   });
 
+  it("says research waits while the agent has no model, but logos don't", async () => {
+    vi.mocked(getOpenRouterFetch).mockReturnValue(null);
+    const queue = await EnrichmentQueueService.queue("org_a", 20);
+    expect(queue.paused).toBe(true);
+    expect(queue.rows.map((row) => [row.id, row.state])).toEqual([
+      ["brand", "running"],
+      ["identify", "waiting"],
+      ["backfill", "failed"],
+    ]);
+  });
+
   it("pages the list while counting all of it", async () => {
     const page = await EnrichmentQueueService.queue("org_a", 1);
     expect(page.rows.map((row) => row.id)).toEqual(["brand"]);
@@ -98,6 +116,7 @@ describe("EnrichmentQueueService", () => {
     expect(await EnrichmentQueueService.queue("org_b", 20)).toEqual({
       rows: [],
       total: 0,
+      paused: false,
       scheduled: [],
       scheduledTotal: 0,
     });

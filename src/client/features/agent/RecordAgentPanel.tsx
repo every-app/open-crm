@@ -91,10 +91,13 @@ function LoadedAgentPanel({
   } | null>(null);
   const current = conversations.find((row) => row.id === openId) ?? null;
 
-  // Without a model key the agent can't answer. While the check runs, or if
-  // it fails, the composer stays: a turn that can't run says so itself.
+  // With no way to reach a model the agent can't answer. After the gateway
+  // refused it, the notice shows but the composer stays: a message is the
+  // next try, so a key set since is picked up at once, and a turn that still
+  // can't run says so itself. So does one sent while the check runs.
   const status = useQuery(agentStatusQueryOptions());
-  const canChat = status.data?.openRouter ?? true;
+  const canChat = status.data?.model !== "missing";
+  const refused = status.data?.model === "refused";
 
   // A conversation exists once there is something to say in it.
   const start = useMutation({
@@ -176,11 +179,14 @@ function LoadedAgentPanel({
           header={work}
           footer={
             canChat ? (
-              <AgentComposer
-                placeholder={RECORD_COPY[record.kind].placeholder}
-                busy={start.isPending}
-                onSend={(text) => start.mutate(text)}
-              />
+              <>
+                {refused ? <AgentUnavailable /> : null}
+                <AgentComposer
+                  placeholder={RECORD_COPY[record.kind].placeholder}
+                  busy={start.isPending}
+                  onSend={(text) => start.mutate(text)}
+                />
+              </>
             ) : (
               <AgentUnavailable />
             )

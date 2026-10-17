@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -27,10 +27,13 @@ import {
 import type { DealRow } from "@/client/features/deals/dealFormat";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
+import { ExportButton } from "@/client/features/csv/ExportButton";
+import { ImportDialog } from "@/client/features/csv/ImportDialog";
+import { DEAL_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import { useListSelection } from "@/client/features/records/listSearch";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
-import type { listDeals } from "@/serverFunctions/deals";
+import { listDeals } from "@/serverFunctions/deals";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { DEAL_SORTS } from "@/types/schemas/deals";
 
@@ -56,6 +59,7 @@ export function DealsPage() {
     record: ["purge"],
   });
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const anchorRef = useSelectionAnchor();
   const fieldColumns = useFieldColumns<DealRow>("DEAL");
@@ -92,6 +96,12 @@ export function DealsPage() {
       New deal
     </Button>
   );
+  const importCsv = (
+    <Button variant="outline" onClick={() => setImporting(true)}>
+      <Upload data-icon="inline-start" />
+      Import
+    </Button>
+  );
 
   return (
     <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
@@ -99,7 +109,12 @@ export function DealsPage() {
         <PageHeader
           title="Deals"
           description="The pipeline, and everything that has already closed."
-          actions={newDeal}
+          actions={
+            <>
+              {importCsv}
+              {newDeal}
+            </>
+          }
         />
         <DataTable
           table={table}
@@ -136,8 +151,13 @@ export function DealsPage() {
               : {
                   title: "No deals yet",
                   description:
-                    "Add the first deal you're working on: a company, what it's worth, and who owns it.",
-                  action: newDeal,
+                    "Add the first deal you're working on (a company, what it's worth, and who owns it), or import your pipeline from a CSV.",
+                  action: (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {newDeal}
+                      {importCsv}
+                    </div>
+                  ),
                 }
           }
           toolbar={
@@ -151,6 +171,13 @@ export function DealsPage() {
               }
               actions={
                 <>
+                  <ExportButton
+                    entity="DEAL"
+                    columns={DEAL_EXPORT}
+                    fetchPage={(page, pageSize) =>
+                      listDeals({ data: { ...input, page, pageSize } })
+                    }
+                  />
                   {input.archived ? null : (
                     <PipelineSummary list={query.data} />
                   )}
@@ -189,6 +216,9 @@ export function DealsPage() {
         }
         onClose={() => setSearch({ record: undefined, tab: undefined })}
       />
+      {importing ? (
+        <ImportDialog entity="DEAL" onClose={() => setImporting(false)} />
+      ) : null}
       {creating ? (
         <CreateDealDialog
           onClose={() => setCreating(false)}

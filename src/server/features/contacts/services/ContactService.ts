@@ -11,7 +11,7 @@ import {
   blankToNull,
   bulkOutcome,
   isUniqueViolation,
-  queuedRecordIds,
+  recordAgentStates,
   runBulk,
 } from "@/server/features/records/recordRules";
 import { AppError } from "@/server/lib/errors";
@@ -75,14 +75,15 @@ async function listContacts(organizationId: string, input: ContactListInput) {
     ),
   );
   const ids = rows.map((row) => row.id);
-  const [queued, fields] = await Promise.all([
-    queuedRecordIds(organizationId, "contact", ids),
+  const [agent, fields] = await Promise.all([
+    recordAgentStates(organizationId, "contact", ids),
     FieldValuesService.tableValues(organizationId, "CONTACT", ids),
   ]);
   return {
     rows: rows.map((row) => ({
       ...row,
-      queued: queued.has(row.id),
+      queued: agent.queued.has(row.id),
+      waiting: agent.waiting.has(row.id),
       fields: fields[row.id] ?? {},
     })),
     total,
@@ -103,7 +104,7 @@ async function getContact(organizationId: string, id: string) {
     organizationId,
     id,
   );
-  const [facts, brief, deals, colleagues, relationship, queued] =
+  const [facts, brief, deals, colleagues, relationship, agent] =
     await Promise.all([
       ContactFactRepository.listOpen(organizationId, id),
       ContactFactRepository.findBrief(organizationId, id),
@@ -116,7 +117,7 @@ async function getContact(organizationId: string, id: string) {
           )
         : [],
       ContactRelationsRepository.relationship(organizationId, id),
-      queuedRecordIds(organizationId, "contact", [id]),
+      recordAgentStates(organizationId, "contact", [id]),
     ]);
   return {
     ...found,
@@ -132,7 +133,8 @@ async function getContact(organizationId: string, id: string) {
         title: colleague.title,
       })),
     },
-    queued: queued.has(id),
+    queued: agent.queued.has(id),
+    waiting: agent.waiting.has(id),
   };
 }
 

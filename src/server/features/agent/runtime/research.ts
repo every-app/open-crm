@@ -1,9 +1,9 @@
-import { MODEL_UNAVAILABLE_OUTCOME } from "../dispatch";
 import { settle } from "../dispatch/enrichment";
 import {
   AgentTaskRepository,
   type TaskSubject,
 } from "../repositories/AgentTaskRepository";
+import { AgentAvailabilityService } from "../services/AgentAvailabilityService";
 import { recordEvent } from "./audit";
 import type { ResearchSession } from "./session";
 
@@ -12,7 +12,8 @@ import type { ResearchSession } from "./session";
 // turn.cancelled): a turn that ran finishes the task and completes the
 // record; a turn that failed fails the record and leaves the task open, so
 // the dispatcher tries again once its lease runs out (and retires it after
-// MAX_ATTEMPTS). A turn that could never run says why, once.
+// MAX_ATTEMPTS). A turn the gateway refused a model for never ran: its task
+// goes back to wait, its attempt uncounted, until the model is set up.
 
 type TurnEnding =
   | { status: "completed"; text: string }
@@ -67,13 +68,9 @@ export async function reportResearch(
     return;
   }
   if (modelUnavailable(ending.error)) {
-    const subject = await AgentTaskRepository.complete(
-      organizationId,
-      task.id,
-      MODEL_UNAVAILABLE_OUTCOME,
-      sessionId,
-    );
-    if (subject) await settle(subject, "SKIPPED", MODEL_UNAVAILABLE_OUTCOME);
+    await AgentAvailabilityService.noteRefusal(organizationId, ending.error);
+    const subject = await AgentTaskRepository.release(organizationId, task.id);
+    if (subject) await settle(subject, "PENDING");
     return;
   }
   await settle(subjectOf(session), "FAILED", ending.error);

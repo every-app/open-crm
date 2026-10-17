@@ -184,7 +184,19 @@ type NewCompany = {
   website: string | null;
   ownerId: string | null;
   source?: RecordSource;
-};
+} & Partial<
+  Pick<
+    typeof company.$inferInsert,
+    | "description"
+    | "industry"
+    | "city"
+    | "stateCode"
+    | "country"
+    | "phone"
+    | "email"
+    | "linkedinUrl"
+  >
+>;
 
 /**
  * Inserts the company unless a live one of the organization already has its

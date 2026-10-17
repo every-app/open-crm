@@ -145,6 +145,7 @@ async function summary(
     overdueTasks,
     recentActivity,
     unconverted,
+    hasRecords,
   ] = await Promise.all([
     DashboardRepository.openByStage(deals, base),
     DashboardRepository.createdOrClosedSince(deals, `${months[0]}-01`),
@@ -167,6 +168,7 @@ async function summary(
       limit: RECENT_ACTIVITY,
     }),
     ConversionService.unconverted(organizationId, dealsInScope(deals)),
+    DashboardRepository.hasRecords(organizationId),
   ]);
 
   const stages = OPEN_DEAL_STAGES.map((stage) => {
@@ -206,6 +208,8 @@ async function summary(
     biggestOpen,
     overdueTasks,
     recentActivity,
+    /** The workspace has no live company, contact or deal yet. */
+    empty: !hasRecords,
   };
 }
 

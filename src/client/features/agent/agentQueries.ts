@@ -41,7 +41,8 @@ export const agentConversationsQueryOptions = (record: RecordRef) =>
 
 /**
  * What the agent did about a record (its research runs and the person's
- * conversations) and the tasks it has open there, polled while one is due.
+ * conversations) and the tasks it has open there, polled while one is due
+ * and nothing holds it back.
  */
 export const agentActivityQueryOptions = (record: RecordRef, limit: number) =>
   queryOptions({
@@ -50,7 +51,9 @@ export const agentActivityQueryOptions = (record: RecordRef, limit: number) =>
     placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       const now = new Date().toISOString();
-      return query.state.data?.openTasks.some((task) => task.dueAt <= now)
+      return query.state.data?.openTasks.some(
+        (task) => task.dueAt <= now && task.hold === null,
+      )
         ? WORKING_POLL_MS
         : false;
     },
@@ -63,6 +66,9 @@ export const enrichmentQueueQueryOptions = (limit: number) =>
     queryFn: () => getEnrichmentQueue({ data: { limit } }),
     // Loading more keeps the rows on screen until the longer page arrives.
     placeholderData: keepPreviousData,
+    // Work waiting for the agent's model to be set up isn't progress.
     refetchInterval: (query) =>
-      (query.state.data?.total ?? 0) > 0 ? WORKING_POLL_MS : IDLE_POLL_MS,
+      (query.state.data?.total ?? 0) > 0 && !query.state.data?.paused
+        ? WORKING_POLL_MS
+        : IDLE_POLL_MS,
   });

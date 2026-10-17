@@ -12,6 +12,10 @@ vi.mock("cloudflare:workers", () => testDb.modules.workers);
 vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
+// The gateway is connected: research isn't waiting for the model's setup.
+vi.mock("@/server/lib/openrouter", () => ({
+  getOpenRouterFetch: () => fetch,
+}));
 
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import type { CreateContactInput } from "@/types/schemas/contacts";

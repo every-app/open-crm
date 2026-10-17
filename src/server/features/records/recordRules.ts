@@ -1,13 +1,17 @@
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { chunk } from "remeda";
 import { db } from "@/db";
 import { agentTask } from "@/db/schema";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
+import {
+  AgentAvailabilityService,
+  taskHold,
+} from "@/server/features/agent/services/AgentAvailabilityService";
 import { AppError, asAppError } from "@/server/lib/errors";
 import type { BulkResult } from "@/types/schemas/records";
 
 // Rules every record (company, contact, deal) follows: who may own it, how a
-// bulk action reports, and when its enrichment counts as queued.
+// bulk action reports, and when its enrichment counts as queued or waiting.
 //
 // Archive and restore only set or clear `archived_at`: the record is hidden,
 // not changed. Purge permanently deletes an archived record, the same way
@@ -97,30 +101,47 @@ export function idChunks(ids: string[]): string[][] {
 }
 
 /**
- * Of `ids`, the records with agent work waiting or running: an open task
- * that is due. Shown as "Queued" until the agent marks the record itself.
+ * Of `ids`, the records the agent is on (`queued`: an open, due task that
+ * can run, shown as "Queued" until the agent marks the record itself) and
+ * those whose research, due or booked for later, waits for the model to be
+ * set up (`waiting`). A task
+ * a first-party deployment holds to work a person asked for is neither: the
+ * record reads as not researched, and "Enrich now" runs it.
  */
-export async function queuedRecordIds(
+export async function recordAgentStates(
   organizationId: string,
   kind: "company" | "contact",
   ids: string[],
-): Promise<Set<string>> {
+): Promise<{ queued: Set<string>; waiting: Set<string> }> {
   const column = kind === "company" ? agentTask.companyId : agentTask.contactId;
   const queued = new Set<string>();
+  const waiting = new Set<string>();
+  if (ids.length === 0) return { queued, waiting };
+  const hold = await AgentAvailabilityService.researchHold(organizationId);
   const now = new Date().toISOString();
   for (const part of idChunks(ids)) {
     const rows = await db
-      .selectDistinct({ id: column })
+      .select({
+        id: column,
+        kind: agentTask.kind,
+        priority: agentTask.priority,
+        dueAt: agentTask.dueAt,
+      })
       .from(agentTask)
       .where(
         and(
           eq(agentTask.organizationId, organizationId),
           inArray(column, part),
           isNull(agentTask.finishedAt),
-          lte(agentTask.dueAt, now),
         ),
       );
-    for (const row of rows) if (row.id) queued.add(row.id);
+    for (const row of rows) {
+      if (!row.id) continue;
+      const held = taskHold(row, hold);
+      if (held === "setup") waiting.add(row.id);
+      else if (held === null && row.dueAt <= now) queued.add(row.id);
+    }
   }
-  return queued;
+  for (const id of queued) waiting.delete(id);
+  return { queued, waiting };
 }

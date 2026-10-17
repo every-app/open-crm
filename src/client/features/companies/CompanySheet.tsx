@@ -206,6 +206,7 @@ function companyNote(company: Company): ReactNode {
         <EnrichmentIndicator
           status={company.enrichmentStatus}
           queued={company.queued}
+          waiting={company.waiting}
           title={company.enrichmentError}
         />
       ) : null}

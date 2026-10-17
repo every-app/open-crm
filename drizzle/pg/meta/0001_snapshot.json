@@ -1,5 +1,5 @@
 {
-  "id": "abd867bc-0db5-4c5d-af58-b73793bb64df",
+  "id": "50661e9f-667e-465b-b257-fee8035cad3a",
   "prevId": "c81ea3f2-1dd6-40ba-8503-9d6c125728b7",
   "version": "7",
   "dialect": "postgresql",
@@ -2213,6 +2213,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'MANUAL'"
         },
         "last_activity_at": {
           "name": "last_activity_at",
@@ -4541,6 +4548,30 @@
           "primaryKey": false,
           "notNull": true,
           "default": 180
+        },
+        "model_refused_at": {
+          "name": "model_refused_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model_refusal": {
+          "name": "model_refusal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model_answered_at": {
+          "name": "model_answered_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "setup_dismissed_at": {
+          "name": "setup_dismissed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

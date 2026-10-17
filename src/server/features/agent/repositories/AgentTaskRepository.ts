@@ -277,6 +277,32 @@ async function complete(
   return row ?? null;
 }
 
+/**
+ * Hands a leased task back to the queue as if it had never been taken: the
+ * attempt it was leased for doesn't count, since it never ran. The task's
+ * subject when it was still open.
+ */
+async function release(
+  organizationId: string,
+  taskId: string,
+): Promise<TaskSubject | null> {
+  const [row] = await db
+    .update(agentTask)
+    .set({
+      leasedUntil: null,
+      attempts: sql`case when ${agentTask.attempts} > 0 then ${agentTask.attempts} - 1 else 0 end`,
+    })
+    .where(
+      and(
+        eq(agentTask.organizationId, organizationId),
+        eq(agentTask.id, taskId),
+        isNull(agentTask.finishedAt),
+      ),
+    )
+    .returning(subjectColumns);
+  return row ?? null;
+}
+
 /** Records which session is working the task. */
 async function noteSession(
   organizationId: string,
@@ -343,6 +369,24 @@ async function hasOtherOpen(
   return Boolean(row);
 }
 
+/** The latest due time among the organization's open tasks at `priority`. */
+async function latestOpenDue(
+  organizationId: string,
+  priority: number,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ dueAt: sql<string | null>`max(${agentTask.dueAt})` })
+    .from(agentTask)
+    .where(
+      and(
+        eq(agentTask.organizationId, organizationId),
+        eq(agentTask.priority, priority),
+        isNull(agentTask.finishedAt),
+      ),
+    );
+  return row?.dueAt ?? null;
+}
+
 /** A record's open tasks, most urgent first: what the agent is doing. */
 async function openForRecord(
   organizationId: string,
@@ -355,6 +399,7 @@ async function openForRecord(
       kind: agentTask.kind,
       reason: agentTask.reason,
       dueAt: agentTask.dueAt,
+      priority: agentTask.priority,
       leasedUntil: agentTask.leasedUntil,
       attempts: agentTask.attempts,
       startedAt: agentTask.startedAt,
@@ -381,9 +426,11 @@ export const AgentTaskRepository = {
   replaceOpenPayload,
   schedule,
   complete,
+  release,
   noteSession,
   findById,
   finishedAt,
   hasOtherOpen,
+  latestOpenDue,
   openForRecord,
 };

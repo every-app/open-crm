@@ -1,6 +1,11 @@
 import { MAX_ATTEMPTS } from "@/shared/agent-tasks";
 import { fullName } from "../lib/names";
 import { EnrichmentQueueRepository } from "../repositories/EnrichmentQueueRepository";
+import {
+  AgentAvailabilityService,
+  taskHold,
+  type ResearchHold,
+} from "./AgentAvailabilityService";
 
 // What the research agent is working on for the organization and what it has
 // booked for later, for the enrichment queue on Home. Ported from the CRM's
@@ -18,16 +23,20 @@ type QueueSubject =
     }
   | { kind: "deal"; id: string; name: string };
 
-/** Running under a live lease, waiting its turn, or out of attempts. */
-type QueueState = "running" | "queued" | "failed";
+/**
+ * Running under a live lease, waiting its turn, out of attempts, or waiting
+ * for the agent's model to be set up.
+ */
+type QueueState = "running" | "queued" | "failed" | "waiting";
 
 type Task = Awaited<
   ReturnType<typeof EnrichmentQueueRepository.due>
 >["tasks"][number];
 
-function stateOf(task: Task, now: string): QueueState {
+function stateOf(task: Task, now: string, hold: ResearchHold): QueueState {
   if (task.leasedUntil !== null && task.leasedUntil > now) return "running";
-  return task.attempts >= MAX_ATTEMPTS ? "failed" : "queued";
+  if (task.attempts >= MAX_ATTEMPTS) return "failed";
+  return taskHold(task, hold) === "setup" ? "waiting" : "queued";
 }
 
 function unique(ids: (string | null)[]): string[] {
@@ -38,12 +47,14 @@ function unique(ids: (string | null)[]): string[] {
  * The organization's open tasks about its records: those due now (`rows`,
  * most urgent first, `limit` of `total`) and those booked for later
  * (`scheduled`, soonest first, `limit` of `scheduledTotal`). A task whose
- * record is gone is counted but not listed, as in the CRM.
+ * record is gone is counted but not listed, as in the CRM. `paused`: the
+ * agent's model isn't set up, so its research waits.
  */
 async function queue(organizationId: string, limit: number) {
   const now = new Date().toISOString();
+  const hold = await AgentAvailabilityService.researchHold(organizationId);
   const [due, booked] = await Promise.all([
-    EnrichmentQueueRepository.due(organizationId, now, limit),
+    EnrichmentQueueRepository.due(organizationId, now, limit, hold.minPriority),
     EnrichmentQueueRepository.booked(organizationId, now, limit),
   ]);
   const tasks = [...due.tasks, ...booked.tasks];
@@ -95,7 +106,7 @@ async function queue(organizationId: string, limit: number) {
             {
               id: task.id,
               kind: task.kind,
-              state: stateOf(task, now),
+              state: stateOf(task, now, hold),
               startedAt: task.startedAt,
               subject,
             },
@@ -103,6 +114,7 @@ async function queue(organizationId: string, limit: number) {
         : [];
     }),
     total: due.total,
+    paused: hold.paused,
     scheduled: booked.tasks.flatMap((task) => {
       const subject = subjectOf(task);
       return subject

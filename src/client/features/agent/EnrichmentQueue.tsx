@@ -19,6 +19,11 @@ import { RecordLink } from "@/client/features/records/RecordLink";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
 import type { getEnrichmentQueue } from "@/serverFunctions/agent";
 import { ENRICHMENT_PAGE, ENRICHMENT_PAGE_MAX } from "@/types/schemas/agent";
+import {
+  AgentSetupLink,
+  agentPausedReason,
+  useAgentAvailability,
+} from "./AgentPaused";
 import { enrichmentQueueQueryOptions } from "./agentQueries";
 import {
   dueLabel,
@@ -40,6 +45,7 @@ const STATE_DOTS: Record<QueueState, string> = {
   running: "animate-pulse bg-info",
   queued: "bg-muted-foreground/60",
   failed: "bg-destructive",
+  waiting: "bg-warning",
 };
 
 const ROW_LINK =
@@ -48,7 +54,8 @@ const ROW_LINK =
 /**
  * What the research agent is working on for the organization, and what it
  * has booked for later (the CRM's EnrichmentQueue): a button with the count,
- * opening the list. Each row opens its record.
+ * opening the list. Each row opens its record. While the agent's model isn't
+ * set up, the button says the agent is paused and the list says why.
  */
 export function EnrichmentQueue() {
   const [open, setOpen] = useState(false);
@@ -56,8 +63,10 @@ export function EnrichmentQueue() {
   const [limit, setLimit] = useState(ENRICHMENT_PAGE);
   const queue = useQuery(enrichmentQueueQueryOptions(limit));
 
+  const availability = useAgentAvailability();
   const rows = queue.data?.rows ?? [];
   const total = queue.data?.total ?? 0;
+  const paused = queue.data?.paused ?? false;
   const visible = expanded ? rows : rows.slice(0, VISIBLE_ROWS);
   const footer = queueFooter({
     total,
@@ -81,18 +90,41 @@ export function EnrichmentQueue() {
           aria-hidden
           className={cn(
             "size-1.5 shrink-0 rounded-full",
-            total > 0 ? STATE_DOTS.running : STATE_DOTS.queued,
+            paused
+              ? STATE_DOTS.waiting
+              : total > 0
+                ? STATE_DOTS.running
+                : STATE_DOTS.queued,
           )}
         />
-        {total > 0 ? `Enriching ${total}` : "Enriching"}
+        {paused
+          ? "Agent paused"
+          : total > 0
+            ? `Enriching ${total}`
+            : "Enriching"}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <PopoverTitle>Enriching now</PopoverTitle>
+          <PopoverTitle>
+            {paused ? "The agent is paused" : "Enriching now"}
+          </PopoverTitle>
           <span className="font-mono text-xs text-muted-foreground">
             {total}
           </span>
         </div>
+        {paused ? (
+          <div className="space-y-1.5 border-b border-border px-4 py-3 text-xs">
+            <p className="text-muted-foreground">
+              {availability
+                ? agentPausedReason(availability)
+                : "The agent's model isn't set up."}{" "}
+              {total > 0
+                ? "The records below wait until it is."
+                : "New records will wait until it is."}
+            </p>
+            <AgentSetupLink className="text-foreground underline underline-offset-4" />
+          </div>
+        ) : null}
 
         {queue.isError && !queue.data ? (
           <div className="px-4 py-3">
@@ -108,8 +140,9 @@ export function EnrichmentQueue() {
           <div className="flex flex-col gap-1 px-6 py-8 text-center">
             <span className="text-sm font-medium">Nothing right now</span>
             <span className="text-xs text-muted-foreground">
-              New companies and contacts show up here while the agent looks them
-              up.
+              {paused
+                ? "New companies and contacts show up here, waiting for the agent."
+                : "New companies and contacts show up here while the agent looks them up."}
             </span>
           </div>
         ) : (
@@ -123,7 +156,7 @@ export function EnrichmentQueue() {
         {footer.more > 0 ? (
           <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs">
             <span className="text-muted-foreground">
-              {footer.more} more queued
+              {footer.more} more {paused ? "waiting" : "queued"}
             </span>
             {footer.action === "show-all" ? (
               <Button

@@ -128,12 +128,14 @@ export class CrmAgent extends Think {
   async startResearch(input: {
     taskId: string;
     attempts: number;
+    /** The lease the dispatcher holds: a task handed back is leased anew. */
+    lease?: string | null;
   }): Promise<{ sessionId: string }> {
     const session = await withPgClient(() => loadAgentSession(this.name));
     if (session?.kind !== "research" || session.task.id !== input.taskId) {
       throw new Error("This research session has no task to work on.");
     }
-    const key = `${input.taskId}:${input.attempts}`;
+    const key = `${input.taskId}:${input.attempts}:${input.lease ?? ""}`;
     await this.submitMessages(
       [
         {

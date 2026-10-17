@@ -24,6 +24,7 @@ import { Route as AppSettingsConnectionsRouteImport } from './routes/_app/settin
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppSettingsSetupRouteImport } from './routes/_app/settings/setup'
 import { Route as AppSettingsTrackingRouteImport } from './routes/_app/settings/tracking'
 import { Route as IntegrationsGoogleCallbackRouteImport } from './routes/integrations/google/callback'
 import { Route as IntegrationsMicrosoftCallbackRouteImport } from './routes/integrations/microsoft/callback'
@@ -102,6 +103,11 @@ const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsSetupRoute = AppSettingsSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsTrackingRoute = AppSettingsTrackingRouteImport.update({
   id: '/tracking',
   path: '/tracking',
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/setup': typeof AppSettingsSetupRoute
   '/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/setup': typeof AppSettingsSetupRoute
   '/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/data': typeof AppSettingsDataRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/settings/setup': typeof AppSettingsSetupRoute
   '/_app/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/settings/setup'
     | '/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/settings/setup'
     | '/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/_app/settings/currencies'
     | '/_app/settings/data'
     | '/_app/settings/members'
+    | '/_app/settings/setup'
     | '/_app/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
@@ -352,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/setup': {
+      id: '/_app/settings/setup'
+      path: '/setup'
+      fullPath: '/settings/setup'
+      preLoaderRoute: typeof AppSettingsSetupRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/_app/settings/tracking': {
       id: '/_app/settings/tracking'
       path: '/tracking'
@@ -383,6 +402,7 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
+  AppSettingsSetupRoute: typeof AppSettingsSetupRoute
   AppSettingsTrackingRoute: typeof AppSettingsTrackingRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
@@ -394,6 +414,7 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
+  AppSettingsSetupRoute: AppSettingsSetupRoute,
   AppSettingsTrackingRoute: AppSettingsTrackingRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }

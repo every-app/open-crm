@@ -234,7 +234,7 @@ async function status(member: Member & { role: string }, origin: string) {
       ready: clients[index]?.ready ?? false,
       setup: showSetup
         ? {
-            command: `everyapp secret set ${GATEWAY_SECRETS[provider].join(" ")} --for gateway`,
+            command: `pnpm everyapp secret set ${GATEWAY_SECRETS[provider].join(" ")} --for gateway`,
             redirectUri: redirectUri(origin, provider),
           }
         : null,

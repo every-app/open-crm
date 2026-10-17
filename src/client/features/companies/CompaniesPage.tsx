@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -25,6 +25,9 @@ import {
 import type { CompanyRow } from "@/client/features/companies/companyFormat";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
+import { ExportButton } from "@/client/features/csv/ExportButton";
+import { ImportDialog } from "@/client/features/csv/ImportDialog";
+import { COMPANY_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import {
   isListFiltered,
@@ -34,6 +37,7 @@ import {
 } from "@/client/features/records/listSearch";
 import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
+import { listCompanies } from "@/serverFunctions/companies";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { COMPANY_SORTS } from "@/types/schemas/companies";
 
@@ -59,6 +63,7 @@ export function CompaniesPage() {
     record: ["purge"],
   });
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const anchorRef = useSelectionAnchor();
   const fieldColumns = useFieldColumns<CompanyRow>("COMPANY");
@@ -95,6 +100,12 @@ export function CompaniesPage() {
       New company
     </Button>
   );
+  const importCsv = (
+    <Button variant="outline" onClick={() => setImporting(true)}>
+      <Upload data-icon="inline-start" />
+      Import
+    </Button>
+  );
 
   return (
     <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
@@ -102,7 +113,12 @@ export function CompaniesPage() {
         <PageHeader
           title="Companies"
           description="Every account in the pipeline."
-          actions={newCompany}
+          actions={
+            <>
+              {importCsv}
+              {newCompany}
+            </>
+          }
         />
         <DataTable
           table={table}
@@ -136,8 +152,13 @@ export function CompaniesPage() {
               : {
                   title: "No companies yet",
                   description:
-                    "Add the first account you sell to. The agent fills in the rest.",
-                  action: newCompany,
+                    "Add the first account you sell to, or import them from a CSV. The agent fills in the rest.",
+                  action: (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {newCompany}
+                      {importCsv}
+                    </div>
+                  ),
                 }
           }
           toolbar={
@@ -148,6 +169,13 @@ export function CompaniesPage() {
               placeholder="Search by name or domain"
               actions={
                 <>
+                  <ExportButton
+                    entity="COMPANY"
+                    columns={COMPANY_EXPORT}
+                    fetchPage={(page, pageSize) =>
+                      listCompanies({ data: { ...input, page, pageSize } })
+                    }
+                  />
                   <SavedViewsMenu
                     entity="COMPANY"
                     current={savedViewOf(search)}
@@ -197,6 +225,9 @@ export function CompaniesPage() {
         }
         onClose={() => setSearch({ record: undefined, tab: undefined })}
       />
+      {importing ? (
+        <ImportDialog entity="COMPANY" onClose={() => setImporting(false)} />
+      ) : null}
       {creating ? (
         <CreateCompanyDialog
           onClose={() => setCreating(false)}

@@ -17,11 +17,7 @@ vi.mock("@/server/lib/provider-access", () => ({
   hasContextAccess: vi.fn(async () => false),
 }));
 
-import {
-  MODEL_UNAVAILABLE_OUTCOME,
-  runResearchLane,
-  runVisibleLane,
-} from "./dispatch";
+import { runResearchLane, runVisibleLane } from "./dispatch";
 import { reconcileStaleTasks } from "./dispatch/staleTasks";
 import { NO_CONTEXT_REASON } from "./visible/brand";
 
@@ -90,7 +86,7 @@ describe("the dispatcher", () => {
     const start = vi.fn(async () => ({ sessionId: "task.session" }));
     const started = await runResearchLane({
       start,
-      modelAvailable: () => true,
+      modelConfigured: true,
       askedForOnly: false,
       defer,
     });
@@ -110,7 +106,7 @@ describe("the dispatcher", () => {
     });
   });
 
-  it("says so once when the model is unavailable, rather than failing three times", async () => {
+  it("leaves research waiting, its attempts untouched, when there is no model", async () => {
     await queue("t1", {
       kind: "identify",
       priority: PRIORITY.identify,
@@ -119,13 +115,14 @@ describe("the dispatcher", () => {
     const start = vi.fn(async () => ({ sessionId: "unused" }));
     await runResearchLane({
       start,
-      modelAvailable: () => false,
+      modelConfigured: false,
       askedForOnly: false,
       defer,
     });
     expect(start).not.toHaveBeenCalled();
     expect(await row("agent_task", "t1")).toMatchObject({
-      outcome: MODEL_UNAVAILABLE_OUTCOME,
+      finished_at: null,
+      attempts: 0,
     });
     expect(await row("contact", "c1")).toMatchObject({
       enrichment_status: "PENDING",
@@ -142,7 +139,7 @@ describe("the dispatcher", () => {
       start: async () => {
         throw new Error("Durable Object unavailable");
       },
-      modelAvailable: () => true,
+      modelConfigured: true,
       askedForOnly: false,
       defer,
     });

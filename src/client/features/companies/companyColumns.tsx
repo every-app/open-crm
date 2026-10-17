@@ -10,7 +10,7 @@ import {
 } from "@/client/features/companies/companyFormat";
 import {
   EnrichmentIndicator,
-  isEnriching,
+  hasAgentNote,
 } from "@/client/features/records/EnrichmentStatus";
 import {
   EntityLogo,
@@ -72,11 +72,12 @@ export function companyColumns({
                 name={company.name}
               />
             </Link>
-            {isEnriching(company.enrichmentStatus, company.queued) ? (
+            {hasAgentNote(company) ? (
               <div className="pl-7.5">
                 <EnrichmentIndicator
                   status={company.enrichmentStatus}
                   queued={company.queued}
+                  waiting={company.waiting}
                 />
               </div>
             ) : null}

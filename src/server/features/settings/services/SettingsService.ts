@@ -1,12 +1,7 @@
 import { ModelCatalogService } from "@/server/features/settings/services/ModelCatalogService";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { AppError } from "@/server/lib/errors";
-import {
-  DEFAULT_AGENT_MODEL,
-  getOpenRouterFetch,
-} from "@/server/lib/openrouter";
-import { hasContextAccess } from "@/server/lib/provider-access";
-import { getWorkersEnv } from "@/server/lib/runtime-env";
+import { DEFAULT_AGENT_MODEL } from "@/server/lib/openrouter";
 
 // The workspace's own settings beyond its name and website: the model the
 // research agent runs on and how long archived records are kept. Owners and
@@ -92,22 +87,6 @@ async function getModelCatalog() {
   return { models: models ?? [], available: models !== null };
 }
 
-/**
- * Whether the gateway holds the keys the agent needs: OpenRouter for its
- * model, Context.dev for company research. Neither is ever set here: an
- * admin sets each once on the gateway.
- */
-async function getAgentStatus(): Promise<{
-  openRouter: boolean;
-  context: boolean;
-}> {
-  const env = (await getWorkersEnv()) ?? {};
-  return {
-    openRouter: getOpenRouterFetch(env) !== null,
-    context: await hasContextAccess(),
-  };
-}
-
 async function getArchiveRetention(
   organizationId: string,
 ): Promise<{ days: number }> {
@@ -134,7 +113,6 @@ export const SettingsService = {
   getAgentModel,
   setAgentModel,
   getModelCatalog,
-  getAgentStatus,
   getArchiveRetention,
   setArchiveRetention,
 };

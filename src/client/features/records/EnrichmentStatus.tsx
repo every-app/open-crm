@@ -1,8 +1,10 @@
 import { cn } from "cn";
+import { WaitingForSetup } from "@/client/features/agent/AgentPaused";
 import type { EnrichmentStatus } from "@/shared/crm-enums";
 
 // Where the research agent is with a company or a contact. The agent writes
-// in the background, so lists and sheets poll while it works.
+// in the background, so lists and sheets poll while it works, and only then:
+// a record waiting for the agent's model to be set up isn't polled.
 
 /** How often a list or sheet refetches while the agent works on a record. */
 const ENRICHMENT_POLL_MS = 3_000;
@@ -45,16 +47,32 @@ export function enrichmentRefetchInterval(
     : false;
 }
 
+/** Worth a note in a list: the agent is on it, or waiting to be. */
+export function hasAgentNote(record: {
+  enrichmentStatus: EnrichmentStatus;
+  queued: boolean;
+  waiting: boolean;
+}): boolean {
+  return (
+    isEnriching(record.enrichmentStatus, record.queued) ||
+    (record.enrichmentStatus === "PENDING" && record.waiting)
+  );
+}
+
 export function EnrichmentIndicator({
   status,
   queued,
+  waiting = false,
   title,
 }: {
   status: EnrichmentStatus;
   queued: boolean;
+  /** Its research waits for the agent's model to be set up. */
+  waiting?: boolean;
   /** Why it failed, on hover. */
   title?: string | null;
 }) {
+  if (status === "PENDING" && !queued && waiting) return <WaitingForSetup />;
   const { label, tone, busy } =
     status === "PENDING" && queued ? QUEUED : PRESENTATION[status];
   return (

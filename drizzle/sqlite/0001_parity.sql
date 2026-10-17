@@ -170,8 +170,13 @@ CREATE TABLE `tracking_site` (
 CREATE UNIQUE INDEX `tracking_site_site_id_uidx` ON `tracking_site` (`site_id`);--> statement-breakpoint
 ALTER TABLE `calendar_event` ADD `google_event_id` text;--> statement-breakpoint
 CREATE INDEX `calendar_event_organization_synced_by_idx` ON `calendar_event` (`organization_id`,`synced_by_user_id`);--> statement-breakpoint
+ALTER TABLE `deal` ADD `source` text DEFAULT 'MANUAL' NOT NULL;--> statement-breakpoint
 ALTER TABLE `email_message` ADD `gmail_message_id` text;--> statement-breakpoint
 ALTER TABLE `email_message` ADD `outlook_message_id` text;--> statement-breakpoint
 ALTER TABLE `email_message` ADD `outlook_web_link` text;--> statement-breakpoint
 CREATE INDEX `email_message_organization_gmail_idx` ON `email_message` (`organization_id`,`gmail_message_id`);--> statement-breakpoint
-CREATE INDEX `email_message_organization_synced_by_idx` ON `email_message` (`organization_id`,`synced_by_user_id`);
+CREATE INDEX `email_message_organization_synced_by_idx` ON `email_message` (`organization_id`,`synced_by_user_id`);--> statement-breakpoint
+ALTER TABLE `workspace` ADD `model_refused_at` text;--> statement-breakpoint
+ALTER TABLE `workspace` ADD `model_refusal` text;--> statement-breakpoint
+ALTER TABLE `workspace` ADD `model_answered_at` text;--> statement-breakpoint
+ALTER TABLE `workspace` ADD `setup_dismissed_at` text;
