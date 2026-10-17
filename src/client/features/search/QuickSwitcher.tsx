@@ -11,7 +11,7 @@ import {
 import { useSidebar } from "@/client/components/ui/sidebar";
 import { Spinner } from "@/client/components/ui/spinner";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
-import { useOpenRecord } from "@/client/features/records/RecordLink";
+import { useOpenRecord } from "@/client/features/records/recordStack";
 import { quickSearchQueryOptions } from "@/client/features/search/searchQueries";
 import { RECORD_KINDS, type RecordKind } from "@/shared/records";
 import type { quickSearch } from "@/serverFunctions/search";
@@ -94,11 +94,12 @@ export function QuickSwitcher() {
       <button
         type="button"
         onClick={() => show(true)}
-        className="mb-1 flex h-8 w-full items-center gap-2 rounded-md border border-input bg-background px-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        // The shortcut shows when the row has room for it beside the queue.
+        className="@container flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-input bg-background px-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <Search className="size-4 shrink-0" aria-hidden />
         <span className="flex-1 text-left">Search</span>
-        <kbd className="rounded border border-border px-1 font-sans text-[0.65rem]">
+        <kbd className="hidden rounded border border-border px-1 font-sans text-[0.65rem] @[7rem]:inline">
           {IS_MAC ? "⌘K" : "Ctrl K"}
         </kbd>
       </button>
