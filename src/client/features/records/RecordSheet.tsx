@@ -240,9 +240,9 @@ export function SheetSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-2 border-b border-border px-5 py-4 last:border-b-0">
+    <section className="space-y-2 border-b border-border px-5 py-3 last:border-b-0">
       {title || action ? (
-        <div className="flex min-h-6 items-center justify-between gap-3">
+        <div className="flex min-h-5 items-center justify-between gap-3">
           {title ? (
             <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
               {title}
