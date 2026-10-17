@@ -1,6 +1,7 @@
 import {
   asc,
   desc,
+  gte,
   inArray,
   isNotNull,
   isNull,
@@ -12,13 +13,17 @@ import {
 } from "drizzle-orm";
 import {
   UNASSIGNED,
+  type ActivityWindow,
   type ListInput,
   type SortDirection,
 } from "@/types/schemas/records";
 
 // The parts every record list's query shares: the page window, the search,
-// the owner and archived filters, and the order. Each repository combines
-// them with its organization filter and its own columns.
+// the owner, archived and activity filters, and the order. Each repository
+// combines them with its organization filter and its own columns.
+
+/** The most options a list filter offers: its column's commonest values. */
+export const FILTER_OPTIONS_MAX = 200;
 
 /** LIMIT and OFFSET for the requested page. */
 export function pageWindow(input: Pick<ListInput, "page" | "pageSize">) {
@@ -65,6 +70,28 @@ export function ownerCondition(
 /** Live records, or only archived ones for the Archived view. */
 export function archivedCondition(column: AnyColumn, archived: boolean): SQL {
   return archived ? isNotNull(column) : isNull(column);
+}
+
+/** Rows whose `column` is any of `values`; no filter when there are none. */
+export function anyOfCondition(
+  column: AnyColumn,
+  values: readonly string[],
+): SQL | undefined {
+  return values.length > 0 ? inArray(column, values) : undefined;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Records something happened on in the window's last days. */
+export function activityCondition(
+  column: AnyColumn,
+  window: ActivityWindow | undefined,
+): SQL | undefined {
+  if (!window) return undefined;
+  return gte(
+    column,
+    new Date(Date.now() - Number(window) * DAY_MS).toISOString(),
+  );
 }
 
 /**

@@ -20,11 +20,19 @@ import { ContactService } from "@/server/features/contacts/services/ContactServi
 import { DealService } from "@/server/features/deals/services/DealService";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
-import { DEAL_STAGES, type FieldEntity } from "@/shared/crm-enums";
+import {
+  DEAL_STAGES,
+  ENRICHMENT_STATUSES,
+  type FieldEntity,
+} from "@/shared/crm-enums";
 import { companyListSchema } from "@/types/schemas/companies";
 import { contactListSchema } from "@/types/schemas/contacts";
 import { CLOSING_WINDOWS, dealListSchema } from "@/types/schemas/deals";
 import { createFieldSchema } from "@/types/schemas/fields";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysAgo = (days: number) =>
+  new Date(Date.now() - days * DAY_MS).toISOString();
 
 const addField = (
   organizationId: string,
@@ -113,6 +121,122 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toMatchObject([{ id: "acme_b", fields: {} }]);
     });
 
+    it("narrows the companies list by industry, research state and recent activity, and offers the organization's industries", async () => {
+      await database.exec(`
+        UPDATE company SET industry = 'Software', enrichment_status = 'COMPLETE', last_activity_at = '${daysAgo(3)}' WHERE id = 'acme';
+        UPDATE company SET industry = 'Software', last_activity_at = '${daysAgo(40)}' WHERE id = 'acme_labs';
+        UPDATE company SET industry = 'Fintech', enrichment_status = 'FAILED' WHERE id = 'globex';
+        UPDATE company SET industry = 'Mining' WHERE id = 'acme_b';
+      `);
+      const ids = async (input: object) =>
+        (
+          await CompanyService.listCompanies(
+            "org_a",
+            companyListSchema.parse({ sort: "name", dir: "asc", ...input }),
+          )
+        ).rows.map((row) => row.id);
+
+      expect(await ids({ industry: ["Software"] })).toEqual([
+        "acme",
+        "acme_labs",
+      ]);
+      expect(await ids({ enrichment: ["PENDING", "FAILED"] })).toEqual([
+        "acme_co",
+        "acme_labs",
+        "globex",
+      ]);
+      expect(await ids({ activity: "30" })).toEqual(["acme"]);
+      // The commonest first, and none of the other organization's.
+      expect(await CompanyService.filterOptions("org_a", false)).toEqual({
+        industries: ["Software", "Fintech"],
+      });
+    });
+
+    it("narrows the contacts list by company (or none), title, seniority, persona and recent activity, and offers the organization's values", async () => {
+      await database.exec(`
+        INSERT INTO contact (id, organization_id, first_name, company_id, title, seniority, "function", last_activity_at) VALUES
+          ('ana', 'org_a', 'Ana', 'acme', 'CEO', 'Founder', 'Executive', '${daysAgo(2)}'),
+          ('bo', 'org_a', 'Bo', NULL, 'CTO', 'C-level', 'Engineering', NULL),
+          ('cy', 'org_a', 'Cy', 'globex', 'CEO', 'Founder', 'Executive', '${daysAgo(20)}'),
+          ('di', 'org_b', 'Di', 'acme_b', 'Buyer', 'IC', 'Procurement', NULL);
+      `);
+      const ids = async (input: object) =>
+        (
+          await ContactService.listContacts(
+            "org_a",
+            contactListSchema.parse({ sort: "name", dir: "asc", ...input }),
+          )
+        ).rows.map((row) => row.id);
+
+      expect(await ids({ company: ["none"] })).toEqual(["bo"]);
+      expect(await ids({ company: ["acme", "none"] })).toEqual(["ana", "bo"]);
+      expect(await ids({ title: ["CEO"] })).toEqual(["ana", "cy"]);
+      expect(await ids({ seniority: ["C-level"] })).toEqual(["bo"]);
+      expect(await ids({ persona: ["Executive"], activity: "7" })).toEqual([
+        "ana",
+      ]);
+      expect(await ContactService.filterOptions("org_a", false)).toEqual({
+        titles: ["CEO", "CTO"],
+        seniorities: ["Founder", "C-level"],
+        personas: ["Executive", "Engineering"],
+      });
+    });
+
+    it("sorts by owner with nobody's last either way, and companies by their people and open deals", async () => {
+      await database.exec(`
+        INSERT INTO "user" (id, name, email, email_verified) VALUES ('user_z', 'Zoe', 'zoe@a.test', true);
+        UPDATE company SET owner_id = 'user_z' WHERE id = 'globex';
+        UPDATE company SET owner_id = NULL WHERE id = 'acme_co';
+        INSERT INTO contact (id, organization_id, first_name, company_id, owner_id) VALUES
+          ('p1', 'org_a', 'P1', 'globex', NULL),
+          ('p2', 'org_a', 'P2', 'globex', 'user_z'),
+          ('p3', 'org_a', 'P3', 'acme_labs', 'user_a');
+        INSERT INTO deal (id, organization_id, name, company_id, owner_id, stage) VALUES
+          ('open', 'org_a', 'Open', 'acme', 'user_a', 'DEMO_BOOKED'),
+          ('won', 'org_a', 'Won', 'globex', 'user_a', 'CLOSED_WON');
+      `);
+      const companies = async (sort: string, dir: string) =>
+        (
+          await CompanyService.listCompanies(
+            "org_a",
+            companyListSchema.parse({ sort, dir }),
+          )
+        ).rows.map((row) => row.id);
+      const contacts = async (sort: string, dir: string) =>
+        (
+          await ContactService.listContacts(
+            "org_a",
+            contactListSchema.parse({ sort, dir }),
+          )
+        ).rows.map((row) => row.id);
+
+      expect(await companies("owner", "asc")).toEqual([
+        "acme",
+        "acme_labs",
+        "globex",
+        "acme_co",
+      ]);
+      expect(await companies("owner", "desc")).toEqual([
+        "globex",
+        "acme",
+        "acme_labs",
+        "acme_co",
+      ]);
+      expect(await companies("contacts", "desc")).toEqual([
+        "globex",
+        "acme_labs",
+        "acme",
+        "acme_co",
+      ]);
+      expect(await companies("deals", "desc")).toEqual([
+        "acme",
+        "acme_co",
+        "acme_labs",
+        "globex",
+      ]);
+      expect(await contacts("owner", "desc")).toEqual(["p2", "p3", "p1"]);
+    });
+
     it("narrows the deals list and its pipeline value by custom fields together with the stage filter", async () => {
       await database.exec(`
         INSERT INTO deal (id, organization_id, name, company_id, owner_id, stage, amount, base_amount, base_currency) VALUES
@@ -184,13 +308,28 @@ describe("the fullest list query (sqlite)", () => {
     };
     const execute = vi.spyOn(database.client, "execute");
 
+    const facet = Array.from({ length: 6 }, (_, index) => `value_${index}`);
     await CompanyService.listCompanies(
       "org_a",
-      companyListSchema.parse({ ...common, sort: "lastActivity" }),
+      companyListSchema.parse({
+        ...common,
+        sort: "deals",
+        industry: facet,
+        enrichment: ENRICHMENT_STATUSES,
+        activity: "90",
+      }),
     );
     await ContactService.listContacts(
       "org_a",
-      contactListSchema.parse({ ...common, sort: "company" }),
+      contactListSchema.parse({
+        ...common,
+        sort: "owner",
+        company: ["none", ...facet.slice(1)],
+        title: facet,
+        seniority: facet,
+        persona: facet,
+        activity: "90",
+      }),
     );
     await DealService.listDeals(
       "org_a",
@@ -209,7 +348,7 @@ describe("the fullest list query (sqlite)", () => {
       ([statement]) =>
         statementSchema.safeParse(statement).data?.args.length ?? 0,
     );
-    // The deals page binds 93 today.
+    // The deals page binds 93 today, the contacts page 92.
     expect(Math.max(...parameters)).toBeGreaterThan(80);
     expect(Math.max(...parameters)).toBeLessThanOrEqual(100);
   });

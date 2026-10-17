@@ -71,6 +71,7 @@ const SORTS = {
   expectedCloseDate: { by: deal.expectedCloseDate, nullsLast: true },
   lastActivity: { by: deal.lastActivityAt, nullsLast: true },
   createdAt: { by: deal.createdAt },
+  archivedAt: { by: deal.archivedAt, nullsLast: true },
 } satisfies Record<DealSort, SortSpec>;
 
 const STATUS_STAGES = {
