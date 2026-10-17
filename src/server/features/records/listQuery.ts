@@ -30,19 +30,21 @@ function escapeLike(value: string) {
 }
 
 /**
- * A case-insensitive "contains" over any of `columns`. `lower()` is ASCII
- * only on SQLite, so accented capitals still match only themselves there.
+ * A case-insensitive "contains" over any of `columns` (or expressions).
+ * Both sides are lowered in SQL: `lower()` is ASCII only on SQLite, so there
+ * accented capitals match only themselves, which lowering the term in
+ * JavaScript would break.
  */
 export function searchCondition(
   q: string,
-  columns: AnyColumn[],
+  columns: SQLWrapper[],
 ): SQL | undefined {
-  const term = q.trim().toLowerCase();
+  const term = q.trim();
   if (!term) return undefined;
   const pattern = `%${escapeLike(term)}%`;
   return or(
     ...columns.map(
-      (column) => sql`lower(${column}) like ${pattern} escape '\\'`,
+      (column) => sql`lower(${column}) like lower(${pattern}) escape '\\'`,
     ),
   );
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { cn } from "cn";
 import type { RecordRef } from "@/shared/records";
 
@@ -35,4 +35,14 @@ export function RecordLink({
       {children}
     </Link>
   );
+}
+
+/** Opens a record's sheet over its own list from code, as RecordLink does. */
+export function useOpenRecord() {
+  const navigate = useNavigate();
+  return (record: RecordRef) =>
+    void navigate({
+      to: LIST_ROUTES[record.kind],
+      search: { record: record.id },
+    });
 }
