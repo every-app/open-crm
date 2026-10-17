@@ -83,10 +83,27 @@ export function MailboxConnectionPage({
             (candidate) => candidate.provider === provider,
           );
           if (!entry) return null;
-          return entry.connection ? (
-            <ConnectedMailbox status={entry} connection={entry.connection} />
-          ) : (
-            <NotConnected status={entry} connectError={error} />
+          return (
+            <>
+              {/* A connect or a reconnect that came back without it. */}
+              {error ? (
+                <Alert variant="destructive">
+                  <TriangleAlert aria-hidden />
+                  <AlertTitle>{copy.name} did not finish connecting</AlertTitle>
+                  <AlertDescription>
+                    {connectErrorCopy(provider, error)}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              {entry.connection ? (
+                <ConnectedMailbox
+                  status={entry}
+                  connection={entry.connection}
+                />
+              ) : (
+                <NotConnected status={entry} />
+              )}
+            </>
           );
         }}
       </QueryState>
@@ -94,13 +111,7 @@ export function MailboxConnectionPage({
   );
 }
 
-function NotConnected({
-  status,
-  connectError,
-}: {
-  status: ProviderStatus;
-  connectError?: ConnectError;
-}) {
+function NotConnected({ status }: { status: ProviderStatus }) {
   const { provider, ready, setup } = status;
   const copy = COPY[provider];
   const Logo = LOGOS[provider];
@@ -129,15 +140,6 @@ function NotConnected({
         ) : null
       }
     >
-      {connectError ? (
-        <Alert variant="destructive">
-          <TriangleAlert aria-hidden />
-          <AlertTitle>{copy.name} did not finish connecting</AlertTitle>
-          <AlertDescription>
-            {connectErrorCopy(provider, connectError)}
-          </AlertDescription>
-        </Alert>
-      ) : null}
       {!ready && setup ? (
         <SettingsCard>
           <GatewaySetupRows

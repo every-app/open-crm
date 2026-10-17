@@ -20,10 +20,12 @@ import {
 import { COOKIE_LIFETIMES, type TrackingFlag } from "@/shared/tracking";
 import type { AddTrackedDomainInput } from "@/types/schemas/tracking";
 
-// Settings → Tracking (owners and admins; the server functions gate it):
-// the snippet, the allowed domains, the switches baked into the tracker, the
-// site id's rotation, "verify installation", and traffic sources. Every
-// change reaches browsers within the tracker's five-minute cache.
+// Settings → Tracking & Analytics: the snippet, the allowed domains, the
+// switches baked into the tracker, the site id's rotation, "verify
+// installation", and traffic sources. Every member reads the settings;
+// changing them, verifying and traffic sources are owners' and admins' (the
+// server functions gate them). Every change reaches browsers within the
+// tracker's five-minute cache.
 
 async function siteWithDomains(organizationId: string) {
   const [site, domains] = await Promise.all([

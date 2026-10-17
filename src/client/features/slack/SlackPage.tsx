@@ -28,7 +28,11 @@ import {
   type SlackConnectError,
 } from "@/shared/slack";
 import { SlackChannels } from "./SlackChannels";
-import { SlackNotConnected, useSlackConnect } from "./SlackNotConnected";
+import {
+  SlackConnectAlert,
+  SlackNotConnected,
+  useSlackConnect,
+} from "./SlackNotConnected";
 import { ScopeGroups } from "./SlackScopeGroups";
 import { slackKeys, slackStatusQueryOptions } from "./slackQueries";
 
@@ -54,7 +58,7 @@ export function SlackPage({
   const status = useQuery(slackStatusQueryOptions());
   if (status.data) {
     return status.data.connected ? (
-      <Connected status={status.data} />
+      <Connected status={status.data} connectError={connectError} />
     ) : (
       <SlackNotConnected status={status.data} connectError={connectError} />
     );
@@ -73,8 +77,11 @@ export function SlackPage({
 
 function Connected({
   status,
+  connectError,
 }: {
   status: Extract<Status, { connected: true }>;
+  /** A reconnect that came back without Slack. */
+  connectError?: SlackConnectError;
 }) {
   const queryClient = useQueryClient();
   const reconnect = useSlackConnect();
@@ -114,41 +121,46 @@ function Connected({
         />
       }
     >
-      {withheld.length > 0 ? (
-        <Alert variant="warning">
-          <TriangleAlert aria-hidden />
-          <AlertTitle>
-            {privateChannels
-              ? `${app} cannot reach private channels`
-              : `Slack held back ${withheld.length} permission${withheld.length === 1 ? "" : "s"}`}
-          </AlertTitle>
-          <AlertDescription>
-            <p>Reconnect to ask again. You lose nothing.</p>
-            <ul className="mt-2 space-y-1.5">
-              {withheld.map((entry) => (
-                <li key={entry.scope} className="flex items-start gap-2">
-                  <X aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-                  {entry.grant}
-                </li>
-              ))}
-            </ul>
-          </AlertDescription>
-          {status.canManage ? (
-            <AlertAction>
-              <Button
-                variant="outline"
-                size="xs"
-                pending={reconnect.isPending}
-                onClick={() => reconnect.mutate()}
-              >
-                {reconnect.isPending ? "Opening Slack…" : "Reconnect"}
-              </Button>
-            </AlertAction>
+      {connectError || withheld.length > 0 || status.syncError ? (
+        <div className="space-y-3">
+          <SlackConnectAlert error={connectError} />
+          {withheld.length > 0 ? (
+            <Alert variant="warning">
+              <TriangleAlert aria-hidden />
+              <AlertTitle>
+                {privateChannels
+                  ? `${app} cannot reach private channels`
+                  : `Slack held back ${withheld.length} permission${withheld.length === 1 ? "" : "s"}`}
+              </AlertTitle>
+              <AlertDescription>
+                <p>Reconnect to ask again. You lose nothing.</p>
+                <ul className="mt-2 space-y-1.5">
+                  {withheld.map((entry) => (
+                    <li key={entry.scope} className="flex items-start gap-2">
+                      <X aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+                      {entry.grant}
+                    </li>
+                  ))}
+                </ul>
+              </AlertDescription>
+              {status.canManage ? (
+                <AlertAction>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    pending={reconnect.isPending}
+                    onClick={() => reconnect.mutate()}
+                  >
+                    {reconnect.isPending ? "Opening Slack…" : "Reconnect"}
+                  </Button>
+                </AlertAction>
+              ) : null}
+            </Alert>
           ) : null}
-        </Alert>
-      ) : null}
-      {status.syncError ? (
-        <p className="text-sm text-warning">{status.syncError}</p>
+          {status.syncError ? (
+            <p className="text-sm text-warning">{status.syncError}</p>
+          ) : null}
+        </div>
       ) : null}
 
       <ScopeGroups

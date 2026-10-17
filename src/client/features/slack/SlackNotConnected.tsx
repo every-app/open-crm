@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, TriangleAlert, X } from "lucide-react";
 import {
   SettingsCard,
   SettingsPage,
   SettingsRow,
   SettingsSection,
 } from "@/client/components/SettingsSection";
+import { Alert, AlertTitle } from "@/client/components/ui/alert";
 import { Button } from "@/client/components/ui/button";
 import { ConnectionBadge } from "@/client/features/settings/ConnectionStatus";
 import { GatewaySetupRows } from "@/client/features/settings/GatewaySetupRows";
@@ -53,6 +54,17 @@ const CONNECT_ERRORS: Record<SlackConnectError, string> = {
   failed: "Slack could not be connected. Try again.",
 };
 
+/** A connect that came back without Slack, connected or not: why. */
+export function SlackConnectAlert({ error }: { error?: SlackConnectError }) {
+  if (!error) return null;
+  return (
+    <Alert variant="destructive">
+      <TriangleAlert aria-hidden />
+      <AlertTitle>{CONNECT_ERRORS[error]}</AlertTitle>
+    </Alert>
+  );
+}
+
 /** Starts a connect: off to Slack to approve the workspace. */
 export function useSlackConnect() {
   return useMutation({
@@ -80,6 +92,7 @@ export function SlackNotConnected({
         />
       }
     >
+      <SlackConnectAlert error={connectError} />
       <ScopeGroups
         title="What you are handing over"
         scopes={SLACK_BOT_SCOPES}
@@ -102,15 +115,9 @@ export function SlackNotConnected({
           <SettingsRow
             label="You approve the workspace in Slack."
             description={
-              connectError ? (
-                <span role="alert" className="text-destructive">
-                  {CONNECT_ERRORS[connectError]}
-                </span>
-              ) : status.canManage ? (
-                "You can disconnect it here at any time."
-              ) : (
-                CONNECT_ERRORS.forbidden
-              )
+              status.canManage
+                ? "You can disconnect it here at any time."
+                : CONNECT_ERRORS.forbidden
             }
           >
             <Button

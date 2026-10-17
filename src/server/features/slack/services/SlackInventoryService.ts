@@ -286,7 +286,8 @@ async function sync(organizationId: string): Promise<string> {
     };
     const [name, people, botChannels, userChannels, members] =
       await Promise.all([
-        appName(bot),
+        // Display-only: a failed lookup keeps the name read last time.
+        appName(bot).catch(() => null),
         slackPages(bot, "users.list", "members", slackMember),
         slackPages(
           bot,
