@@ -133,10 +133,15 @@ function searchWhere(organizationId: string, q: string): SQL | undefined {
 }
 
 /**
- * The list's view: everything but its page and order. It names only the
+ * The list's view: everything but its page and order, `fieldConditions`
+ * being its custom field filters' conditions on `deal`. It names only the
  * deal's own columns, so totals over the view need no join.
  */
-function listWhere(organizationId: string, input: DealListInput) {
+function listWhere(
+  organizationId: string,
+  input: DealListInput,
+  fieldConditions: SQL[],
+) {
   const now = new Date();
   const statusStages = STATUS_STAGES[input.status];
   return and(
@@ -149,19 +154,28 @@ function listWhere(organizationId: string, input: DealListInput) {
     input.closing.length > 0
       ? or(...input.closing.map((window) => closingCondition(window, now)))
       : undefined,
+    ...fieldConditions,
   );
 }
 
 /** The open deals in the list's view: what its pipeline total adds up. */
-function openInView(organizationId: string, input: DealListInput) {
+function openInView(
+  organizationId: string,
+  input: DealListInput,
+  fieldConditions: SQL[],
+) {
   return and(
-    listWhere(organizationId, input),
+    listWhere(organizationId, input, fieldConditions),
     inArray(deal.stage, OPEN_DEAL_STAGES),
   );
 }
 
-async function list(organizationId: string, input: DealListInput) {
-  const where = listWhere(organizationId, input);
+async function list(
+  organizationId: string,
+  input: DealListInput,
+  fieldConditions: SQL[],
+) {
+  const where = listWhere(organizationId, input, fieldConditions);
   const { limit, offset } = pageWindow(input);
   const [rows, [total]] = await Promise.all([
     db
@@ -201,12 +215,18 @@ async function list(organizationId: string, input: DealListInput) {
 async function openValue(
   organizationId: string,
   input: DealListInput,
+  fieldConditions: SQL[],
   base: string,
 ): Promise<number | null> {
   const [row] = await db
     .select({ value: sql<number | null>`sum(${deal.baseAmount})` })
     .from(deal)
-    .where(and(openInView(organizationId, input), countedIn(base)));
+    .where(
+      and(
+        openInView(organizationId, input, fieldConditions),
+        countedIn(base),
+      ),
+    );
   return row?.value == null ? null : roundMoney(Number(row.value), base);
 }
 

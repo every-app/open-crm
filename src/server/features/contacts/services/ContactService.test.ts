@@ -40,6 +40,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         q: "",
         owner: [],
         archived: false,
+        fields: {},
         sort: "name",
         dir: "asc",
         page: 1,

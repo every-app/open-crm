@@ -4,6 +4,7 @@ import { CompanyService } from "@/server/features/companies/services/CompanyServ
 import { ContactFactRepository } from "@/server/features/contacts/repositories/ContactFactRepository";
 import { ContactRelationsRepository } from "@/server/features/contacts/repositories/ContactRelationsRepository";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
+import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   assertOwner,
@@ -59,15 +60,31 @@ async function requireLiveCompany(organizationId: string, companyId: string) {
   }
 }
 
+/**
+ * A page of the list, its custom field filters applied in the same query as
+ * the rest, each row with its values for the fields shown as columns.
+ */
 async function listContacts(organizationId: string, input: ContactListInput) {
-  const { rows, total } = await ContactRepository.list(organizationId, input);
-  const queued = await queuedRecordIds(
+  const { rows, total } = await ContactRepository.list(
     organizationId,
-    "contact",
-    rows.map((row) => row.id),
+    input,
+    await FieldValuesService.filterConditions(
+      organizationId,
+      "CONTACT",
+      input.fields,
+    ),
   );
+  const ids = rows.map((row) => row.id);
+  const [queued, fields] = await Promise.all([
+    queuedRecordIds(organizationId, "contact", ids),
+    FieldValuesService.tableValues(organizationId, "CONTACT", ids),
+  ]);
   return {
-    rows: rows.map((row) => ({ ...row, queued: queued.has(row.id) })),
+    rows: rows.map((row) => ({
+      ...row,
+      queued: queued.has(row.id),
+      fields: fields[row.id] ?? {},
+    })),
     total,
   };
 }

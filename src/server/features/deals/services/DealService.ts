@@ -4,6 +4,7 @@ import { ConversionService } from "@/server/features/currency/services/Conversio
 import { DealContactRepository } from "@/server/features/deals/repositories/DealContactRepository";
 import { DealListRepository } from "@/server/features/deals/repositories/DealListRepository";
 import { DealRepository } from "@/server/features/deals/repositories/DealRepository";
+import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   assertOwner,
@@ -52,20 +53,40 @@ function closeDateOf(day: string | null | undefined): string | null {
 
 /**
  * The list's page, with what the open deals in its view are worth in the
- * reporting currency and how many of them no rate converts yet.
+ * reporting currency and how many of them no rate converts yet. Its custom
+ * field filters narrow the totals as they do the rows, and each row has its
+ * values for the fields shown as columns.
  */
 async function listDeals(organizationId: string, input: DealListInput) {
-  const reportingCurrency =
-    await ConversionService.reportingCurrency(organizationId);
+  const [reportingCurrency, fieldConditions] = await Promise.all([
+    ConversionService.reportingCurrency(organizationId),
+    FieldValuesService.filterConditions(organizationId, "DEAL", input.fields),
+  ]);
   const [{ rows, total }, openValue, unconverted] = await Promise.all([
-    DealListRepository.list(organizationId, input),
-    DealListRepository.openValue(organizationId, input, reportingCurrency),
+    DealListRepository.list(organizationId, input, fieldConditions),
+    DealListRepository.openValue(
+      organizationId,
+      input,
+      fieldConditions,
+      reportingCurrency,
+    ),
     ConversionService.unconverted(
       organizationId,
-      DealListRepository.openInView(organizationId, input),
+      DealListRepository.openInView(organizationId, input, fieldConditions),
     ),
   ]);
-  return { rows, total, openValue, reportingCurrency, unconverted };
+  const fields = await FieldValuesService.tableValues(
+    organizationId,
+    "DEAL",
+    rows.map((row) => row.id),
+  );
+  return {
+    rows: rows.map((row) => ({ ...row, fields: fields[row.id] ?? {} })),
+    total,
+    openValue,
+    reportingCurrency,
+    unconverted,
+  };
 }
 
 export type DealListRow = Awaited<ReturnType<typeof listDeals>>["rows"][number];

@@ -1,9 +1,10 @@
 import { z } from "zod";
 import type { ErrorCode } from "@/shared/error-codes";
+import { fieldFiltersSchema } from "@/types/schemas/fields";
 
 // What every record list (companies, contacts, deals) and its bulk actions
 // take. Each entity extends `listInputSchema` with its own sort keys and
-// default sort; custom-field filters join it later.
+// default sort.
 
 /** Rows per list page, as the CRM's tables show them. */
 export const LIST_PAGE_SIZE = 25;
@@ -23,6 +24,8 @@ export const listInputSchema = z.object({
   owner: z.array(z.string().min(1)).max(50).default([]),
   /** The Archived view: archived records only. The default is live ones. */
   archived: z.boolean().default(false),
+  /** Custom field filters, by field key. */
+  fields: fieldFiltersSchema.default({}),
   dir: z.enum(SORT_DIRECTIONS).default("asc"),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(LIST_PAGE_SIZE),
