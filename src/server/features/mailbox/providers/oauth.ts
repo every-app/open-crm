@@ -78,14 +78,14 @@ const tokenResponseSchema = z.object({
   scope: z.string().optional(),
 });
 
-export type TokenSet = {
+type TokenSet = {
   accessToken: string;
   accessTokenExpiresAt: string;
   refreshToken: string | null;
   scope: string | null;
 };
 
-export type TokenOutcome =
+type TokenOutcome =
   | { ok: true; tokens: TokenSet }
   // The provider refused the code or the refresh token: connect again.
   | { ok: false; kind: "invalid_grant"; reason: string }

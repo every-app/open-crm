@@ -44,7 +44,7 @@ const SYNCERS = {
   outlook: syncOutlook,
 } satisfies Record<SyncSource, (job: SyncJob) => Promise<SyncResult>>;
 
-export const SWEEP = {
+const SWEEP = {
   /** Rows the tick reads; it starts as many as its budget allows. */
   rows: 40,
   concurrency: 4,

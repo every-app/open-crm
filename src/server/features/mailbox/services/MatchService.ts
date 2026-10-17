@@ -27,7 +27,7 @@ import { domainFromEmail, normalizeDomain } from "@/shared/domain";
 
 export type MatchContext = ExternalFilterOptions;
 
-export type CaptureSource = "EMAIL" | "CALENDAR";
+type CaptureSource = "EMAIL" | "CALENDAR";
 
 type MatchRequest = {
   participants: readonly Participant[];

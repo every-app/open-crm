@@ -117,10 +117,6 @@ async function findWithTokens(
   return row ?? null;
 }
 
-export type ConnectionWithTokens = NonNullable<
-  Awaited<ReturnType<typeof findWithTokens>>
->;
-
 /**
  * Stores the member's connection, one per provider. Google omits the
  * refresh token when the member had already consented: the stored one is

@@ -26,7 +26,7 @@ import { failureOf, type SyncJob, type SyncResult } from "./syncJob";
 
 const BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 
-export const MAX_MESSAGES_PER_CHECK = 120;
+const MAX_MESSAGES_PER_CHECK = 120;
 
 const profileSchema = z.object({
   emailAddress: z.string().optional(),

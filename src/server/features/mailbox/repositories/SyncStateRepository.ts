@@ -14,9 +14,9 @@ import {
 // dies lets go when its lease runs out.
 
 /** How often each mailbox is checked. */
-export const SYNC_INTERVAL_MS = 5 * 60_000;
+const SYNC_INTERVAL_MS = 5 * 60_000;
 /** How long a check holds its row: well past the longest a check runs. */
-export const SYNC_LEASE_MS = 10 * 60_000;
+const SYNC_LEASE_MS = 10 * 60_000;
 
 export type SyncRow = typeof mailboxSync.$inferSelect;
 

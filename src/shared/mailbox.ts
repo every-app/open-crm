@@ -34,10 +34,9 @@ export type SyncStatus = (typeof SYNC_STATUSES)[number];
 
 export const CONNECTION_STATUSES = ["ACTIVE", "NEEDS_RECONNECT"] as const;
 
-export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
-export const CALENDAR_SCOPE =
-  "https://www.googleapis.com/auth/calendar.readonly";
-export const OUTLOOK_MAIL_SCOPE = "Mail.Read";
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const OUTLOOK_MAIL_SCOPE = "Mail.Read";
 
 export const SCOPE_FOR_SOURCE = {
   calendar: CALENDAR_SCOPE,
@@ -71,7 +70,7 @@ export type ConnectError = (typeof CONNECT_ERRORS)[number];
 const GRAPH_SCOPE_PREFIX = "https://graph.microsoft.com/";
 
 /** A token response's `scope` as a set; Graph's prefix is dropped. */
-export function parseScopes(scope: string | null | undefined): Set<string> {
+function parseScopes(scope: string | null | undefined): Set<string> {
   return new Set(
     (scope ?? "")
       .split(/[,\s]+/)

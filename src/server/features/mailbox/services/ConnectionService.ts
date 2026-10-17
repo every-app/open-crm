@@ -94,7 +94,7 @@ async function startConnect(
   return { url: url.toString() };
 }
 
-export type CallbackOutcome = { ok: true } | { ok: false; error: ConnectError };
+type CallbackOutcome = { ok: true } | { ok: false; error: ConnectError };
 
 /**
  * The provider sent the member back to `callbackUrl`. Consumes the state

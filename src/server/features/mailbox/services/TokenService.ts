@@ -8,7 +8,7 @@ import type { MailboxProvider } from "@/shared/mailbox";
 // refresh). A refused refresh (`invalid_grant`) marks the connection for
 // reconnecting. Tokens go to the provider and nowhere else.
 
-export type TokenResult =
+type TokenResult =
   | { outcome: "ok"; accessToken: string; accountEmail: string }
   | { outcome: "not-connected" }
   | { outcome: "needs-reconnect"; reason: string }
