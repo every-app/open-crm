@@ -87,8 +87,7 @@ export function WaitingForSetup() {
         <p className="text-muted-foreground">
           {availability
             ? agentPausedReason(availability)
-            : "The agent's model isn't set up."}{" "}
-          It researches this record once the model is set up.
+            : "The agent's model isn't set up."}
         </p>
         <AgentSetupLink className="text-foreground underline underline-offset-4" />
       </PopoverContent>

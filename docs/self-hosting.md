@@ -83,9 +83,9 @@ An owner or admin then connects the workspace's Slack from Settings → Connecti
 
 ## What works without keys
 
-The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking), and the REST API (Settings → API). Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
+The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking & Analytics), and the REST API (Settings → API Keys). Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
 
-Without a model key, the research agent pauses. Records it would research say "Waiting for setup", the agent button on Home says "Agent paused", and the setup checklist (on Home for owners and admins, and in Settings → Setup) shows what is missing and, on your own gateway, the command that sets it. Nothing is lost while it waits: the agent does the work once the key is set.
+Without a model key, the research agent pauses. Records it would research say "Waiting for setup", and the agent button on Overview says "Agent paused". Settings → General shows which key is missing and, on your own gateway, the command that sets it; owners and admins also see it as a step in Overview's Get started card. Nothing is lost while it waits: the agent does the work once the key is set.
 
 With a model key but no Context.dev key, the agent still researches. Logos and brand data stay empty.
 
@@ -116,9 +116,9 @@ The deploy migrates the CRM's database after taking a restore point (a D1 Time T
 
 ## Troubleshooting
 
-**The agent says "Waiting for setup".** The gateway has no model key. Set `OPENROUTER_API_KEY` on the gateway (see [Give the agent its keys](#give-the-agent-its-keys)); the CRM picks it up within about ten minutes. Settings → Setup shows Ready after the agent's next successful call.
+**The agent says "Waiting for setup".** The gateway has no model key. Set `OPENROUTER_API_KEY` on the gateway (see [Give the agent its keys](#give-the-agent-its-keys)); the CRM picks it up within about ten minutes. Settings → General shows Connected after the agent's next successful call.
 
-**Settings → Setup says "Not checked yet".** The gateway is connected, and the agent finds out whether it holds a model key the first time it runs. It runs within a minute of new work being queued, for example when you add a company.
+**Settings → General says "Not checked yet".** The gateway is connected, and the agent finds out whether it holds a model key the first time it runs. It runs within a minute of new work being queued, for example when you add a company.
 
 **No logos.** Logos and brand data come from Context.dev. Set `CONTEXT_API_KEY` on the gateway.
 

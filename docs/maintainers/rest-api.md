@@ -1,6 +1,6 @@
 # REST API
 
-The CRM serves a versioned REST API under `/api/v1/` on its own host, for scripts and tools that don't speak MCP. Its OpenAPI 3.1 document is `GET /api/v1/openapi.json`. Settings → API tells members how to call it.
+The CRM serves a versioned REST API under `/api/v1/` on its own host, for scripts and tools that don't speak MCP. Its OpenAPI 3.1 document is `GET /api/v1/openapi.json`. Settings → API Keys tells members how to call it.
 
 ## Authentication is the gateway's
 

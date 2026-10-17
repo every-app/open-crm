@@ -97,7 +97,6 @@ export function ApprovalPrompt({
       ) : (
         <Request
           title={`Let the agent go ahead: ${toolVerb(tool).toLowerCase()}?`}
-          detail="It changes the CRM, so it waits for you."
         />
       )}
       <div className="flex justify-end gap-2">
@@ -117,11 +116,13 @@ export function ApprovalPrompt({
   );
 }
 
-function Request({ title, detail }: { title: string; detail: string }) {
+function Request({ title, detail }: { title: string; detail?: string }) {
   return (
     <div className="space-y-1">
       <p className="text-sm font-medium [overflow-wrap:anywhere]">{title}</p>
-      <p className="text-xs text-muted-foreground">{detail}</p>
+      {detail ? (
+        <p className="text-xs text-muted-foreground">{detail}</p>
+      ) : null}
     </div>
   );
 }
@@ -139,12 +140,7 @@ function JobChangeRequest({
   const moving = moveToCompanyId
     ? ` and move them to ${company.data?.name ?? "the company they joined"}`
     : "";
-  return (
-    <Request
-      title={`Raise a job change for ${name}${moving}?`}
-      detail="It goes on their timeline, where their owner sees it: a champion in a new seat is a warm introduction, and the seat they left is a relationship nobody owns yet."
-    />
-  );
+  return <Request title={`Raise a job change for ${name}${moving}?`} />;
 }
 
 function ArchiveFieldRequest({
@@ -160,7 +156,7 @@ function ArchiveFieldRequest({
   return (
     <Request
       title={`Archive the “${label}” field on ${ENTITY_NOUNS[entity].many}?`}
-      detail="It leaves every sheet and table and stops being filled. The values already recorded are kept."
+      detail="Hidden everywhere. Its values are kept."
     />
   );
 }
@@ -182,7 +178,7 @@ function ManageFieldRequest({
     return (
       <Request
         title={`Add a “${label ?? "new"}” field${kind} to ${ENTITY_NOUNS[entity].many}?`}
-        detail={`Every rep sees it on sheets and tables. ${brief}`}
+        detail={brief}
       />
     );
   }

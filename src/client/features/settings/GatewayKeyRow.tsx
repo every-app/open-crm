@@ -37,14 +37,14 @@ export function GatewayKeyRow({
   }
 
   const status = STATUS[item.state];
+  // Who sets it, for a member of a fork; an owner or admin gets the command.
   const fallback =
-    item.state !== "missing" || checklist.local || item.command
-      ? null
-      : checklist.tier === "first_party"
-        ? "Every App hasn't set it up on this gateway yet."
-        : canManage
-          ? null
-          : "An owner or an admin sets it up on the gateway.";
+    item.state === "missing" &&
+    !checklist.local &&
+    checklist.tier === "fork" &&
+    !canManage
+      ? "An owner or an admin sets it up on the gateway."
+      : null;
 
   return (
     <SettingsRow

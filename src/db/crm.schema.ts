@@ -68,8 +68,6 @@ export const workspace = sqliteTable("workspace", {
   modelRefusedAt: timestamp("model_refused_at"),
   modelRefusal: text("model_refusal"),
   modelAnsweredAt: timestamp("model_answered_at"),
-  // An owner or admin put the setup checklist away.
-  setupDismissedAt: timestamp("setup_dismissed_at"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

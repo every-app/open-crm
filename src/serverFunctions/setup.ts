@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireOrgPermission } from "@/server/auth/org-gate";
 import { SetupService } from "@/server/features/setup/services/SetupService";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -14,10 +13,13 @@ export const getSetupChecklist = createServerFn({ method: "GET" })
     ),
   );
 
-export const dismissSetupChecklist = createServerFn({ method: "POST" })
+/** Overview's Get started steps for the signed-in person. */
+export const getGetStarted = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
-  .handler(async ({ context }) => {
-    requireOrgPermission(context, { workspace: ["manage"] });
-    await SetupService.dismiss(context.organizationId);
-    return { dismissed: true };
-  });
+  .handler(async ({ context }) =>
+    SetupService.getStarted(
+      context.organizationId,
+      context.userId,
+      hasOrgPermission(context.role, { workspace: ["manage"] }),
+    ),
+  );

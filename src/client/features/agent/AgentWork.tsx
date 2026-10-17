@@ -39,17 +39,13 @@ type OpenTask = {
   hold: TaskHold;
 };
 
-const HELD = {
-  setup: {
-    label: "Waiting for setup",
-    title:
-      "The agent's model isn't set up on your Every App gateway yet. This runs once it is.",
-  },
+const HELD: Record<NonNullable<TaskHold>, { label: string; title?: string }> = {
+  setup: { label: "Waiting for setup" },
   schedule: {
     label: "Held",
     title: "Background research is off on this deployment. Enrich now runs it.",
   },
-} as const;
+};
 
 /**
  * What the agent is doing on a record and what it did: its open tasks, and
