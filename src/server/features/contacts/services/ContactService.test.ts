@@ -13,8 +13,7 @@ vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
 // The gateway is connected: research isn't waiting for the model's setup.
-vi.mock("@/server/lib/openrouter", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/server/lib/openrouter")>()),
+vi.mock("@/server/lib/openrouter", () => ({
   getOpenRouterFetch: () => fetch,
 }));
 

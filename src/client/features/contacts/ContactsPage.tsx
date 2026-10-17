@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -25,6 +25,9 @@ import {
 } from "@/client/features/contacts/contactSearch";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
+import { ExportButton } from "@/client/features/csv/ExportButton";
+import { ImportDialog } from "@/client/features/csv/ImportDialog";
+import { CONTACT_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import {
   isListFiltered,
@@ -34,6 +37,7 @@ import {
 } from "@/client/features/records/listSearch";
 import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
+import { listContacts } from "@/serverFunctions/contacts";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { CONTACT_SORTS } from "@/types/schemas/contacts";
 
@@ -59,6 +63,7 @@ export function ContactsPage() {
     record: ["purge"],
   });
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const anchorRef = useSelectionAnchor();
   const fieldColumns = useFieldColumns<ContactRow>("CONTACT");
@@ -95,6 +100,12 @@ export function ContactsPage() {
       New contact
     </Button>
   );
+  const importCsv = (
+    <Button variant="outline" onClick={() => setImporting(true)}>
+      <Upload data-icon="inline-start" />
+      Import
+    </Button>
+  );
 
   return (
     <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
@@ -102,7 +113,12 @@ export function ContactsPage() {
         <PageHeader
           title="Contacts"
           description="Everyone in the pipeline."
-          actions={newContact}
+          actions={
+            <>
+              {importCsv}
+              {newContact}
+            </>
+          }
         />
         <DataTable
           table={table}
@@ -136,8 +152,13 @@ export function ContactsPage() {
               : {
                   title: "No contacts yet",
                   description:
-                    "Add the first person you sell to. The agent fills in the rest.",
-                  action: newContact,
+                    "Add the first person you sell to, or import them from a CSV. The agent fills in the rest.",
+                  action: (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {newContact}
+                      {importCsv}
+                    </div>
+                  ),
                 }
           }
           toolbar={
@@ -148,6 +169,13 @@ export function ContactsPage() {
               placeholder="Search by name, email or company"
               actions={
                 <>
+                  <ExportButton
+                    entity="CONTACT"
+                    columns={CONTACT_EXPORT}
+                    fetchPage={(page, pageSize) =>
+                      listContacts({ data: { ...input, page, pageSize } })
+                    }
+                  />
                   <SavedViewsMenu
                     entity="CONTACT"
                     current={savedViewOf(search)}
@@ -197,6 +225,9 @@ export function ContactsPage() {
         }
         onClose={() => setSearch({ record: undefined, tab: undefined })}
       />
+      {importing ? (
+        <ImportDialog entity="CONTACT" onClose={() => setImporting(false)} />
+      ) : null}
       {creating ? (
         <CreateContactDialog
           onClose={() => setCreating(false)}

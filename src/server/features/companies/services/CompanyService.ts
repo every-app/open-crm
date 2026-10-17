@@ -89,8 +89,8 @@ async function getCompany(organizationId: string, id: string) {
     organizationId,
     id,
   );
-  const [contacts, deals, primaryContact, agent, workspace] =
-    await Promise.all([
+  const [contacts, deals, primaryContact, agent, workspace] = await Promise.all(
+    [
       CompanyRelationsRepository.listContacts(organizationId, id),
       CompanyRelationsRepository.listDeals(organizationId, id),
       found.primaryContactId
@@ -101,7 +101,8 @@ async function getCompany(organizationId: string, id: string) {
         : null,
       recordAgentStates(organizationId, "company", [id]),
       WorkspaceRepository.getOrCreate(organizationId),
-    ]);
+    ],
+  );
   return {
     ...found,
     primaryContact,

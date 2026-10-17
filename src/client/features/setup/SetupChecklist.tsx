@@ -48,7 +48,10 @@ const BADGE_VARIANT = {
  */
 export function HomeSetupChecklist() {
   const canManage = useCanManageWorkspace();
-  const query = useQuery({ ...setupChecklistQueryOptions(), enabled: canManage });
+  const query = useQuery({
+    ...setupChecklistQueryOptions(),
+    enabled: canManage,
+  });
   const queryClient = useQueryClient();
   const dismiss = useMutation({
     mutationFn: () => dismissSetupChecklist(),

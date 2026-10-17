@@ -31,7 +31,12 @@ import {
 // the CRM doesn't have it yet.
 
 function parseContact(run: ImportRun, values: Record<string, string>) {
-  const fullName = textCell(values, "fullName", "The name", 2 * CONTACT_NAME_MAX);
+  const fullName = textCell(
+    values,
+    "fullName",
+    "The name",
+    2 * CONTACT_NAME_MAX,
+  );
   const [first, ...rest] = fullName?.split(/\s+/) ?? [];
   const firstName =
     textCell(values, "firstName", "The first name", CONTACT_NAME_MAX) ??

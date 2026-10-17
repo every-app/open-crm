@@ -33,7 +33,13 @@ export const IMPORT_TARGETS = {
     {
       id: "domain",
       label: "Domain",
-      aliases: ["website", "url", "web site", "company domain", "company website"],
+      aliases: [
+        "website",
+        "url",
+        "web site",
+        "company domain",
+        "company website",
+      ],
       hint: "acme.com, or the website",
     },
     { id: "industry", label: "Industry", aliases: [] },

@@ -7,8 +7,7 @@ const { database } = await vi.hoisted(async () => {
 vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
 vi.mock("@/db", () => ({ db: database.db }));
 // The gateway is connected: research isn't waiting for the model's setup.
-vi.mock("@/server/lib/openrouter", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/server/lib/openrouter")>()),
+vi.mock("@/server/lib/openrouter", () => ({
   getOpenRouterFetch: vi.fn(),
 }));
 

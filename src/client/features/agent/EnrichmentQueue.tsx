@@ -97,7 +97,11 @@ export function EnrichmentQueue() {
                 : STATE_DOTS.queued,
           )}
         />
-        {paused ? "Agent paused" : total > 0 ? `Enriching ${total}` : "Enriching"}
+        {paused
+          ? "Agent paused"
+          : total > 0
+            ? `Enriching ${total}`
+            : "Enriching"}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">

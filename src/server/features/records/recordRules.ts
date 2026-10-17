@@ -120,7 +120,11 @@ export async function recordAgentStates(
   const now = new Date().toISOString();
   for (const part of idChunks(ids)) {
     const rows = await db
-      .select({ id: column, kind: agentTask.kind, priority: agentTask.priority })
+      .select({
+        id: column,
+        kind: agentTask.kind,
+        priority: agentTask.priority,
+      })
       .from(agentTask)
       .where(
         and(

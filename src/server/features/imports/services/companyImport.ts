@@ -39,7 +39,9 @@ function parseCompany(run: ImportRun, values: Record<string, string>) {
   const rawDomain = cell(values, "domain");
   const domain = rawDomain ? normalizeDomain(rawDomain) : null;
   if (rawDomain && !domain) {
-    throw new RowError(`"${rawDomain}" is not a domain. Try one like acme.com.`);
+    throw new RowError(
+      `"${rawDomain}" is not a domain. Try one like acme.com.`,
+    );
   }
   const details: Partial<Record<Detail, string>> = {};
   for (const [key, label, max] of DETAILS) {
@@ -73,7 +75,8 @@ export async function importCompanies(
   ]);
   // The company each key already is; null for one a dry run would add.
   const existing = new Map<string, string | null>();
-  for (const row of withName) existing.set(`name:${row.name.toLowerCase()}`, row.id);
+  for (const row of withName)
+    existing.set(`name:${row.name.toLowerCase()}`, row.id);
   for (const row of withDomain) existing.set(`domain:${row.domain}`, row.id);
 
   const results: RowResult[] = [];

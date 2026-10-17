@@ -51,9 +51,7 @@ export function AgentSetupLink({ className }: { className?: string }) {
   return (
     <Link
       to="/settings/agent"
-      className={
-        className ?? "text-foreground underline underline-offset-4"
-      }
+      className={className ?? "text-foreground underline underline-offset-4"}
     >
       Set it up in Settings → Agent
     </Link>
@@ -74,7 +72,10 @@ export function WaitingForSetup() {
         onClick={(event) => event.stopPropagation()}
         className="inline-flex cursor-help items-center gap-1.5 rounded-sm text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-warning" />
+        <span
+          aria-hidden
+          className="size-1.5 shrink-0 rounded-full bg-warning"
+        />
         Waiting for setup
       </PopoverTrigger>
       <PopoverContent

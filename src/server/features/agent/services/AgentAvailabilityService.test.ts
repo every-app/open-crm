@@ -41,6 +41,8 @@ const refusal = () =>
     },
   );
 
+const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+
 const modelOf = async (organizationId: string) =>
   (await AgentAvailabilityService.forOrganization(organizationId)).model;
 
@@ -79,10 +81,8 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await AgentAvailabilityService.noteModelResponse("org_a", refusal());
       const availability =
         await AgentAvailabilityService.forOrganization("org_a");
-      expect(availability).toMatchObject({
-        model: "refused",
-        modelRefusal: expect.stringContaining("OPENROUTER_API_KEY"),
-      });
+      expect(availability.model).toBe("refused");
+      expect(availability.modelRefusal).toContain("OPENROUTER_API_KEY");
       expect(await modelOf("org_b")).toBe("unchecked");
       // org_a's task waits; org_b's runs.
       expect(await claim()).toEqual(["t_b"]);
@@ -97,8 +97,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
     it("tries a refused model again after a while, and stops saying it is refused", async () => {
       await AgentAvailabilityService.noteModelResponse("org_a", refusal());
-      const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
-
       await database.exec(
         `UPDATE workspace SET model_refused_at = '${ago(MODEL_RETRY_MS + 1000)}' WHERE organization_id = 'org_a'`,
       );

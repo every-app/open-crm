@@ -26,7 +26,11 @@ import { ImportRepository } from "../repositories/ImportRepository";
 /** A row that can't be imported, and why, in words for the report. */
 export class RowError extends Error {}
 
-export type RowResult = { line: number; outcome: ImportOutcome; error?: string };
+export type RowResult = {
+  line: number;
+  outcome: ImportOutcome;
+  error?: string;
+};
 
 export type ImportRow = { line: number; values: Record<string, string> };
 
@@ -107,7 +111,10 @@ export async function saveRow(
     // A validation or conflict message is written for people; anything else
     // stays in the logs.
     const appError = asAppError(error);
-    if (appError?.code === "VALIDATION_ERROR" || appError?.code === "CONFLICT") {
+    if (
+      appError?.code === "VALIDATION_ERROR" ||
+      appError?.code === "CONFLICT"
+    ) {
       return { line, outcome: "failed", error: appError.message };
     }
     console.error("[import] row failed", { line }, error);
@@ -230,7 +237,8 @@ export async function companyResolver(run: ImportRun, refs: CompanyRef[]) {
   const byDomain = new Map<string, string | null>();
   const byName = new Map<string, string | null>();
   for (const row of withName) byName.set(row.name.toLowerCase(), row.id);
-  for (const row of withDomain) if (row.domain) byDomain.set(row.domain, row.id);
+  for (const row of withDomain)
+    if (row.domain) byDomain.set(row.domain, row.id);
 
   const remember = (ref: CompanyRef, id: string | null) => {
     if (ref.domain) byDomain.set(ref.domain, id);

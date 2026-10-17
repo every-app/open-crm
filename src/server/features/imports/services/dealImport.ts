@@ -3,11 +3,7 @@ import { DealRepository } from "@/server/features/deals/repositories/DealReposit
 import { DealService } from "@/server/features/deals/services/DealService";
 import { FieldValueRepository } from "@/server/features/fields/repositories/FieldValueRepository";
 import { DEAL_STAGES, type DealStage } from "@/shared/crm-enums";
-import {
-  CURRENCY_CODES,
-  roundMoney,
-  toCurrencyCode,
-} from "@/shared/currency";
+import { CURRENCY_CODES, roundMoney, toCurrencyCode } from "@/shared/currency";
 import {
   DEAL_STAGE_LABELS,
   isClosedStage,
@@ -49,7 +45,8 @@ const STAGE_WORDS = new Map<string, DealStage>([
 
 function stageOf(raw: string | null): DealStage | null {
   if (!raw) return null;
-  const stage = STAGE_WORDS.get(raw.toLowerCase().replace(/[\s-]+/g, "_")) ??
+  const stage =
+    STAGE_WORDS.get(raw.toLowerCase().replace(/[\s-]+/g, "_")) ??
     STAGE_WORDS.get(raw.toLowerCase());
   if (!stage) {
     throw new RowError(

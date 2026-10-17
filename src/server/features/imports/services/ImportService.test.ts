@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { PRIORITY } from "@/shared/agent-tasks";
 import type { ImportChunkInput } from "@/types/schemas/imports";
 
@@ -53,7 +54,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await database.exec(
         `INSERT INTO company (id, organization_id, name, domain) VALUES ('co_acme', 'org_a', 'acme.com', 'acme.com')`,
       );
-      const rows = [
+      const rows: Record<string, string>[] = [
         { name: "Acme", domain: "https://www.acme.com", industry: "Anvils" },
         { name: "Globex", domain: "globex.com", owner: "ANA@a.test" },
         { name: "Initech" },
@@ -122,7 +123,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await database.exec(
         `INSERT INTO company (id, organization_id, name, domain) VALUES ('co_hooli', 'org_a', 'Hooli', NULL)`,
       );
-      const rows = [
+      const rows: Record<string, string>[] = [
         { fullName: "Ana María Ruiz", email: "Ana@Initech.com" },
         { firstName: "Bo", email: "bo@initech.com", title: "CTO" },
         { firstName: "Cy", company: "hooli" },
@@ -180,7 +181,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     });
 
     it("finds deals by name at their company, and converts what an update changes", async () => {
-      const rows = [
+      const rows: Record<string, string>[] = [
         {
           name: "Renewal",
           company: "acme.com",
@@ -199,9 +200,13 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         outcomes(
           await ImportService.importChunk(
             A,
-            chunk("DEAL", [{ name: "renewal", company: "acme.com", amount: "9000" }], {
-              duplicates: "update",
-            }),
+            chunk(
+              "DEAL",
+              [{ name: "renewal", company: "acme.com", amount: "9000" }],
+              {
+                duplicates: "update",
+              },
+            ),
           ),
         ),
       ).toEqual(["updated"]);
@@ -242,21 +247,31 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         outcomes(
           await ImportService.importChunk(
             A,
-            chunk("COMPANY", [...rows, rows[0]!], { dryRun: true }),
+            chunk("COMPANY", [...rows, rows[0]], { dryRun: true }),
           ),
         ),
       ).toEqual(["created", "created", "skipped"]);
-      expect(
-        await database.rows("SELECT count(*) AS n FROM company"),
-      ).toEqual([{ n: 0 }]);
+      expect(await database.rows("SELECT count(*) AS n FROM company")).toEqual([
+        { n: 0 },
+      ]);
 
       await ImportService.importChunk(
         A,
         chunk("COMPANY", rows, { research: true }),
       );
-      const tasks = await database.rows(
-        "SELECT kind, priority, due_at FROM agent_task WHERE organization_id = 'org_a' ORDER BY kind, due_at",
-      );
+      const tasks = z
+        .array(
+          z.object({
+            kind: z.string(),
+            priority: z.number(),
+            due_at: z.string(),
+          }),
+        )
+        .parse(
+          await database.rows(
+            "SELECT kind, priority, due_at FROM agent_task WHERE organization_id = 'org_a' ORDER BY kind, due_at",
+          ),
+        );
       expect(tasks.map((task) => [task.kind, task.priority])).toEqual([
         ["brand", PRIORITY.importedBrand],
         ["brand", PRIORITY.importedBrand],
@@ -265,8 +280,8 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
       const [first, second] = tasks
         .filter((task) => task.kind === "company-profile")
-        .map((task) => Date.parse(String(task.due_at)));
-      expect(second! - first!).toBe(30_000);
+        .map((task) => Date.parse(task.due_at));
+      expect(second - first).toBe(30_000);
     });
   });
 }

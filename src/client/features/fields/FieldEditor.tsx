@@ -1,3 +1,4 @@
+import { useAgentPaused } from "@/client/features/agent/AgentPaused";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { revalidateLogic } from "@tanstack/react-form";
@@ -377,14 +378,18 @@ function Coverage({
 }) {
   const noun = ENTITY_NOUNS[field.entity];
   const left = coverage.total - coverage.filled;
+  const paused = useAgentPaused();
   const fill = useMutation({
     mutationFn: () => fillField({ data: { id: field.id } }),
     onSuccess: ({ queued, merged }) => {
       const records = queued + merged;
+      const count = `${records} ${records === 1 ? noun.one : noun.many}`;
       toast.success(
-        records > 0
-          ? `The agent will fill it on ${records} ${records === 1 ? noun.one : noun.many}.`
-          : "The agent is already working on these.",
+        records === 0
+          ? "The agent is already working on these."
+          : paused
+            ? `Queued for ${count}. The agent fills it once its model is set up.`
+            : `The agent will fill it on ${count}.`,
       );
     },
   });

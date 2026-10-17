@@ -22,6 +22,7 @@ import { Route as AppSettingsAgentRouteImport } from './routes/_app/settings/age
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsDataRouteImport } from './routes/_app/settings/data'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppSettingsSetupRouteImport } from './routes/_app/settings/setup'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -87,6 +88,11 @@ const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsSetupRoute = AppSettingsSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/setup': typeof AppSettingsSetupRoute
   '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/data': typeof AppSettingsDataRoute
   '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/setup': typeof AppSettingsSetupRoute
   '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/data': typeof AppSettingsDataRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/settings/setup': typeof AppSettingsSetupRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/settings/setup'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/settings/currencies'
     | '/settings/data'
     | '/settings/members'
+    | '/settings/setup'
     | '/settings'
   id:
     | '__root__'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/_app/settings/currencies'
     | '/_app/settings/data'
     | '/_app/settings/members'
+    | '/_app/settings/setup'
     | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -274,6 +286,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/setup': {
+      id: '/_app/settings/setup'
+      path: '/setup'
+      fullPath: '/settings/setup'
+      preLoaderRoute: typeof AppSettingsSetupRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
   }
 }
 
@@ -282,6 +301,7 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsDataRoute: typeof AppSettingsDataRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
+  AppSettingsSetupRoute: typeof AppSettingsSetupRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
@@ -290,6 +310,7 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsDataRoute: AppSettingsDataRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
+  AppSettingsSetupRoute: AppSettingsSetupRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 

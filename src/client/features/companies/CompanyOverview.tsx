@@ -215,8 +215,8 @@ function AgentPending({ company }: { company: Company }) {
         </p>
       ) : noBrandData ? (
         <p className="text-muted-foreground">
-          Logos and brand data come from Context.dev, which isn't set up on
-          your Every App gateway.
+          Logos and brand data come from Context.dev, which isn't set up on your
+          Every App gateway.
         </p>
       ) : null}
     </div>
