@@ -10,6 +10,7 @@ import type { CompanyListInput } from "@/types/schemas/companies";
 // Every company query lives under ["companies"]; a write invalidates them all.
 export const companyKeys = {
   all: ["companies"] as const,
+  lists: ["companies", "list"] as const,
   list: (input: CompanyListInput) => ["companies", "list", input] as const,
   detail: (id: string) => ["companies", "detail", id] as const,
   options: (q: string) => ["companies", "options", q] as const,

@@ -14,8 +14,8 @@ import {
   SheetTitle,
 } from "@/client/components/ui/sheet";
 import {
-  entityFieldsKey,
   fieldCoverageQueryOptions,
+  settleEntityFields,
 } from "@/client/features/fields/fieldQueries";
 import {
   FieldOptionsEditor,
@@ -151,8 +151,7 @@ export function FieldEditor({
     enabled: Boolean(field),
   });
   const typeLocked = (coverage.data?.values ?? 0) > 0;
-  const settle = () =>
-    queryClient.invalidateQueries({ queryKey: entityFieldsKey(entity) });
+  const settle = () => settleEntityFields(queryClient, entity);
 
   const save = useMutation({
     mutationFn: (draft: Draft) =>

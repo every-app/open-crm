@@ -1,6 +1,8 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import {
+  DataTableFilterPanel,
+  DataTableFilterToggle,
   DataTableTabs,
   DataTableToolbar,
 } from "@/client/components/table/DataTableToolbar";
@@ -11,12 +13,19 @@ import {
 } from "@/client/components/ui/input-group";
 import { TabsTrigger } from "@/client/components/ui/tabs";
 import { useDebouncedDraft } from "@/client/hooks/useDebouncedDraft";
+import {
+  FieldFilterControls,
+  useFilterableFields,
+} from "@/client/features/fields/FieldFilterControls";
 import type { RecordListSearch } from "@/client/features/records/listSearch";
 import { OwnerFilter } from "@/client/features/records/owners";
+import type { FieldEntity } from "@/shared/crm-enums";
+import type { FieldFilters } from "@/types/schemas/fields";
 
 // Above a record list's rows: the live/archived view switch, the search, the
-// owner filter and the list's actions. Every change goes to the URL and
-// takes the list back to its first page.
+// owner filter, the list's own filters and actions, and a panel of custom
+// field filters. Every change goes to the URL and takes the list back to its
+// first page.
 
 const trim = (value: string) => value.trim();
 
@@ -49,20 +58,36 @@ function ListSearchInput({
 }
 
 export function RecordListToolbar({
+  entity,
   search,
   onSearchChange,
   placeholder,
   filters,
   actions,
 }: {
+  /** Whose custom fields the filter panel offers. */
+  entity: FieldEntity;
   search: RecordListSearch;
   onSearchChange: (update: Partial<RecordListSearch>) => void;
   placeholder: string;
-  /** After the owner filter: where custom-field filters join. */
+  /** After the owner filter: the list's own filters. */
   filters?: ReactNode;
-  /** On the right: the "Fields" button, and saved views when lists get them. */
+  /** On the right: saved views and the "Fields" button. */
   actions?: ReactNode;
 }) {
+  const fieldFilters = search.fields ?? {};
+  const filterable = useFilterableFields(entity, fieldFilters);
+  // Open from the start when the URL (a link, a reload) filters by fields.
+  const [panelOpen, setPanelOpen] = useState(
+    () => Object.keys(fieldFilters).length > 0,
+  );
+  const setFieldFilters = (next: FieldFilters) =>
+    onSearchChange({
+      fields: Object.keys(next).length > 0 ? next : undefined,
+      page: undefined,
+    });
+  const hasFieldFilters = filterable.fields.length > 0;
+
   return (
     <>
       <DataTableTabs
@@ -95,7 +120,26 @@ export function RecordListToolbar({
           }
         />
         {filters}
+        {hasFieldFilters ? (
+          <DataTableFilterToggle
+            open={panelOpen}
+            activeCount={filterable.activeCount}
+            onToggle={() => setPanelOpen(!panelOpen)}
+          />
+        ) : null}
       </DataTableToolbar>
+      {panelOpen && hasFieldFilters ? (
+        <DataTableFilterPanel
+          activeCount={filterable.activeCount}
+          onReset={() => setFieldFilters({})}
+        >
+          <FieldFilterControls
+            fields={filterable.fields}
+            value={fieldFilters}
+            onChange={setFieldFilters}
+          />
+        </DataTableFilterPanel>
+      ) : null}
     </>
   );
 }

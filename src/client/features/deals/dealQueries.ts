@@ -9,6 +9,7 @@ import type { DealListInput } from "@/types/schemas/deals";
 // Every deal query lives under ["deals"]; a write invalidates them all.
 export const dealKeys = {
   all: ["deals"] as const,
+  lists: ["deals", "list"] as const,
   list: (input: DealListInput) => ["deals", "list", input] as const,
   detail: (id: string) => ["deals", "detail", id] as const,
   contactOptions: (dealId: string) =>

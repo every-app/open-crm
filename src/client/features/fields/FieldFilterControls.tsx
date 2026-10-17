@@ -23,30 +23,46 @@ type ControlProps = {
 };
 
 /**
- * A list filter panel's custom field filters: one per field offered as a
- * filter (`showOnFilter`). Text fields match what they contain, numbers and
+ * The live fields a list shows filters for: those offered as filters
+ * (`showOnFilter`), and any other one it is filtering by (from a saved view
+ * or a link), so no filter applies unseen. `activeCount` is how many of
+ * them filter the list now. Archived fields have no filter: the server
+ * ignores filters on them.
+ */
+export function useFilterableFields(entity: FieldEntity, value: FieldFilters) {
+  const { data } = useQuery(fieldsQueryOptions(entity));
+  const fields = (data ?? []).filter(
+    (field) => field.showOnFilter || value[field.key] !== undefined,
+  );
+  return {
+    fields,
+    activeCount: fields.filter((field) => value[field.key] !== undefined)
+      .length,
+  };
+}
+
+/**
+ * A list filter panel's custom field filters, one per field in `fields`
+ * (useFilterableFields). Text fields match what they contain, numbers and
  * dates a range, checkboxes yes or no, selects and users any of those
  * picked. `value` is what the list keeps in its URL (`fieldFiltersSchema`)
  * and hands to FieldValuesService.filterConditions.
  */
 export function FieldFilterControls({
-  entity,
+  fields,
   value,
   onChange,
 }: {
-  entity: FieldEntity;
+  fields: Field[];
   value: FieldFilters;
   onChange: (filters: FieldFilters) => void;
 }) {
-  const { data: fields } = useQuery(fieldsQueryOptions(entity));
   // Two filters can commit before the list re-renders with the first (a
   // debounced input and a pick): the second builds on the first.
   const latest = useRef(value);
   useEffect(() => {
     latest.current = value;
   }, [value]);
-  const filterable = (fields ?? []).filter((field) => field.showOnFilter);
-  if (filterable.length === 0) return null;
 
   const set = (key: string, filter: FieldFilter | null) => {
     const others = Object.fromEntries(
@@ -57,7 +73,7 @@ export function FieldFilterControls({
   };
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-      {filterable.map((field) => (
+      {fields.map((field) => (
         <DataTableFilterGroup key={field.id} label={field.label}>
           <FieldFilterInput
             field={field}

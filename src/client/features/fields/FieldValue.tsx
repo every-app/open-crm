@@ -15,6 +15,7 @@ import {
 import { Spinner } from "@/client/components/ui/spinner";
 import { Textarea } from "@/client/components/ui/textarea";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
+import { EmptyValue } from "@/client/features/records/cells";
 import type { FieldType } from "@/shared/crm-enums";
 import {
   parseFieldValue,
@@ -85,9 +86,7 @@ export function FieldValueDisplay({
   value: FieldValueJson;
   className?: string;
 }) {
-  if (value === null || value === "") {
-    return <span className="text-muted-foreground">—</span>;
-  }
+  if (value === null || value === "") return <EmptyValue />;
   return (
     <span
       className={cn(

@@ -16,6 +16,9 @@ import {
 //   validateSearch: recordListSearchSchema.extend({
 //     sort: z.enum(COMPANY_SORTS).optional().catch(undefined),
 //   })
+//
+// A saved view is that state without the page and the open record
+// (`savedViewOf`), parsed back with the same schema when it's applied.
 
 export const RECORD_TABS = ["overview", "activity", "agent"] as const;
 export type RecordTab = (typeof RECORD_TABS)[number];
@@ -87,6 +90,35 @@ export function isListFiltered(search: RecordListSearch): boolean {
     (search.owner?.length ?? 0) > 0 ||
     Object.keys(search.fields ?? {}).length > 0
   );
+}
+
+/**
+ * What a saved view keeps of a list's URL: its search, filters and sort, not
+ * the page or the record open over it.
+ */
+export function savedViewOf<TSearch extends RecordListSearch>(
+  search: TSearch,
+): Omit<TSearch, "page" | "record" | "tab"> {
+  const { page: _page, record: _record, tab: _tab, ...view } = search;
+  return view;
+}
+
+/**
+ * A saved view applied: the list's URL becomes what of the view still
+ * parses with the list's own schema (a view outlives the shape it was saved
+ * in), on the first page, the record open over the list left open.
+ */
+export function searchFromSavedView<TSearch extends RecordListSearch>(
+  schema: { parse: (filters: unknown) => TSearch },
+  filters: Record<string, unknown>,
+  current: TSearch,
+): TSearch {
+  return {
+    ...schema.parse(filters),
+    page: undefined,
+    record: current.record,
+    tab: current.tab,
+  };
 }
 
 /**

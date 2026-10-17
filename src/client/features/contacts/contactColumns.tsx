@@ -53,8 +53,8 @@ function sortableColumn(options: {
 
 /**
  * The contacts table. Name, title, email, company, last activity and created
- * date sort on the server; custom-field columns join after these when the
- * fields feature adds them to lists.
+ * date sort on the server; the page adds the custom field columns
+ * (useFieldColumns) after these.
  */
 export function contactColumns({
   archived,

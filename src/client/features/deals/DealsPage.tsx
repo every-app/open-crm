@@ -24,7 +24,9 @@ import {
   isDealListFiltered,
   type DealListSearch,
 } from "@/client/features/deals/dealSearch";
+import type { DealRow } from "@/client/features/deals/dealFormat";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
+import { useFieldColumns } from "@/client/features/fields/fieldColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import { useListSelection } from "@/client/features/records/listSearch";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
@@ -56,9 +58,13 @@ export function DealsPage() {
   const [creating, setCreating] = useState(false);
 
   const anchorRef = useSelectionAnchor();
+  const fieldColumns = useFieldColumns<DealRow>("DEAL");
   const columns = useMemo(
-    () => dealColumns({ archived: input.archived, anchorRef }),
-    [input.archived, anchorRef],
+    () => [
+      ...dealColumns({ archived: input.archived, anchorRef }),
+      ...fieldColumns,
+    ],
+    [input.archived, anchorRef, fieldColumns],
   );
   const sorting: SortingState = [
     { id: input.sort, desc: input.dir === "desc" },
@@ -106,6 +112,7 @@ export function DealsPage() {
               status: undefined,
               stage: undefined,
               closing: undefined,
+              fields: undefined,
               page: undefined,
             })
           }
@@ -135,6 +142,7 @@ export function DealsPage() {
           }
           toolbar={
             <RecordListToolbar
+              entity="DEAL"
               search={search}
               onSearchChange={setSearch}
               placeholder="Search deals by name or company"
