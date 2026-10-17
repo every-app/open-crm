@@ -20,10 +20,10 @@ import {
 // the same context, the same schema, the same service, the same permission
 // checks.
 
-export const API_PREFIX = "/api/v1";
+const API_PREFIX = "/api/v1";
 
 /** The scopes a personal access token is made with to limit it to the API. */
-export const API_SCOPES = { read: "api:read", write: "api:write" } as const;
+const API_SCOPES = { read: "api:read", write: "api:write" } as const;
 
 const HTTP_STATUS: Record<ErrorCode, number> = {
   UNAUTHENTICATED: 401,

@@ -103,8 +103,7 @@ export const dealRoutes = [
     method: "GET",
     path: "/deals/{dealId}/contact-options",
     tag,
-    summary:
-      "The people at the deal's company, and whether each is on the deal.",
+    summary: "The live contacts at the deal's company who aren't on it yet.",
     input: dealContactOptionsSchema,
     handler: (data, context) =>
       DealService.contactOptions(context.organizationId, data.dealId),
