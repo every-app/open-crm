@@ -90,7 +90,7 @@ async function findByKey(organizationId: string, idempotencyKey: string) {
   return row ?? null;
 }
 
-const runColumns = {
+const runColumns = () => ({
   id: agentRun.id,
   organizationId: agentRun.organizationId,
   agentId: agentRun.agentId,
@@ -113,13 +113,13 @@ const runColumns = {
   createdAt: agentRun.createdAt,
   startedAt: agentRun.startedAt,
   finishedAt: agentRun.finishedAt,
-};
+});
 
 export type RunRow = NonNullable<Awaited<ReturnType<typeof findById>>>;
 
 async function findById(organizationId: string, id: string) {
   const [row] = await db
-    .select(runColumns)
+    .select(runColumns())
     .from(agentRun)
     .where(and(eq(agentRun.organizationId, organizationId), eq(agentRun.id, id)))
     .limit(1);
@@ -130,7 +130,7 @@ async function findById(organizationId: string, id: string) {
 async function findWithVersion(organizationId: string, id: string) {
   const [row] = await db
     .select({
-      ...runColumns,
+      ...runColumns(),
       agentName: agentDefinition.name,
       agentDescription: agentDefinition.description,
       agentCreatedById: agentDefinition.createdById,
@@ -281,7 +281,7 @@ async function settle(
         inArray(agentRun.status, [...input.from]),
       ),
     )
-    .returning(runColumns);
+    .returning(runColumns());
   return row ?? null;
 }
 
@@ -405,7 +405,7 @@ async function listForAgent(
 ) {
   return db
     .select({
-      ...runColumns,
+      ...runColumns(),
       initiatedByName: user.name,
       versionNumber: agentVersion.number,
     })
@@ -474,7 +474,6 @@ async function insertEvent(input: {
 
 // The dispatcher's scans, across organizations.
 
-const otherRun = alias(agentRun, "other_run");
 
 /**
  * Queued runs of live agents with nothing running, oldest first: the next
@@ -484,6 +483,7 @@ async function queuedAcrossOrganizations(
   limit: number,
   organizationId?: string,
 ) {
+  const otherRun = alias(agentRun, "other_run");
   const rows = await db
     .select({
       id: agentRun.id,
@@ -584,7 +584,7 @@ async function queuedOfStoppedAgents(limit: number) {
 
 // The action ledger.
 
-const actionColumns = {
+const actionColumns = () => ({
   id: agentAction.id,
   runId: agentAction.runId,
   type: agentAction.type,
@@ -603,13 +603,13 @@ const actionColumns = {
   plannedAt: agentAction.plannedAt,
   startedAt: agentAction.startedAt,
   completedAt: agentAction.completedAt,
-};
+});
 
 export type ActionRow = NonNullable<Awaited<ReturnType<typeof findAction>>>;
 
 async function findAction(organizationId: string, idempotencyKey: string) {
   const [row] = await db
-    .select(actionColumns)
+    .select(actionColumns())
     .from(agentAction)
     .where(
       and(
@@ -768,7 +768,7 @@ async function actionsForRuns(organizationId: string, runIds: string[]) {
   for (const ids of chunk(runIds, ID_CHUNK)) {
     rows.push(
       ...(await db
-        .select(actionColumns)
+        .select(actionColumns())
         .from(agentAction)
         .where(
           and(

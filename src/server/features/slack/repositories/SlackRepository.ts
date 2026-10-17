@@ -114,7 +114,7 @@ async function markSync(
 
 // Channels.
 
-const channelColumns = {
+const channelColumns = () => ({
   id: slackChannel.id,
   slackChannelId: slackChannel.slackChannelId,
   name: slackChannel.name,
@@ -123,7 +123,7 @@ const channelColumns = {
   isMember: slackChannel.isMember,
   classifiedAt: slackChannel.classifiedAt,
   inviteRequestedAt: slackChannel.inviteRequestedAt,
-};
+});
 
 export type SlackChannelRow = Awaited<
   ReturnType<typeof listChannels>
@@ -136,7 +136,7 @@ async function listChannels(
 ) {
   const needle = input.query?.trim().toLowerCase();
   return db
-    .select(channelColumns)
+    .select(channelColumns())
     .from(slackChannel)
     .where(
       and(
@@ -158,7 +158,7 @@ async function listChannels(
 
 async function findChannel(organizationId: string, slackChannelId: string) {
   const [row] = await db
-    .select(channelColumns)
+    .select(channelColumns())
     .from(slackChannel)
     .where(
       and(
@@ -172,7 +172,7 @@ async function findChannel(organizationId: string, slackChannelId: string) {
 
 async function findChannelByName(organizationId: string, name: string) {
   const [row] = await db
-    .select(channelColumns)
+    .select(channelColumns())
     .from(slackChannel)
     .where(
       and(

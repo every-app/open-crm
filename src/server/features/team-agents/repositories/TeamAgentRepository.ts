@@ -37,7 +37,7 @@ import {
 
 const ID_CHUNK = 90;
 
-const agentColumns = {
+const agentColumns = () => ({
   id: agentDefinition.id,
   name: agentDefinition.name,
   description: agentDefinition.description,
@@ -49,7 +49,7 @@ const agentColumns = {
   createdAt: agentDefinition.createdAt,
   updatedAt: agentDefinition.updatedAt,
   archivedAt: agentDefinition.archivedAt,
-};
+});
 
 /**
  * The agents a person sees: the team's (live, paused, archived) and their own
@@ -57,7 +57,7 @@ const agentColumns = {
  */
 async function listVisible(organizationId: string, userId: string) {
   return db
-    .select(agentColumns)
+    .select(agentColumns())
     .from(agentDefinition)
     .innerJoin(user, eq(user.id, agentDefinition.createdById))
     .where(
@@ -79,7 +79,7 @@ async function listVisible(organizationId: string, userId: string) {
 /** One agent of the organization, unless it was deleted. */
 async function findById(organizationId: string, id: string) {
   const [row] = await db
-    .select(agentColumns)
+    .select(agentColumns())
     .from(agentDefinition)
     .innerJoin(user, eq(user.id, agentDefinition.createdById))
     .where(
@@ -99,7 +99,7 @@ async function findByConversation(
   conversationId: string,
 ) {
   const [row] = await db
-    .select(agentColumns)
+    .select(agentColumns())
     .from(agentDefinition)
     .innerJoin(user, eq(user.id, agentDefinition.createdById))
     .where(
@@ -140,7 +140,7 @@ async function enabledTriggers(organizationId: string, agentIds: string[]) {
   for (const ids of chunk(agentIds, ID_CHUNK)) {
     rows.push(
       ...(await db
-        .select(triggerColumns)
+        .select(triggerColumns())
         .from(agentTrigger)
         .where(
           and(
@@ -161,7 +161,7 @@ async function insertAgent(values: {
   name: string;
   description: string;
   createdById: string;
-  conversationId: string;
+  conversationId: string | null;
 }): Promise<void> {
   await db.insert(agentDefinition).values(values);
 }
@@ -219,7 +219,7 @@ async function updateDetails(
 
 // Versions.
 
-const versionColumns = {
+const versionColumns = () => ({
   id: agentVersion.id,
   agentId: agentVersion.agentId,
   number: agentVersion.number,
@@ -232,7 +232,7 @@ const versionColumns = {
   approvedAt: agentVersion.approvedAt,
   deployedAt: agentVersion.deployedAt,
   createdAt: agentVersion.createdAt,
-};
+});
 
 export type VersionRow = NonNullable<Awaited<ReturnType<typeof findVersion>>>;
 
@@ -242,7 +242,7 @@ async function findVersion(
   versionId: string,
 ) {
   const [row] = await db
-    .select(versionColumns)
+    .select(versionColumns())
     .from(agentVersion)
     .where(
       and(
@@ -258,7 +258,7 @@ async function findVersion(
 /** The agent's newest version. */
 async function latestVersion(organizationId: string, agentId: string) {
   const [row] = await db
-    .select(versionColumns)
+    .select(versionColumns())
     .from(agentVersion)
     .where(
       and(
@@ -522,7 +522,7 @@ async function replaceCurrentVersion(input: {
 
 // Triggers.
 
-const triggerColumns = {
+const triggerColumns = () => ({
   id: agentTrigger.id,
   agentId: agentTrigger.agentId,
   versionId: agentTrigger.versionId,
@@ -534,11 +534,11 @@ const triggerColumns = {
   enabled: agentTrigger.enabled,
   nextRunAt: agentTrigger.nextRunAt,
   lastRunAt: agentTrigger.lastRunAt,
-};
+});
 
 async function triggersForVersion(organizationId: string, versionId: string) {
   return db
-    .select(triggerColumns)
+    .select(triggerColumns())
     .from(agentTrigger)
     .where(
       and(
@@ -556,7 +556,7 @@ async function triggersForVersion(organizationId: string, versionId: string) {
 async function dueSchedules(now: string, limit: number) {
   return db
     .select({
-      ...triggerColumns,
+      ...triggerColumns(),
       organizationId: agentTrigger.organizationId,
     })
     .from(agentTrigger)
@@ -606,7 +606,7 @@ async function advanceSchedule(
 /** Enabled triggers of live agents listening for `event`. */
 async function eventTriggers(organizationId: string, event: CrmEventType) {
   return db
-    .select(triggerColumns)
+    .select(triggerColumns())
     .from(agentTrigger)
     .innerJoin(
       agentDefinition,
@@ -660,7 +660,7 @@ async function disableTriggers(
 
 // Files.
 
-const artifactColumns = {
+const artifactColumns = () => ({
   id: agentBuilderArtifact.id,
   conversationId: agentBuilderArtifact.conversationId,
   versionId: agentBuilderArtifact.versionId,
@@ -671,7 +671,7 @@ const artifactColumns = {
   revision: agentBuilderArtifact.revision,
   status: agentBuilderArtifact.status,
   createdAt: agentBuilderArtifact.createdAt,
-};
+});
 
 export type ArtifactRow = Awaited<
   ReturnType<typeof versionFiles>
@@ -692,7 +692,7 @@ function latestPerPath<Row extends { path: string; revision: number }>(
 /** A version's files, exactly as it was saved. */
 async function versionFiles(organizationId: string, versionId: string) {
   const rows = await db
-    .select(artifactColumns)
+    .select(artifactColumns())
     .from(agentBuilderArtifact)
     .where(
       and(
@@ -709,7 +709,7 @@ async function conversationFiles(
   conversationId: string,
 ) {
   const rows = await db
-    .select(artifactColumns)
+    .select(artifactColumns())
     .from(agentBuilderArtifact)
     .where(
       and(
@@ -733,7 +733,7 @@ async function writeArtifact(input: {
   content: string;
 }): Promise<{ id: string; revision: number }> {
   const [latest] = await db
-    .select(artifactColumns)
+    .select(artifactColumns())
     .from(agentBuilderArtifact)
     .where(
       and(

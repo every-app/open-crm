@@ -1,11 +1,13 @@
 import { env, waitUntil } from "cloudflare:workers";
 import { collapsingByKey } from "@/server/features/agent/dispatch/pool";
-import { runTeamAgentLane } from "./dispatch";
 
 // A run a person asked for (or an event queued) starts now rather than on the
 // next minute's tick: the team-agent lane, for that organization only. Pokes
-// from one organization collapse into one lane per isolate.
+// from one organization collapse into one lane per isolate. The lane (and the
+// Agents SDK it reaches sessions with) loads on the first poke, not with every
+// record service that can emit an event.
 const runLaneFor = collapsingByKey(async (organizationId) => {
+  const { runTeamAgentLane } = await import("./dispatch");
   await runTeamAgentLane(env, { organizationId, defer: waitUntil });
 });
 

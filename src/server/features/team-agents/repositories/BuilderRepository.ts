@@ -19,7 +19,7 @@ import type { RecordRef } from "@/shared/records";
 
 const ID_CHUNK = 90;
 
-const conversationColumns = {
+const conversationColumns = () => ({
   id: agentConversation.id,
   sessionId: agentConversation.sessionId,
   title: agentConversation.title,
@@ -31,7 +31,7 @@ const conversationColumns = {
   agentId: agentDefinition.id,
   agentName: agentDefinition.name,
   agentStatus: agentDefinition.status,
-};
+});
 
 async function createConversation(input: {
   organizationId: string;
@@ -61,7 +61,7 @@ function ownBuilderChats(organizationId: string, userId: string) {
 /** The person's builder chats, latest first, with the agent each made. */
 async function listConversations(organizationId: string, userId: string) {
   return db
-    .select(conversationColumns)
+    .select(conversationColumns())
     .from(agentConversation)
     .leftJoin(
       agentDefinition,
@@ -81,7 +81,7 @@ async function findConversation(
   id: string,
 ) {
   const [row] = await db
-    .select(conversationColumns)
+    .select(conversationColumns())
     .from(agentConversation)
     .leftJoin(
       agentDefinition,
@@ -249,7 +249,7 @@ async function listFeedback(
 
 // Attachments.
 
-const attachmentColumns = {
+const attachmentColumns = () => ({
   id: agentConversationAttachment.id,
   conversationId: agentConversationAttachment.conversationId,
   name: agentConversationAttachment.name,
@@ -257,7 +257,7 @@ const attachmentColumns = {
   size: agentConversationAttachment.size,
   storageKey: agentConversationAttachment.storageKey,
   createdAt: agentConversationAttachment.createdAt,
-};
+});
 
 async function insertAttachment(values: {
   id: string;
@@ -274,7 +274,7 @@ async function insertAttachment(values: {
 
 async function listAttachments(organizationId: string, conversationId: string) {
   return db
-    .select(attachmentColumns)
+    .select(attachmentColumns())
     .from(agentConversationAttachment)
     .where(
       and(
@@ -292,7 +292,7 @@ async function findAttachment(
   id: string,
 ) {
   const [row] = await db
-    .select(attachmentColumns)
+    .select(attachmentColumns())
     .from(agentConversationAttachment)
     .where(
       and(
