@@ -176,7 +176,7 @@ function OpenTaskLine({ task }: { task: OpenTask }) {
     task.leasedUntil !== null && Date.parse(task.leasedUntil) > now;
   const due = Date.parse(task.dueAt) <= now;
   const failed = !running && task.attempts >= MAX_ATTEMPTS;
-  const held = !running && !failed && due && task.hold ? HELD[task.hold] : null;
+  const held = !running && !failed && task.hold ? HELD[task.hold] : null;
   const status = running
     ? elapsedLabel("running", task.startedAt, now)
     : failed

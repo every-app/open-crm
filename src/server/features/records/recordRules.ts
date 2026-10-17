@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { chunk } from "remeda";
 import { db } from "@/db";
 import { agentTask } from "@/db/schema";
@@ -103,7 +103,8 @@ export function idChunks(ids: string[]): string[][] {
 /**
  * Of `ids`, the records the agent is on (`queued`: an open, due task that
  * can run, shown as "Queued" until the agent marks the record itself) and
- * those whose research waits for the model to be set up (`waiting`). A task
+ * those whose research, due or booked for later, waits for the model to be
+ * set up (`waiting`). A task
  * a first-party deployment holds to work a person asked for is neither: the
  * record reads as not researched, and "Enrich now" runs it.
  */
@@ -124,6 +125,7 @@ export async function recordAgentStates(
         id: column,
         kind: agentTask.kind,
         priority: agentTask.priority,
+        dueAt: agentTask.dueAt,
       })
       .from(agentTask)
       .where(
@@ -131,14 +133,13 @@ export async function recordAgentStates(
           eq(agentTask.organizationId, organizationId),
           inArray(column, part),
           isNull(agentTask.finishedAt),
-          lte(agentTask.dueAt, now),
         ),
       );
     for (const row of rows) {
       if (!row.id) continue;
       const held = taskHold(row, hold);
-      if (held === null) queued.add(row.id);
-      else if (held === "setup") waiting.add(row.id);
+      if (held === "setup") waiting.add(row.id);
+      else if (held === null && row.dueAt <= now) queued.add(row.id);
     }
   }
   for (const id of queued) waiting.delete(id);

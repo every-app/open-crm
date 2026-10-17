@@ -1,5 +1,6 @@
 import { AgentAvailabilityService } from "@/server/features/agent/services/AgentAvailabilityService";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
+import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 import type { AgentAvailability } from "@/shared/agent-availability";
 
 // The setup checklist: what this gateway has set up for the CRM and what
@@ -64,7 +65,7 @@ const SETUP_ITEMS: SetupItemSpec[] = [
   },
 ];
 
-export type SetupItem = {
+type SetupItem = {
   id: string;
   group: SetupItemSpec["group"];
   title: string;
@@ -88,11 +89,15 @@ async function checklist(
   complete: boolean;
   dismissed: boolean;
   tier: AgentAvailability["tier"];
+  /** `everyapp dev`: the keys come from .dev.vars, not a gateway. */
+  local: boolean;
 }> {
-  const [availability, workspace] = await Promise.all([
+  const [availability, workspace, dev] = await Promise.all([
     AgentAvailabilityService.forOrganization(organizationId),
     WorkspaceRepository.getOrCreate(organizationId),
+    getOptionalEnvValue("EVERYAPP_DEV"),
   ]);
+  const local = Boolean(dev);
   const context = { organizationId, availability };
   const showCommands = canManage && availability.tier === "fork";
   const items = await Promise.all(
@@ -104,7 +109,13 @@ async function checklist(
         title: spec.title,
         unlocks: spec.unlocks,
         state,
-        note: state === "done" ? null : (spec.note?.(context) ?? null),
+        note:
+          state === "done"
+            ? null
+            : (spec.note?.(context) ??
+              (local && state === "missing"
+                ? `In local development, put ${spec.setting} in .dev.vars.`
+                : null)),
         command:
           showCommands && state === "missing"
             ? `pnpm everyapp secret set ${spec.setting} --for gateway`
@@ -117,6 +128,7 @@ async function checklist(
     complete: items.every((item) => item.state === "done"),
     dismissed: workspace.setupDismissedAt !== null,
     tier: availability.tier,
+    local,
   };
 }
 

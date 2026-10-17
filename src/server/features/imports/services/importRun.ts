@@ -195,7 +195,7 @@ export function customValues(
 }
 
 /** A company a contact or deal names: by name, by domain, or both. */
-export type CompanyRef = { name: string | null; domain: string | null };
+type CompanyRef = { name: string | null; domain: string | null };
 
 /**
  * The company a row names: a company cell holding a domain is that domain;

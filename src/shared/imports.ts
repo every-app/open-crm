@@ -5,7 +5,7 @@ import type { FieldEntity } from "@/shared/crm-enums";
 // a custom field's target carries. The import dialog matches headers with
 // these; the server reads each row's values by them (ImportService).
 
-export type ImportTarget = {
+type ImportTarget = {
   id: string;
   label: string;
   /** Other headers that mean this field, besides its label and id. */

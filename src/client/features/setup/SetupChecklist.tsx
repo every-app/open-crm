@@ -84,7 +84,11 @@ export function HomeSetupChecklist() {
         </CardAction>
       </CardHeader>
       <CardContent>
-        <SetupItems items={checklist.items} tier={checklist.tier} />
+        <SetupItems
+          items={checklist.items}
+          tier={checklist.tier}
+          local={checklist.local}
+        />
       </CardContent>
     </Card>
   );
@@ -103,6 +107,7 @@ export function SetupChecklist({ group }: { group?: Item["group"] }) {
                 (item) => !group || item.group === group,
               )}
               tier={checklist.tier}
+              local={checklist.local}
             />
           </CardContent>
         </Card>
@@ -114,9 +119,11 @@ export function SetupChecklist({ group }: { group?: Item["group"] }) {
 function SetupItems({
   items,
   tier,
+  local,
 }: {
   items: Item[];
   tier: Checklist["tier"];
+  local: boolean;
 }) {
   const canManage = useCanManageWorkspace();
   return (
@@ -161,7 +168,7 @@ function SetupItems({
                     />
                   </div>
                 </div>
-              ) : item.state === "missing" ? (
+              ) : item.state === "missing" && !local ? (
                 <p className="text-xs text-muted-foreground">
                   {tier === "first_party"
                     ? "Every App runs this gateway; it isn't offered here yet."
