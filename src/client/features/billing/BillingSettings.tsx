@@ -168,18 +168,20 @@ function AccountSections({
               value={usd(balance.monthlyRemaining + balance.topUpRemaining)}
             />
           </SettingsRow>
-          <SettingsRow
-            label="Monthly credits"
-            description={refillDate ? `Refills on ${refillDate}.` : null}
-          >
-            <Amount
-              value={`${usd(balance.monthlyRemaining)} of ${usd(account.monthlyCreditsUsd)}`}
-            />
-          </SettingsRow>
           {isFreePlan ? null : (
-            <SettingsRow label="Top-up credits">
-              <Amount value={usd(balance.topUpRemaining)} />
-            </SettingsRow>
+            <>
+              <SettingsRow
+                label="Monthly credits"
+                description={refillDate ? `Refills on ${refillDate}.` : null}
+              >
+                <Amount
+                  value={`${usd(balance.monthlyRemaining)} of ${usd(account.monthlyCreditsUsd)}`}
+                />
+              </SettingsRow>
+              <SettingsRow label="Top-up credits">
+                <Amount value={usd(balance.topUpRemaining)} />
+              </SettingsRow>
+            </>
           )}
         </SettingsCard>
       </SettingsSection>
@@ -257,7 +259,7 @@ function TopUpForm() {
               <field.RowTextField
                 label="Amount"
                 prefix="$"
-                className="sm:w-28"
+                className="sm:w-44"
                 inputMode="numeric"
                 aria-label="Top-up amount in USD"
               />
