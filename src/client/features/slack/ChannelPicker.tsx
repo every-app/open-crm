@@ -1,8 +1,9 @@
+import type { ReactNode } from "react";
 import { Check, Lock } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/client/components/ui/button";
 
-type PickerChannel = {
+export type PickerChannel = {
   id: string;
   name: string;
   memberCount: number | null;
@@ -15,33 +16,38 @@ type PickerChannel = {
 /**
  * The Slack channels the app can reach (the CRM's channel picker): which it
  * is in, which it can join, and which need someone inside to invite it.
+ * `onRequest` takes a private channel the app isn't in yet; without it,
+ * `onAdd` takes every channel it isn't in.
  */
 export function ChannelPicker({
   channels,
   canInviteItself,
+  appName = null,
   empty,
   value = null,
   pending = false,
   onSelect,
   onAdd,
-  onRequest = onAdd,
+  onRequest,
   className,
 }: {
   channels: PickerChannel[];
   canInviteItself: boolean;
-  empty?: React.ReactNode;
+  /** The app's name in the workspace, once Slack has said it. */
+  appName?: string | null;
+  empty?: ReactNode;
   value?: string | null;
   pending?: boolean;
   onSelect?: (channel: PickerChannel) => void;
   onAdd?: (channel: PickerChannel) => void;
-  /** Asks for the app to be invited to a private channel; `onAdd` by default. */
+  /** Joins, or asks to be invited to, a private channel the app isn't in. */
   onRequest?: (channel: PickerChannel) => void;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "divide-y divide-border overflow-hidden rounded-lg border border-border",
+        "divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-xs",
         className,
       )}
     >
@@ -50,13 +56,17 @@ export function ChannelPicker({
         const selected = value === channel.id;
         const needsInvite =
           channel.isPrivate && !channel.isMember && !canInviteItself;
+        const request =
+          channel.isPrivate && !channel.isMember && onRequest
+            ? onRequest
+            : null;
         return (
           <div
             key={channel.id}
             className={cn(
               "relative flex h-14 items-center gap-3 px-4",
-              selected && "bg-muted",
-              onSelect && !needsInvite && "hover:bg-muted/50",
+              selected && "bg-foreground/[0.05]",
+              onSelect && !needsInvite && "hover:bg-foreground/[0.03]",
             )}
           >
             {onSelect && !needsInvite ? (
@@ -81,21 +91,25 @@ export function ChannelPicker({
               >
                 {channel.name}
               </span>
-              <span className="block text-xs text-muted-foreground">
-                {describe(channel, canInviteItself)}
+              <span className="block truncate text-xs text-muted-foreground">
+                {describe(channel, canInviteItself, appName)}
               </span>
             </span>
             <span className="relative flex w-24 justify-end">
               {selected || (value === null && channel.isMember) ? (
                 <Check className="size-4 text-success" />
-              ) : needsInvite && onRequest ? (
+              ) : request ? (
                 <Button
                   variant="outline"
                   size="xs"
                   disabled={pending}
-                  onClick={() => onRequest(channel)}
+                  onClick={() => request(channel)}
                 >
-                  {channel.inviteRequestedAt ? "Ask again" : "Request"}
+                  {canInviteItself
+                    ? "Add"
+                    : channel.inviteRequestedAt
+                      ? "Ask again"
+                      : "Request"}
                 </Button>
               ) : !channel.isMember && onAdd ? (
                 <Button
@@ -115,14 +129,21 @@ export function ChannelPicker({
   );
 }
 
-function describe(channel: PickerChannel, canInviteItself: boolean): string {
+function describe(
+  channel: PickerChannel,
+  canInviteItself: boolean,
+  appName: string | null,
+): string {
   const people =
     channel.memberCount === null ? "" : ` · ${channel.memberCount} people`;
-  if (channel.isMember) return `The app is in${people}`;
+  // The app's name when Slack has said it, as a sentence's subject or object.
+  const subject = appName ?? "The app";
+  const object = appName ?? "the app";
+  if (channel.isMember) return `${subject} is in${people}`;
   if (!channel.classified) return `Not read from Slack yet${people}`;
-  if (!channel.isPrivate) return `The app can join this one${people}`;
-  if (canInviteItself) return `Private. The app joins as you${people}`;
+  if (!channel.isPrivate) return `${subject} can join this one${people}`;
+  if (canInviteItself) return `Private. ${subject} joins as you${people}`;
   if (channel.inviteRequestedAt)
     return `Private. Waiting on an invite${people}`;
-  return `Private. Someone inside has to invite the app${people}`;
+  return `Private. Someone inside has to invite ${object}${people}`;
 }

@@ -106,6 +106,12 @@ describe("SlackService", () => {
       "fetch",
       vi.fn(async (url: URL) => {
         const method = url.pathname.split("/").pop();
+        if (method === "auth.test") {
+          return Response.json({ ok: true, user: "crm", bot_id: "B1" });
+        }
+        if (method === "bots.info" && url.searchParams.get("bot") === "B1") {
+          return Response.json({ ok: true, bot: { name: "Acme CRM" } });
+        }
         if (method === "users.list") {
           return Response.json({
             ok: true,
@@ -141,6 +147,10 @@ describe("SlackService", () => {
     ]);
     const channels = await SlackInventoryService.channels(owner, { offset: 0 });
     expect(channels.rows.map((row) => row.name)).toEqual(["sales"]);
+    // `/invite @…` takes the app's name in the workspace, read from Slack.
+    expect(await SlackService.status(owner)).toMatchObject({
+      appName: "Acme CRM",
+    });
     await expect(
       SlackInventoryService.channels(outsider, { offset: 0 }),
     ).rejects.toThrow("SLACK_UNAVAILABLE");

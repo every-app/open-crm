@@ -1,5 +1,5 @@
 {
-  "id": "e3bf612a-7ca7-4485-927a-0270aedd4ec0",
+  "id": "208b445d-8119-4e1a-a916-36cad58db9c1",
   "prevId": "c81ea3f2-1dd6-40ba-8503-9d6c125728b7",
   "version": "7",
   "dialect": "postgresql",
@@ -8225,6 +8225,12 @@
         },
         "bot_user_id": {
           "name": "bot_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bot_name": {
+          "name": "bot_name",
           "type": "text",
           "primaryKey": false,
           "notNull": false

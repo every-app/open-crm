@@ -42,27 +42,6 @@ export function PageHeader({
   );
 }
 
-/** The heading of one section on a page, with an optional hint and action. */
-export function SectionHeader({
-  title,
-  hint,
-  action,
-}: {
-  title: string;
-  hint?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="space-y-0.5">
-        <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
-        {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
-      </div>
-      {action}
-    </div>
-  );
-}
-
 const BACK_LINK_CLASS =
   "inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground";
 

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "adc6d873-3904-4a96-b20e-1ff36ad4c42b",
+  "id": "e4f456f5-7c0c-4406-b639-2a982affa281",
   "prevId": "4faad0a5-2929-46de-883e-0d784300fef4",
   "tables": {
     "member": {
@@ -7183,6 +7183,13 @@
         },
         "bot_user_id": {
           "name": "bot_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bot_name": {
+          "name": "bot_name",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { AgentUnavailable } from "@/client/features/agent/AgentThreadParts";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
@@ -18,6 +18,8 @@ declare module "@tanstack/react-router" {
   interface HistoryState {
     /** The message a builder chat opens with, sent once it connects. */
     builderFirstMessage?: BuilderMessage;
+    /** An agent to start describing, as Settings → Slack's suggestions give. */
+    builderDraft?: string;
   }
 }
 
@@ -33,7 +35,10 @@ export function BuilderHome() {
   // As in a record's chat: only no way to a model at all closes the
   // composer; after a refusal the next message is the next try.
   const canChat = status.data?.model !== "missing";
-  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const draft = useLocation({
+    select: (location) => location.state.builderDraft,
+  });
+  const [suggestion, setSuggestion] = useState<string | null>(draft ?? null);
 
   const start = useMutation({
     mutationFn: async ({ text, resources, files }: ComposerMessage) => {

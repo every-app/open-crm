@@ -1,15 +1,14 @@
 import { useId } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Signpost } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/client/components/EmptyState";
-import { SectionHeader } from "@/client/components/PageHeader";
 import { QueryState } from "@/client/components/QueryState";
 import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-} from "@/client/components/ui/field";
+  SettingsCard,
+  SettingsRow,
+  SettingsSection,
+} from "@/client/components/SettingsSection";
 import {
   Select,
   SelectContent,
@@ -21,7 +20,6 @@ import { Switch } from "@/client/components/ui/switch";
 import {
   Table,
   TableBody,
-  TableCard,
   TableCell,
   TableHead,
   TableHeader,
@@ -38,102 +36,104 @@ import {
 } from "@/serverFunctions/tracking";
 import { COOKIE_LIFETIMES, type TrackingFlag } from "@/shared/tracking";
 
-/** A labelled switch for one tracking setting. */
-export function SettingSwitch({
+/** One tracking setting as a settings row with its switch. */
+export function SwitchRow({
   label,
   hint,
   checked,
-  pending,
+  disabled,
   onChange,
 }: {
   label: string;
   hint: string;
   checked: boolean;
-  pending: boolean;
+  disabled: boolean;
   onChange: (checked: boolean) => void;
 }) {
   const id = useId();
   return (
-    <Field orientation="horizontal" data-disabled={pending}>
-      <FieldContent>
-        <FieldLabel htmlFor={id}>{label}</FieldLabel>
-        <FieldDescription>{hint}</FieldDescription>
-      </FieldContent>
+    <SettingsRow label={label} htmlFor={id} description={hint}>
       <Switch
         id={id}
         checked={checked}
-        disabled={pending}
+        disabled={disabled}
         onCheckedChange={onChange}
       />
-    </Field>
+    </SettingsRow>
   );
 }
 
-const RULES = [
-  {
-    flag: "crossDomain",
-    label: "Automatic cross-domain linking",
-    hint: "Carry a visitor between your allowed domains, so one journey is not counted as two people.",
-  },
-  {
-    flag: "limitToDomains",
-    label: "Limit tracking to the allowed domains",
-    hint: "On any other domain the script loads and then does nothing.",
-  },
-] as const;
+/** The rules, which name the domains as above or below them on the page. */
+function rules(where: "above" | "below") {
+  return [
+    {
+      flag: "crossDomain",
+      label: "Automatic cross-domain linking",
+      hint: `Carry the visitor between the domains ${where}, so one journey is not counted as two people`,
+    },
+    {
+      flag: "limitToDomains",
+      label: `Limit tracking to the domains ${where}`,
+      hint: "On any other domain the script loads and then does nothing",
+    },
+  ] as const;
+}
 
 const COOKIE_SWITCHES = [
   {
     flag: "cookieSubdomains",
     label: "Limit cookies to subdomains",
-    hint: "Set the cookie on the exact host that served the page, never on the parent domain.",
+    hint: "Set the cookie on the exact host that served the page, never on the parent domain",
   },
   {
     flag: "secureCookies",
     label: "Use secure cookies only",
-    hint: "Send the cookie over HTTPS and drop it on plain HTTP.",
+    hint: "Send the cookie over HTTPS and drop it on plain HTTP",
   },
   {
     flag: "honourDnt",
     label: "Honour Do Not Track",
-    hint: "Record nothing when the browser asks not to be tracked.",
+    hint: "Record nothing at all when the browser asks not to be tracked",
   },
 ] as const;
 
-function FlagSwitches({
-  settings,
-  switches,
-}: {
-  settings: TrackingSettings;
-  switches: readonly { flag: TrackingFlag; label: string; hint: string }[];
-}) {
-  const setFlag = useTrackingMutation(
+function useSetFlag() {
+  return useTrackingMutation(
     (input: { flag: TrackingFlag; enabled: boolean }) =>
       setTrackingFlag({ data: input }),
   );
-  return (
-    <div className="space-y-4">
-      {switches.map((entry) => (
-        <SettingSwitch
-          key={entry.flag}
-          label={entry.label}
-          hint={entry.hint}
-          checked={settings[entry.flag]}
-          pending={setFlag.isPending}
-          onChange={(enabled) => setFlag.mutate({ flag: entry.flag, enabled })}
-        />
-      ))}
-    </div>
-  );
 }
 
-/** Where the script may run, and how it follows a visitor. */
-export function TrackingRules({ settings }: { settings: TrackingSettings }) {
+/**
+ * Where the script may run, and how it follows a visitor. Until tracking is
+ * ready the domains come first on the page, as adding one is the first step.
+ */
+export function TrackingRules({
+  settings,
+  canManage,
+}: {
+  settings: TrackingSettings;
+  canManage: boolean;
+}) {
+  const setFlag = useSetFlag();
   return (
-    <section className="space-y-3">
-      <SectionHeader title="Tracking rules" />
-      <FlagSwitches settings={settings} switches={RULES} />
-    </section>
+    <SettingsSection
+      title="Tracking rules"
+      description="Where the script may run, and how it follows a visitor."
+    >
+      <SettingsCard>
+        {rules(settings.ready ? "below" : "above").map((rule) => (
+          <SwitchRow
+            key={rule.flag}
+            label={rule.label}
+            hint={rule.hint}
+            checked={settings[rule.flag]}
+            disabled={!canManage || setFlag.isPending}
+            onChange={(enabled) => setFlag.mutate({ flag: rule.flag, enabled })}
+          />
+        ))}
+      </SettingsCard>
+    </SettingsSection>
   );
 }
 
@@ -143,43 +143,65 @@ const LIFETIME_ITEMS = COOKIE_LIFETIMES.map(({ days, label }) => ({
 }));
 
 /** How a returning visitor is recognised. */
-export function TrackingCookies({ settings }: { settings: TrackingSettings }) {
+export function TrackingCookies({
+  settings,
+  canManage,
+}: {
+  settings: TrackingSettings;
+  canManage: boolean;
+}) {
   const lifetimeId = useId();
+  const setFlag = useSetFlag();
   const setLifetime = useTrackingMutation(
     (days: number) => setTrackingCookieLifetime({ data: { days } }),
-    () => toast.success("Cookie lifetime saved"),
+    () => toast.success("Cookie lifetime saved."),
   );
+  const busy = !canManage || setFlag.isPending || setLifetime.isPending;
   return (
-    <section className="space-y-3">
-      <SectionHeader title="Cookies" />
-      <FlagSwitches settings={settings} switches={COOKIE_SWITCHES} />
-      <Field className="max-w-sm" data-disabled={setLifetime.isPending}>
-        <FieldLabel htmlFor={lifetimeId}>Cookie lifetime</FieldLabel>
-        <Select
-          items={LIFETIME_ITEMS}
-          value={String(settings.cookieDays)}
-          disabled={setLifetime.isPending}
-          onValueChange={(value) => {
-            if (value !== null) setLifetime.mutate(Number(value));
-          }}
+    <SettingsSection
+      title="Cookies"
+      description="How a returning visitor is recognised."
+    >
+      <SettingsCard>
+        {COOKIE_SWITCHES.map((entry) => (
+          <SwitchRow
+            key={entry.flag}
+            label={entry.label}
+            hint={entry.hint}
+            checked={settings[entry.flag]}
+            disabled={busy}
+            onChange={(enabled) =>
+              setFlag.mutate({ flag: entry.flag, enabled })
+            }
+          />
+        ))}
+        <SettingsRow
+          label="Cookie lifetime"
+          htmlFor={lifetimeId}
+          description="After this a returning visitor counts as somebody new. Shorten it if your policy asks you to."
         >
-          <SelectTrigger id={lifetimeId} className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {LIFETIME_ITEMS.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <FieldDescription>
-          After this a returning visitor counts as somebody new. Shorten it if
-          your privacy policy asks you to.
-        </FieldDescription>
-      </Field>
-    </section>
+          <Select
+            items={LIFETIME_ITEMS}
+            value={String(settings.cookieDays)}
+            disabled={busy}
+            onValueChange={(value) => {
+              if (value !== null) setLifetime.mutate(Number(value));
+            }}
+          >
+            <SelectTrigger id={lifetimeId} className="w-full sm:w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LIFETIME_ITEMS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingsRow>
+      </SettingsCard>
+    </SettingsSection>
   );
 }
 
@@ -187,24 +209,25 @@ export function TrackingCookies({ settings }: { settings: TrackingSettings }) {
 export function TrafficSources() {
   const query = useQuery(trafficSourcesQueryOptions());
   return (
-    <section className="space-y-3">
-      <SectionHeader
-        title="Traffic sources"
-        hint="Only people who have submitted a form are attributed to a contact."
-      />
+    <SettingsSection
+      title="Traffic sources"
+      description="Where your visitors come from. Only people who have submitted a form are attributed to a record."
+    >
       <QueryState
         query={query}
         errorFallback="The traffic sources could not be loaded."
       >
-        {(sources) =>
-          sources.length === 0 ? (
-            <EmptyState
-              title="No sources yet"
-              description="They appear once the script records its first page view."
-              size="sm"
-            />
-          ) : (
-            <TableCard>
+        {(sources) => (
+          <SettingsCard>
+            {sources.length === 0 ? (
+              <EmptyState
+                icon={Signpost}
+                media="rows"
+                variant="plain"
+                title="No sources yet"
+                description="They appear once the script records its first page view."
+              />
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -217,9 +240,7 @@ export function TrafficSources() {
                 <TableBody>
                   {sources.map((row) => (
                     <TableRow key={`${row.source}|${row.medium ?? ""}`}>
-                      <TableCell className="font-medium">
-                        {row.source}
-                      </TableCell>
+                      <TableCell>{row.source}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {row.medium ?? "—"}
                       </TableCell>
@@ -233,10 +254,10 @@ export function TrafficSources() {
                   ))}
                 </TableBody>
               </Table>
-            </TableCard>
-          )
-        }
+            )}
+          </SettingsCard>
+        )}
       </QueryState>
-    </section>
+    </SettingsSection>
   );
 }

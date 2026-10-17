@@ -391,6 +391,7 @@ CREATE TABLE `slack_connection` (
 	`team_id` text NOT NULL,
 	`team_name` text,
 	`bot_user_id` text,
+	`bot_name` text,
 	`bot_token` text NOT NULL,
 	`bot_scopes` text NOT NULL,
 	`user_token` text,

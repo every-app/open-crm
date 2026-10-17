@@ -23,7 +23,7 @@ const SLACK_SCOPES: readonly SlackScope[] = [
   {
     scope: "users:read.email",
     group: "people",
-    grant: "See their email addresses, so it can match them to CRM members",
+    grant: "See their email addresses, so it can match them to CRM records",
     sensitive: true,
   },
   {
@@ -133,6 +133,18 @@ export const SLACK_USER_GRANT = {
 /** Where Slack sends the installer back, on the CRM's own host. */
 export const SLACK_REDIRECT_PATH = "/integrations/slack/callback";
 
+/** Why a connect came back without Slack; the Slack page says each. */
+export const SLACK_CONNECT_ERRORS = [
+  "access_denied",
+  "invalid_state",
+  "forbidden",
+  "exchange_failed",
+  "not_configured",
+  "rejected",
+  "failed",
+] as const;
+export type SlackConnectError = (typeof SLACK_CONNECT_ERRORS)[number];
+
 export const SLACK_SCOPE_GROUPS: ReadonlyArray<{
   id: SlackScopeGroup;
   label: string;
@@ -142,7 +154,7 @@ export const SLACK_SCOPE_GROUPS: ReadonlyArray<{
     id: "people",
     label: "People",
     summary:
-      "Names and email addresses, so it can match a Slack account to a CRM member.",
+      "Names and email addresses, so it can match a Slack account to a CRM record.",
   },
   {
     id: "read",

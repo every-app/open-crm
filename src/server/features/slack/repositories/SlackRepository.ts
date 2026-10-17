@@ -96,6 +96,7 @@ async function markSync(
     syncStartedAt?: string;
     syncedAt?: string;
     syncError?: string | null;
+    botName?: string;
   },
 ): Promise<void> {
   await db

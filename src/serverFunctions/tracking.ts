@@ -13,13 +13,14 @@ import {
   websiteActivitySchema,
 } from "@/types/schemas/tracking";
 
-// Settings → Tracking is the owners' and admins' (they decide what runs on
-// the organization's website); a record's website activity is everyone's.
+// Settings → Tracking & Analytics: every member reads the settings (and
+// copies the script); owners and admins change them, verify the
+// installation and see traffic sources, since they decide what runs on the
+// organization's website. A record's website activity is everyone's.
 
 export const getTrackingSettings = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
   .handler(async ({ context }) => {
-    requireOrgPermission(context, { workspace: ["manage"] });
     // The snippet points at the CRM's own public origin, as the gateway
     // serves it.
     const origin = new URL(getRequest().url).origin;

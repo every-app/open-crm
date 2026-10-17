@@ -145,12 +145,11 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           headers: { location: "http://169.254.169.254/latest" },
         }),
       );
-      expect(await TrackingSettingsService.verify(A, "acme.com")).toMatchObject(
-        {
-          status: "unreachable",
-          httpStatus: null,
-        },
-      );
+      expect(await TrackingSettingsService.verify(A, "acme.com")).toEqual({
+        status: "unreachable",
+        host: "acme.com",
+        detail: "The page redirected to plain http.",
+      });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });

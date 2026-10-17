@@ -113,7 +113,7 @@ function LivesIn({
           <SettingsRow label={destination.label} />
         ) : channels.data ? (
           <ChannelPicker
-            className="rounded-none border-0"
+            className="rounded-none border-0 shadow-none"
             channels={channels.data.rows}
             canInviteItself={channels.data.canInviteItself}
             value={picked?.id ?? destination.id}

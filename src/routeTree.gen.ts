@@ -22,7 +22,6 @@ import { Route as AppContactsContactIdRouteImport } from './routes/_app/contacts
 import { Route as AppDealsDealIdRouteImport } from './routes/_app/deals_.$dealId'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/api-keys'
-import { Route as AppSettingsConnectionsRouteImport } from './routes/_app/settings/connections'
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsSsoRouteImport } from './routes/_app/settings/sso'
@@ -33,6 +32,11 @@ import { Route as AppChatAgentsIndexRouteImport } from './routes/_app/_chat/agen
 import { Route as AppChatAgentsAgentIdRouteImport } from './routes/_app/_chat/agents/$agentId'
 import { Route as AppChatChatIndexRouteImport } from './routes/_app/_chat/chat/index'
 import { Route as AppChatChatChatIdRouteImport } from './routes/_app/_chat/chat/$chatId'
+import { Route as AppSettingsConnectionsIndexRouteImport } from './routes/_app/settings/connections/index'
+import { Route as AppSettingsConnectionsGoogleRouteImport } from './routes/_app/settings/connections/google'
+import { Route as AppSettingsConnectionsMicrosoftRouteImport } from './routes/_app/settings/connections/microsoft'
+import { Route as AppSettingsConnectionsSlackIndexRouteImport } from './routes/_app/settings/connections/slack/index'
+import { Route as AppSettingsConnectionsSlackPeopleRouteImport } from './routes/_app/settings/connections/slack/people'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -97,11 +101,6 @@ const AppSettingsApiKeysRoute = AppSettingsApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
-const AppSettingsConnectionsRoute = AppSettingsConnectionsRouteImport.update({
-  id: '/connections',
-  path: '/connections',
-  getParentRoute: () => AppSettingsRouteRoute,
-} as any)
 const AppSettingsCurrenciesRoute = AppSettingsCurrenciesRouteImport.update({
   id: '/currencies',
   path: '/currencies',
@@ -154,6 +153,36 @@ const AppChatChatChatIdRoute = AppChatChatChatIdRouteImport.update({
   path: '/chat/$chatId',
   getParentRoute: () => AppChatRoute,
 } as any)
+const AppSettingsConnectionsIndexRoute =
+  AppSettingsConnectionsIndexRouteImport.update({
+    id: '/connections/',
+    path: '/connections/',
+    getParentRoute: () => AppSettingsRouteRoute,
+  } as any)
+const AppSettingsConnectionsGoogleRoute =
+  AppSettingsConnectionsGoogleRouteImport.update({
+    id: '/connections/google',
+    path: '/connections/google',
+    getParentRoute: () => AppSettingsRouteRoute,
+  } as any)
+const AppSettingsConnectionsMicrosoftRoute =
+  AppSettingsConnectionsMicrosoftRouteImport.update({
+    id: '/connections/microsoft',
+    path: '/connections/microsoft',
+    getParentRoute: () => AppSettingsRouteRoute,
+  } as any)
+const AppSettingsConnectionsSlackIndexRoute =
+  AppSettingsConnectionsSlackIndexRouteImport.update({
+    id: '/connections/slack/',
+    path: '/connections/slack/',
+    getParentRoute: () => AppSettingsRouteRoute,
+  } as any)
+const AppSettingsConnectionsSlackPeopleRoute =
+  AppSettingsConnectionsSlackPeopleRouteImport.update({
+    id: '/connections/slack/people',
+    path: '/connections/slack/people',
+    getParentRoute: () => AppSettingsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -166,7 +195,6 @@ export interface FileRoutesByFullPath {
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
-  '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/sso': typeof AppSettingsSsoRoute
@@ -176,8 +204,13 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AppSettingsIndexRoute
   '/agents/$agentId': typeof AppChatAgentsAgentIdRoute
   '/chat/$chatId': typeof AppChatChatChatIdRoute
+  '/settings/connections/google': typeof AppSettingsConnectionsGoogleRoute
+  '/settings/connections/microsoft': typeof AppSettingsConnectionsMicrosoftRoute
   '/agents/': typeof AppChatAgentsIndexRoute
   '/chat/': typeof AppChatChatIndexRoute
+  '/settings/connections/': typeof AppSettingsConnectionsIndexRoute
+  '/settings/connections/slack/people': typeof AppSettingsConnectionsSlackPeopleRoute
+  '/settings/connections/slack/': typeof AppSettingsConnectionsSlackIndexRoute
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
@@ -189,7 +222,6 @@ export interface FileRoutesByTo {
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
-  '/settings/connections': typeof AppSettingsConnectionsRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/sso': typeof AppSettingsSsoRoute
@@ -199,8 +231,13 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsIndexRoute
   '/agents/$agentId': typeof AppChatAgentsAgentIdRoute
   '/chat/$chatId': typeof AppChatChatChatIdRoute
+  '/settings/connections/google': typeof AppSettingsConnectionsGoogleRoute
+  '/settings/connections/microsoft': typeof AppSettingsConnectionsMicrosoftRoute
   '/agents': typeof AppChatAgentsIndexRoute
   '/chat': typeof AppChatChatIndexRoute
+  '/settings/connections': typeof AppSettingsConnectionsIndexRoute
+  '/settings/connections/slack/people': typeof AppSettingsConnectionsSlackPeopleRoute
+  '/settings/connections/slack': typeof AppSettingsConnectionsSlackIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -216,7 +253,6 @@ export interface FileRoutesById {
   '/_app/contacts_/$contactId': typeof AppContactsContactIdRoute
   '/_app/deals_/$dealId': typeof AppDealsDealIdRoute
   '/_app/settings/api-keys': typeof AppSettingsApiKeysRoute
-  '/_app/settings/connections': typeof AppSettingsConnectionsRoute
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/sso': typeof AppSettingsSsoRoute
@@ -226,8 +262,13 @@ export interface FileRoutesById {
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/_chat/agents/$agentId': typeof AppChatAgentsAgentIdRoute
   '/_app/_chat/chat/$chatId': typeof AppChatChatChatIdRoute
+  '/_app/settings/connections/google': typeof AppSettingsConnectionsGoogleRoute
+  '/_app/settings/connections/microsoft': typeof AppSettingsConnectionsMicrosoftRoute
   '/_app/_chat/agents/': typeof AppChatAgentsIndexRoute
   '/_app/_chat/chat/': typeof AppChatChatIndexRoute
+  '/_app/settings/connections/': typeof AppSettingsConnectionsIndexRoute
+  '/_app/settings/connections/slack/people': typeof AppSettingsConnectionsSlackPeopleRoute
+  '/_app/settings/connections/slack/': typeof AppSettingsConnectionsSlackIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -242,7 +283,6 @@ export interface FileRouteTypes {
     | '/contacts/$contactId'
     | '/deals/$dealId'
     | '/settings/api-keys'
-    | '/settings/connections'
     | '/settings/currencies'
     | '/settings/members'
     | '/settings/sso'
@@ -252,8 +292,13 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/agents/$agentId'
     | '/chat/$chatId'
+    | '/settings/connections/google'
+    | '/settings/connections/microsoft'
     | '/agents/'
     | '/chat/'
+    | '/settings/connections/'
+    | '/settings/connections/slack/people'
+    | '/settings/connections/slack/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
@@ -265,7 +310,6 @@ export interface FileRouteTypes {
     | '/contacts/$contactId'
     | '/deals/$dealId'
     | '/settings/api-keys'
-    | '/settings/connections'
     | '/settings/currencies'
     | '/settings/members'
     | '/settings/sso'
@@ -275,8 +319,13 @@ export interface FileRouteTypes {
     | '/settings'
     | '/agents/$agentId'
     | '/chat/$chatId'
+    | '/settings/connections/google'
+    | '/settings/connections/microsoft'
     | '/agents'
     | '/chat'
+    | '/settings/connections'
+    | '/settings/connections/slack/people'
+    | '/settings/connections/slack'
   id:
     | '__root__'
     | '/_app'
@@ -291,7 +340,6 @@ export interface FileRouteTypes {
     | '/_app/contacts_/$contactId'
     | '/_app/deals_/$dealId'
     | '/_app/settings/api-keys'
-    | '/_app/settings/connections'
     | '/_app/settings/currencies'
     | '/_app/settings/members'
     | '/_app/settings/sso'
@@ -301,8 +349,13 @@ export interface FileRouteTypes {
     | '/_app/settings/'
     | '/_app/_chat/agents/$agentId'
     | '/_app/_chat/chat/$chatId'
+    | '/_app/settings/connections/google'
+    | '/_app/settings/connections/microsoft'
     | '/_app/_chat/agents/'
     | '/_app/_chat/chat/'
+    | '/_app/settings/connections/'
+    | '/_app/settings/connections/slack/people'
+    | '/_app/settings/connections/slack/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -405,13 +458,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsApiKeysRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
-    '/_app/settings/connections': {
-      id: '/_app/settings/connections'
-      path: '/connections'
-      fullPath: '/settings/connections'
-      preLoaderRoute: typeof AppSettingsConnectionsRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
     '/_app/settings/currencies': {
       id: '/_app/settings/currencies'
       path: '/currencies'
@@ -482,27 +528,71 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChatChatChatIdRouteImport
       parentRoute: typeof AppChatRoute
     }
+    '/_app/settings/connections/': {
+      id: '/_app/settings/connections/'
+      path: '/connections'
+      fullPath: '/settings/connections/'
+      preLoaderRoute: typeof AppSettingsConnectionsIndexRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/connections/google': {
+      id: '/_app/settings/connections/google'
+      path: '/connections/google'
+      fullPath: '/settings/connections/google'
+      preLoaderRoute: typeof AppSettingsConnectionsGoogleRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/connections/microsoft': {
+      id: '/_app/settings/connections/microsoft'
+      path: '/connections/microsoft'
+      fullPath: '/settings/connections/microsoft'
+      preLoaderRoute: typeof AppSettingsConnectionsMicrosoftRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/connections/slack/': {
+      id: '/_app/settings/connections/slack/'
+      path: '/connections/slack'
+      fullPath: '/settings/connections/slack/'
+      preLoaderRoute: typeof AppSettingsConnectionsSlackIndexRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/connections/slack/people': {
+      id: '/_app/settings/connections/slack/people'
+      path: '/connections/slack/people'
+      fullPath: '/settings/connections/slack/people'
+      preLoaderRoute: typeof AppSettingsConnectionsSlackPeopleRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
   }
 }
 
 interface AppSettingsRouteRouteChildren {
   AppSettingsApiKeysRoute: typeof AppSettingsApiKeysRoute
-  AppSettingsConnectionsRoute: typeof AppSettingsConnectionsRoute
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsSsoRoute: typeof AppSettingsSsoRoute
   AppSettingsTrackingRoute: typeof AppSettingsTrackingRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppSettingsConnectionsGoogleRoute: typeof AppSettingsConnectionsGoogleRoute
+  AppSettingsConnectionsMicrosoftRoute: typeof AppSettingsConnectionsMicrosoftRoute
+  AppSettingsConnectionsIndexRoute: typeof AppSettingsConnectionsIndexRoute
+  AppSettingsConnectionsSlackPeopleRoute: typeof AppSettingsConnectionsSlackPeopleRoute
+  AppSettingsConnectionsSlackIndexRoute: typeof AppSettingsConnectionsSlackIndexRoute
 }
 
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsApiKeysRoute: AppSettingsApiKeysRoute,
-  AppSettingsConnectionsRoute: AppSettingsConnectionsRoute,
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsSsoRoute: AppSettingsSsoRoute,
   AppSettingsTrackingRoute: AppSettingsTrackingRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppSettingsConnectionsGoogleRoute: AppSettingsConnectionsGoogleRoute,
+  AppSettingsConnectionsMicrosoftRoute: AppSettingsConnectionsMicrosoftRoute,
+  AppSettingsConnectionsIndexRoute: AppSettingsConnectionsIndexRoute,
+  AppSettingsConnectionsSlackPeopleRoute:
+    AppSettingsConnectionsSlackPeopleRoute,
+  AppSettingsConnectionsSlackIndexRoute: AppSettingsConnectionsSlackIndexRoute,
 }
 
 const AppSettingsRouteRouteWithChildren =
