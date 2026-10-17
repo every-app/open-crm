@@ -65,21 +65,21 @@ export function ApiSettings() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="max-w-2xl space-y-3">
         <SectionHeader
           title="Try it"
           action={
             <CopyButton value={example} successMessage="Command copied" />
           }
         />
-        <Card className="max-w-2xl">
+        <Card>
           <CardContent>
             <pre className="overflow-x-auto font-mono text-xs leading-relaxed">
               {example}
             </pre>
           </CardContent>
         </Card>
-        <p className="max-w-2xl text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Every endpoint, with its parameters, is in the{" "}
           <SafeExternalLink
             url={openApiUrl}
