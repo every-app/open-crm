@@ -12,7 +12,7 @@ vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
 
-import { ContactFactRepository } from "@/server/features/contacts/repositories/ContactFactRepository";
+import { AgentFactRepository } from "@/server/features/agent/repositories/AgentFactRepository";
 import { ContactFactService } from "./ContactFactService";
 import { ContactService } from "./ContactService";
 
@@ -110,10 +110,11 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
       // Someone else dismissed f2 after this decision read it as proposed.
       await expect(
-        ContactFactRepository.decide("org_a", {
-          factId: "f2",
-          userId: "user_a",
-          apply: { contactId: "c1", field: "title", patch: { title: "CTO" } },
+        AgentFactRepository.decide("org_a", {
+          fact: { id: "f2", contactId: "c1", field: "title" },
+          accept: true,
+          decidedById: "user_a",
+          write: { patch: { title: "CTO" }, expected: null },
         }),
       ).resolves.toBe(false);
       expect(
