@@ -164,7 +164,7 @@ function StepCard({ id, number }: { id: StepId; number: number }) {
   const step = STEPS[id];
   const Illustration = STEP_ILLUSTRATIONS[id];
   return (
-    <li className="relative min-h-56 overflow-hidden rounded-xl bg-foreground/[0.04] dark:bg-foreground/[0.06]">
+    <li className="relative overflow-hidden rounded-xl bg-foreground/[0.04] md:min-h-56 dark:bg-foreground/[0.06]">
       <StepLink link={step.link}>
         <span className="flex items-start gap-3">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-card text-sm font-medium shadow-xs">
@@ -179,12 +179,14 @@ function StepCard({ id, number }: { id: StepId; number: number }) {
             </span>
           </span>
         </span>
-        <Illustration />
+        <span className="hidden md:contents">
+          <Illustration />
+        </span>
         <span
           aria-hidden
           className={cn(
             buttonVariants({ size: "icon" }),
-            "relative mt-auto group-hover/step:bg-primary/80",
+            "relative ml-auto shrink-0 group-hover/step:bg-primary/80 md:mt-auto md:ml-0",
           )}
         >
           <ArrowRight />
@@ -194,8 +196,10 @@ function StepCard({ id, number }: { id: StepId; number: number }) {
   );
 }
 
+// A row on phones; from md up, a tall card with the picture and the arrow
+// at its foot.
 const STEP_LINK_CLASS =
-  "group/step flex h-full min-h-56 flex-col gap-4 rounded-xl p-5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+  "group/step flex h-full items-center gap-4 rounded-xl p-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-56 md:flex-col md:items-stretch md:p-5";
 
 /** The whole card is the step's link; the gateway's own page for invites. */
 function StepLink({
