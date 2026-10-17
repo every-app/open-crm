@@ -120,6 +120,16 @@ export function EmailThreadMessages({
                       No message body.
                     </p>
                   )}
+                  {message.mailboxUrl ? (
+                    <a
+                      href={message.mailboxUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-fit text-muted-foreground underline underline-offset-3 hover:text-foreground"
+                    >
+                      Open in {message.mailboxName}
+                    </a>
+                  ) : null}
                 </div>
               </article>
             );

@@ -30,7 +30,7 @@ function read(env: object, name: string): string | undefined {
 }
 
 /** The tier for an env record (a Worker's env, or a Durable Object's). */
-function deploymentTierFor(env: object): DeploymentTier {
+export function deploymentTierFor(env: object): DeploymentTier {
   const declared = read(env, "DEPLOYMENT_TIER");
   if (declared === "first_party" || declared === "fork") return declared;
   if (declared && !warnedInvalidTiers.has(declared)) {

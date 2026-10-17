@@ -12,6 +12,7 @@ export type QueueState = "running" | "queued" | "failed";
 const STEPS = {
   brand: "Fetching the logo",
   portrait: "Finding their photo",
+  "meeting-prep": "Getting ready for your meeting",
   identify: "Reading their profile",
   profile: "Reading their profile",
   recheck: "Checking for anything new",

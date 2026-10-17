@@ -1,8 +1,9 @@
 /**
  * Open CRM on an Every App gateway. The gateway signs people in and decides
  * who may open the CRM, serves its agent tools on the gateway's one MCP
- * connector, and holds the model (OpenRouter) and Context.dev keys, so a
- * deploy needs no settings of its own. See docs/maintainers/every-app.md.
+ * connector, and holds the model (OpenRouter) and Context.dev keys and the
+ * Google and Microsoft OAuth clients for mail capture, so a deploy needs no
+ * settings of its own. See docs/maintainers/every-app.md.
  *
  * One manifest, two shapes:
  *
@@ -64,6 +65,17 @@ export default {
     context: {
       access: "read",
       why: "Company brand data, LinkedIn profiles and website extraction for the research agent.",
+    },
+    // Each member connects their own mailbox; the gateway completes the
+    // token endpoints with its client and the CRM keeps the member's tokens
+    // (src/server/features/mailbox).
+    "google-workspace": {
+      access: "write",
+      why: "Members connect their Gmail and Google Calendar, read only, so their work conversations and meetings are filed on companies and contacts.",
+    },
+    "microsoft-365": {
+      access: "write",
+      why: "Members connect their Outlook mail, read only, so their work conversations are filed on companies and contacts.",
     },
   },
   // Every member of the organization works in the CRM.

@@ -11,11 +11,11 @@ import {
   user,
 } from "@/db/schema";
 import { idChunks } from "@/server/features/records/recordRules";
+import { safeHostname } from "@/shared/safe-url";
 
-// What mail and calendar capture stored behind an EMAIL or MEETING activity:
-// a thread's messages and a meeting's attendees, read when someone opens one
-// on a timeline. Capture lands in a later phase; until then the tables are
-// empty and nothing here is reached.
+// What mail and calendar capture (src/server/features/mailbox) stored behind
+// an EMAIL or MEETING activity: a thread's messages and a meeting's
+// attendees, read when someone opens one on a timeline.
 
 const recipientSchema = z.object({
   email: z.string(),
@@ -73,6 +73,30 @@ async function facesFor(
   return faces;
 }
 
+/**
+ * Where a captured message opens in the mailbox it came from: Gmail by its
+ * message id, Outlook by the web link Graph gave (only an Outlook host's).
+ * It opens for the member whose mailbox it is.
+ */
+function mailboxLink(
+  gmailMessageId: string | null,
+  outlookWebLink: string | null,
+): { mailboxUrl: string | null; mailboxName: "Gmail" | "Outlook" | null } {
+  if (gmailMessageId) {
+    return {
+      mailboxUrl: `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(gmailMessageId)}`,
+      mailboxName: "Gmail",
+    };
+  }
+  const host = safeHostname(outlookWebLink);
+  if (outlookWebLink && host && OUTLOOK_HOSTS.test(host)) {
+    return { mailboxUrl: outlookWebLink, mailboxName: "Outlook" };
+  }
+  return { mailboxUrl: null, mailboxName: null };
+}
+
+const OUTLOOK_HOSTS = /^outlook\.(office365|office|live)\.com$/;
+
 /** One of the organization's email threads with its messages, oldest first. */
 async function thread(organizationId: string, threadId: string) {
   const [found] = await db
@@ -103,6 +127,8 @@ async function thread(organizationId: string, threadId: string) {
       snippet: emailMessage.snippet,
       body: emailMessage.body,
       sentAt: emailMessage.sentAt,
+      gmailMessageId: emailMessage.gmailMessageId,
+      outlookWebLink: emailMessage.outlookWebLink,
     })
     .from(emailMessage)
     .where(
@@ -118,11 +144,14 @@ async function thread(organizationId: string, threadId: string) {
   );
   return {
     ...found,
-    messages: messages.map((message) => ({
-      ...message,
-      recipients: recipientsOf(message.recipients),
-      fromImageUrl: faces.get(message.fromEmail.toLowerCase()) ?? null,
-    })),
+    messages: messages.map(
+      ({ gmailMessageId, outlookWebLink, ...message }) => ({
+        ...message,
+        recipients: recipientsOf(message.recipients),
+        fromImageUrl: faces.get(message.fromEmail.toLowerCase()) ?? null,
+        ...mailboxLink(gmailMessageId, outlookWebLink),
+      }),
+    ),
   };
 }
 

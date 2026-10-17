@@ -21,7 +21,7 @@ import {
 import {
   isAutomatedAddress,
   isMachineAddress,
-  personName,
+  splitName,
 } from "@/shared/participants";
 
 // The only path from a website form to a contact. Every submission is
@@ -162,7 +162,7 @@ async function file(
     return skip(organizationId, submission.id, CONTACT_CAP_REASON);
   }
 
-  const { firstName, lastName } = personName(submission.name, email);
+  const { firstName, lastName } = splitName(submission.name, email);
   let contactId: string;
   try {
     contactId = await ContactRepository.insert({

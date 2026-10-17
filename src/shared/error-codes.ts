@@ -12,6 +12,8 @@ const ERROR_CODES = [
   // The gateway holds no key for the agent's model or Context.dev, or the
   // agent isn't set up on this deployment.
   "AGENT_UNAVAILABLE",
+  // The gateway holds no OAuth client for the mailbox provider asked for.
+  "INTEGRATION_UNAVAILABLE",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -26,6 +28,7 @@ const NON_REPORTABLE_ERROR_CODES = new Set<ErrorCode>([
   "VALIDATION_ERROR",
   "CONFLICT",
   "AGENT_UNAVAILABLE",
+  "INTEGRATION_UNAVAILABLE",
   // An external provider failing on its own side: nothing in the app to fix.
   "UPSTREAM_UNAVAILABLE",
 ]);
