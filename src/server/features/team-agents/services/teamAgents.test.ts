@@ -1,4 +1,3 @@
-import { BuilderToolService } from "@/server/features/team-agents/services/BuilderToolService";
 import { AgentActionRepository } from "@/server/features/team-agents/repositories/AgentActionRepository";
 import { AgentFileRepository } from "@/server/features/team-agents/repositories/AgentFileRepository";
 import { TriggerRepository } from "@/server/features/team-agents/repositories/TriggerRepository";
@@ -30,62 +29,17 @@ import { BuilderRepository } from "../repositories/BuilderRepository";
 import { AgentRevisionService } from "./AgentRevisionService";
 import { AgentRunService } from "./AgentRunService";
 import { BuilderService } from "./BuilderService";
-import type { DraftInput } from "./draft";
+import { BuilderToolService } from "./BuilderToolService";
+import {
+  draft,
+  live,
+  member,
+  outsider,
+  owner,
+  saved,
+} from "./teamAgentTestSupport";
 import { TeamAgentService } from "./TeamAgentService";
 import { TriggerService } from "./TriggerService";
-
-const owner = { organizationId: "org_a", userId: "user_a", role: "owner" };
-const member = { organizationId: "org_a", userId: "user_c", role: "member" };
-const outsider = { organizationId: "org_b", userId: "user_b", role: "owner" };
-
-const draft = (overrides: Partial<DraftInput> = {}): DraftInput => ({
-  name: "Stage watcher",
-  description: "Summarizes deals that move.",
-  instructions:
-    "When a deal changes stage, read it and write a one-line summary of where it stands.",
-  triggers: [
-    { type: "MANUAL", name: "By hand", summary: "When someone runs it" },
-  ],
-  recordScope: "WORKSPACE",
-  resources: [],
-  integrations: [],
-  actions: [{ type: "run.summary", provider: "crm", summary: "Summarize" }],
-  ...overrides,
-});
-
-/** A builder chat that saved `input`: its agent and version ids. */
-async function saved(
-  input: DraftInput,
-  tagged: { kind: "deal"; id: string }[] = [],
-) {
-  const chat = await BuilderRepository.createConversation({
-    organizationId: "org_a",
-    userId: "user_a",
-    sessionId: `chat.test.${crypto.randomUUID()}`,
-  });
-  const result = await BuilderToolService.saveDraft(
-    {
-      organizationId: "org_a",
-      userId: "user_a",
-      conversationId: chat.id,
-      tagged,
-      taggedIntegrations: [],
-    },
-    input,
-  );
-  if (!result.saved) throw new Error(result.issues.join(" "));
-  return result;
-}
-
-async function live(input: DraftInput = draft()) {
-  const version = await saved(input);
-  await TeamAgentService.deploy(owner, {
-    agentId: version.agentId,
-    versionId: version.versionId,
-    clientRequestId: crypto.randomUUID(),
-  });
-  return version;
-}
 
 const google = (accountEmail: string) => ({
   provider: "google" as const,

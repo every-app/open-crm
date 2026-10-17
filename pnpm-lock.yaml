@@ -79,6 +79,9 @@ importers:
       cn:
         specifier: ^0.3.0
         version: 0.3.3
+      diff:
+        specifier: ^8.0.4
+        version: 8.0.4
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.4(@cloudflare/workers-types@4.20260702.1)(@electric-sql/pglite@0.5.8)(@libsql/client@0.15.15)(@opentelemetry/api@1.9.1)(postgres@3.4.9)(sql.js@1.14.2)

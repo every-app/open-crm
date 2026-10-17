@@ -57,10 +57,18 @@ export const reviseAgentSchema = z.object({
   sources: z.array(z.enum(CAPTURE_KINDS)).max(2).optional(),
 });
 
-export const saveInstructionsSchema = z.object({
+export const saveFilesSchema = z.object({
   agentId: id,
   clientRequestId: requestId,
-  content: z.string().trim().min(40).max(20_000),
+  files: z
+    .array(
+      z.object({
+        path: z.string().trim().min(1).max(200),
+        content: z.string().max(40_000),
+      }),
+    )
+    .min(1)
+    .max(10),
 });
 
 export const builderChatIdSchema = z.object({ conversationId: id });

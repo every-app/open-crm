@@ -45,6 +45,7 @@
     "ai": "^6.0.199",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.3.0",
+    "diff": "^8.0.4",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.0.12",
     "lucide-react": "^0.542.0",

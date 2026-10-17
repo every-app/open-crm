@@ -1,19 +1,15 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { Pause, Play } from "lucide-react";
+import { sortBy } from "remeda";
+import { PageHeader } from "@/client/components/PageHeader";
+import { QueryError } from "@/client/components/QueryState";
 import {
-  Archive,
-  ChevronLeft,
-  Pause,
-  Play,
-  RotateCcw,
-  Trash2,
-} from "lucide-react";
-import { toast } from "sonner";
-import { ConfirmDialog } from "@/client/components/ConfirmDialog";
-import { PageHeader, SectionHeader } from "@/client/components/PageHeader";
-import { QueryError, QueryState } from "@/client/components/QueryState";
-import { RowActionsMenu } from "@/client/components/RowActionsMenu";
+  SettingsCard,
+  SettingsRow,
+  SettingsSection,
+} from "@/client/components/SettingsSection";
 import { SkeletonPage } from "@/client/components/SkeletonPresets";
 import {
   Alert,
@@ -22,32 +18,32 @@ import {
 } from "@/client/components/ui/alert";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
-import { DropdownMenuItem } from "@/client/components/ui/dropdown-menu";
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
 import {
   changeTeamAgentStatus,
-  deleteTeamAgent,
   deployTeamAgent,
   runTeamAgent,
   type getTeamAgent,
 } from "@/serverFunctions/teamAgents";
 import { AgentCapabilities } from "./AgentCapabilities";
+import { AgentCode } from "./AgentCode";
+import { AgentDangerZone } from "./AgentDangerZone";
 import { AgentRunsDrawer } from "./AgentRunsDrawer";
-import { FileTabs, ManifestReview } from "./ManifestReview";
-import {
-  teamAgentFilesQueryOptions,
-  teamAgentKeys,
-  teamAgentQueryOptions,
-} from "./teamAgentQueries";
+import { useAgentMutation } from "./agentEditing";
+import { ManifestReview } from "./ManifestReview";
+import { teamAgentQueryOptions } from "./teamAgentQueries";
 import { STATUS_COPY, TRIGGER_COPY } from "./teamAgentCopy";
 
 type Agent = Awaited<ReturnType<typeof getTeamAgent>>;
 
+// What drives the agent first; running it by hand last.
+const TRIGGER_ORDER = ["SCHEDULE", "EVENT", "MANUAL"] as const;
+
 /**
- * A team agent (the CRM's team agent detail): who made it and what triggers
- * it, the version waiting for review with its exact files, and the deployed
- * version's permissions, which its creator or an admin can narrow. Runs and
- * every change are in the history drawer.
+ * A team agent (the CRM's team agent detail): what triggers it, the version
+ * waiting for review with its exact files, the deployed version's
+ * permissions and code, which its creator or an admin can change, and a
+ * danger zone. Runs and every change are in the history drawer.
  */
 export function AgentDetailPage({ agentId }: { agentId: string }) {
   const query = useQuery(teamAgentQueryOptions(agentId));
@@ -69,45 +65,12 @@ export function AgentDetailPage({ agentId }: { agentId: string }) {
   return <LoadedAgent agent={query.data} />;
 }
 
-function useAgentMutation<Input>(
-  agentId: string,
-  run: (input: Input) => Promise<unknown>,
-  success: string,
-) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: run,
-    onSuccess: async () => {
-      toast.success(success);
-      await queryClient.invalidateQueries({
-        queryKey: teamAgentKeys.agent(agentId),
-      });
-      await queryClient.invalidateQueries({ queryKey: teamAgentKeys.list() });
-      await queryClient.invalidateQueries({ queryKey: teamAgentKeys.chats() });
-    },
-  });
-}
-
 function LoadedAgent({ agent }: { agent: Agent }) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [runsOpen, setRunsOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const review = agent.reviewVersion;
   const current = agent.currentVersion;
+  const isDraft = agent.status === "DRAFT";
 
-  const deploy = useAgentMutation(
-    agent.id,
-    (versionId: string) =>
-      deployTeamAgent({
-        data: {
-          agentId: agent.id,
-          versionId,
-          clientRequestId: crypto.randomUUID(),
-        },
-      }),
-    "Agent deployed to the team.",
-  );
   const runNow = useAgentMutation(
     agent.id,
     () =>
@@ -122,35 +85,27 @@ function LoadedAgent({ agent }: { agent: Agent }) {
       changeTeamAgentStatus({ data: { agentId: agent.id, action } }),
     "Saved.",
   );
-  const remove = useMutation({
-    mutationFn: () => deleteTeamAgent({ data: { agentId: agent.id } }),
-    onSuccess: async () => {
-      toast.success(`${agent.name} was deleted.`);
-      await queryClient.invalidateQueries({ queryKey: teamAgentKeys.list() });
-      await navigate({ to: "/agents" });
-    },
-  });
+
+  // A version saved for review lands at the top: take the reader to it.
+  const reviewRef = useRef<HTMLDivElement>(null);
+  const seenReview = useRef(review?.id ?? null);
+  useEffect(() => {
+    if (review && review.id !== seenReview.current) {
+      reviewRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    seenReview.current = review?.id ?? null;
+  }, [review]);
 
   const enabled = agent.triggers.filter((trigger) => trigger.enabled);
   const canRunByHand =
     agent.status === "LIVE" &&
     (enabled.length === 0 ||
       enabled.some((trigger) => trigger.type !== "EVENT"));
-  const isDraft = agent.status === "DRAFT";
 
   return (
-    <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-4xl space-y-8">
+    <div className="px-4 pt-6 pb-24 md:px-8 md:pt-8 md:pb-12">
+      <div className="mx-auto max-w-4xl space-y-10">
         <PageHeader
-          backLink={
-            <Link
-              to="/agents"
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ChevronLeft className="size-4" aria-hidden />
-              Agents
-            </Link>
-          }
           title={
             <span className="flex flex-wrap items-center gap-2">
               {agent.name}
@@ -173,7 +128,7 @@ function LoadedAgent({ agent }: { agent: Agent }) {
           actions={
             <>
               <Button variant="outline" onClick={() => setRunsOpen(true)}>
-                Runs{" "}
+                Runs
                 <span className="font-mono text-muted-foreground">
                   {agent.runCount}
                 </span>
@@ -189,7 +144,7 @@ function LoadedAgent({ agent }: { agent: Agent }) {
                     />
                   }
                 >
-                  Open in chat
+                  {isDraft ? "Change details" : "Open in chat"}
                 </Button>
               ) : null}
               {canRunByHand ? (
@@ -226,96 +181,35 @@ function LoadedAgent({ agent }: { agent: Agent }) {
                   Resume
                 </Button>
               ) : null}
-              {agent.canManage ? (
-                <RowActionsMenu label="More agent actions">
-                  {agent.status === "LIVE" || agent.status === "PAUSED" ? (
-                    <DropdownMenuItem
-                      onClick={() => transition.mutate("archive")}
-                    >
-                      <Archive />
-                      Archive
-                    </DropdownMenuItem>
-                  ) : null}
-                  {agent.status === "ARCHIVED" ? (
-                    <DropdownMenuItem
-                      onClick={() => transition.mutate("restore")}
-                    >
-                      <RotateCcw />
-                      Restore
-                    </DropdownMenuItem>
-                  ) : null}
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setDeleting(true)}
-                  >
-                    <Trash2 />
-                    Delete agent
-                  </DropdownMenuItem>
-                </RowActionsMenu>
-              ) : null}
             </>
           }
         />
 
-        {agent.status === "ARCHIVED" ? (
-          <Alert>
-            <AlertTitle>Archived</AlertTitle>
-            <AlertDescription>
-              Its triggers don't run. Restore it to pause it, then resume it to
-              run again.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
         {review ? (
-          <section className="space-y-4 rounded-lg border border-border bg-card p-5">
-            <SectionHeader
-              title={`Version ${review.number} is waiting for review`}
-              hint={
-                isDraft
-                  ? "A private draft. Deploying makes it the team's: its triggers start and it can act with exactly these permissions."
-                  : "Saved from the builder chat. Deploying replaces the version the team runs now."
-              }
-              action={
-                agent.canManage ? (
-                  <Button
-                    pending={deploy.isPending}
-                    onClick={() => deploy.mutate(review.id)}
-                  >
-                    Deploy agent
-                  </Button>
-                ) : null
-              }
-            />
-            {review.readable ? (
-              <ManifestReview manifest={review.manifest} />
-            ) : (
-              <Alert variant="destructive">
-                <AlertTitle>This version's manifest can't be read</AlertTitle>
-                <AlertDescription>{review.problem}</AlertDescription>
-              </Alert>
-            )}
-            <VersionFiles agentId={agent.id} versionId={review.id} />
-          </section>
+          <div ref={reviewRef} className="scroll-mt-6">
+            <ReviewSection agent={agent} review={review} />
+          </div>
         ) : null}
 
-        {agent.triggers.length > 0 ? (
-          <section className="space-y-3">
-            <SectionHeader title="When it runs" />
-            <div className="divide-y divide-border rounded-lg border border-border">
-              {agent.triggers.map((trigger) => (
-                <div
+        {current && agent.triggers.length > 0 ? (
+          <SettingsSection title="When it runs">
+            <SettingsCard>
+              {sortBy(agent.triggers, (trigger) =>
+                TRIGGER_ORDER.indexOf(trigger.type),
+              ).map((trigger) => (
+                <SettingsRow
                   key={trigger.id}
-                  className="flex items-center gap-3 px-4 py-3 text-sm"
-                >
-                  <Badge variant="outline">{TRIGGER_COPY[trigger.type]}</Badge>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{trigger.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {trigger.summary}
+                  label={
+                    <span className="flex flex-wrap items-center gap-2">
+                      {trigger.name}
+                      <Badge variant="outline">
+                        {TRIGGER_COPY[trigger.type]}
+                      </Badge>
                     </span>
-                  </span>
-                  <span className="shrink-0 text-right text-xs text-muted-foreground">
+                  }
+                  description={trigger.summary}
+                >
+                  <span className="text-sm text-muted-foreground">
                     {!trigger.enabled ? (
                       "Off until deployed"
                     ) : trigger.nextRunAt ? (
@@ -328,43 +222,43 @@ function LoadedAgent({ agent }: { agent: Agent }) {
                       </>
                     ) : null}
                   </span>
-                </div>
+                </SettingsRow>
               ))}
-            </div>
-          </section>
+            </SettingsCard>
+          </SettingsSection>
         ) : null}
 
-        {current ? (
-          current.readable ? (
-            <>
-              <AgentCapabilities
-                key={current.id}
+        {current?.readable ? (
+          <>
+            <AgentCapabilities
+              key={current.id}
+              agentId={agent.id}
+              manifest={current.manifest}
+              canManage={agent.canManage}
+            />
+            <SettingsSection
+              title="Code"
+              description="What the agent actually runs."
+            >
+              <AgentCode
                 agentId={agent.id}
                 versionId={current.id}
-                manifest={current.manifest}
-                canManage={agent.canManage}
+                editable={agent.canManage}
               />
-              <section className="space-y-3">
-                <SectionHeader
-                  title="Files"
-                  hint="The deployed version, exactly as approved."
-                />
-                <VersionFiles agentId={agent.id} versionId={current.id} />
-              </section>
-            </>
-          ) : (
-            <Alert variant="destructive">
-              <AlertTitle>
-                The deployed version's manifest can't be read
-              </AlertTitle>
-              <AlertDescription>{current.problem}</AlertDescription>
-            </Alert>
-          )
+            </SettingsSection>
+          </>
+        ) : current ? (
+          <Alert variant="destructive">
+            <AlertTitle>This version's manifest cannot be read</AlertTitle>
+            <AlertDescription>{current.problem}</AlertDescription>
+          </Alert>
         ) : !review ? (
           <p className="text-sm text-muted-foreground">
-            This agent has no saved version yet.
+            This agent has no deployed version yet.
           </p>
         ) : null}
+
+        {agent.canManage ? <AgentDangerZone agent={agent} /> : null}
       </div>
 
       <AgentRunsDrawer
@@ -372,42 +266,62 @@ function LoadedAgent({ agent }: { agent: Agent }) {
         open={runsOpen}
         onOpenChange={setRunsOpen}
       />
-
-      {deleting ? (
-        <ConfirmDialog
-          title={`Delete ${agent.name}?`}
-          confirmLabel="Delete agent"
-          destructive
-          pending={remove.isPending}
-          onConfirm={() => remove.mutate()}
-          onClose={() => setDeleting(false)}
-        >
-          This removes it from the agents list, turns its triggers off and
-          cancels its queued runs. Its run and action history stays in the audit
-          log. A run already in progress may finish.
-        </ConfirmDialog>
-      ) : null}
     </div>
   );
 }
 
-function VersionFiles({
-  agentId,
-  versionId,
+/** The version waiting for a person to deploy it, exactly as it would run. */
+function ReviewSection({
+  agent,
+  review,
 }: {
-  agentId: string;
-  versionId: string;
+  agent: Agent;
+  review: NonNullable<Agent["reviewVersion"]>;
 }) {
-  const files = useQuery(teamAgentFilesQueryOptions(agentId, versionId));
+  const deploy = useAgentMutation(
+    agent.id,
+    (versionId: string) =>
+      deployTeamAgent({
+        data: {
+          agentId: agent.id,
+          versionId,
+          clientRequestId: crypto.randomUUID(),
+        },
+      }),
+    "Agent deployed to the team.",
+  );
   return (
-    <QueryState query={files} errorFallback="The files could not be loaded.">
-      {(data) =>
-        data.files.length > 0 ? (
-          <FileTabs files={data.files} />
-        ) : (
-          <p className="text-sm text-muted-foreground">No files.</p>
-        )
+    <SettingsSection
+      title={`Version ${review.number} is waiting for review`}
+      description={
+        agent.status === "DRAFT"
+          ? "This is a draft. Deploy it to the team before you change what it can do."
+          : undefined
       }
-    </QueryState>
+      action={
+        agent.canManage ? (
+          <Button
+            pending={deploy.isPending}
+            onClick={() => deploy.mutate(review.id)}
+          >
+            Deploy agent
+          </Button>
+        ) : null
+      }
+    >
+      <div className="space-y-4">
+        {review.readable ? (
+          <SettingsCard className="p-5">
+            <ManifestReview manifest={review.manifest} />
+          </SettingsCard>
+        ) : (
+          <Alert variant="destructive">
+            <AlertTitle>This version's manifest cannot be read</AlertTitle>
+            <AlertDescription>{review.problem}</AlertDescription>
+          </Alert>
+        )}
+        <AgentCode agentId={agent.id} versionId={review.id} editable={false} />
+      </div>
+    </SettingsSection>
   );
 }

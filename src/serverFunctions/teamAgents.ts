@@ -21,7 +21,7 @@ import {
   retryRunSchema,
   reviseAgentSchema,
   runAgentSchema,
-  saveInstructionsSchema,
+  saveFilesSchema,
   uploadAttachmentSchema,
 } from "@/types/schemas/team-agents";
 
@@ -87,11 +87,11 @@ export const reviseTeamAgent = createServerFn({ method: "POST" })
     AgentRevisionService.revise(context, data),
   );
 
-export const saveTeamAgentInstructions = createServerFn({ method: "POST" })
+export const saveTeamAgentFiles = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
-  .validator(saveInstructionsSchema)
+  .validator(saveFilesSchema)
   .handler(async ({ data, context }) =>
-    AgentRevisionService.saveInstructions(context, data),
+    AgentRevisionService.saveFiles(context, data),
   );
 
 export const runTeamAgent = createServerFn({ method: "POST" })
