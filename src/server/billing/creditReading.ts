@@ -1,6 +1,7 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { workspace } from "@/db/schema";
+import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 
 // The organization's last confirmed "out of credits", kept on its workspace
 // row as the model's refusal is (AgentAvailabilityRepository): the minute
@@ -29,6 +30,8 @@ async function held(organizationId: string): Promise<boolean> {
 /** What Autumn just said: out of credits, or not. */
 async function note(organizationId: string, depleted: boolean): Promise<void> {
   if (depleted) {
+    // Kept even for an organization nobody has opened the CRM in yet.
+    await WorkspaceRepository.getOrCreate(organizationId);
     await db
       .update(workspace)
       .set({ creditsDepletedAt: new Date().toISOString() })
