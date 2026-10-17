@@ -3,7 +3,8 @@ import { z } from "zod";
 import { personFromMatch, type PersonMatch } from "./people";
 
 // The agent's Context.dev client: brand data by domain, a person read back
-// from a profile URL, and structured extraction from a page. Ported from the
+// from a profile URL or matched on the clues the CRM holds (their address,
+// name and employer), and structured extraction from a page. Ported from the
 // CRM's lib/context-dev.ts and lib/people.ts, which used the context.dev SDK;
 // here the calls go to the REST API (https://api.context.dev/v1) over the
 // gateway's fetch (getContextFetch()), which holds the key and attributes each
@@ -186,6 +187,44 @@ export async function personByProfileUrl(
   const answer = await post(contextFetch, "/people/enrich", {
     social_urls: [profileUrl],
   });
+  return personFrom(answer, "No person matched that profile.");
+}
+
+type IdentityClues = {
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  companyName: string | null;
+  companyDomain: string | null;
+};
+
+/**
+ * The person behind a work email address, matched on every clue the CRM
+ * holds: the address, any name on the record, and the employer.
+ */
+export async function personByClues(
+  contextFetch: ContextFetch,
+  clues: IdentityClues,
+): Promise<PersonMatch> {
+  const name = { first: given(clues.firstName), last: given(clues.lastName) };
+  const company = {
+    name: given(clues.companyName),
+    domain: given(clues.companyDomain),
+  };
+  const answer = await post(contextFetch, "/people/enrich", {
+    email: clues.email.trim(),
+    ...(name.first || name.last ? { name } : {}),
+    ...(company.name || company.domain ? { company } : {}),
+  });
+  return personFrom(answer, "No person matched those details.");
+}
+
+/** A clue worth sending: trimmed, and left out when blank. */
+function given(value: string | null): string | undefined {
+  return value?.trim() || undefined;
+}
+
+function personFrom(answer: Answer, notFound: string): PersonMatch {
   if (answer.ok) {
     return personFromMatch(
       z.object({ match: z.unknown() }).catch({ match: null }).parse(answer.body)
@@ -196,7 +235,7 @@ export async function personByProfileUrl(
     return { outcome: "failed", reason: answer.reason, retryable: false };
   }
   if (answer.status === 400 || answer.status === 404) {
-    return { outcome: "skipped", reason: "No person matched that profile." };
+    return { outcome: "skipped", reason: notFound };
   }
   if (answer.status === 422) {
     return {

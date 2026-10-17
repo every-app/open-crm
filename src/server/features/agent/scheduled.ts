@@ -4,14 +4,17 @@ import { getOpenRouterFetch } from "@/server/lib/openrouter";
 import { runResearchLane, runVisibleLane, type Defer } from "./dispatch";
 import { DISPATCH } from "./dispatch/config";
 import { reconcileStaleTasks } from "./dispatch/staleTasks";
+import { sweepAllBlankFacts } from "./lib/blankFacts";
 import type { CrmAgent } from "./CrmAgent";
 import type { LeasedTask } from "./repositories/AgentQueueRepository";
 import { sessionName } from "./sessionName";
 
 /**
  * The minute cron: the agent's dispatcher. It closes stale tasks, then drains
- * both lanes across every organization (dispatch.ts). It decides nothing on
- * its own: anything that looks like "every N minutes" is a task's `due_at`.
+ * both lanes across every organization (dispatch.ts), and beside them fills
+ * fields that went blank from the suggestions waiting on them
+ * (lib/blankFacts.ts). It decides nothing on its own: anything that looks
+ * like "every N minutes" is a task's `due_at`.
  */
 export async function runScheduledWork(
   env: Env,
@@ -23,6 +26,7 @@ export async function runScheduledWork(
         console.error("[agent] late dispatch work failed", error);
       }),
     );
+  defer(sweepAllBlankFacts());
   await reconcileStaleTasks();
   const signal = AbortSignal.timeout(DISPATCH.sweep.timeoutMs);
   const askedForOnly = !scheduledResearchEnabled(env);
