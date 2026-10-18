@@ -210,19 +210,21 @@ export function DataTable<TData>({
   const columns = table.getVisibleLeafColumns();
   const rows = table.getRowModel().rows;
   const fixed = columns.some((column) => column.columnDef.meta?.width);
+  const noRows = !isLoading && rows.length === 0;
 
   return (
     <TableCard>
       {toolbar}
       {error ? <div className="p-4">{error}</div> : null}
-      {error && !isLoading && rows.length === 0 ? null : (
+      {error && noRows ? null : (
         <Table
           containerClassName={scrollClassName}
-          // A phone scrolls the table rather than squeeze its columns.
-          className={fixed ? "min-w-3xl table-fixed" : undefined}
+          // A phone scrolls the table rather than squeeze its columns; an
+          // empty one keeps to the card, so its empty state stays in view.
+          className={fixed && !noRows ? "min-w-3xl table-fixed" : undefined}
         >
           {/* An empty table is its empty state alone. */}
-          {!isLoading && rows.length === 0 ? null : (
+          {noRows ? null : (
             <TableHeader
               className={
                 scrollClassName ? "sticky top-0 z-10 bg-card" : undefined
