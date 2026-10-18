@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { InlineConfirm } from "@/client/components/InlineConfirm";
@@ -71,6 +72,11 @@ function PanelLoading() {
   );
 }
 
+/** The URL's `thread` for a new conversation, not started yet. */
+const NEW_THREAD = "new";
+
+const appRoute = getRouteApi("/_app");
+
 function LoadedAgentPanel({
   record,
   conversations,
@@ -79,12 +85,21 @@ function LoadedAgentPanel({
   conversations: Conversation[];
 }) {
   const queryClient = useQueryClient();
-  // The conversation the tab landed on is captured once, so a list refetch
-  // (a new title, a reply elsewhere) never swaps the open conversation out
-  // from under a live answer. Null is a new conversation, not started yet.
-  const [openId, setOpenId] = useState<string | null>(
-    () => conversations[0]?.id ?? null,
-  );
+  const navigate = useNavigate();
+  // The open conversation is the URL's (`thread`), so a reload or a link
+  // opens it again, as the CRM's record stack kept it. Without one, the tab
+  // opens on the conversation it landed on, captured once so a list refetch
+  // (a new title, a reply elsewhere) never swaps it out from under a live
+  // answer.
+  const { thread } = appRoute.useSearch();
+  const [landedOn] = useState(() => conversations[0]?.id ?? NEW_THREAD);
+  const openId = thread ?? landedOn;
+  const setOpenId = (id: string | null) =>
+    void navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, thread: id ?? NEW_THREAD }),
+      replace: true,
+    });
   const [firstMessage, setFirstMessage] = useState<{
     conversationId: string;
     text: string;
