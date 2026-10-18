@@ -5,12 +5,14 @@ import * as sqliteAgent from "./agent.schema";
 import * as sqliteTracking from "./tracking.schema";
 import * as sqliteTeamAgent from "./team-agent.schema";
 import * as sqliteSlack from "./slack.schema";
+import * as sqliteSharing from "./sharing.schema";
 import * as pgAuth from "./pg/auth.schema";
 import * as pgCrm from "./pg/crm.schema";
 import * as pgAgent from "./pg/agent.schema";
 import * as pgTracking from "./pg/tracking.schema";
 import * as pgTeamAgent from "./pg/team-agent.schema";
 import * as pgSlack from "./pg/slack.schema";
+import * as pgSharing from "./pg/sharing.schema";
 
 // Canonical schema barrel. Repositories import their tables from here and the
 // provider-aware `db` from "@/db", so each repository is written ONCE for both
@@ -27,7 +29,8 @@ type AppSchema = typeof sqliteAuth &
   typeof sqliteAgent &
   typeof sqliteTracking &
   typeof sqliteTeamAgent &
-  typeof sqliteSlack;
+  typeof sqliteSlack &
+  typeof sqliteSharing;
 
 const runtimeSchema =
   getDatabaseProvider() === "postgres"
@@ -38,6 +41,7 @@ const runtimeSchema =
         ...pgTracking,
         ...pgTeamAgent,
         ...pgSlack,
+        ...pgSharing,
       }
     : {
         ...sqliteAuth,
@@ -46,6 +50,7 @@ const runtimeSchema =
         ...sqliteTracking,
         ...sqliteTeamAgent,
         ...sqliteSlack,
+        ...sqliteSharing,
       };
 
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- guarded by schema-parity.test.ts
@@ -104,4 +109,5 @@ export const {
   slackChannel,
   slackMemberMatch,
   slackOauthState,
+  agentConversationShare,
 } = schema;
