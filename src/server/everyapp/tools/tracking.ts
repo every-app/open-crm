@@ -1,15 +1,17 @@
+import { keys } from "remeda";
 import { z } from "zod";
 import { requireOrgPermission } from "@/server/auth/org-gate";
 import { crmTool, fullName } from "@/server/everyapp/crm-tool";
 import { TrackingSettingsService } from "@/server/features/tracking/services/TrackingSettingsService";
 import { WebsiteActivityService } from "@/server/features/tracking/services/WebsiteActivityService";
-import { DOMAIN_SCOPES } from "@/shared/tracking";
+import { COOKIE_LIFETIMES, DOMAIN_SCOPES } from "@/shared/tracking";
 import { addTrackedDomainSchema } from "@/types/schemas/tracking";
 
 // Website tracking for AI clients: what a company's or contact's browsers did
-// on the website, the tracking settings and traffic sources, and the switches
-// the settings page gives owners and admins (pause, the allowed domains).
-// Verify installation and the site id's rotation stay with people.
+// on the website, the tracking settings and traffic sources, and the settings
+// page's switches for owners and admins (pause, the rules, the cookies, the
+// allowed domains). Verify installation and the site id's rotation stay with
+// people.
 
 const touchOutput = z
   .object({
@@ -30,14 +32,38 @@ const domainOutput = z.object({
   lastSeenAt: z.string().nullable(),
 });
 
+// The settings page's switches, as update_tracking_settings takes them.
+const switches = {
+  crossDomain: z
+    .boolean()
+    .describe(
+      "Links between the allowed domains carry the visitor along, so one person is one visitor across them.",
+    ),
+  limitToDomains: z
+    .boolean()
+    .describe("Only the domains listed may send page views."),
+  cookieSubdomains: z
+    .boolean()
+    .describe(
+      "The visitor cookie stays on the exact host instead of the whole site and its subdomains.",
+    ),
+  secureCookies: z.boolean().describe("Cookies are set over https only."),
+  honourDnt: z
+    .boolean()
+    .describe(
+      "Browsers that send Do Not Track or Global Privacy Control aren't tracked.",
+    ),
+};
+
+const COOKIE_DAYS = `How long the visitor cookie lasts, in days: ${COOKIE_LIFETIMES.map(({ days, label }) => `${days} (${label.toLowerCase()})`).join(", ")}.`;
+
 const settingsOutput = z.object({
   ready: z
     .boolean()
     .describe("The snippet works: a domain is allowed, or any site is."),
   paused: z.boolean(),
-  limitToDomains: z
-    .boolean()
-    .describe("Only the domains listed may send page views."),
+  ...switches,
+  cookieDays: z.number().describe(COOKIE_DAYS),
   domains: z.array(domainOutput),
   pageViews: z.number(),
   submissions: z.number(),
@@ -113,7 +139,7 @@ export const trackingTools = {
 
   get_tracking_settings: crmTool({
     description:
-      "Website tracking's state: whether it is ready or paused, the allowed domains, totals, when data last arrived, and the snippet to install.",
+      "Website tracking's state: whether it is ready or paused, its rules and cookies, the allowed domains, totals, when data last arrived, and the snippet to install.",
     risk: "read",
     input: z.object({}).strict(),
     output: settingsOutput,
@@ -157,6 +183,45 @@ export const trackingTools = {
         "paused",
         paused,
       );
+      return settings(context.organizationId, origin);
+    },
+  }),
+
+  update_tracking_settings: crmTool({
+    description:
+      "Change website tracking's rules and cookies (owners and admins only); only what is given changes. Browsers pick it up within five minutes. set_tracking_paused pauses tracking.",
+    risk: "write",
+    input: z
+      .object({
+        crossDomain: switches.crossDomain.optional(),
+        limitToDomains: switches.limitToDomains.optional(),
+        cookieSubdomains: switches.cookieSubdomains.optional(),
+        secureCookies: switches.secureCookies.optional(),
+        honourDnt: switches.honourDnt.optional(),
+        cookieDays: z
+          .literal(COOKIE_LIFETIMES.map((lifetime) => lifetime.days))
+          .optional()
+          .describe(COOKIE_DAYS),
+      })
+      .strict(),
+    output: settingsOutput,
+    handler: async (input, context, { origin }) => {
+      requireOrgPermission(context, manage);
+      for (const flag of keys(switches)) {
+        const enabled = input[flag];
+        if (enabled === undefined) continue;
+        await TrackingSettingsService.setFlag(
+          context.organizationId,
+          flag,
+          enabled,
+        );
+      }
+      if (input.cookieDays !== undefined) {
+        await TrackingSettingsService.setCookieDays(
+          context.organizationId,
+          input.cookieDays,
+        );
+      }
       return settings(context.organizationId, origin);
     },
   }),

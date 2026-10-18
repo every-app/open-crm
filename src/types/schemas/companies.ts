@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ENRICHMENT_STATUSES } from "@/shared/crm-enums";
+import { ENRICHMENT_STATUSES, RECORD_SOURCES } from "@/shared/crm-enums";
 import {
   ACTIVITY_WINDOWS,
   SORT_DIRECTIONS,
@@ -33,6 +33,8 @@ export const companyListSchema = listInputSchema.extend({
     .max(ENRICHMENT_STATUSES.length)
     .default([]),
   activity: z.enum(ACTIVITY_WINDOWS).optional(),
+  /** How they came in: the MCP tools' filter (the list page has none). */
+  source: z.array(z.enum(RECORD_SOURCES)).max(RECORD_SOURCES.length).optional(),
 });
 
 export type CompanyListInput = z.infer<typeof companyListSchema>;

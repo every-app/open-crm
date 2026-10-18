@@ -21,12 +21,14 @@ vi.mock("@/server/features/team-agents/runtime/poke", () => ({
 
 import {
   READ_WRITE,
+  ana,
   bo,
   call,
   failure,
   idFrom,
   type Caller,
 } from "@/server/everyapp/toolTestSupport";
+import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
 
 const member: Caller = {
   sub: "user_c",
@@ -91,6 +93,50 @@ describe("timeline tools", () => {
       activities: [{ id: note, body: "Wants a pilot in May" }],
       nextCursor: null,
     });
+  });
+
+  it("a timeline's views: their counts, history without the open tasks, and a page size", async () => {
+    const contactId = await idFrom("create_contact", {
+      firstName: "Jo",
+      companyId,
+    });
+    const record = { kind: "contact", id: contactId };
+    const note = await idFrom("log_activity", {
+      type: "NOTE",
+      body: "Wants a pilot",
+      contactId,
+    });
+    await idFrom("log_activity", {
+      type: "TASK",
+      subject: "Send the terms",
+      contactId,
+    });
+    expect(
+      await call("get_timeline_counts", record, { scopes: ["mcp:read"] }),
+    ).toEqual({
+      all: 2,
+      notes: 1,
+      upcoming: 1,
+      done: 0,
+      email: 0,
+      meetings: 0,
+    });
+    expect(
+      await call("list_activities", { ...record, filter: "history" }),
+    ).toMatchObject({ activities: [{ id: note }] });
+    const first = await call("list_activities", { ...record, limit: 1 });
+    const aCursor: unknown = expect.any(String);
+    expect(first).toMatchObject({ nextCursor: aCursor });
+    expect(
+      await call("list_activities", {
+        ...record,
+        limit: 1,
+        cursor: first.nextCursor,
+      }),
+    ).toMatchObject({ nextCursor: null });
+    expect(await failure("get_timeline_counts", record, { as: bo })).toBe(
+      `No contact with id ${contactId}.`,
+    );
   });
 
   it("captured mail: a timeline's thread and meeting ids open their messages and attendees, and can't be edited", async () => {
@@ -166,6 +212,62 @@ describe("timeline tools", () => {
         { provider: "microsoft", available: false, connection: null },
       ],
     });
+  });
+
+  it("the caller's mailbox: Check now queues its sources for the next sweep, and auto-create turns on per source", async () => {
+    await seedMailbox({
+      organizationId: "org_a",
+      userId: "user_a",
+      provider: "google",
+      accountEmail: ana.email,
+      sources: ["gmail", "calendar"],
+    });
+    const later = new Date(Date.now() + 5 * 60_000).toISOString();
+    await testDb.exec(`UPDATE mailbox_sync SET next_sync_at = '${later}'`);
+    expect(await failure("check_mailbox_now", { provider: "microsoft" })).toBe(
+      "Microsoft isn't connected, or needs reconnecting in Settings → Connections.",
+    );
+    expect(await call("check_mailbox_now", { provider: "google" })).toEqual({
+      sources: ["calendar", "gmail"],
+    });
+    expect(
+      await testDb.rows(
+        `SELECT source FROM mailbox_sync WHERE next_sync_at <= '${new Date().toISOString()}' ORDER BY source`,
+      ),
+    ).toEqual([{ source: "calendar" }, { source: "gmail" }]);
+    // A source waiting for a reconnect stays waiting.
+    await testDb.exec(
+      `UPDATE mailbox_sync SET status = 'NEEDS_RECONNECT', next_sync_at = NULL WHERE source = 'gmail'`,
+    );
+    expect(await call("check_mailbox_now", { provider: "google" })).toEqual({
+      sources: ["calendar"],
+    });
+
+    expect(
+      await call("set_mailbox_auto_create", { source: "gmail", enabled: true }),
+    ).toEqual({ source: "gmail", autoCreate: true });
+    expect(await call("get_mailbox_status")).toMatchObject({
+      providers: [
+        {
+          provider: "google",
+          connection: {
+            accountEmail: ana.email,
+            sources: [
+              { source: "calendar", autoCreate: true },
+              { source: "gmail", autoCreate: true },
+            ],
+          },
+        },
+        { provider: "microsoft", connection: null },
+      ],
+    });
+    expect(
+      await failure(
+        "set_mailbox_auto_create",
+        { source: "gmail", enabled: false },
+        { as: bo },
+      ),
+    ).toBe("gmail isn't connected.");
   });
 
   it("get_sales_summary reports the pipeline in the reporting currency", async () => {

@@ -5,6 +5,7 @@ import { resolveEveryAppUserContext } from "@/middleware/ensure-user/everyApp";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { AppError, asAppError } from "@/server/lib/errors";
+import { RECORD_SOURCES } from "@/shared/crm-enums";
 import {
   forOrganization,
   serveEveryAppRequest,
@@ -112,3 +113,19 @@ export const pageInput = z
   .min(1)
   .optional()
   .describe("The page, from 1.");
+
+/** A record list's rows a page, as the list tools take it. */
+export const pageSizeInput = z
+  .number()
+  .int()
+  .min(1)
+  .max(100)
+  .optional()
+  .describe("Rows a page: 25 unless said, at most 100.");
+
+/** How a company or contact came into the CRM. */
+export const sourceOutput = z
+  .enum(RECORD_SOURCES)
+  .describe(
+    "How it came in: MANUAL (added by hand or a tool), IMPORT (a CSV), EMAIL or CALENDAR (captured), TRACKING (a website form).",
+  );

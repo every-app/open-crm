@@ -18,11 +18,12 @@ import {
   fieldEntitySchema,
   fieldIdSchema,
   fieldValueInputSchema,
+  reorderFieldsSchema,
   updateFieldSchema,
 } from "@/types/schemas/fields";
 
 // Custom fields: everyone reads them and sets their values on records;
-// owners and admins add, change, archive and delete them and ask the
+// owners and admins add, change, reorder, archive and delete them and ask the
 // research agent to fill them, as in the app.
 
 const entityInput = fieldEntitySchema.describe(
@@ -56,7 +57,9 @@ const fieldOutput = z.object({
     .nullable()
     .describe("What counts as an answer, for the agent."),
   required: z.boolean(),
+  showOnSheet: z.boolean().describe("A record's details show it."),
   showOnTable: z.boolean().describe("The list tools return its values."),
+  showOnFilter: z.boolean().describe("The list's Filters menu offers it."),
   archived: z.boolean(),
 });
 
@@ -161,13 +164,38 @@ export const fieldTools = {
 
   update_field: crmTool({
     description:
-      "Change a custom field's label, brief, options or placement (owners and admins only). The key never changes, the type only while it holds no values. Options replace the list: keep one by sending its id; one left out is retired, and records keep it.",
+      "Change a custom field's label, brief, options or placement (owners and admins only). The key never changes, the type only while it holds no values. Options replace the list, in the order given: keep one by sending its id; one left out is retired, and records keep it.",
     risk: "write",
     input: updateFieldSchema.strict(),
     output: fieldOutput,
     handler: async (input, context) => {
       requireOrgPermission(context, manage);
       return FieldsService.update(context.organizationId, input);
+    },
+  }),
+
+  reorder_fields: crmTool({
+    description:
+      "Put the custom fields of companies, contacts or deals in a new order, the order records show them in (owners and admins only). Name every live field once. A select's options are reordered with update_field.",
+    risk: "write",
+    input: reorderFieldsSchema
+      .extend({
+        entity: entityInput,
+        ids: reorderFieldsSchema.shape.ids.describe(
+          "Every live field's id, from list_fields, in the new order.",
+        ),
+      })
+      .strict(),
+    output: z.object({ fields: z.array(fieldOutput) }),
+    handler: async ({ entity, ids }, context) => {
+      requireOrgPermission(context, manage);
+      return {
+        fields: await FieldsService.reorder(
+          context.organizationId,
+          entity,
+          ids,
+        ),
+      };
     },
   }),
 

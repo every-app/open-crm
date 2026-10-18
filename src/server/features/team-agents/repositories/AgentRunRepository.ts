@@ -1,4 +1,14 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { db } from "@/db";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
 import { agentDefinition, agentRun, agentVersion, user } from "@/db/schema";
@@ -278,12 +288,28 @@ async function addUsage(
     );
 }
 
-/** The agent's runs, newest first, with who started each. */
+/** Runs older than `cursor` ("<created at>|<id>", the last run of a page). */
+function olderThan(cursor: string): SQL {
+  const split = cursor.indexOf("|");
+  const at = cursor.slice(0, split);
+  const id = cursor.slice(split + 1);
+  return (
+    or(
+      lt(agentRun.createdAt, at),
+      and(eq(agentRun.createdAt, at), lt(agentRun.id, id)),
+    ) ?? sql`false`
+  );
+}
+
+/**
+ * The agent's runs, newest first, with who started each: one run by
+ * `runId`, or the runs after `cursor`.
+ */
 async function listForAgent(
   organizationId: string,
   agentId: string,
   limit: number,
-  runId?: string,
+  { runId, cursor }: { runId?: string; cursor?: string } = {},
 ) {
   return db
     .select({
@@ -299,6 +325,7 @@ async function listForAgent(
         eq(agentRun.organizationId, organizationId),
         eq(agentRun.agentId, agentId),
         runId ? eq(agentRun.id, runId) : undefined,
+        cursor ? olderThan(cursor) : undefined,
       ),
     )
     .orderBy(desc(agentRun.createdAt), desc(agentRun.id))

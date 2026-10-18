@@ -8,8 +8,8 @@ import {
 } from "@/types/schemas/mailbox";
 
 // Settings → Connections: every member manages their own mailbox and
-// calendar connections. Agents never reach these (they are not MCP tools),
-// and nothing here returns a token.
+// calendar connections. Agents never connect, purge or disconnect one (no MCP
+// tool does), and nothing here returns a token.
 
 /** The CRM's own origin, which the providers send members back to. */
 function origin(): string {

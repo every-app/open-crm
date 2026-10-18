@@ -40,6 +40,24 @@ describe("the MCP catalog", () => {
     expect(reads).toEqual(
       expect.arrayContaining(["list_companies", "list_contacts", "list_deals"]),
     );
+    // What deletes for good, or sets archived records to be deleted, is
+    // destructive: the gateway hides it from every connection.
+    expect(
+      new Set(
+        tools
+          .filter((tool) => tool.risk === "destructive")
+          .map((tool) => tool.name),
+      ),
+    ).toEqual(
+      new Set([
+        "bulk_purge",
+        "delete_activity",
+        "delete_field",
+        "delete_saved_view",
+        "delete_team_agent",
+        "set_archive_retention",
+      ]),
+    );
     // The gateway serves at most 100 tools an app, and drops a tool whose
     // input or output schema is over 20 KiB.
     expect(tools.length).toBeLessThanOrEqual(100);

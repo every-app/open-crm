@@ -230,13 +230,22 @@ type RunRow = Awaited<
   ReturnType<typeof AgentRunRepository.listForAgent>
 >[number];
 
-/** The agent's runs for the drawer: each with its steps and its actions. */
-async function history(context: Context, agentId: string, limit: number) {
+/**
+ * The agent's runs for the drawer, newest first: each with its steps and its
+ * actions. `cursor` ("<created at>|<id>" of a page's last run) pages back.
+ */
+async function history(
+  context: Context,
+  agentId: string,
+  limit: number,
+  cursor?: string,
+) {
   const agent = await readableAgent(context, agentId);
   const runs = await AgentRunRepository.listForAgent(
     context.organizationId,
     agent.id,
     limit,
+    { cursor },
   );
   return withSteps(context, agent, runs);
 }
@@ -248,7 +257,7 @@ async function runDetail(context: Context, agentId: string, runId: string) {
     context.organizationId,
     agent.id,
     1,
-    runId,
+    { runId },
   );
   const [found] = await withSteps(context, agent, runs);
   if (!found) throw new AppError("NOT_FOUND", `No run with id ${runId}.`);

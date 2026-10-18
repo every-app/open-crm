@@ -308,6 +308,31 @@ async function checkNow(member: Member, provider: MailboxProvider) {
 }
 
 /**
+ * "Check now" for an AI client, whose call can't outlast a check: makes the
+ * member's sources of `provider` due for the minute cron's next sweep.
+ */
+async function queueCheck(
+  member: Member,
+  provider: MailboxProvider,
+): Promise<{ sources: SyncSource[] }> {
+  const due = await SyncStateRepository.markDue(
+    member.organizationId,
+    member.userId,
+    SOURCES_BY_PROVIDER[provider],
+  );
+  const sources = SOURCES_BY_PROVIDER[provider].filter((source) =>
+    due.includes(source),
+  );
+  if (sources.length === 0) {
+    throw new AppError(
+      "NOT_FOUND",
+      `${LABEL[provider]} isn't connected, or needs reconnecting in Settings → Connections.`,
+    );
+  }
+  return { sources };
+}
+
+/**
  * Deletes everything the member's mailbox brought in from `provider`. The
  * sources keep their cursors, so nothing deleted comes back.
  */
@@ -414,6 +439,7 @@ export const ConnectionService = {
   status,
   setAutoCreate,
   checkNow,
+  queueCheck,
   purgeSynced,
   suppressDomain,
   disconnect,

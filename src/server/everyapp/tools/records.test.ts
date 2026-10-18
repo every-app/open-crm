@@ -1,3 +1,4 @@
+import { reverse } from "remeda";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -36,9 +37,9 @@ const member: Caller = {
   orgRole: "member",
 };
 
-describe("record tools", () => {
-  beforeAll(() => testDb.seedTwoOrganizations());
+beforeAll(() => testDb.seedTwoOrganizations());
 
+describe("record tools", () => {
   it("companies: create, change, find, read with its people, archive; another organization can't reach one", async () => {
     const id = await idFrom("create_company", {
       name: "Acme",
@@ -75,6 +76,51 @@ describe("record tools", () => {
     await call("archive_company", { id });
     expect(await call("list_companies", { query: "acm" })).toMatchObject({
       total: 0,
+    });
+  });
+
+  it("lists: by how records came in, a page size, and a company's pricing and careers pages", async () => {
+    const soylent = await idFrom("create_company", {
+      name: "Soylent",
+      domain: "soylent.test",
+    });
+    await idFrom("create_company", { name: "Soylent Labs" });
+    const jo = await idFrom("create_contact", {
+      firstName: "Jo",
+      email: "jo@soylent.test",
+    });
+    await testDb.exec(`
+      UPDATE company SET source = 'TRACKING', pricing_url = 'https://soylent.test/pricing', careers_url = 'https://soylent.test/jobs' WHERE id = '${soylent}';
+      UPDATE contact SET source = 'EMAIL' WHERE id = '${jo}';
+    `);
+    expect(
+      await call(
+        "list_companies",
+        { query: "soylent", sources: ["TRACKING"] },
+        { scopes: ["mcp:read"] },
+      ),
+    ).toMatchObject({
+      total: 1,
+      companies: [{ id: soylent, source: "TRACKING" }],
+    });
+    expect(
+      await call("list_companies", {
+        query: "soylent",
+        sort: "name",
+        page: 2,
+        pageSize: 1,
+      }),
+    ).toMatchObject({
+      total: 2,
+      pageSize: 1,
+      companies: [{ name: "Soylent Labs" }],
+    });
+    expect(
+      await call("list_contacts", { query: "soylent", sources: ["EMAIL"] }),
+    ).toMatchObject({ total: 1, contacts: [{ id: jo, source: "EMAIL" }] });
+    expect(await call("get_company", { id: soylent })).toMatchObject({
+      pricingUrl: "https://soylent.test/pricing",
+      careersUrl: "https://soylent.test/jobs",
     });
   });
 
@@ -152,6 +198,14 @@ describe("record tools", () => {
       inReportingCurrency: { amount: 1200, currency: "USD" },
       contacts: [{ id: bill, name: "Bill", role: "Champion" }],
     });
+    await call("set_deal_contact_role", {
+      dealId: id,
+      contactId: bill,
+      role: null,
+    });
+    expect(await call("get_deal", { id })).toMatchObject({
+      contacts: [{ id: bill, role: null }],
+    });
   });
 
   it("bulk actions say how many records they changed and why the first one failed", async () => {
@@ -180,7 +234,9 @@ describe("record tools", () => {
       ],
     });
   });
+});
 
+describe("custom field and saved view tools", () => {
   it("custom fields: owners and admins define them, anyone sets values, selects go by label and people by email", async () => {
     const segment = {
       entity: "COMPANY",
@@ -238,6 +294,28 @@ describe("record tools", () => {
         },
       ],
     });
+
+    const order = reverse(
+      z
+        .array(z.object({ id: z.string() }))
+        .parse(fields)
+        .map((field) => field.id),
+    );
+    expect(
+      await failure(
+        "reorder_fields",
+        { entity: "COMPANY", ids: order },
+        { as: member },
+      ),
+    ).toBe("Only an owner or an admin can do that.");
+    expect(
+      await call("reorder_fields", { entity: "COMPANY", ids: order }),
+    ).toMatchObject({
+      fields: [
+        { key: "account_manager", showOnSheet: true, showOnFilter: false },
+        { key: "segment" },
+      ],
+    });
   });
 
   it("saved views: a list's filters saved under a name, the owner by email", async () => {
@@ -257,5 +335,50 @@ describe("record tools", () => {
     expect(
       await call("list_saved_views", { entity: "COMPANY" }, { as: bo }),
     ).toEqual({ views: [] });
+
+    // The companies' and contacts' own filters, as their lists' URLs keep them.
+    expect(
+      await call("create_saved_view", {
+        entity: "COMPANY",
+        name: "Software",
+        filters: {
+          industries: ["Software"],
+          enrichment: ["COMPLETE"],
+          activeWithinDays: 30,
+        },
+      }),
+    ).toMatchObject({
+      filters: {
+        industry: ["Software"],
+        enrichment: ["COMPLETE"],
+        activity: 30,
+      },
+    });
+    expect(
+      await call("create_saved_view", {
+        entity: "CONTACT",
+        name: "Founders",
+        filters: {
+          companyIds: ["none"],
+          titles: ["CEO"],
+          seniorities: ["Founder"],
+          personas: ["Executive"],
+        },
+      }),
+    ).toMatchObject({
+      filters: {
+        company: ["none"],
+        title: ["CEO"],
+        seniority: ["Founder"],
+        persona: ["Executive"],
+      },
+    });
+    expect(
+      await failure("create_saved_view", {
+        entity: "COMPANY",
+        name: "Demos",
+        filters: { stages: ["DEMO_BOOKED"] },
+      }),
+    ).toBe("stages doesn't filter companies.");
   });
 });

@@ -1,7 +1,8 @@
+import { waitUntil } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-// The workspace's tools: its members and currencies, website tracking and
-// Slack, through the SDK's tools endpoint on real SQL.
+// The workspace's tools: its members, archive retention and currencies,
+// website tracking and Slack, through the SDK's tools endpoint on real SQL.
 const { testDb } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return { testDb: await createSqliteTestDb() };
@@ -19,6 +20,7 @@ vi.mock("@/server/features/team-agents/runtime/poke", () => ({
 }));
 
 import {
+  READ_WRITE,
   ana,
   bo,
   call,
@@ -36,10 +38,12 @@ const member: Caller = {
 
 const OWNERS_ONLY = "Only an owner or an admin can do that.";
 
+const readOnly = { scopes: ["mcp:read"] };
+
 describe("workspace tools", () => {
   beforeAll(() => testDb.seedTwoOrganizations());
 
-  it("members with their roles, and currencies an owner or admin sets", async () => {
+  it("members with their roles, found by name, email or role and sorted; currencies an owner or admin sets", async () => {
     await call("get_workspace", {}, { as: member });
     expect(await call("list_members")).toMatchObject({
       total: 2,
@@ -47,6 +51,14 @@ describe("workspace tools", () => {
         { name: "Ana", email: ana.email, role: "owner" },
         { email: member.email, role: "member" },
       ],
+    });
+    expect(
+      await call("list_members", { query: "CY@", roles: ["member"] }, readOnly),
+    ).toMatchObject({ total: 1, members: [{ email: member.email }] });
+    expect(
+      await call("list_members", { sort: "role", direction: "desc" }),
+    ).toMatchObject({
+      members: [{ email: member.email }, { email: ana.email }],
     });
     expect(
       await failure(
@@ -65,6 +77,26 @@ describe("workspace tools", () => {
     });
     expect(await call("get_currency_settings", {}, { as: bo })).toMatchObject({
       rates: [],
+    });
+  });
+
+  it("archive retention: every member reads it; an owner or admin sets it with the destructive scope", async () => {
+    const destructive = { scopes: [...READ_WRITE, "mcp:destructive"] };
+    expect(
+      await call("get_workspace", {}, { ...readOnly, as: member }),
+    ).toMatchObject({ archiveRetentionDays: 180 });
+    expect(
+      await failure(
+        "set_archive_retention",
+        { days: 30 },
+        { ...destructive, as: member },
+      ),
+    ).toBe(OWNERS_ONLY);
+    expect(
+      await call("set_archive_retention", { days: 30 }, destructive),
+    ).toMatchObject({ archiveRetentionDays: 30 });
+    expect(await call("get_workspace", {}, { as: bo })).toMatchObject({
+      archiveRetentionDays: 180,
     });
   });
 
@@ -112,7 +144,7 @@ describe("workspace tools", () => {
     ).toMatchObject({ identified: false, submissions: [] });
   });
 
-  it("tracking settings: an owner or admin allows a domain and pauses tracking; every member reads them", async () => {
+  it("tracking settings: an owner or admin allows a domain, pauses tracking and sets its rules and cookies; every member reads them", async () => {
     expect(
       await failure(
         "add_tracked_domain",
@@ -120,12 +152,39 @@ describe("workspace tools", () => {
         { as: member },
       ),
     ).toBe(OWNERS_ONLY);
+    expect(
+      await failure(
+        "update_tracking_settings",
+        { honourDnt: false },
+        {
+          as: member,
+        },
+      ),
+    ).toBe(OWNERS_ONLY);
     await call("add_tracked_domain", { host: "https://www.acme.test/" });
     await call("set_tracking_paused", { paused: true });
-    const settings = await call("get_tracking_settings", {}, { as: member });
+    await call("update_tracking_settings", {
+      crossDomain: false,
+      cookieSubdomains: true,
+      cookieDays: 0,
+    });
+    const settings = await call(
+      "get_tracking_settings",
+      {},
+      {
+        ...readOnly,
+        as: member,
+      },
+    );
     expect(settings).toMatchObject({
       ready: true,
       paused: true,
+      crossDomain: false,
+      limitToDomains: true,
+      cookieSubdomains: true,
+      secureCookies: true,
+      honourDnt: true,
+      cookieDays: 0,
       domains: [{ host: "www.acme.test", scope: "SITE_AND_SUBDOMAINS" }],
     });
     // The snippet loads the tracker from the CRM's own origin.
@@ -135,16 +194,84 @@ describe("workspace tools", () => {
     );
   });
 
-  it("slack: its people without a connection, its channels only with one", async () => {
+  it("slack: its status and people without a connection; with one, its channels, joining and creating one, and reading Slack again", async () => {
+    expect(await call("get_slack_status", {}, readOnly)).toMatchObject({
+      available: false,
+      connected: false,
+      agents: [],
+    });
     expect(await call("list_slack_people")).toMatchObject({
       sync: "idle",
       people: [
-        { email: ana.email, slackHandle: null },
+        { email: ana.email, slackUserId: null, slackHandle: null },
         { email: member.email },
       ],
     });
     expect(await failure("list_slack_channels")).toBe(
       "Slack isn't connected. An owner or admin connects it in Settings → Connections.",
     );
+
+    // Connected, read a moment ago: Ana matched, one channel the app isn't in.
+    const at = new Date().toISOString();
+    await testDb.exec(`
+      INSERT INTO slack_connection (id, organization_id, team_id, team_name, bot_user_id, bot_name, bot_token, bot_scopes, connected_at, synced_at) VALUES ('sc', 'org_a', 'T1', 'Acme HQ', 'UBOT', 'Acme CRM', 'xoxb-test', 'chat:write', '${at}', '${at}');
+      INSERT INTO slack_member_match (id, organization_id, user_id, slack_user_id, slack_handle, updated_at) VALUES ('mm_a', 'org_a', 'user_a', 'U1', '@ana', '${at}'), ('mm_c', 'org_a', 'user_c', NULL, NULL, '${at}');
+      INSERT INTO slack_channel (id, organization_id, slack_channel_id, name) VALUES ('ch_1', 'org_a', 'C1', 'sales');
+    `);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: URL) => {
+        const method = url.pathname.split("/").pop();
+        if (method === "conversations.info") {
+          return Response.json({
+            ok: true,
+            channel: { is_private: false, is_member: false },
+          });
+        }
+        if (method === "conversations.create") {
+          return Response.json({
+            ok: true,
+            channel: { id: "C2", name: "deal-alerts" },
+          });
+        }
+        return Response.json({ ok: true, members: [], channels: [] });
+      }),
+    );
+    expect(await call("get_slack_status", {}, readOnly)).toMatchObject({
+      connected: true,
+      workspace: "Acme HQ",
+      appName: "Acme CRM",
+      sync: "idle",
+      people: { matched: 1, total: 2 },
+    });
+    expect(await call("list_slack_people")).toMatchObject({
+      people: [
+        { email: ana.email, slackUserId: "U1", slackHandle: "@ana" },
+        { email: member.email, slackUserId: null },
+      ],
+    });
+    expect(await call("join_slack_channel", { channelId: "C1" })).toEqual({
+      outcome: "joined",
+      reason: null,
+    });
+    expect(await call("create_slack_channel", { name: "deal-alerts" })).toEqual(
+      {
+        created: true,
+        channel: { id: "C2", name: "deal-alerts" },
+        reason: null,
+      },
+    );
+    expect(await call("list_slack_channels")).toMatchObject({
+      channels: [
+        { id: "C2", name: "deal-alerts", isMember: true },
+        { id: "C1", name: "sales", isMember: true },
+      ],
+    });
+    expect(await call("get_slack_status", {}, { as: bo })).toMatchObject({
+      connected: false,
+    });
+
+    expect(await call("refresh_slack")).toEqual({ requested: true });
+    await Promise.all(vi.mocked(waitUntil).mock.calls.map(([read]) => read));
   });
 });

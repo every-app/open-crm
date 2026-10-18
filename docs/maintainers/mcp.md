@@ -6,19 +6,20 @@ The CRM's API is its MCP tools. The Every App gateway serves them on its own `/m
 
 - One file per feature in `src/server/everyapp/tools/`, each tool a `crmTool()` (`crm-tool.ts`): a description that says when to use it, a risk, a zod input and a zod output. The handler runs as the caller, in their organization, and calls the feature's service with the same `requireOrgPermission` checks as the server function for the same action. A new tool joins the map in `tools.ts`.
 - The SDK checks the input before the handler and the result after it, and keeps only the fields the output schema names, so outputs carry what an agent uses rather than the service's whole row.
-- People are named by email (owners, members, user fields); records by the ids `search_records` and the list tools return. Lists are paged: records 25 a page, a timeline 30 with a cursor, members, agents and Slack channels 50.
+- People are named by email (owners, members, user fields); records by the ids `search_records` and the list tools return. Lists are paged: records 25 a page (`pageSize` up to 100), a timeline 30 and an agent's runs 10 (`limit` up to 100, then a cursor), members, agents and Slack channels 50. The record lists leave out the list page's filter counts, which would swell every page.
+- The gateway gives a call 30 seconds, so work that can take longer is queued and the tool returns at once: `check_mailbox_now` makes the caller's sources due for the minute cron's sweep, and `refresh_slack` reads Slack in the background.
 - An `AppError` reaches the model as its message, a bare code as its standard sentence. Any other failure, and `INTERNAL_ERROR`, reaches it as the SDK's "Internal error in crm (ref …)", logged with that reference.
-- Left out: connecting a mailbox or Slack, and billing checkout (browser flows); building, changing and deploying a team agent (deploying is where a person approves what it may do); the agent's chats (the app's own conversations); CSV import; the tracker's verify and site id rotation; what the gateway owns (roles, invitations, tokens, SSO).
+- Left out: connecting or disconnecting a mailbox or Slack, deleting a mailbox's synced data, and billing checkout (browser flows); building, revising and deploying a team agent, so no rollback to an older version either (deploying is where a person approves what it may do); the builder's chats and sharing them (the app's own conversations); CSV import; the tracker's verify and site id rotation; what the gateway owns (roles, invitations, tokens, SSO).
 
 ## Risk levels
 
-| Risk          | What it means                                                                                                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read`        | Changes nothing. Every connection may call it, a read-only one (`mcp:read`) included.                                                                                                 |
-| `write`       | Creates or changes data, archiving included, since every archive has a restore. Read & write connections (`mcp:write` or `*`) and browser sessions.                                   |
-| `destructive` | Deletes for good: `bulk_purge`, `delete_activity`, `delete_field`, `delete_saved_view`, `delete_team_agent`. The gateway hides and refuses these for everyone until it has approvals. |
+| Risk          | What it means                                                                                                                                                                                                                                                                                                         |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read`        | Changes nothing. Every connection may call it, a read-only one (`mcp:read`) included.                                                                                                                                                                                                                                 |
+| `write`       | Creates or changes data, archiving included, since every archive has a restore. Read & write connections (`mcp:write` or `*`) and browser sessions.                                                                                                                                                                   |
+| `destructive` | Deletes for good, or sets records to be deleted: `bulk_purge`, `delete_activity`, `delete_field`, `delete_saved_view`, `delete_team_agent`, and `set_archive_retention` (a shorter retention purges archived records at the next daily run). The gateway hides and refuses these for everyone until it has approvals. |
 
-`catalog.test.ts` holds the line: the read tools are exactly the `list_`, `get_` and `search_` tools. The gateway serves at most 100 tools an app, and drops a tool whose input or output schema is over 20 KiB.
+`catalog.test.ts` holds the line: the read tools are exactly the `list_`, `get_` and `search_` tools, and the destructive ones exactly those above. The gateway serves at most 100 tools an app, and drops a tool whose input or output schema is over 20 KiB.
 
 ## Testing
 

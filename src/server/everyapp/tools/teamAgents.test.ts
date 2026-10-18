@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-// Team agents as AI clients work them: see one and its runs, run it, stop a
-// run, pause it, delete it, through the SDK's tools endpoint on real SQL.
+// Team agents as AI clients work them: see one, its files, runs and audit
+// log, run it, stop a run, rename, pause and delete it, through the SDK's
+// tools endpoint on real SQL.
 const { testDb } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return { testDb: await createSqliteTestDb() };
@@ -25,7 +26,10 @@ import {
   idFrom,
   type Caller,
 } from "@/server/everyapp/toolTestSupport";
-import { live } from "@/server/features/team-agents/services/teamAgentTestSupport";
+import {
+  draft,
+  live,
+} from "@/server/features/team-agents/services/teamAgentTestSupport";
 
 const member: Caller = {
   sub: "user_c",
@@ -92,5 +96,115 @@ describe("team agent tools", () => {
       { scopes: [...READ_WRITE, "mcp:destructive"] },
     );
     expect(await call("list_team_agents")).toMatchObject({ total: 0 });
+  });
+
+  it("reads an agent's grants, files, runs page by page and audit log, and renames it", async () => {
+    const readOnly = { scopes: ["mcp:read"] };
+    const instructions: unknown = expect.stringContaining("one-line summary");
+    const aCursor: unknown = expect.any(String);
+    // Slack connected and read a moment ago, with #sales to post to.
+    const at = new Date().toISOString();
+    await testDb.exec(`
+      INSERT INTO slack_connection (id, organization_id, team_id, bot_token, bot_scopes, connected_at, synced_at) VALUES ('sc', 'org_a', 'T1', 'xoxb-test', 'chat:write', '${at}', '${at}');
+      INSERT INTO slack_channel (id, organization_id, slack_channel_id, name, is_member) VALUES ('ch_1', 'org_a', 'C1', 'sales', 1);
+    `);
+    const { agentId } = await live(
+      draft({
+        integrations: ["slack"],
+        actions: [
+          { type: "run.summary", provider: "crm", summary: "Summarize" },
+          {
+            type: "crm.activity.create",
+            provider: "crm",
+            summary: "Note what moved",
+            activityTypes: ["NOTE"],
+          },
+          {
+            type: "slack.message.post",
+            provider: "slack",
+            summary: "Tell sales",
+            destination: {
+              kind: "channel",
+              resolution: "chosen",
+              id: "C1",
+              label: "#sales",
+            },
+          },
+        ],
+      }),
+    );
+    expect(await call("get_team_agent", { agentId }, readOnly)).toMatchObject({
+      currentVersion: {
+        actions: [
+          { type: "run.summary" },
+          { type: "crm.activity.create", activityTypes: ["NOTE"] },
+          {
+            type: "slack.message.post",
+            destination: { kind: "channel", id: "C1", label: "#sales" },
+          },
+        ],
+      },
+    });
+    expect(
+      await call("get_team_agent_files", { agentId }, readOnly),
+    ).toMatchObject({
+      files: [
+        { path: "agent/README.md" },
+        { path: "agent/instructions.md", content: instructions },
+        { path: "agent/manifest.json" },
+      ],
+    });
+
+    // Two runs, an hour apart, one a page.
+    const older = await idFrom("run_team_agent", { agentId });
+    await call("cancel_team_agent_run", { agentId, runId: older });
+    await testDb.exec(
+      `UPDATE agent_run SET created_at = '2026-10-01T09:00:00.000Z' WHERE id = '${older}'`,
+    );
+    const newer = await idFrom("run_team_agent", { agentId });
+    const page = await call(
+      "get_team_agent_runs",
+      { agentId, limit: 1 },
+      readOnly,
+    );
+    expect(page).toMatchObject({ runs: [{ id: newer }], nextCursor: aCursor });
+    expect(
+      await call("get_team_agent_runs", {
+        agentId,
+        limit: 1,
+        cursor: page.nextCursor,
+      }),
+    ).toMatchObject({ runs: [{ id: older }], nextCursor: null });
+
+    expect(
+      await failure(
+        "rename_team_agent",
+        { agentId, name: "Deal digest" },
+        { as: member },
+      ),
+    ).toBe("Only an owner or an admin can do that.");
+    expect(
+      await call("rename_team_agent", { agentId, name: "Deal digest" }),
+    ).toEqual({
+      id: agentId,
+      name: "Deal digest",
+      description: "Summarizes deals that move.",
+      status: "LIVE",
+    });
+    expect(
+      await call("list_team_agent_activity", { agentId, limit: 1 }, readOnly),
+    ).toMatchObject({
+      events: [
+        {
+          type: "agent.updated",
+          actor: { type: "USER", name: "Ana" },
+          before: { name: "Stage watcher" },
+          after: { name: "Deal digest" },
+        },
+      ],
+    });
+    expect(
+      await failure("list_team_agent_activity", { agentId }, { as: bo }),
+    ).toBe("The requested record was not found.");
   });
 });

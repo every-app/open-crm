@@ -15,6 +15,7 @@ import {
   ACTIVITY_SUBJECT_MAX,
   COMPOSABLE_TYPES,
   TASK_WINDOWS,
+  TIMELINE_FILTERS,
   createActivitySchema,
   updateActivitySchema,
 } from "@/types/schemas/activities";
@@ -131,47 +132,69 @@ function parsed<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
   return result.data;
 }
 
+const timelineRecord = {
+  kind: z.enum(RECORD_KINDS),
+  id: z
+    .string()
+    .min(1)
+    .describe("The record's id, from search_records or the list tools."),
+};
+
 export const activityTools = {
   list_activities: crmTool({
     description:
-      "A company's, contact's or deal's timeline, newest first: notes, calls, emails, meetings, tasks, stage changes and the research agent's findings. A company's includes its people's and deals'. Filter `email` or `meetings` for captured mail and meetings. 30 a page; pass nextCursor for older entries.",
+      "A company's, contact's or deal's timeline, newest first: notes, calls, emails, meetings, tasks, stage changes and the research agent's findings. A company's includes its people's and deals'. Filter `email` or `meetings` for captured mail and meetings. 30 a page unless `limit` says (at most 100); pass nextCursor for older entries.",
     risk: "read",
     input: z
       .object({
-        kind: z.enum(RECORD_KINDS),
-        id: z
-          .string()
-          .min(1)
-          .describe("The record's id, from search_records or the list tools."),
+        ...timelineRecord,
         filter: z
-          .enum(["all", "notes", "upcoming", "done", "email", "meetings"])
+          .enum(TIMELINE_FILTERS)
           .optional()
           .describe(
-            "notes: notes, calls, emails and meetings people logged; upcoming: open tasks; done: finished tasks; email and meetings: captured ones.",
+            "history: everything but open tasks; notes: notes, calls, emails and meetings people logged; upcoming: open tasks; done: finished tasks; email and meetings: captured ones.",
           ),
         cursor: z
           .string()
           .max(200)
           .optional()
           .describe("The nextCursor of the page before."),
+        limit: z.number().int().min(1).max(100).optional(),
       })
       .strict(),
     output: z.object({
       activities: z.array(activityOutput),
       nextCursor: z.string().nullable(),
     }),
-    handler: async ({ kind, id, filter, cursor }, context) => {
+    handler: async ({ kind, id, filter, cursor, limit }, context) => {
       const page = await ActivityService.timeline(context.organizationId, {
         record: { kind, id },
         filter: filter ?? "all",
         cursor: cursor || undefined,
-        limit: 30,
+        limit: limit ?? 30,
       });
       return {
         activities: page.entries.map(toolActivity),
         nextCursor: page.nextCursor,
       };
     },
+  }),
+
+  get_timeline_counts: crmTool({
+    description:
+      "How many entries each of a company's, contact's or deal's timeline views has, as list_activities' filters name them.",
+    risk: "read",
+    input: z.object(timelineRecord).strict(),
+    output: z.object({
+      all: z.number(),
+      notes: z.number(),
+      upcoming: z.number(),
+      done: z.number(),
+      email: z.number(),
+      meetings: z.number(),
+    }),
+    handler: ({ kind, id }, context) =>
+      ActivityService.timelineCounts(context.organizationId, { kind, id }),
   }),
 
   log_activity: crmTool({

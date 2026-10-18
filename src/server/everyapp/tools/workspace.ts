@@ -1,9 +1,12 @@
+import { sortBy } from "remeda";
 import { z } from "zod";
 import { requireOrgPermission } from "@/server/auth/org-gate";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
+import { rolesOf, roleRank } from "@/client/features/members/memberRoles";
 import { crmTool, pageInput, pageOf } from "@/server/everyapp/crm-tool";
 import { EnrichmentQueueService } from "@/server/features/agent/services/EnrichmentQueueService";
 import { CurrencyService } from "@/server/features/currency/services/CurrencyService";
+import { SettingsService } from "@/server/features/settings/services/SettingsService";
 import { WorkspaceService } from "@/server/features/workspace/services/WorkspaceService";
 import { AppError } from "@/server/lib/errors";
 import { CURRENCY_CODES } from "@/shared/currency";
@@ -13,18 +16,40 @@ import {
   setManualRateSchema,
   setReportingCurrencySchema,
 } from "@/types/schemas/currency";
+import { MEMBER_ROLES, MEMBER_SORTS } from "@/types/schemas/members";
+import { SORT_DIRECTIONS } from "@/types/schemas/records";
+import { setArchiveRetentionSchema } from "@/types/schemas/settings";
 import { updateWorkspaceSchema } from "@/types/schemas/workspace";
 
-// The workspace around the records: its name and website, its members, its
-// currencies and the research agent's queue. Changing the workspace and its
-// currencies is for owners and admins, as in Settings. Members, roles and
-// invitations themselves are the Every App gateway's.
+// The workspace around the records: its name and website, how long it keeps
+// archived records, its members, its currencies and the research agent's
+// queue. Changing the workspace and its currencies is for owners and admins,
+// as in Settings. Members, roles and invitations themselves are the Every App
+// gateway's.
 
 const workspaceOutput = z.object({
   name: z.string(),
   website: z.string().nullable(),
   role: z.string().describe("The caller's role: owner, admin or member."),
+  archiveRetentionDays: z
+    .number()
+    .describe(
+      "Archived companies, contacts and deals are deleted for good this many days after they were archived.",
+    ),
 });
+
+/** The workspace as the tools show it to `context`. */
+async function workspace(context: { organizationId: string; role: string }) {
+  const [details, retention] = await Promise.all([
+    WorkspaceService.getWorkspace(context.organizationId),
+    SettingsService.getArchiveRetention(context.organizationId),
+  ]);
+  return {
+    ...details,
+    role: context.role,
+    archiveRetentionDays: retention.days,
+  };
+}
 
 const currencyOutput = z.object({
   reportingCurrency: z.string(),
@@ -63,6 +88,19 @@ const manage = { workspace: ["manage" as const] };
 
 const MEMBERS_PAGE = 50;
 
+type Member = Awaited<ReturnType<typeof AuthRepository.listMembers>>[number];
+
+/** How Settings → Members sorts its columns. */
+const MEMBER_ORDER: Record<
+  (typeof MEMBER_SORTS)[number],
+  (member: Member) => string | number
+> = {
+  name: (member) => member.name.toLowerCase(),
+  email: (member) => member.email.toLowerCase(),
+  role: roleRank,
+  joinedAt: (member) => member.joinedAt,
+};
+
 const subjectOutput = z.object({
   kind: z.enum(["company", "contact", "deal"]),
   id: z.string(),
@@ -72,14 +110,11 @@ const subjectOutput = z.object({
 export const workspaceTools = {
   get_workspace: crmTool({
     description:
-      "The workspace this CRM belongs to: the company's name and website, and the caller's role in it.",
+      "The workspace this CRM belongs to: the company's name and website, the caller's role in it, and how long archived records are kept.",
     risk: "read",
     input: z.object({}).strict(),
     output: workspaceOutput,
-    handler: async (_input, context) => ({
-      ...(await WorkspaceService.getWorkspace(context.organizationId)),
-      role: context.role,
-    }),
+    handler: (_input, context) => workspace(context),
   }),
 
   update_workspace: crmTool({
@@ -110,21 +145,56 @@ export const workspaceTools = {
           "The workspace has no website yet: give one.",
         );
       }
-      return {
-        ...(await WorkspaceService.updateWorkspace(
-          context.organizationId,
-          changed.data,
-        )),
-        role: context.role,
-      };
+      await WorkspaceService.updateWorkspace(
+        context.organizationId,
+        changed.data,
+      );
+      return workspace(context);
+    },
+  }),
+
+  set_archive_retention: crmTool({
+    description:
+      "How many days archived companies, contacts and deals are kept before the daily purge deletes them for good (owners and admins only). A shorter time deletes the ones archived longer ago at the next purge.",
+    risk: "destructive",
+    input: z
+      .object({
+        days: setArchiveRetentionSchema.shape.days.describe("From 1 to 3,650."),
+      })
+      .strict(),
+    output: workspaceOutput,
+    handler: async ({ days }, context) => {
+      requireOrgPermission(context, manage);
+      await SettingsService.setArchiveRetention(context.organizationId, days);
+      return workspace(context);
     },
   }),
 
   list_members: crmTool({
     description:
-      "The organization's members who have opened the CRM, with their roles: the people records can be owned by and tools take by email. 50 a page, oldest first.",
+      "The organization's members who have opened the CRM, with their roles: the people records can be owned by and tools take by email. `query` matches part of a name or email. 50 a page, oldest first unless sorted.",
     risk: "read",
-    input: z.object({ page: pageInput }).strict(),
+    input: z
+      .object({
+        query: z
+          .string()
+          .trim()
+          .max(200)
+          .optional()
+          .describe("Part of a member's name or email."),
+        roles: z
+          .array(z.enum(MEMBER_ROLES))
+          .max(MEMBER_ROLES.length)
+          .optional()
+          .describe("Only members with any of these roles."),
+        sort: z
+          .enum(MEMBER_SORTS)
+          .optional()
+          .describe("joinedAt unless said; role puts owners first."),
+        direction: z.enum(SORT_DIRECTIONS).optional(),
+        page: pageInput,
+      })
+      .strict(),
     output: z.object({
       total: z.number(),
       page: z.number(),
@@ -138,10 +208,25 @@ export const workspaceTools = {
         }),
       ),
     }),
-    handler: async ({ page }, context) => {
+    handler: async (input, context) => {
+      const needle = input.query?.toLowerCase() ?? "";
+      const roles: readonly string[] = input.roles ?? [];
+      const found = (
+        await AuthRepository.listMembers(context.organizationId)
+      ).filter(
+        (member) =>
+          (!needle ||
+            member.name.toLowerCase().includes(needle) ||
+            member.email.toLowerCase().includes(needle)) &&
+          (roles.length === 0 ||
+            rolesOf(member).some((role) => roles.includes(role))),
+      );
       const { rows, ...rest } = pageOf(
-        await AuthRepository.listMembers(context.organizationId),
-        page ?? 1,
+        sortBy(found, [
+          MEMBER_ORDER[input.sort ?? "joinedAt"],
+          input.direction ?? "asc",
+        ]),
+        input.page ?? 1,
         MEMBERS_PAGE,
       );
       return { ...rest, members: rows };

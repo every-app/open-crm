@@ -93,6 +93,7 @@ function listWhere(
     ownerCondition(company.ownerId, input.owner),
     anyOfCondition(company.industry, input.industry),
     anyOfCondition(company.enrichmentStatus, input.enrichment),
+    anyOfCondition(company.source, input.source ?? []),
     activityCondition(company.lastActivityAt, input.activity),
     ...fieldConditions,
   );

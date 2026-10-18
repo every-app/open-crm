@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RECORD_SOURCES } from "@/shared/crm-enums";
 import {
   ACTIVITY_WINDOWS,
   SORT_DIRECTIONS,
@@ -37,6 +38,8 @@ export const contactListSchema = listInputSchema.extend({
   /** The contact's function, as the original CRM's Persona filter. */
   persona: facetFilterSchema,
   activity: z.enum(ACTIVITY_WINDOWS).optional(),
+  /** How they came in: the MCP tools' filter (the list page has none). */
+  source: z.array(z.enum(RECORD_SOURCES)).max(RECORD_SOURCES.length).optional(),
 });
 
 export type ContactListInput = z.infer<typeof contactListSchema>;

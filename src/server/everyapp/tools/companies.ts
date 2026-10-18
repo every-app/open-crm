@@ -4,7 +4,9 @@ import {
   crmTool,
   fullName,
   memberId,
+  pageSizeInput,
   personOutput,
+  sourceOutput,
 } from "@/server/everyapp/crm-tool";
 import {
   fieldColumnsOutput,
@@ -17,7 +19,11 @@ import {
   type CompanyDetail,
   type CompanyListRow,
 } from "@/server/features/companies/services/CompanyService";
-import { DEAL_STAGES, ENRICHMENT_STATUSES } from "@/shared/crm-enums";
+import {
+  DEAL_STAGES,
+  ENRICHMENT_STATUSES,
+  RECORD_SOURCES,
+} from "@/shared/crm-enums";
 import {
   COMPANY_SORTS,
   companyListSchema,
@@ -66,6 +72,7 @@ const summaryOutput = z.object({
   openDeals: z.number(),
   lastActivityAt: z.string().nullable(),
   enrichment,
+  source: sourceOutput,
   archivedAt: z.string().nullable(),
   fields: fieldColumnsOutput,
 });
@@ -99,6 +106,8 @@ const detailsOutput = z.object({
   linkedinUrl: z.string().nullable(),
   twitterUrl: z.string().nullable(),
   githubUrl: z.string().nullable(),
+  pricingUrl: z.string().nullable(),
+  careersUrl: z.string().nullable(),
   owner: personOutput.nullable(),
   enrichment,
   primaryContact: z
@@ -165,7 +174,7 @@ const companyId = z
 export const companyTools = {
   list_companies: crmTool({
     description:
-      "Search and list companies (accounts) with their domain, industry, location, owner, people, open deals and last activity, and the custom fields shown as table columns. `query` matches part of the name or domain. 25 a page, newest first unless sorted.",
+      "Search and list companies (accounts) with their domain, industry, location, owner, people, open deals and last activity, and the custom fields shown as table columns. `query` matches part of the name or domain. 25 a page unless pageSize says, newest first unless sorted.",
     risk: "read",
     input: z
       .object({
@@ -190,6 +199,11 @@ export const companyTools = {
           .array(z.enum(ENRICHMENT_STATUSES))
           .optional()
           .describe("Only companies in these research states."),
+        sources: z
+          .array(z.enum(RECORD_SOURCES))
+          .max(RECORD_SOURCES.length)
+          .optional()
+          .describe("Only companies that came in these ways."),
         activeWithinDays: z
           .literal([7, 30, 90])
           .optional()
@@ -204,6 +218,7 @@ export const companyTools = {
         sort: z.enum(COMPANY_SORTS).optional(),
         direction: z.enum(SORT_DIRECTIONS).optional(),
         page: z.number().int().min(1).optional(),
+        pageSize: pageSizeInput,
       })
       .strict(),
     output: z.object({
@@ -230,11 +245,14 @@ export const companyTools = {
         owner: owners,
         industry: input.industries,
         enrichment: input.enrichment,
+        source: input.sources,
         activity: input.activeWithinDays?.toString(),
         archived: input.archived,
         sort: input.sort,
-        dir: input.direction,
+        // As the list pages: a chosen sort runs ascending unless said.
+        dir: input.direction ?? (input.sort ? "asc" : undefined),
         page: input.page,
+        pageSize: input.pageSize,
       });
       const [{ rows, total }, shown] = await Promise.all([
         CompanyService.listCompanies(context.organizationId, list),
@@ -251,7 +269,7 @@ export const companyTools = {
 
   get_company: crmTool({
     description:
-      "One company in full: its details, owner, primary contact, the people who work there and its deals.",
+      "One company in full: its details and links (pricing and careers pages included), owner, primary contact, the people who work there and its deals.",
     risk: "read",
     input: z.object({ id: companyId }).strict(),
     output: detailsOutput,
