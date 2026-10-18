@@ -6,6 +6,8 @@ import { QueryError } from "@/client/components/QueryState";
 import { Spinner } from "@/client/components/Spinner";
 import { Button } from "@/client/components/ui/button";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
+import { getErrorCode } from "@/client/lib/error-messages";
+import { ChatUnavailable } from "./ChatUnavailable";
 import { DeleteChatAction } from "./ChatNav";
 import { builderChatQueryOptions } from "./teamAgentQueries";
 
@@ -34,6 +36,7 @@ export function BuilderChatPage({
   const [working, setWorking] = useState(false);
 
   if (!chat.data) {
+    if (getErrorCode(chat.error) === "NOT_FOUND") return <ChatUnavailable />;
     return chat.isError ? (
       <div className="p-6">
         <QueryError

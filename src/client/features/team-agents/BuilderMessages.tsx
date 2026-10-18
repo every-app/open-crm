@@ -13,6 +13,7 @@ import {
   builderCommandType,
   consumeBuilderCommand,
 } from "@/shared/builder-command";
+import { PREVIEWABLE_IMAGE_TYPES } from "@/shared/team-agents";
 import {
   dealListsOf,
   DealListSkeleton,
@@ -20,6 +21,7 @@ import {
   isPendingDealList,
   withoutTables,
 } from "./DealListResult";
+import { tagText } from "./TagPicker";
 import { teamAgentKeys } from "./teamAgentQueries";
 
 // A builder chat's messages, as the CRM's builder chat draws them: the
@@ -33,7 +35,13 @@ const extras = z
   .object({
     resources: z.array(z.object({ label: z.string() })).catch([]),
     attachments: z
-      .array(z.object({ id: z.string(), name: z.string() }))
+      .array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          mediaType: z.string().catch(""),
+        }),
+      )
       .catch([]),
   })
   .partial()
@@ -123,21 +131,32 @@ export function UserMessage({
                 key={resource.label}
                 className="rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground"
               >
-                @{resource.label}
+                {tagText(resource.label)}
               </span>
             ))}
-            {attachments.map((file) => (
-              <a
-                key={file.id}
-                href={`/api/agent-attachments/${encodeURIComponent(file.id)}${share ? `?share=${encodeURIComponent(share)}` : ""}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Paperclip className="size-3" />
-                {file.name}
-              </a>
-            ))}
+            {attachments.map((file) => {
+              const href = `/api/agent-attachments/${encodeURIComponent(file.id)}${share ? `?share=${encodeURIComponent(share)}` : ""}`;
+              return (
+                <a
+                  key={file.id}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground has-[img]:pl-0.5"
+                >
+                  {PREVIEWABLE_IMAGE_TYPES.has(file.mediaType.toLowerCase()) ? (
+                    <img
+                      src={href}
+                      alt=""
+                      className="size-4 rounded-sm object-cover"
+                    />
+                  ) : (
+                    <Paperclip className="size-3" />
+                  )}
+                  {file.name}
+                </a>
+              );
+            })}
           </div>
         ) : null
       }

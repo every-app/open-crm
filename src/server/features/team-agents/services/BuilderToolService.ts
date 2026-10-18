@@ -7,6 +7,7 @@ import {
   CAPTURE_GRANTS,
   CAPTURE_KINDS,
   SLACK_RESOURCE,
+  slackChannelResourceId,
   type CaptureGrants,
 } from "@/shared/team-agents";
 import {
@@ -131,9 +132,18 @@ async function builderContext(tool: BuilderToolContext) {
     crmEvents: eventCatalog(),
     resources,
     taggedIntegrations: [
-      ...CAPTURE_KINDS.map((kind) => CAPTURE_GRANTS[kind].resource),
-      SLACK_RESOURCE,
-    ].filter((resource) => tool.taggedIntegrations.includes(resource.id)),
+      ...[
+        ...CAPTURE_KINDS.map((kind) => CAPTURE_GRANTS[kind].resource),
+        SLACK_RESOURCE,
+      ].filter((resource) => tool.taggedIntegrations.includes(resource.id)),
+      // A Slack channel the person tagged, under the name Slack gives it.
+      ...slack.channels.flatMap((channel) => {
+        const id = slackChannelResourceId(channel.id);
+        return tool.taggedIntegrations.includes(id)
+          ? [{ kind: "integration" as const, id, label: channel.label }]
+          : [];
+      }),
+    ],
     existingDraft: agent
       ? {
           id: agent.id,

@@ -2,10 +2,12 @@ import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { AppError } from "@/server/lib/errors";
 import {
+  AGENT_ACTION_TYPES,
   CAPTURE_GRANTS,
   CAPTURE_KINDS,
   recordResources,
   SLACK_RESOURCE,
+  slackDestinationOf,
   type AgentManifest,
 } from "@/shared/team-agents";
 import {
@@ -284,13 +286,37 @@ export async function saveForReview(
     ...record,
     label: labels.get(`${record.kind}:${record.id}`) ?? record.label,
   }));
-  const draft = { ...parsed.data, resources };
+  // The Slack destination the deployed version posts to stays approved, as
+  // the CRM never checked it again on a revision: a channel renamed since
+  // keeps its place, under the name Slack now gives it.
+  const deployed = readable(from.manifest);
+  const kept = deployed.readable ? slackDestinationOf(deployed.manifest) : null;
+  const actions = parsed.data.actions.map((action) => {
+    if (
+      action.type !== AGENT_ACTION_TYPES.SLACK_MESSAGE_POST ||
+      action.destination.kind !== kept?.kind ||
+      action.destination.id !== kept.id
+    ) {
+      return action;
+    }
+    const current = (kept.kind === "user" ? slack.people : slack.channels).find(
+      (entry) => entry.id === kept.id,
+    );
+    return {
+      ...action,
+      destination: {
+        ...action.destination,
+        label: current?.label ?? action.destination.label,
+      },
+    };
+  });
+  const draft = { ...parsed.data, resources, actions };
   // Every record it names counts as tagged: what matters is that it exists.
   const issues = draftIssues(
     draft,
     resources.map((record) => ({ ...record, detail: null })),
     existing,
-    { slack, capture },
+    { slack, capture, kept },
     now,
   );
   if (issues.length > 0) return { saved: false, issues };

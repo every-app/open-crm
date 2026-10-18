@@ -1,13 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { MessagesSquare, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { messageHasVisibleContent } from "@/client/components/chat/ChatMessage";
 import { useStickToBottom } from "@/client/components/chat/useStickToBottom";
-import { EmptyState } from "@/client/components/EmptyState";
 import { QueryError } from "@/client/components/QueryState";
 import { Spinner } from "@/client/components/Spinner";
-import { Button } from "@/client/components/ui/button";
 import { AgentCodeWorkspace } from "@/client/features/team-agents/AgentCodeWorkspace";
+import { ChatUnavailable } from "@/client/features/team-agents/ChatUnavailable";
 import {
   AssistantMessage,
   UserMessage,
@@ -95,27 +93,6 @@ function SharedThread({ chat, token }: { chat: SharedChat; token: string }) {
           ) : null}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ChatUnavailable() {
-  return (
-    <div className="flex h-full items-center justify-center p-6">
-      <EmptyState
-        variant="plain"
-        icon={MessagesSquare}
-        title="Chat unavailable"
-        action={
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<Link to="/chat" />}
-          >
-            Start a new chat
-          </Button>
-        }
-      />
     </div>
   );
 }

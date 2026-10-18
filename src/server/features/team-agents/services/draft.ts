@@ -130,18 +130,44 @@ function accessOf(input: DraftInput): string[] {
   ];
 }
 
+/** What is wrong with a Slack action's destination, if anything. */
+function destinationIssue(
+  destination: { kind: "channel" | "user"; id: string; label: string },
+  slack: SlackInventory,
+  kept: { kind: string; id: string } | null | undefined,
+): string | null {
+  // A destination a deployed version already posts to was checked when that
+  // version was saved.
+  if (kept?.kind === destination.kind && kept.id === destination.id) {
+    return null;
+  }
+  const options = destination.kind === "user" ? slack.people : slack.channels;
+  const noun = destination.kind === "user" ? "person" : "channel";
+  const option = options.find((entry) => entry.id === destination.id);
+  if (!option) return `The Slack ${noun} is not available to this workspace.`;
+  if (option.label !== destination.label) {
+    return `The Slack ${noun} must use its exact inspected label, "${option.label}".`;
+  }
+  return null;
+}
+
 /**
  * Everything wrong with a draft, in sentences the builder can fix; empty when
- * it may be saved.
+ * it may be saved. `kept` is a Slack destination already approved in a
+ * deployed version, which isn't checked against the inventory again.
  */
 export function draftIssues(
   input: DraftInput,
   tagged: readonly DescribedRecord[],
   existing: readonly DescribedRecord[],
-  connections: { slack: SlackInventory; capture: CaptureGrants },
+  connections: {
+    slack: SlackInventory;
+    capture: CaptureGrants;
+    kept?: { kind: string; id: string } | null;
+  },
   now: Date,
 ): string[] {
-  const { slack, capture } = connections;
+  const { slack, capture, kept } = connections;
   const issues: string[] = [];
   if (input.recordScope === "SELECTED" && input.resources.length === 0) {
     issues.push("Selected CRM scope needs at least one tagged record.");
@@ -203,19 +229,8 @@ export function draftIssues(
           "Posting to Slack needs Slack in this agent's integrations.",
         );
       }
-      const options =
-        action.destination.kind === "user" ? slack.people : slack.channels;
-      const noun = action.destination.kind === "user" ? "person" : "channel";
-      const option = options.find(
-        (entry) => entry.id === action.destination.id,
-      );
-      if (!option) {
-        issues.push(`The Slack ${noun} is not available to this workspace.`);
-      } else if (option.label !== action.destination.label) {
-        issues.push(
-          `The Slack ${noun} must use its exact inspected label, "${option.label}".`,
-        );
-      }
+      const issue = destinationIssue(action.destination, slack, kept);
+      if (issue) issues.push(issue);
     }
     if (
       action.type === AGENT_ACTION_TYPES.CRM_ACTIVITY_CREATE &&

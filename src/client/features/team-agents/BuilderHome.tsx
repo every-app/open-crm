@@ -1,23 +1,15 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { AgentUnavailable } from "@/client/features/agent/AgentThreadParts";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
-import { createBuilderChat } from "@/serverFunctions/teamAgents";
-import {
-  BuilderComposer,
-  uploadAttachments,
-  type BuilderMessage,
-  type ComposerMessage,
-} from "./BuilderComposer";
-import { teamAgentKeys } from "./teamAgentQueries";
+import { BuilderComposer } from "./BuilderComposer";
 import { BUILDER_SUGGESTIONS } from "./teamAgentCopy";
+import { useStartChat } from "./useStartChat";
 
 declare module "@tanstack/react-router" {
   interface HistoryState {
-    /** The message a builder chat opens with, sent once it connects. */
-    builderFirstMessage?: BuilderMessage;
     /** An agent to start describing, as Settings → Slack's suggestions give. */
     builderDraft?: string;
   }
@@ -25,12 +17,10 @@ declare module "@tanstack/react-router" {
 
 /**
  * Chat's home (the CRM's builder home): ask about the CRM, or describe an
- * agent. The chat exists once there is something to say in it, and the
- * files the first message attaches are kept in it then.
+ * agent. The chat exists once there is something to say in it, and starts
+ * with that message and its files in one call.
  */
 export function BuilderHome() {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const status = useQuery(agentStatusQueryOptions());
   // As in a record's chat: only no way to a model at all closes the
   // composer; after a refusal the next message is the next try.
@@ -39,22 +29,7 @@ export function BuilderHome() {
     select: (location) => location.state.builderDraft,
   });
   const [suggestion, setSuggestion] = useState<string | null>(draft ?? null);
-
-  const start = useMutation({
-    mutationFn: async ({ text, resources, files }: ComposerMessage) => {
-      const chat = await createBuilderChat();
-      const attachments = await uploadAttachments(chat.id, files);
-      return { chat, message: { text, metadata: { resources, attachments } } };
-    },
-    onSuccess: async ({ chat, message }) => {
-      await queryClient.invalidateQueries({ queryKey: teamAgentKeys.chats() });
-      await navigate({
-        to: "/chat/$chatId",
-        params: { chatId: chat.id },
-        state: { builderFirstMessage: message },
-      });
-    },
-  });
+  const start = useStartChat();
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 pt-14 pb-20 sm:px-6 sm:pt-12 sm:pb-28">

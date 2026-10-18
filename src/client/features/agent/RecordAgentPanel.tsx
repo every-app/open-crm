@@ -14,6 +14,10 @@ import {
   DropdownMenuTrigger,
 } from "@/client/components/ui/dropdown-menu";
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
+import {
+  useAppSearch,
+  useSetAppSearch,
+} from "@/client/features/records/recordStack";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
 import type { RecordRef } from "@/shared/records";
 import {
@@ -71,6 +75,9 @@ function PanelLoading() {
   );
 }
 
+/** The URL's `thread` for a new conversation, not started yet. */
+const NEW_THREAD = "new";
+
 function LoadedAgentPanel({
   record,
   conversations,
@@ -79,12 +86,17 @@ function LoadedAgentPanel({
   conversations: Conversation[];
 }) {
   const queryClient = useQueryClient();
-  // The conversation the tab landed on is captured once, so a list refetch
-  // (a new title, a reply elsewhere) never swaps the open conversation out
-  // from under a live answer. Null is a new conversation, not started yet.
-  const [openId, setOpenId] = useState<string | null>(
-    () => conversations[0]?.id ?? null,
-  );
+  const setSearch = useSetAppSearch();
+  // The open conversation is the URL's (`thread`), so a reload or a link
+  // opens it again, as the CRM's record stack kept it. Without one, the tab
+  // opens on the conversation it landed on, captured once so a list refetch
+  // (a new title, a reply elsewhere) never swaps it out from under a live
+  // answer.
+  const { thread } = useAppSearch();
+  const [landedOn] = useState(() => conversations[0]?.id ?? NEW_THREAD);
+  const openId = thread ?? landedOn;
+  const setOpenId = (id: string | null) =>
+    setSearch({ thread: id ?? NEW_THREAD });
   const [firstMessage, setFirstMessage] = useState<{
     conversationId: string;
     text: string;

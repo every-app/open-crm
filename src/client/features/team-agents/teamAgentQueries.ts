@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
+import { getErrorCode } from "@/client/lib/error-messages";
 import {
   getBuilderChat,
   getTeamAgent,
@@ -74,6 +75,9 @@ export const builderChatQueryOptions = (conversationId: string) =>
   queryOptions({
     queryKey: teamAgentKeys.chat(conversationId),
     queryFn: () => getBuilderChat({ data: { conversationId } }),
+    // A chat that isn't there won't be on a retry.
+    retry: (failures, error) =>
+      getErrorCode(error) !== "NOT_FOUND" && failures < 3,
   });
 
 export const builderResourcesQueryOptions = (q: string) =>

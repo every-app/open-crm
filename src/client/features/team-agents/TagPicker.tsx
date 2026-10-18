@@ -4,6 +4,7 @@ import {
   AppWindow,
   AtSign,
   CalendarDays,
+  Hash,
   Mail,
   type LucideIcon,
 } from "lucide-react";
@@ -17,16 +18,20 @@ import {
 import { Skeleton } from "@/client/components/ui/skeleton";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
 import type { searchBuilderResources } from "@/serverFunctions/teamAgents";
-import { CAPTURE_GRANTS } from "@/shared/team-agents";
+import { CAPTURE_GRANTS, taggedSlackChannel } from "@/shared/team-agents";
 import { builderResourcesQueryOptions } from "./teamAgentQueries";
 
-// The composer's tag picker, the CRM's builder resources: a record or an
-// integration a message is about.
+// The composer's tag picker, the CRM's builder resources: a record, an
+// integration or a Slack channel a message is about.
 
 type Resource = Awaited<ReturnType<typeof searchBuilderResources>>[number];
 
 /** A record or integration a message is tagged with. */
 export type TaggedResource = Pick<Resource, "kind" | "id" | "label">;
+
+/** A tag as a message shows it: a Slack channel by its own name. */
+export const tagText = (label: string) =>
+  label.startsWith("#") ? label : `@${label}`;
 
 const INTEGRATION_ICONS: Record<string, LucideIcon> = {
   [CAPTURE_GRANTS.email.resource.id]: Mail,
@@ -55,7 +60,9 @@ function ResourcePicture({ resource }: { resource: Resource }) {
       />
     );
   }
-  const Icon = INTEGRATION_ICONS[resource.id] ?? AppWindow;
+  const Icon =
+    INTEGRATION_ICONS[resource.id] ??
+    (taggedSlackChannel(resource.id) ? Hash : AppWindow);
   return (
     <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
       <Icon className="size-3" aria-hidden />

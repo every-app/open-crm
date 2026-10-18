@@ -16,6 +16,8 @@ import { RECORD_KINDS, type RecordRef } from "@/shared/records";
 //   add                    a company's quick-add form, "contact" or "deal"
 //   timeline               the Activity tab's view; All when absent
 //   emailThread            the email thread open on the timeline
+//   thread                 the conversation with the agent open on the
+//                          Agent tab, or "new"
 //   manageFields           the fields sheet, on a kind of record's fields
 //   manageField            the field it edits, by key, or "new"
 //   k                      the quick switcher (⌘K)
@@ -106,6 +108,7 @@ export const appSearchSchema = z.object({
   add: z.enum(QUICK_ADDS).optional().catch(undefined),
   timeline: z.enum(TIMELINE_VIEWS).optional().catch(undefined),
   emailThread: textParam,
+  thread: textParam,
   manageFields: z.enum(RECORD_KINDS).optional().catch(undefined),
   manageField: textParam,
   k: z.boolean().optional().catch(undefined),
@@ -128,6 +131,7 @@ const PANELS_CLOSED = {
   add: undefined,
   timeline: undefined,
   emailThread: undefined,
+  thread: undefined,
   manageFields: undefined,
   manageField: undefined,
   k: undefined,

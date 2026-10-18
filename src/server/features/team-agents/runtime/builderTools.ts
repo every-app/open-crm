@@ -1,8 +1,10 @@
 import { BuilderToolService } from "@/server/features/team-agents/services/BuilderToolService";
 import { openrouter } from "@openrouter/ai-sdk-provider";
-import { tool, type ToolSet } from "ai";
+import { jsonSchema, tool, type ToolExecutionOptions, type ToolSet } from "ai";
+import { mapValues } from "remeda";
 import { z } from "zod";
 import type { AgentToolContext } from "@/server/features/agent/tools/context";
+import { QUESTION_PARAMETERS } from "@/shared/agent-question";
 import { conversationTools } from "@/server/features/agent/tools/conversation";
 import { fieldTools } from "@/server/features/agent/tools/fields";
 import { historyTools } from "@/server/features/agent/tools/history";
@@ -20,9 +22,12 @@ import { webFetch } from "./webFetch";
 // gets the research agent's people and company research (the CRM's chat could
 // research people and companies on the web), paid from the turn's budget, and
 // the CRM chat's own web tools. Writing files and saving a draft exist only in
-// a turn that asks for an agent, and close once a draft is saved.
-// ask_question is the chat client's tool
-// (src/client/features/team-agents/builderQuestion.ts).
+// a turn that asks for an agent, and close once a draft is saved; such a
+// build has the CRM builder's 12 tool calls and 2 saves. ask_question has no
+// server side: the turn parks on it and the chat asks it in place of the
+// composer (src/shared/agent-question.ts). It is declared here, not by the
+// chat client, so a turn the server started (a chat's first message) can ask
+// too.
 
 /**
  * The CRM chat's web_search: eve's built-in, which the model's provider runs.
@@ -53,6 +58,41 @@ function chatResearch(context: AgentToolContext): ToolSet {
   };
 }
 
+/**
+ * A build's tool calls and draft saves, as the CRM's builder capped them
+ * (agent_builder/lib/execution-state.ts): past either, every call refuses.
+ */
+const BUILD_LIMITS = { toolCalls: 12, saves: 2 } as const;
+
+/** `tools`, each call counted against a build's limits before it runs. */
+function withinBuildLimits(tools: ToolSet): ToolSet {
+  let calls = 0;
+  let saves = 0;
+  return mapValues(tools, (definition, name) => {
+    const execute = definition.execute;
+    if (!execute) return definition;
+    return {
+      ...definition,
+      execute: (input: unknown, options: ToolExecutionOptions) => {
+        calls += 1;
+        if (calls > BUILD_LIMITS.toolCalls) {
+          throw new Error("The agent builder exceeded its tool-call budget.");
+        }
+        if (name === "save_agent_draft") {
+          saves += 1;
+          if (saves > BUILD_LIMITS.saves) {
+            throw new Error(
+              "The agent builder exceeded its draft-save budget.",
+            );
+          }
+        }
+        const result: unknown = execute(input, options);
+        return result;
+      },
+    };
+  });
+}
+
 export function builderTools(
   context: BuilderToolContext & {
     creating: boolean;
@@ -74,8 +114,13 @@ export function builderTools(
     ...conversationTools(context.agentContext),
     list_fields: fieldTools(context.agentContext).list_fields,
   };
-  return {
+  const tools: ToolSet = {
     ...reads,
+    ask_question: tool({
+      description:
+        "Ask the person one focused question when an essential choice blocks a safe draft: which inspected Slack channel or teammate, which schedule, or which outcome. Offer two to four inspected options, each with the inspected id as its id, a label without ids and what tells it apart, and allow a typed answer when a custom one is valid. Never ask for an id, a handle that inspect_context already resolves, or optional polish. Their answer comes back as this tool's output.",
+      inputSchema: jsonSchema(QUESTION_PARAMETERS),
+    }),
     inspect_context: tool({
       description:
         "Read the authoritative builder context: supported CRM events, connected sources, matched Slack people, available Slack channels, the records tagged in this chat, the current time, and the latest draft.",
@@ -119,4 +164,5 @@ export function builderTools(
         }
       : chatResearch(context.agentContext)),
   };
+  return context.creating ? withinBuildLimits(tools) : tools;
 }

@@ -31,11 +31,11 @@ import {
 } from "./revisionVersions";
 
 // Changing a deployed agent from its page, as the CRM's revise and saveFile:
-// turn actions off, move its Slack channel, change its records and its
-// captured email or meetings, or edit its files. Taking something away is a
-// new deployed version at once (the person making it is approving it); giving
-// it more, or editing its manifest, makes a version that waits for review
-// (revisionVersions.ts).
+// turn actions off, move its Slack channel, change its records (narrowing a
+// workspace-wide agent to some) and its captured email or meetings, or edit
+// its files. Taking something away is a new deployed version at once (the
+// person making it is approving it); giving it more, or editing its manifest,
+// makes a version that waits for review (revisionVersions.ts).
 
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
@@ -197,9 +197,10 @@ function reviseSummary(input: {
 /**
  * A change from the agent's page, as the CRM's revise: turn actions off, move
  * the Slack destination, set its records, or set which captured sources it
- * reads. Taking away is a new deployed version at once, with the triggers
- * moved over; a record or a captured source it didn't have makes a version
- * that waits for review. A replayed request changes nothing.
+ * reads. Taking away (narrowing a workspace-wide agent to chosen records
+ * included) is a new deployed version at once, with the triggers moved over;
+ * a record or a captured source it didn't have makes a version that waits
+ * for review. A replayed request changes nothing.
  */
 async function revise(
   context: Context,
@@ -253,9 +254,26 @@ async function revise(
     requestId: input.clientRequestId,
   };
 
+  // A workspace-wide agent reads every record already: naming some narrows
+  // it, as long as no event trigger needs the whole workspace.
+  const workspaceWide = manifest.dataScope.mode === "WORKSPACE";
+  if (
+    workspaceWide &&
+    next.dataScope.mode === "SELECTED" &&
+    manifest.triggers.some((trigger) => trigger.type === "EVENT")
+  ) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Event triggers need workspace CRM scope.",
+    );
+  }
   const had = new Set(manifest.dataScope.resources.map(recordKey));
   if (
-    next.dataScope.resources.some((resource) => !had.has(recordKey(resource)))
+    next.dataScope.resources.some(
+      (resource) =>
+        !had.has(recordKey(resource)) &&
+        (!workspaceWide || resource.kind === "integration"),
+    )
   ) {
     return saveForReview(context, {
       from: version,
