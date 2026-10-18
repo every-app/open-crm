@@ -1,18 +1,12 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { structuredPatch } from "diff";
-import { toast } from "sonner";
 import { cn } from "cn";
 import { QueryState } from "@/client/components/QueryState";
-import {
-  SettingsCard,
-  SettingsCardFooter,
-} from "@/client/components/SettingsSection";
+import { SettingsCard } from "@/client/components/SettingsSection";
 import { Button } from "@/client/components/ui/button";
 import { Textarea } from "@/client/components/ui/textarea";
-import { saveTeamAgentFiles } from "@/serverFunctions/teamAgents";
-import { REVIEW_SAVED } from "./teamAgentCopy";
-import { teamAgentFilesQueryOptions, teamAgentKeys } from "./teamAgentQueries";
+import { teamAgentFilesQueryOptions } from "./teamAgentQueries";
 
 type AgentFile = {
   path: string;
@@ -20,21 +14,31 @@ type AgentFile = {
   previousContent: string | null;
 };
 
-const MANIFEST_PATH = "agent/manifest.json";
+export const MANIFEST_PATH = "agent/manifest.json";
+
+/**
+ * The unsaved edits to a version's files: the page keeps them, with its other
+ * changes, until its save bar saves or discards them.
+ */
+export type CodeEdits = {
+  drafts: Record<string, string>;
+  onDraft: (path: string, content: string) => void;
+  /** What the checks refused in the last save. */
+  issues: string[];
+};
 
 /**
  * A version's files (the CRM's agent code): one tab per file, each file's
- * change from its previous revision, and, for its creator or an admin,
- * editing. Saving writes a new revision of each edited file.
+ * change from its previous revision, and, with `edits`, editing.
  */
 export function AgentCode({
   agentId,
   versionId,
-  editable,
+  edits,
 }: {
   agentId: string;
   versionId: string;
-  editable: boolean;
+  edits?: CodeEdits;
 }) {
   const files = useQuery(teamAgentFilesQueryOptions(agentId, versionId));
   return (
@@ -43,17 +47,11 @@ export function AgentCode({
         data.files.length === 0 ? (
           <SettingsCard>
             <p className="px-5 py-4 text-sm text-muted-foreground">
-              This agent has no files yet. The builder writes them when it
-              deploys.
+              No files yet.
             </p>
           </SettingsCard>
         ) : (
-          <CodeFiles
-            key={versionId}
-            agentId={agentId}
-            files={data.files}
-            editable={editable}
-          />
+          <CodeFiles key={versionId} files={data.files} edits={edits} />
         )
       }
     </QueryState>
@@ -61,53 +59,16 @@ export function AgentCode({
 }
 
 function CodeFiles({
-  agentId,
   files,
-  editable,
+  edits,
 }: {
-  agentId: string;
   files: AgentFile[];
-  editable: boolean;
+  edits: CodeEdits | undefined;
 }) {
-  const queryClient = useQueryClient();
   const [active, setActive] = useState(files[0]?.path ?? "");
   const [mode, setMode] = useState<"code" | "changes" | "edit">("code");
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [issues, setIssues] = useState<string[]>([]);
+  const drafts = edits?.drafts ?? {};
   const file = files.find((entry) => entry.path === active) ?? files[0];
-  const edited = files.filter(
-    (entry) =>
-      drafts[entry.path] !== undefined && drafts[entry.path] !== entry.content,
-  );
-  const discard = () => {
-    setDrafts({});
-    setIssues([]);
-    setMode("code");
-  };
-  const save = useMutation({
-    mutationFn: () =>
-      saveTeamAgentFiles({
-        data: {
-          agentId,
-          clientRequestId: crypto.randomUUID(),
-          files: edited.map((entry) => ({
-            path: entry.path,
-            content: drafts[entry.path] ?? entry.content,
-          })),
-        },
-      }),
-    onSuccess: async (result) => {
-      if (!result.saved) {
-        setIssues(result.issues);
-        return;
-      }
-      discard();
-      toast.success(result.review ? REVIEW_SAVED : "Saved.");
-      await queryClient.invalidateQueries({
-        queryKey: teamAgentKeys.agent(agentId),
-      });
-    },
-  });
   if (!file) return null;
 
   const shown = drafts[file.path] ?? file.content;
@@ -135,7 +96,8 @@ function CodeFiles({
               )}
             >
               {entry.path.split("/").pop()}
-              {edited.includes(entry) ? (
+              {drafts[entry.path] !== undefined &&
+              drafts[entry.path] !== entry.content ? (
                 <span
                   className="size-1.5 rounded-full bg-warning"
                   aria-label="Edited"
@@ -154,7 +116,7 @@ function CodeFiles({
               {mode === "changes" ? "Hide changes" : "Changes"}
             </Button>
           ) : null}
-          {editable ? (
+          {edits ? (
             <Button
               size="xs"
               variant={mode === "edit" ? "secondary" : "ghost"}
@@ -166,19 +128,13 @@ function CodeFiles({
         </div>
       </div>
       <div key={`${mode}:${file.path}`} className="max-h-[32rem] overflow-auto">
-        {mode === "edit" ? (
+        {mode === "edit" && edits ? (
           <Textarea
             value={shown}
             spellCheck={false}
             aria-label={`Edit ${file.path}`}
             className="min-h-80 rounded-none border-0 bg-transparent px-5 py-4 font-mono text-xs leading-5 shadow-none focus-visible:ring-0 md:text-xs"
-            onChange={(event) => {
-              setIssues([]);
-              setDrafts((current) => ({
-                ...current,
-                [file.path]: event.target.value,
-              }));
-            }}
+            onChange={(event) => edits.onDraft(file.path, event.target.value)}
           />
         ) : mode === "changes" && before !== null ? (
           <FileDiff before={before} after={shown} />
@@ -188,42 +144,12 @@ function CodeFiles({
           </pre>
         )}
       </div>
-      {issues.length > 0 ? (
+      {edits && edits.issues.length > 0 ? (
         <ul className="space-y-1 px-5 py-3 text-sm text-destructive">
-          {issues.map((issue) => (
+          {edits.issues.map((issue) => (
             <li key={issue}>{issue}</li>
           ))}
         </ul>
-      ) : null}
-      {editable && (mode === "edit" || edited.length > 0) ? (
-        <SettingsCardFooter
-          note={
-            edited.length > 0
-              ? `${edited.length} file${edited.length === 1 ? "" : "s"} changed. Saving writes a new revision.${
-                  edited.some((entry) => entry.path === MANIFEST_PATH)
-                    ? " A changed manifest waits for review."
-                    : ""
-                }`
-              : null
-          }
-        >
-          {edited.length > 0 ? (
-            <Button
-              variant="outline"
-              disabled={save.isPending}
-              onClick={discard}
-            >
-              Discard
-            </Button>
-          ) : null}
-          <Button
-            disabled={edited.length === 0}
-            pending={save.isPending}
-            onClick={() => save.mutate()}
-          >
-            Save
-          </Button>
-        </SettingsCardFooter>
       ) : null}
     </SettingsCard>
   );
