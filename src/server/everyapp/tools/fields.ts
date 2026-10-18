@@ -1,8 +1,18 @@
 import { z } from "zod";
 import { requireOrgPermission } from "@/server/auth/org-gate";
 import { crmTool } from "@/server/everyapp/crm-tool";
+import {
+  fieldValueOutput,
+  userFieldsByEmail,
+  withMemberIds,
+} from "@/server/everyapp/tools/fieldFilters";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
+import {
+  FIELD_ENTITIES,
+  FIELD_TYPES,
+  type FieldEntity,
+} from "@/shared/crm-enums";
 import {
   createFieldSchema,
   fieldEntitySchema,
@@ -10,6 +20,10 @@ import {
   fieldValueInputSchema,
   updateFieldSchema,
 } from "@/types/schemas/fields";
+
+// Custom fields: everyone reads them and sets their values on records;
+// owners and admins add, change, archive and delete them and ask the
+// research agent to fill them, as in the app.
 
 const entityInput = fieldEntitySchema.describe(
   "Which records: COMPANY, CONTACT or DEAL.",
@@ -21,10 +35,65 @@ const recordIdInput = z
   .max(64)
   .describe("The id of the company, contact or deal.");
 
+const fieldIdInput = fieldIdSchema
+  .extend({
+    id: fieldIdSchema.shape.id.describe("The field's id, from list_fields."),
+  })
+  .strict();
+
+const fieldOutput = z.object({
+  id: z.string(),
+  entity: z.enum(FIELD_ENTITIES),
+  key: z.string().describe("What set_field_values and the filters take."),
+  label: z.string(),
+  type: z.enum(FIELD_TYPES),
+  options: z
+    .array(z.object({ id: z.string(), label: z.string() }))
+    .describe("A select's options."),
+  agentFilled: z.boolean().describe("The research agent fills it."),
+  agentBrief: z
+    .string()
+    .nullable()
+    .describe("What counts as an answer, for the agent."),
+  required: z.boolean(),
+  showOnTable: z.boolean().describe("The list tools return its values."),
+  archived: z.boolean(),
+});
+
+const recordFieldsOutput = z.object({
+  fields: z.array(
+    fieldOutput.extend({
+      value: fieldValueOutput.describe(
+        "A select's is its option's id; a user field's the member's email.",
+      ),
+    }),
+  ),
+});
+
+/** A record's fields, user fields' values by email. */
+async function recordFields(
+  organizationId: string,
+  entity: FieldEntity,
+  recordId: string,
+) {
+  const [fields, shown] = await Promise.all([
+    FieldValuesService.recordFields(organizationId, entity, recordId),
+    userFieldsByEmail(organizationId, entity),
+  ]);
+  return {
+    fields: fields.map((field) => ({
+      ...field,
+      value: shown(field.key, field.value),
+    })),
+  };
+}
+
+const manage = { field: ["manage" as const] };
+
 export const fieldTools = {
   list_fields: crmTool({
     description:
-      "The custom fields the organization added to companies, contacts or deals, in the order records show them: each field's key (what get_field_values and set_field_values take), label, type, a select's options (id and label), and its brief, which says what counts as an answer. Archived fields are left out unless asked for.",
+      "The custom fields on companies, contacts or deals, in the order records show them: each one's key, label, type, a select's options and the brief the research agent fills it from. Archived fields only when asked.",
     risk: "read",
     input: z
       .object({
@@ -32,25 +101,30 @@ export const fieldTools = {
         includeArchived: z
           .boolean()
           .optional()
-          .describe("Also list archived fields, which records hide."),
+          .describe("Also list archived fields."),
       })
       .strict(),
-    handler: ({ entity, includeArchived }, context) =>
-      FieldsService.list(context.organizationId, entity, { includeArchived }),
+    output: z.object({ fields: z.array(fieldOutput) }),
+    handler: async ({ entity, includeArchived }, context) => ({
+      fields: await FieldsService.list(context.organizationId, entity, {
+        includeArchived,
+      }),
+    }),
   }),
 
   get_field_values: crmTool({
     description:
-      "One company's, contact's or deal's custom fields, each with its value (null when empty). A select's value is its option's id; the field lists its options.",
+      "One company's, contact's or deal's custom fields, each with its value (null when empty).",
     risk: "read",
     input: z.object({ entity: entityInput, recordId: recordIdInput }).strict(),
+    output: recordFieldsOutput,
     handler: ({ entity, recordId }, context) =>
-      FieldValuesService.recordFields(context.organizationId, entity, recordId),
+      recordFields(context.organizationId, entity, recordId),
   }),
 
   set_field_values: crmTool({
     description:
-      "Set custom field values on one company, contact or deal, by field key (call list_fields for the keys). A select takes an option's id or label, a date YYYY-MM-DD, a checkbox true or false, a user field the user id of someone in the organization, and null clears a value. Every value is checked before any is written. Returns the record's fields.",
+      "Set custom field values on one company, contact or deal, by field key (list_fields). A select takes an option's id or label, a date YYYY-MM-DD, a checkbox true or false, a user field a member's email; null clears. Every value is checked before any is written.",
     risk: "write",
     input: z
       .object({
@@ -61,61 +135,62 @@ export const fieldTools = {
           .describe('Values by field key, e.g. { "segment": "Enterprise" }.'),
       })
       .strict(),
+    output: recordFieldsOutput,
     handler: async ({ entity, recordId, values }, context) => {
       await FieldValuesService.setValues(
         context.organizationId,
         entity,
         recordId,
-        values,
+        await withMemberIds(context.organizationId, entity, values),
       );
-      return FieldValuesService.recordFields(
-        context.organizationId,
-        entity,
-        recordId,
-      );
+      return recordFields(context.organizationId, entity, recordId);
     },
   }),
 
   create_field: crmTool({
     description:
-      "Add a custom field to every company, contact or deal (owners and admins only). Its key is made from the label and never changes. A select needs its options. By default the research agent fills it (agentFilled), working from the label, the type and the brief; it is queued for existing records at once.",
+      "Add a custom field to every company, contact or deal (owners and admins only). Its key comes from the label and never changes. A select needs options. The research agent fills it from the label, type and brief unless agentFilled is false, starting with the existing records.",
     risk: "write",
     input: createFieldSchema.strict(),
-    handler: (input, context) => {
-      requireOrgPermission(context, { field: ["manage"] });
+    output: fieldOutput,
+    handler: async (input, context) => {
+      requireOrgPermission(context, manage);
       return FieldsService.create(context.organizationId, input);
     },
   }),
 
   update_field: crmTool({
     description:
-      "Change a custom field's label, brief, options or placement (owners and admins only). The key never changes, and the type only while the field holds no values. Passing options replaces the select's list: keep an option by sending its id, and an option left out is retired (values that use it keep it).",
+      "Change a custom field's label, brief, options or placement (owners and admins only). The key never changes, the type only while it holds no values. Options replace the list: keep one by sending its id; one left out is retired, and records keep it.",
     risk: "write",
     input: updateFieldSchema.strict(),
-    handler: (input, context) => {
-      requireOrgPermission(context, { field: ["manage"] });
+    output: fieldOutput,
+    handler: async (input, context) => {
+      requireOrgPermission(context, manage);
       return FieldsService.update(context.organizationId, input);
     },
   }),
 
   archive_field: crmTool({
     description:
-      "Archive a custom field (owners and admins only): it disappears from every record, table and filter, and its values are kept.",
-    risk: "destructive",
-    input: fieldIdSchema.strict(),
-    handler: ({ id }, context) => {
-      requireOrgPermission(context, { field: ["manage"] });
+      "Archive a custom field (owners and admins only): records, tables and filters stop showing it and its values are kept. restore_field brings it back.",
+    risk: "write",
+    input: fieldIdInput,
+    output: fieldOutput,
+    handler: async ({ id }, context) => {
+      requireOrgPermission(context, manage);
       return FieldsService.archive(context.organizationId, id);
     },
   }),
 
   restore_field: crmTool({
     description:
-      "Restore an archived custom field (owners and admins only), with the values it kept.",
+      "Restore an archived custom field with its values (owners and admins only).",
     risk: "write",
-    input: fieldIdSchema.strict(),
-    handler: ({ id }, context) => {
-      requireOrgPermission(context, { field: ["manage"] });
+    input: fieldIdInput,
+    output: fieldOutput,
+    handler: async ({ id }, context) => {
+      requireOrgPermission(context, manage);
       return FieldsService.restore(context.organizationId, id);
     },
   }),
@@ -124,20 +199,40 @@ export const fieldTools = {
     description:
       "Delete a custom field and every value it holds, for good (owners and admins only). archive_field keeps the values.",
     risk: "destructive",
-    input: fieldIdSchema.strict(),
-    handler: ({ id }, context) => {
-      requireOrgPermission(context, { field: ["manage"] });
+    input: fieldIdInput,
+    output: z.object({ id: z.string() }),
+    handler: async ({ id }, context) => {
+      requireOrgPermission(context, manage);
       return FieldsService.remove(context.organizationId, id);
     },
   }),
 
+  get_field_coverage: crmTool({
+    description:
+      "How many live records have a value for a custom field, of how many: what fill_field would have left to do.",
+    risk: "read",
+    input: fieldIdInput,
+    output: z.object({
+      filled: z.number().describe("Live records with a value."),
+      total: z.number().describe("Live records."),
+    }),
+    handler: ({ id }, context) =>
+      FieldsService.coverage(context.organizationId, id),
+  }),
+
   fill_field: crmTool({
     description:
-      "Ask the research agent to fill a custom field on the records that have no value yet, up to 500 at a time (owners and admins only, and only for fields the agent fills). Returns how many records were queued, and how many already-queued ones had this field added.",
+      "Ask the research agent to fill a custom field on records with no value yet, up to 500 at a time (owners and admins only, fields the agent fills). It costs the organization credits.",
     risk: "write",
-    input: fieldIdSchema.strict(),
-    handler: ({ id }, context) => {
-      requireOrgPermission(context, { field: ["manage"] });
+    input: fieldIdInput,
+    output: z.object({
+      queued: z.number().describe("Records newly queued."),
+      merged: z
+        .number()
+        .describe("Records already queued that had the field added."),
+    }),
+    handler: async ({ id }, context) => {
+      requireOrgPermission(context, manage);
       return FieldsService.fill(context.organizationId, id);
     },
   }),

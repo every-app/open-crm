@@ -50,10 +50,11 @@ export async function resolveEveryAppContext(
     throw new AppError("UNAUTHENTICATED");
   }
   if (!user) throw new AppError("UNAUTHENTICATED");
-  // A personal access token made with scopes (`api:read`) is limited to what
-  // the REST API lets those scopes do (src/server/api/handler.ts). The app's
-  // own server functions and the agent's chats assume everything a signed-in
-  // member may do, so they take only a credential that holds all of it.
+  // The app's own server functions and the agent's chats assume everything a
+  // signed-in member may do, so they take only a credential that holds all
+  // of it: a browser session, or a personal access token made without
+  // scopes. A token limited by scopes reaches the CRM through its MCP tools
+  // (docs/maintainers/mcp.md), where the gateway applies them.
   if (!hasScope(user, "*")) throw new AppError("FORBIDDEN");
   return resolveEveryAppUserContext(user);
 }

@@ -12,9 +12,9 @@ import { getEveryAppUser } from "@every-app/sdk/server";
 import { resolveEveryAppContext } from "./everyApp";
 
 describe("resolveEveryAppContext", () => {
-  it("refuses a read-only token on the app's own server functions", async () => {
-    // Otherwise the token would write through the UI's RPC what the REST API
-    // refuses it.
+  it("refuses a token limited by scopes on the app's own server functions", async () => {
+    // Otherwise a read-only token would write through the UI's RPC what the
+    // gateway's MCP policy refuses it.
     vi.mocked(getEveryAppUser).mockResolvedValue({
       id: "user_a",
       email: "ana@a.test",
@@ -22,7 +22,7 @@ describe("resolveEveryAppContext", () => {
       orgRole: "owner",
       channel: "api",
       actor: { sub: "pat:token_a" },
-      scopes: ["api:read"],
+      scopes: ["crm:read"],
       jti: "jti",
     });
     await expect(resolveEveryAppContext(new Headers())).rejects.toMatchObject({

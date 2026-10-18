@@ -11,7 +11,7 @@ The hosted CRM bills each organization's usage exactly as OpenSEO bills it, on t
 **Before paid work starts** (`src/server/billing/credits.ts`). Any positive monthly plus top-up balance admits the work; only a ≤ 0 that Autumn's customer object confirms refuses it (OpenSEO's `checkUsageCreditsDepleted`).
 
 - A person's chat or builder turn: `SessionMeter.admit` in `CrmAgent.beforeTurn`. Out of credits, the turn answers with a static reply and costs nothing.
-- Enrich now and bulk enrich, in the app, the MCP tools and the REST API: `CompanyService`, `ContactService`. Refused with `INSUFFICIENT_CREDITS` (HTTP 402).
+- Enrich now and bulk enrich, in the app and the MCP tools: `CompanyService`, `ContactService`. Refused with `INSUFFICIENT_CREDITS`.
 - Run now and Retry: `AgentRunService`. Refused with `INSUFFICIENT_CREDITS`. A schedule's or an event's run is skipped and audited (`run.skipped`), and the dispatcher fails a queued run it can't pay for (`team-agents/runtime/dispatch.ts`).
 - The minute cron's research and logo lookups (`agent/dispatch.ts`, `scheduled.ts`, the pokes): an out-of-credits organization's tasks go back to the queue, their attempts uncounted. Autumn's confirmed "out" is kept on the workspace row (`creditReading.ts`) and holds the organization for five minutes without asking Autumn again; a positive reading is never kept, so every start asks. Reading the Billing page with credits lifts the hold at once. The queue and a record's agent tab say the agent waits for credits.
 

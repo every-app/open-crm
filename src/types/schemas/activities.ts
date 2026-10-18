@@ -104,6 +104,18 @@ export const createActivitySchema = z
 
 export type CreateActivityInput = z.infer<typeof createActivitySchema>;
 
+/** A change to an activity a person logged: only what is given changes. */
+export const updateActivitySchema = z.object({
+  id: z.string().min(1),
+  subject: z.string().trim().max(ACTIVITY_SUBJECT_MAX).optional(),
+  body: z.string().trim().max(ACTIVITY_BODY_MAX).optional(),
+  occurredAt: instant.optional(),
+  /** A task's; null takes the date off. */
+  dueAt: instant.nullable().optional(),
+});
+
+export type UpdateActivityInput = z.infer<typeof updateActivitySchema>;
+
 export const completeTaskSchema = z.object({
   id: z.string().min(1),
   /** False opens a finished task again. */

@@ -1,4 +1,6 @@
 import { decideFact as decideAgentFact } from "@/server/features/agent/lib/facts";
+import { ContactFactRepository } from "@/server/features/contacts/repositories/ContactFactRepository";
+import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { AppError } from "@/server/lib/errors";
 import type { DecideFactInput } from "@/types/schemas/contacts";
 
@@ -43,6 +45,28 @@ async function decideFact(
   };
 }
 
+/**
+ * A page of the suggestions waiting for a person, on every live contact or
+ * on one.
+ */
+async function listSuggestions(
+  organizationId: string,
+  input: { contactId?: string; page: number; pageSize: number },
+) {
+  if (
+    input.contactId &&
+    !(await ContactRepository.findById(organizationId, input.contactId))
+  ) {
+    throw new AppError("NOT_FOUND", `No contact with id ${input.contactId}.`);
+  }
+  return ContactFactRepository.listProposed(organizationId, {
+    contactId: input.contactId,
+    limit: input.pageSize,
+    offset: (input.page - 1) * input.pageSize,
+  });
+}
+
 export const ContactFactService = {
   decideFact,
+  listSuggestions,
 };

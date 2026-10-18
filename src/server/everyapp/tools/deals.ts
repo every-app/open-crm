@@ -1,8 +1,17 @@
+import { mapValues } from "remeda";
 import { z } from "zod";
-import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
+  crmTool,
+  fullName,
+  memberId,
+  personOutput,
+  recordRefOutput,
+} from "@/server/everyapp/crm-tool";
+import {
+  fieldColumnsOutput,
   fieldFiltersInput,
   resolveFieldFilters,
+  userFieldsByEmail,
 } from "@/server/everyapp/tools/fieldFilters";
 import {
   DealService,
@@ -35,9 +44,10 @@ function day(value: string | null) {
   return value ? value.slice(0, 10) : null;
 }
 
-function fullName(person: { firstName: string; lastName: string | null }) {
-  return [person.firstName, person.lastName].filter(Boolean).join(" ");
-}
+const reportedOutput = z
+  .object({ amount: z.number(), currency: z.string() })
+  .nullable()
+  .describe("The amount in the reporting currency, when a rate converts it.");
 
 /** The amount in the reporting currency, when a rate converted it. */
 function reported(
@@ -49,60 +59,91 @@ function reported(
     : null;
 }
 
-function summary(row: DealListRow, reportingCurrency: string) {
+const summaryOutput = z.object({
+  id: z.string(),
+  name: z.string(),
+  company: recordRefOutput,
+  stage: z.enum(DEAL_STAGES),
+  amount: z.number().nullable(),
+  currency: z.string(),
+  inReportingCurrency: reportedOutput,
+  owner: personOutput,
+  expectedCloseDate: z.string().nullable(),
+  closedAt: z.string().nullable(),
+  lastActivityAt: z.string().nullable(),
+  archivedAt: z.string().nullable(),
+  fields: fieldColumnsOutput,
+});
+
+function summary(
+  row: DealListRow,
+  reportingCurrency: string,
+  shown: Awaited<ReturnType<typeof userFieldsByEmail>>,
+): z.input<typeof summaryOutput> {
   return {
-    id: row.id,
-    name: row.name,
-    company: { id: row.company.id, name: row.company.name },
-    stage: row.stage,
-    amount: row.amount,
-    currency: row.currency,
+    ...row,
     inReportingCurrency: reported(row, reportingCurrency),
-    owner: { name: row.owner.name, email: row.owner.email },
     expectedCloseDate: day(row.expectedCloseDate),
-    closedAt: row.closedAt,
-    lastActivityAt: row.lastActivityAt,
-    archivedAt: row.archivedAt,
-    fields: row.fields,
+    fields: mapValues(row.fields, (value, key) => shown(key, value)),
   };
 }
 
-function details(deal: DealDetail) {
+const detailsOutput = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  company: z.object({
+    id: z.string(),
+    name: z.string(),
+    domain: z.string().nullable(),
+    industry: z.string().nullable(),
+  }),
+  owner: personOutput,
+  stage: z.enum(DEAL_STAGES),
+  stageChangedAt: z.string().nullable(),
+  closedAt: z.string().nullable(),
+  closedReason: z.string().nullable(),
+  amount: z.number().nullable(),
+  currency: z.string(),
+  inReportingCurrency: reportedOutput,
+  exchangeRate: z.number().nullable(),
+  exchangeRateAsOf: z.string().nullable(),
+  expectedCloseDate: z.string().nullable(),
+  contacts: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      role: z.string().nullable(),
+      title: z.string().nullable(),
+      email: z.string().nullable(),
+    }),
+  ),
+  lastActivityAt: z.string().nullable(),
+  createdAt: z.string(),
+  archivedAt: z.string().nullable(),
+});
+
+function details(deal: DealDetail): z.input<typeof detailsOutput> {
   return {
-    id: deal.id,
-    name: deal.name,
-    description: deal.description,
-    company: {
-      id: deal.company.id,
-      name: deal.company.name,
-      domain: deal.company.domain,
-      industry: deal.company.industry,
-    },
-    owner: { name: deal.owner.name, email: deal.owner.email },
-    stage: deal.stage,
-    stageChangedAt: deal.stageChangedAt,
-    closedAt: deal.closedAt,
-    closedReason: deal.closedReason,
-    amount: deal.amount,
-    currency: deal.currency,
+    ...deal,
     inReportingCurrency: reported(deal, deal.reportingCurrency),
     exchangeRate: deal.fxRate,
     exchangeRateAsOf: deal.fxRateAt,
     expectedCloseDate: day(deal.expectedCloseDate),
     contacts: deal.contacts.map((contact) => ({
-      id: contact.id,
+      ...contact,
       name: fullName(contact),
-      role: contact.role,
-      title: contact.title,
-      email: contact.email,
     })),
-    lastActivityAt: deal.lastActivityAt,
-    createdAt: deal.createdAt,
-    archivedAt: deal.archivedAt,
   };
 }
 
-const dealId = z.string().min(1).describe("The deal's id, from list_deals.");
+const dealId = z
+  .string()
+  .min(1)
+  .describe("The deal's id, from list_deals or search_records.");
+
+const contactIdOn = (from: string) =>
+  z.string().min(1).describe(`The contact's id, from ${from}.`);
 
 const ownerEmail = z
   .string()
@@ -126,9 +167,15 @@ const dealFields = {
   ),
 };
 
+const stageMoveOutput = z.object({
+  id: z.string(),
+  stage: z.enum(DEAL_STAGES),
+  changed: z.boolean().describe("False when the deal was already there."),
+});
+
 export const dealTools = {
   list_deals: crmTool({
-    description: `Search and list the CRM's deals: company, stage, amount and currency, owner and expected close date. \`query\` matches part of the deal's or its company's name; \`fields\` filters by custom fields, and each deal comes with the values of the fields shown as table columns (a select as its label). With the page comes the open pipeline's value in the reporting currency, and how many open deals it leaves out because no exchange rate converts their currency. ${STAGES_NOTE} 25 a page, newest first unless sorted.`,
+    description: `Search and list deals with their company, stage, amount, owner and expected close date, and the custom fields shown as table columns. \`query\` matches part of the deal's or its company's name. Each page comes with the open pipeline's value in the reporting currency. ${STAGES_NOTE} 25 a page, newest first unless sorted.`,
     risk: "read",
     input: z
       .object({
@@ -152,7 +199,7 @@ export const dealTools = {
           .max(CLOSING_WINDOWS.length)
           .optional()
           .describe(
-            'When deals are expected to close: "overdue" (open deals past their day), "this-month", "next-month", "later", or "none" (no date).',
+            'When they are expected to close: "overdue" (open, past their day), "this-month", "next-month", "later" or "none" (no date).',
           ),
         archived: z
           .boolean()
@@ -164,6 +211,19 @@ export const dealTools = {
         page: z.number().int().min(1).optional(),
       })
       .strict(),
+    output: z.object({
+      total: z.number(),
+      page: z.number(),
+      pageSize: z.number(),
+      openPipeline: z.object({
+        value: z.number().nullable(),
+        currency: z.string(),
+        notCounted: z
+          .object({ count: z.number(), currencies: z.array(z.string()) })
+          .describe("Open deals no exchange rate converts."),
+      }),
+      deals: z.array(summaryOutput),
+    }),
     handler: async (input, context) => {
       const owners = await Promise.all(
         (input.owners ?? []).map((email) =>
@@ -186,7 +246,10 @@ export const dealTools = {
         dir: input.direction,
         page: input.page,
       });
-      const result = await DealService.listDeals(context.organizationId, list);
+      const [result, shown] = await Promise.all([
+        DealService.listDeals(context.organizationId, list),
+        userFieldsByEmail(context.organizationId, "DEAL"),
+      ]);
       return {
         total: result.total,
         page: list.page,
@@ -196,27 +259,31 @@ export const dealTools = {
           currency: result.reportingCurrency,
           notCounted: result.unconverted,
         },
-        deals: result.rows.map((row) => summary(row, result.reportingCurrency)),
+        deals: result.rows.map((row) =>
+          summary(row, result.reportingCurrency, shown),
+        ),
       };
     },
   }),
 
   get_deal: crmTool({
     description:
-      "One deal in full: its company, owner, stage and when it last moved, why it closed, its amount (and that amount in the reporting currency), and the people on it with their roles.",
+      "One deal in full: its company, owner, stage and when it last moved, why it closed, its amount (and in the reporting currency), and the people on it with their roles.",
     risk: "read",
     input: z.object({ id: dealId }).strict(),
+    output: detailsOutput,
     handler: async ({ id }, context) =>
       details(await DealService.getDeal(context.organizationId, id)),
   }),
 
   create_deal: crmTool({
-    description: `Add a deal to a company (get its id from list_companies). The owner defaults to you; the currency to the workspace's reporting currency. A new deal starts at DEMO_BOOKED unless \`stage\` says otherwise. ${STAGES_NOTE}`,
+    description: `Add a deal to a company. The owner defaults to you, the currency to the reporting currency, the stage to DEMO_BOOKED. ${STAGES_NOTE}`,
     risk: "write",
     input: createDealSchema
       .omit({ ownerId: true })
       .extend({ ...dealFields, ownerEmail: ownerEmail.optional() })
       .strict(),
+    output: recordRefOutput,
     handler: async ({ ownerEmail: email, ...input }, context) =>
       DealService.createDeal(context.organizationId, {
         ...input,
@@ -228,7 +295,7 @@ export const dealTools = {
 
   update_deal: crmTool({
     description:
-      "Change a deal's details. Only the fields given change; null clears the amount, description or close date. A new amount or currency is converted into the reporting currency at today's rate. Move its stage with set_deal_stage.",
+      "Change a deal's details. Only the fields given change; null clears the amount, description or close date. A new amount or currency is converted at today's rate. Move its stage with set_deal_stage.",
     risk: "write",
     input: updateDealSchema
       .omit({ ownerId: true })
@@ -239,6 +306,7 @@ export const dealTools = {
         ownerEmail: ownerEmail.optional(),
       })
       .strict(),
+    output: recordRefOutput,
     handler: async ({ ownerEmail: email, ...input }, context) =>
       DealService.updateDeal(context.organizationId, {
         ...input,
@@ -249,7 +317,7 @@ export const dealTools = {
   }),
 
   set_deal_stage: crmTool({
-    description: `Move a deal to another stage; the move goes on the deal's timeline. Moving to CLOSED_LOST or UNQUALIFIED_TO_BUY takes a \`closedReason\`. ${STAGES_NOTE}`,
+    description: `Move a deal to another stage; the move goes on its timeline. CLOSED_LOST and UNQUALIFIED_TO_BUY take a closedReason. ${STAGES_NOTE}`,
     risk: "write",
     input: setDealStageSchema
       .extend({
@@ -259,27 +327,29 @@ export const dealTools = {
           .max(2000)
           .optional()
           .describe(
-            "Why it was lost, or why it isn't a fit: what it was lost to, budget, timing.",
+            "Why it was lost or isn't a fit: what it was lost to, budget, timing.",
           ),
       })
       .strict(),
+    output: stageMoveOutput,
     handler: (input, context) =>
       DealService.setStage(context.organizationId, input, context.userId),
   }),
 
   add_deal_contact: crmTool({
     description:
-      "Put someone who works at the deal's company on the deal, optionally with their role on it (Champion, Economic buyer). Someone already on it gets the new role.",
+      "Put someone who works at the deal's company on the deal, optionally with their role (Champion, Economic buyer). Someone already on it gets the new role.",
     risk: "write",
     input: attachDealContactSchema
       .extend({
         dealId,
-        contactId: z
-          .string()
-          .min(1)
-          .describe("The contact's id; get_company lists who works there."),
+        contactId: contactIdOn("get_company, which lists who works there"),
       })
       .strict(),
+    output: z.object({
+      dealId: z.string(),
+      contactId: z.string(),
+    }),
     handler: (input, context) =>
       DealService.attachContact(context.organizationId, input),
   }),
@@ -288,23 +358,19 @@ export const dealTools = {
     description: "Take someone off a deal. The contact stays in the CRM.",
     risk: "write",
     input: detachDealContactSchema
-      .extend({
-        dealId,
-        contactId: z
-          .string()
-          .min(1)
-          .describe("The contact's id, from get_deal."),
-      })
+      .extend({ dealId, contactId: contactIdOn("get_deal") })
       .strict(),
+    output: z.object({ dealId: z.string(), contactId: z.string() }),
     handler: ({ dealId: id, contactId }, context) =>
       DealService.detachContact(context.organizationId, id, contactId),
   }),
 
   archive_deal: crmTool({
     description:
-      "Archive a deal: it leaves every list and every pipeline total. A person can restore it from the Archived view.",
-    risk: "destructive",
+      "Archive a deal: it leaves every list and pipeline total. bulk_restore brings it back.",
+    risk: "write",
     input: z.object({ id: dealId }).strict(),
+    output: recordRefOutput,
     handler: ({ id }, context) =>
       DealService.archiveDeal(context.organizationId, id),
   }),

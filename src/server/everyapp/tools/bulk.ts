@@ -6,13 +6,15 @@ import { ContactService } from "@/server/features/contacts/services/ContactServi
 import { DealService } from "@/server/features/deals/services/DealService";
 import { AppError } from "@/server/lib/errors";
 import { DEAL_STAGES } from "@/shared/crm-enums";
+import { errorCodeSchema } from "@/shared/error-codes";
 import { RECORD_KINDS } from "@/shared/records";
 import { bulkIdsSchema } from "@/types/schemas/records";
 
-// The list's bulk actions, which also restore and delete one record (pass
-// one id). Each returns how many records it changed of how many it was given,
-// and the code of the first failure. The same rules as the app's: anyone
-// archives, restores and reassigns; only owners and admins delete forever.
+// The list's bulk actions, which also restore, enrich and delete one record
+// (pass one id). Each says how many records it changed of how many it was
+// given, and the code of the first failure. The same rules as the app's:
+// anyone archives, restores and reassigns; only owners and admins delete
+// forever.
 
 const kind = z
   .enum(RECORD_KINDS)
@@ -21,6 +23,17 @@ const kind = z
 const ids = bulkIdsSchema.shape.ids.describe(
   "Up to 100 record ids, from the list tools.",
 );
+
+const bulkOutput = z.object({
+  requested: z.number(),
+  succeeded: z.number(),
+  failed: z.number(),
+  error: errorCodeSchema
+    .nullable()
+    .describe(
+      "Why the first one failed: NOT_FOUND, CONFLICT (say, not archived, or its domain or email taken), FORBIDDEN.",
+    ),
+});
 
 const SERVICES = {
   company: {
@@ -43,9 +56,10 @@ const SERVICES = {
 export const bulkTools = {
   bulk_archive: crmTool({
     description:
-      "Archive up to 100 companies, contacts or deals: they leave every list and total. bulk_restore brings them back.",
-    risk: "destructive",
+      "Archive up to 100 companies, contacts or deals: they leave every list and total until bulk_restore brings them back.",
+    risk: "write",
     input: z.object({ kind, ids }).strict(),
+    output: bulkOutput,
     handler: (input, context) =>
       SERVICES[input.kind].archive(context.organizationId, input.ids),
   }),
@@ -55,16 +69,18 @@ export const bulkTools = {
       "Restore up to 100 archived companies, contacts or deals (list them with archived: true).",
     risk: "write",
     input: z.object({ kind, ids }).strict(),
+    output: bulkOutput,
     handler: (input, context) =>
       SERVICES[input.kind].restore(context.organizationId, input.ids),
   }),
 
   bulk_purge: crmTool({
     description:
-      "Delete up to 100 archived companies, contacts or deals forever (owners and admins only). A record that isn't archived counts as failed and is left alone. This can't be undone.",
+      "Delete up to 100 archived companies, contacts or deals forever (owners and admins only). One that isn't archived fails and is left alone.",
     risk: "destructive",
     input: z.object({ kind, ids }).strict(),
-    handler: (input, context) => {
+    output: bulkOutput,
+    handler: async (input, context) => {
       requireOrgPermission(context, { record: ["purge"] });
       return SERVICES[input.kind].purge(context.organizationId, input.ids);
     },
@@ -85,6 +101,7 @@ export const bulkTools = {
           .describe("The new owner's email, or null for nobody."),
       })
       .strict(),
+    output: bulkOutput,
     handler: async (input, context) => {
       const ownerId =
         input.ownerEmail === null
@@ -118,7 +135,7 @@ export const bulkTools = {
 
   bulk_enrich: crmTool({
     description:
-      "Ask the research agent to look up to 100 companies or contacts up again. Its research costs the organization; it works through the queue in the background (get_enrichment_queue).",
+      "Ask the research agent to research up to 100 companies or contacts again. It costs the organization credits and works in the background (get_enrichment_queue).",
     risk: "write",
     input: z
       .object({
@@ -128,6 +145,7 @@ export const bulkTools = {
         ids,
       })
       .strict(),
+    output: bulkOutput,
     handler: (input, context) =>
       input.kind === "company"
         ? CompanyService.bulkEnrich(context.organizationId, input.ids)
@@ -149,6 +167,7 @@ export const bulkTools = {
           .describe("Why they were lost, or why they aren't a fit."),
       })
       .strict(),
+    output: bulkOutput,
     handler: (input, context) =>
       DealService.bulkSetStage(context.organizationId, input, context.userId),
   }),
@@ -167,6 +186,7 @@ export const bulkTools = {
           .describe("The company's id, from list_companies, or null."),
       })
       .strict(),
+    output: bulkOutput,
     handler: (input, context) =>
       ContactService.bulkSetCompany(
         context.organizationId,
