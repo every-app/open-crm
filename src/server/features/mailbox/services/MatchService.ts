@@ -42,16 +42,16 @@ type MatchResult = { companyId: string | null; contactId: string | null };
 const NO_MATCH: MatchResult = { companyId: null, contactId: null };
 
 /**
- * Who "we" are for one organization: its members' addresses and the
- * mailboxes they connected, their work domains and the workspace's
- * website; plus what people suppressed.
+ * Who "we" are for one organization, as the CRM's internalIdentity: its
+ * members' addresses and the mailboxes they connected, their work domains
+ * (never a free-mail one) and the workspace's website. Suppressing a domain
+ * counts the same domains as our own.
  */
-async function loadContext(organizationId: string): Promise<MatchContext> {
-  const [members, mailboxes, workspace, suppressed] = await Promise.all([
+async function internalIdentity(organizationId: string) {
+  const [members, mailboxes, workspace] = await Promise.all([
     AuthRepository.listMembers(organizationId),
     ConnectionRepository.accountEmails(organizationId),
     WorkspaceRepository.getOrCreate(organizationId),
-    CaptureWriteRepository.suppressions(organizationId),
   ]);
   const ourAddresses = new Set<string>();
   const ourDomains = new Set<string>();
@@ -66,9 +66,17 @@ async function loadContext(organizationId: string): Promise<MatchContext> {
     const domain = domainFromEmail(address);
     if (domain) ourDomains.add(domain);
   }
+  return { ourAddresses, ourDomains };
+}
+
+/** Who "we" are, plus what people suppressed. */
+async function loadContext(organizationId: string): Promise<MatchContext> {
+  const [ours, suppressed] = await Promise.all([
+    internalIdentity(organizationId),
+    CaptureWriteRepository.suppressions(organizationId),
+  ]);
   return {
-    ourAddresses,
-    ourDomains,
+    ...ours,
     suppressedEmails: suppressed.emails,
     suppressedDomains: suppressed.domains,
   };
@@ -253,4 +261,4 @@ async function createContact(
   return contact.id;
 }
 
-export const MatchService = { context: loadContext, resolve };
+export const MatchService = { context: loadContext, internalIdentity, resolve };

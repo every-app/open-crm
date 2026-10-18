@@ -42,4 +42,4 @@ The original served every tRPC procedure under `/rest` with `x-api-key`. The por
 - `PATCH /<records>/{id}` takes the changed fields at the top level of the body, not under `data`.
 - A timeline names its record as `?companyId=`, `?contactId=` or `?dealId=`, exactly one.
 - Custom field values live under the record: `GET`/`PATCH /companies/{id}/fields` (and contacts, deals).
-- Left out: API key management, SSO, Slack, Google and Microsoft, tracking, agents and conversations, workspace changes and member roles (the gateway's), and settings beyond currencies.
+- Left out: API key management, SSO, Slack, Google and Microsoft (but `POST /google/suppress-domain`, which had no screen), tracking, agents and conversations, workspace changes and member roles (the gateway's), and settings beyond currencies.

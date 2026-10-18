@@ -14,6 +14,13 @@ export const setAutoCreateSchema = z.object({
   enabled: z.boolean(),
 });
 
+/** POST /google/suppress-domain, as the CRM's suppressDomainInput. */
+export const suppressDomainSchema = z.object({
+  domain: z.string().trim().min(1),
+  reason: z.string().trim().max(200).optional(),
+  purge: z.boolean().default(true),
+});
+
 /** A provider page's search: how the last connect came back. */
 export const mailboxConnectSearchSchema = z.object({
   // The router reads `?connected=1` as the number 1.

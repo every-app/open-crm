@@ -27,10 +27,11 @@ import type { SyncSource } from "@/shared/mailbox";
 
 // The only writer of captured mail and meetings: email_thread, email_message,
 // calendar_event, calendar_attendee and their EMAIL and MEETING activities
-// (one per thread, one per event), and the lookups matching does. Every
-// statement names the organization. There are no transactions: each step is
-// idempotent (unique RFC message ids, one thread per root, one activity per
-// thread or event), so a write cut short is finished by the next check.
+// (one per thread, one per event), and the lookups matching does, with the
+// suppressed domains it honours. Every statement names the organization.
+// There are no transactions: each step is idempotent (unique RFC message ids,
+// one thread per root, one activity per thread or event), so a write cut
+// short is finished by the next check.
 
 type Recipient = { email: string; name: string | null; kind: "to" | "cc" };
 
@@ -52,6 +53,21 @@ async function suppressions(organizationId: string) {
     emails: new Set(emails.map((row) => row.email.toLowerCase())),
     domains: new Set(domains.map((row) => row.domain.toLowerCase())),
   };
+}
+
+/** Suppresses `domain` (normalized), or replaces the reason it was. */
+async function suppressDomain(
+  organizationId: string,
+  domain: string,
+  reason: string | null,
+) {
+  await db
+    .insert(suppressedDomain)
+    .values({ organizationId, domain, reason })
+    .onConflictDoUpdate({
+      target: [suppressedDomain.organizationId, suppressedDomain.domain],
+      set: { reason },
+    });
 }
 
 /** A contact with one of `emails`, a live one first. */
@@ -395,6 +411,7 @@ async function stamp(
  */
 export const CaptureWriteRepository = {
   suppressions,
+  suppressDomain,
   contactByEmails,
   contactsByEmail,
   companiesByDomain,

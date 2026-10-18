@@ -4,6 +4,7 @@ import { runBatch } from "@/db/runBatch";
 import {
   activity,
   calendarEvent,
+  company,
   emailMessage,
   emailThread,
 } from "@/db/schema";
@@ -11,7 +12,8 @@ import { idChunks } from "@/server/features/records/recordRules";
 import type { ActivityTargets } from "@/server/features/archive/repositories/ArchiveRepository";
 import type { MailboxProvider } from "@/shared/mailbox";
 // "Delete synced data": what one member's mailbox brought in, gone, with the
-// threads other members' mail still holds rebuilt from what is left.
+// threads other members' mail still holds rebuilt from what is left. And
+// suppressing a domain's purge: what was filed on its company, gone.
 
 async function purgeSynced(
   organizationId: string,
@@ -99,6 +101,54 @@ async function purgeSynced(
   return { purged: messages.length + events.length, targets };
 }
 
+/**
+ * Deletes the threads and meetings filed on the organization's companies at
+ * `domain` (an archived one's too: a domain is unique among live companies
+ * only), with their messages, attendees and activities. `purged` counts the
+ * threads and meetings.
+ */
+async function purgeDomain(
+  organizationId: string,
+  domain: string,
+): Promise<{ purged: number; targets: ActivityTargets }> {
+  const companies = () =>
+    db
+      .select({ id: company.id })
+      .from(company)
+      .where(
+        and(
+          eq(company.organizationId, organizationId),
+          eq(company.domain, domain),
+        ),
+      );
+  const threads = and(
+    eq(emailThread.organizationId, organizationId),
+    inArray(emailThread.companyId, companies()),
+  );
+  const events = and(
+    eq(calendarEvent.organizationId, organizationId),
+    inArray(calendarEvent.companyId, companies()),
+  );
+  const [threadRows, eventRows] = await Promise.all([
+    db.select({ id: emailThread.id }).from(emailThread).where(threads),
+    db.select({ id: calendarEvent.id }).from(calendarEvent).where(events),
+  ]);
+  const targets = await activityTargets(
+    organizationId,
+    threadRows.map((row) => row.id),
+    eventRows.map((row) => row.id),
+  );
+  const deletedThreads = await db
+    .delete(emailThread)
+    .where(threads)
+    .returning({ id: emailThread.id });
+  const deletedEvents = await db
+    .delete(calendarEvent)
+    .where(events)
+    .returning({ id: calendarEvent.id });
+  return { purged: deletedThreads.length + deletedEvents.length, targets };
+}
+
 /** The records the threads' and meetings' activities are about. */
 async function activityTargets(
   organizationId: string,
@@ -141,4 +191,4 @@ async function activityTargets(
   };
 }
 
-export const SyncedDataRepository = { purgeSynced };
+export const SyncedDataRepository = { purgeSynced, purgeDomain };
