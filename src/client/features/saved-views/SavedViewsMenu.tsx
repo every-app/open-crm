@@ -74,15 +74,13 @@ export function SavedViewsMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-auto max-w-80 min-w-56">
           <DropdownMenuItem onClick={() => setDialog("save")}>
-            Save current view…
+            Save view…
           </DropdownMenuItem>
           {views.isPending ? (
-            <DropdownMenuItem disabled>Loading views…</DropdownMenuItem>
+            <DropdownMenuItem disabled>Loading…</DropdownMenuItem>
           ) : null}
           {views.isError ? (
-            <DropdownMenuItem disabled>
-              Views could not be loaded
-            </DropdownMenuItem>
+            <DropdownMenuItem disabled>Couldn't load views</DropdownMenuItem>
           ) : null}
           {mine.length > 0 ? (
             <>
@@ -105,7 +103,7 @@ export function SavedViewsMenu({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuLabel>Shared with the team</DropdownMenuLabel>
+                <DropdownMenuLabel>Shared</DropdownMenuLabel>
                 {team.map((view) => (
                   <DropdownMenuItem
                     key={view.id}
@@ -121,7 +119,7 @@ export function SavedViewsMenu({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setDialog("manage")}>
-                Manage my views…
+                Manage views…
               </DropdownMenuItem>
             </>
           ) : null}
@@ -210,7 +208,7 @@ function SaveViewDialog({
   return (
     <form.AppForm>
       <FormDialog
-        title="Save this view"
+        title="Save view"
         onClose={onClose}
         actions={
           <>
@@ -228,14 +226,13 @@ function SaveViewDialog({
             {(field) => (
               <field.TextField
                 label="Name"
-                placeholder="Hot leads in EMEA"
                 maxLength={SAVED_VIEW_NAME_MAX}
                 autoFocus
               />
             )}
           </form.AppField>
           <form.AppField name="shared">
-            {(field) => <field.SwitchField label="Share with the team" />}
+            {(field) => <field.SwitchField label="Shared" />}
           </form.AppField>
           {filters.success ? null : (
             <p className="text-sm text-destructive">
@@ -269,10 +266,11 @@ function ManageViewsDialog({
     >
       {views.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          You have no saved views here.
+          No views
         </p>
       ) : (
-        <ul className="-mx-4 max-h-96 divide-y overflow-y-auto border-y">
+        // The footer's border closes the list.
+        <ul className="-mx-4 -mb-4 max-h-96 divide-y divide-border overflow-y-auto border-t border-border">
           {views.map((view) => (
             <ManageViewRow key={view.id} entity={entity} view={view} />
           ))}

@@ -1,23 +1,18 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Milestone } from "lucide-react";
-import { Button } from "@/client/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/client/components/ui/dropdown-menu";
+import { DropdownMenuItem } from "@/client/components/ui/dropdown-menu";
 import {
   CloseReasonDialog,
   DealStageIndicator,
 } from "@/client/features/deals/DealStage";
 import { useInvalidateDeals } from "@/client/features/deals/useDealMutations";
 import {
-  RecordBulkBar,
+  BulkSubmenu,
+  RecordBulkMenu,
   reportBulk,
   type RecordNoun,
-} from "@/client/features/records/RecordBulkBar";
+} from "@/client/features/records/RecordBulkMenu";
 import {
   bulkArchiveDeals,
   bulkAssignDealOwner,
@@ -85,52 +80,41 @@ export function DealBulkActions({
       bulkPurgeDeals({ data: { ids: selected } }),
     ...settled((count) => `${count} deleted forever.`),
   });
-  const pending = [assign, move, archive, restore, purge].some(
-    (mutation) => mutation.isPending,
-  );
 
   return (
     <>
-      <RecordBulkBar
-        selectedCount={ids.length}
+      <RecordBulkMenu
         noun={NOUN}
+        count={ids.length}
         archived={archived}
         canPurge={canPurge}
-        pending={pending}
-        onClear={onDone}
+        pending={[assign, move, archive, restore, purge].some(
+          (mutation) => mutation.isPending,
+        )}
         ownerRequired
         onAssignOwner={(ownerId) => {
           if (ownerId) assign.mutate({ ids, ownerId });
         }}
-        actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="sm" disabled={pending} />}
-            >
-              <Milestone />
-              Stage
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="min-w-52">
-              {DEAL_STAGE_ORDER.map((stage) => (
-                <DropdownMenuItem
-                  key={stage}
-                  onClick={() =>
-                    isLosingStage(stage)
-                      ? setClosing({ stage, ids })
-                      : move.mutate({ ids, stage })
-                  }
-                >
-                  <DealStageIndicator stage={stage} />
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        }
         onArchive={() => archive.mutate(ids)}
         onRestore={() => restore.mutate(ids)}
         onPurge={() => purge.mutate(ids)}
-        purgeWarning="Everything filed against them — activity, notes, the amounts in your pipeline — goes too. This cannot be undone."
-      />
+        purgeWarning="This cannot be undone."
+      >
+        <BulkSubmenu icon={Milestone} label="Change stage" className="min-w-48">
+          {DEAL_STAGE_ORDER.map((stage) => (
+            <DropdownMenuItem
+              key={stage}
+              onClick={() =>
+                isLosingStage(stage)
+                  ? setClosing({ stage, ids })
+                  : move.mutate({ ids, stage })
+              }
+            >
+              <DealStageIndicator stage={stage} />
+            </DropdownMenuItem>
+          ))}
+        </BulkSubmenu>
+      </RecordBulkMenu>
       {closing ? (
         <CloseReasonDialog
           stage={closing.stage}

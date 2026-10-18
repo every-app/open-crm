@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { companyKeys } from "@/client/features/companies/companyQueries";
 import {
-  RecordBulkBar,
+  RecordBulkMenu,
   reportBulk,
   type RecordNoun,
-} from "@/client/features/records/RecordBulkBar";
+} from "@/client/features/records/RecordBulkMenu";
 import {
   bulkArchiveCompanies,
   bulkAssignCompanyOwner,
@@ -45,10 +45,7 @@ export function CompanyBulkActions({
   const enrich = useMutation({
     mutationFn: (selected: string[]) =>
       bulkEnrichCompanies({ data: { ids: selected } }),
-    ...settled(
-      (count) =>
-        `The agent is looking up ${count}. The list updates as it goes.`,
-    ),
+    ...settled((count) => `Looking up ${count}.`),
   });
   const archive = useMutation({
     mutationFn: (selected: string[]) =>
@@ -67,15 +64,14 @@ export function CompanyBulkActions({
   });
 
   return (
-    <RecordBulkBar
-      selectedCount={ids.length}
+    <RecordBulkMenu
       noun={NOUN}
+      count={ids.length}
       archived={archived}
       canPurge={canPurge}
       pending={[assign, enrich, archive, restore, purge].some(
         (mutation) => mutation.isPending,
       )}
-      onClear={onDone}
       onAssignOwner={(ownerId) => assign.mutate({ ids, ownerId })}
       onEnrich={() => enrich.mutate(ids)}
       onArchive={() => archive.mutate(ids)}

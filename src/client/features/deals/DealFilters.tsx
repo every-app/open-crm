@@ -26,8 +26,8 @@ const STAGE_OPTIONS = DEAL_STAGE_ORDER.map((stage) => ({
 
 const CLOSING_LABELS: Record<ClosingWindow, string> = {
   overdue: "Overdue",
-  "this-month": "Closing this month",
-  "next-month": "Closing next month",
+  "this-month": "This month",
+  "next-month": "Next month",
   later: "Later",
   none: "No close date",
 };

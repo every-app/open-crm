@@ -94,6 +94,34 @@ function keepKeys(event: KeyboardEvent) {
   if (event.key !== "Escape" && event.key !== "Tab") event.stopPropagation();
 }
 
+/**
+ * The search field at the top of a submenu that searches its options (an
+ * inline combobox): a spinner in place of its icon while results load.
+ */
+export function MenuSearchInput({
+  placeholder,
+  searching,
+}: {
+  placeholder: string;
+  searching: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 border-b border-border px-3">
+      {searching ? (
+        <Spinner className="size-4 shrink-0 text-muted-foreground" />
+      ) : (
+        <Search aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      )}
+      <ComboboxPrimitive.Input
+        autoFocus
+        placeholder={placeholder}
+        onKeyDown={keepKeys}
+        className="h-9 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+      />
+    </div>
+  );
+}
+
 /** A value's label among the filter's options, or the value itself. */
 function labelOf(filter: ListFilter, value: string): string {
   return (
@@ -153,7 +181,7 @@ export function FiltersMenu({
         ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={active === 0} onClick={onClear}>
-          Clear filters
+          Clear
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -255,22 +283,10 @@ function FilterOptions({
       filter={onSearch ? null : undefined}
       isItemEqualToValue={(item, chosen) => item.value === chosen.value}
     >
-      <div className="flex items-center gap-2 border-b border-border px-3">
-        {searching ? (
-          <Spinner className="size-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <Search
-            aria-hidden
-            className="size-4 shrink-0 text-muted-foreground"
-          />
-        )}
-        <ComboboxPrimitive.Input
-          autoFocus
-          placeholder={`Search ${label.toLowerCase()}…`}
-          onKeyDown={keepKeys}
-          className="h-9 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
-      </div>
+      <MenuSearchInput
+        placeholder={`Search ${label.toLowerCase()}…`}
+        searching={searching}
+      />
       <ComboboxPrimitive.Empty>
         <p className="px-3 py-5 text-center text-sm text-muted-foreground">
           {searching ? "Searching…" : emptyLabel}

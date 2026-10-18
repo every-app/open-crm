@@ -64,6 +64,8 @@ export function TablePagination<TSize extends number>({
   const isLastPage = totalPages != null && currentPage >= totalPages;
   const canGoPrev = currentPage > 1;
   const canGoNext = totalPages != null ? !isLastPage : hasNextPage;
+  // A single page has nowhere to go: the range alone says where you are.
+  const hasPages = canGoPrev || canGoNext || loadMoreLabel != null;
 
   // A page can fall past the end when rows are removed or a stale URL is
   // opened. Move to the last page instead of showing an empty table.
@@ -118,11 +120,7 @@ export function TablePagination<TSize extends number>({
           </div>
         ) : null}
 
-        <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
-            Page {currentPage.toLocaleString()}
-            {totalPages != null ? ` of ${totalPages.toLocaleString()}` : ""}
-          </span>
+        {hasPages ? (
           <div className="flex items-center gap-1">
             {renderPageButton({
               page: currentPage - 1,
@@ -151,7 +149,7 @@ export function TablePagination<TSize extends number>({
               })
             )}
           </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );

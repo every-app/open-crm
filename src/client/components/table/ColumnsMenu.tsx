@@ -6,9 +6,7 @@ import { Button } from "@/client/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/client/components/ui/dropdown-menu";
@@ -41,20 +39,17 @@ export function ColumnsMenu<TData>({
         <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-          {columns.map((column) => (
-            <MenuPrimitive.CheckboxItem
-              key={column.id}
-              checked={column.getIsVisible()}
-              onCheckedChange={(checked) => column.toggleVisibility(checked)}
-              className="group/check flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground"
-            >
-              <RowCheckbox />
-              {columnLabel(column)}
-            </MenuPrimitive.CheckboxItem>
-          ))}
-        </DropdownMenuGroup>
+        {columns.map((column) => (
+          <MenuPrimitive.CheckboxItem
+            key={column.id}
+            checked={column.getIsVisible()}
+            onCheckedChange={(checked) => column.toggleVisibility(checked)}
+            className="group/check flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground"
+          >
+            <RowCheckbox />
+            {columnLabel(column)}
+          </MenuPrimitive.CheckboxItem>
+        ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onEditFields}>
           <Settings2 />
