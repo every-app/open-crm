@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { AgentConversationRepository } from "@/server/features/agent/repositories/AgentConversationRepository";
 import { sessionName } from "@/server/features/agent/sessionName";
+import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { SlackService } from "@/server/features/slack/services/SlackService";
 import { AppError } from "@/server/lib/errors";
 import {
@@ -11,6 +12,7 @@ import {
   CAPTURE_GRANTS,
   CAPTURE_KINDS,
   SLACK_RESOURCE,
+  slackChannelResourceId,
 } from "@/shared/team-agents";
 import { BuilderRepository } from "../repositories/BuilderRepository";
 import { BuilderResourceRepository } from "../repositories/BuilderResourceRepository";
@@ -308,7 +310,7 @@ const NO_PICTURE: Picture = { url: null, darkUrl: null, tone: null };
  * Records and integrations a person can tag in the composer, as the CRM's
  * builder resources: before they type, the most recently active companies,
  * contacts and deals. Email, Calendar and Slack are offered once someone has
- * connected them.
+ * connected them, and once they type, the Slack channels that match.
  */
 async function searchResources(context: Context, q: string) {
   const term = q.trim();
@@ -321,6 +323,16 @@ async function searchResources(context: Context, q: string) {
     SlackService.isConnected(context.organizationId),
     BuilderToolService.captureConnections(context.organizationId),
   ]);
+  const channelTerm = term.replace(/^#/, "");
+  const channels =
+    slack && channelTerm
+      ? (
+          await SlackInventoryService.channels(context, {
+            query: channelTerm,
+            offset: 0,
+          })
+        ).rows.slice(0, TAGGABLE_PER_KIND)
+      : [];
   const matches = (label: string) =>
     !term || label.toLowerCase().includes(term.toLowerCase());
   return [
@@ -344,6 +356,13 @@ async function searchResources(context: Context, q: string) {
           },
         ]
       : []),
+    ...channels.map((channel) => ({
+      kind: "integration" as const,
+      id: slackChannelResourceId(channel.id),
+      label: `#${channel.name}`,
+      detail: null,
+      picture: NO_PICTURE,
+    })),
     ...records.companies.map((row) => ({
       kind: "company" as const,
       id: row.id,

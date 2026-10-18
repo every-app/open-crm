@@ -59,7 +59,9 @@ vi.mock("agents", () => ({
 }));
 
 import { SCOPE_FOR_SOURCE } from "@/shared/mailbox";
+import { BuilderRepository } from "../repositories/BuilderRepository";
 import { BuilderService } from "./BuilderService";
+import { BuilderToolService } from "./BuilderToolService";
 
 const owner = { organizationId: "org_a", userId: "user_a", role: "owner" };
 const outsider = { organizationId: "org_b", userId: "user_b", role: "owner" };
@@ -171,6 +173,42 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
       expect(await records("")).toEqual(["Cobalt", "Acme", "Bolt"]);
       expect(await records("ac")).toEqual(["Acme"]);
+    });
+
+    it("offers the Slack channels that match what's typed, and hands the builder the one tagged", async () => {
+      // Read from Slack just now, so nothing reads it again.
+      const synced = new Date().toISOString();
+      await database.exec(`
+        INSERT INTO slack_connection (id, organization_id, team_id, bot_token, bot_scopes, synced_at) VALUES
+          ('ours', 'org_a', 'T1', 'xoxb-a', 'chat:write', '${synced}'),
+          ('theirs', 'org_b', 'T2', 'xoxb-b', 'chat:write', '${synced}');
+        INSERT INTO slack_channel (id, organization_id, slack_channel_id, name) VALUES
+          ('sales', 'org_a', 'C1', 'sales'),
+          ('general', 'org_a', 'C2', 'general'),
+          ('their-sales', 'org_b', 'C3', 'sales-team');
+      `);
+      const channels = async (q: string) =>
+        (await BuilderService.searchResources(owner, q))
+          .filter((resource) => resource.id.startsWith("slack:channel:"))
+          .map((resource) => [resource.id, resource.label]);
+      expect(await channels("")).toEqual([]);
+      expect(await channels("#sal")).toEqual([["slack:channel:C1", "#sales"]]);
+
+      const chat = await BuilderRepository.createConversation({
+        organizationId: "org_a",
+        userId: "user_a",
+        sessionId: "chat.tagged",
+      });
+      const context = await BuilderToolService.builderContext({
+        organizationId: "org_a",
+        userId: "user_a",
+        conversationId: chat.id,
+        tagged: [],
+        taggedIntegrations: ["slack:channel:C1", "slack:channel:C3"],
+      });
+      expect(context.taggedIntegrations).toEqual([
+        { kind: "integration", id: "slack:channel:C1", label: "#sales" },
+      ]);
     });
 
     it("offers Email and Calendar only once someone here has connected them", async () => {

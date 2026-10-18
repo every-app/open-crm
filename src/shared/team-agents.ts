@@ -126,6 +126,18 @@ export const SLACK_RESOURCE = {
   label: "Slack",
 } as const;
 
+const SLACK_CHANNEL_PREFIX = "slack:channel:";
+
+/** The id a Slack channel is tagged by in a builder chat. */
+export const slackChannelResourceId = (channelId: string) =>
+  `${SLACK_CHANNEL_PREFIX}${channelId}`;
+
+/** The Slack channel a builder chat's tag names, or null. */
+export const taggedSlackChannel = (resourceId: string) =>
+  resourceId.startsWith(SLACK_CHANNEL_PREFIX)
+    ? resourceId.slice(SLACK_CHANNEL_PREFIX.length)
+    : null;
+
 /**
  * The captured mail and meetings a version may read (the CRM's
  * `google:gmail` and `google:calendar` integrations). Capture is per member
