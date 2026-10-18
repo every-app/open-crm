@@ -149,7 +149,8 @@ export function InlineField({
             id={id}
             variant="ghost"
             size="sm"
-            className={PROPERTY_CONTROL}
+            // It gives way to what sits beside it rather than overflow.
+            className={cn(PROPERTY_CONTROL, "min-w-0 shrink")}
             pending={saving}
             onClick={field.edit}
           >
