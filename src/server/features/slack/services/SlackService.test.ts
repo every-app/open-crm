@@ -1,3 +1,4 @@
+import { waitUntil } from "cloudflare:workers";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,6 +39,51 @@ const granted = {
   team: { id: "T1", name: "Acme HQ" },
   authed_user: { access_token: "xoxp-user-secret", scope: "channels:write" },
 };
+
+/**
+ * Slack's Web API for the inventory reads: Ana and Cy as people (and a bot),
+ * and two channels, one archived.
+ */
+function stubSlack() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: URL) => {
+      const method = url.pathname.split("/").pop();
+      if (method === "auth.test") {
+        return Response.json({ ok: true, user: "crm", bot_id: "B1" });
+      }
+      if (method === "bots.info" && url.searchParams.get("bot") === "B1") {
+        return Response.json({ ok: true, bot: { name: "Acme CRM" } });
+      }
+      if (method === "users.list") {
+        return Response.json({
+          ok: true,
+          members: [
+            { id: "U1", name: "ana", profile: { email: "ANA@a.test" } },
+            { id: "U3", name: "cy", profile: { email: "cy@a.test" } },
+            {
+              id: "U2",
+              name: "bot",
+              is_bot: true,
+              profile: { email: "bo@b.test" },
+            },
+          ],
+        });
+      }
+      return Response.json({
+        ok: true,
+        channels: [
+          { id: "C1", name: "sales", num_members: 4, is_member: true },
+          { id: "C2", name: "old", is_archived: true },
+        ],
+      });
+    }),
+  );
+}
+
+/** Every read started after the response, finished. */
+const backgroundReads = () =>
+  Promise.all(vi.mocked(waitUntil).mock.calls.map(([read]) => read));
 
 /** The state Slack hands back, from a connect the owner started. */
 async function startedState() {
@@ -102,39 +148,7 @@ describe("SlackService", () => {
       state,
       error: null,
     });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: URL) => {
-        const method = url.pathname.split("/").pop();
-        if (method === "auth.test") {
-          return Response.json({ ok: true, user: "crm", bot_id: "B1" });
-        }
-        if (method === "bots.info" && url.searchParams.get("bot") === "B1") {
-          return Response.json({ ok: true, bot: { name: "Acme CRM" } });
-        }
-        if (method === "users.list") {
-          return Response.json({
-            ok: true,
-            members: [
-              { id: "U1", name: "ana", profile: { email: "ANA@a.test" } },
-              {
-                id: "U2",
-                name: "bot",
-                is_bot: true,
-                profile: { email: "bo@b.test" },
-              },
-            ],
-          });
-        }
-        return Response.json({
-          ok: true,
-          channels: [
-            { id: "C1", name: "sales", num_members: 4, is_member: true },
-            { id: "C2", name: "old", is_archived: true },
-          ],
-        });
-      }),
-    );
+    stubSlack();
     await SlackInventoryService.sync("org_a");
     vi.unstubAllGlobals();
 
@@ -165,5 +179,34 @@ describe("SlackService", () => {
     expect(await SlackService.status(owner)).toMatchObject({
       connected: false,
     });
+  });
+
+  it("matches the members again once someone joins after the last match", async () => {
+    stubSlack();
+    const state = await startedState();
+    await SlackService.completeConnect(owner, {
+      ...web,
+      code: "c",
+      state,
+      error: null,
+    });
+    await backgroundReads();
+    const reads = vi.mocked(waitUntil).mock.calls.length;
+
+    // Nobody new: the status reads nothing from Slack.
+    await SlackService.status(owner);
+    expect(vi.mocked(waitUntil).mock.calls).toHaveLength(reads);
+
+    await database.exec(
+      `INSERT INTO "user" (id, name, email, email_verified) VALUES ('user_c', 'Cy', 'cy@a.test', 1);
+       INSERT INTO member (id, organization_id, user_id, role, created_at) VALUES ('m_c', 'org_a', 'user_c', 'member', 0);`,
+    );
+    await SlackService.status(member);
+    await backgroundReads();
+    vi.unstubAllGlobals();
+    expect((await SlackInventoryService.matches(owner)).rows).toEqual([
+      expect.objectContaining({ userId: "user_a", slackHandle: "@ana" }),
+      expect.objectContaining({ userId: "user_c", slackHandle: "@cy" }),
+    ]);
   });
 });
