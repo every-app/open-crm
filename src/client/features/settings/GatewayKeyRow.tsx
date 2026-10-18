@@ -30,7 +30,7 @@ export function GatewayKeyRow({
 
   if (!checklist || !item) {
     return (
-      <SettingsRow label={label} description="Held by your Every App gateway.">
+      <SettingsRow label={label}>
         {query.isError ? null : <Skeleton className="h-5 w-24" />}
       </SettingsRow>
     );
@@ -43,32 +43,33 @@ export function GatewayKeyRow({
     !checklist.local &&
     checklist.tier === "fork" &&
     !canManage
-      ? "An owner or an admin sets it up on the gateway."
+      ? "An owner or an admin sets it up."
       : null;
 
   return (
     <SettingsRow
       label={label}
       description={
-        <div className="space-y-2">
-          <p>Held by your Every App gateway.</p>
-          {item.note ? <p>{item.note}</p> : null}
-          {fallback ? <p>{fallback}</p> : null}
-          {item.command ? (
-            <div className="flex max-w-full items-center gap-2">
-              <code className="min-w-0 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground">
-                {item.command}
-              </code>
-              <CopyButton
-                value={item.command}
-                successMessage="Command copied"
-                label={`Copy the command that sets up ${label}`}
-                size="icon-xs"
-                variant="ghost"
-              />
-            </div>
-          ) : null}
-        </div>
+        item.note || fallback || item.command ? (
+          <div className="space-y-2">
+            {item.note ? <p>{item.note}</p> : null}
+            {fallback ? <p>{fallback}</p> : null}
+            {item.command ? (
+              <div className="flex max-w-full items-center gap-2">
+                <code className="min-w-0 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground">
+                  {item.command}
+                </code>
+                <CopyButton
+                  value={item.command}
+                  successMessage="Command copied"
+                  label={`Copy the command that sets up ${label}`}
+                  size="icon-xs"
+                  variant="ghost"
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : undefined
       }
     >
       <Badge variant={status.variant}>{status.label}</Badge>
