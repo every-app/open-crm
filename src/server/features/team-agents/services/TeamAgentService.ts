@@ -172,6 +172,39 @@ async function activity(context: Context, agentId: string, limit: number) {
 }
 
 /**
+ * Renames an agent, or changes its description (null or blank clears it), as
+ * the CRM's agents.update. Deploying a version takes that version's name.
+ */
+async function rename(
+  context: Context,
+  agentId: string,
+  input: { name: string; description?: string | null },
+) {
+  const agent = await manageableAgent(context, agentId);
+  const description =
+    input.description === undefined
+      ? agent.description
+      : input.description || null;
+  const changed = await TeamAgentRepository.updateDetails(
+    context.organizationId,
+    agent.id,
+    { name: input.name, description },
+  );
+  if (!changed) throw new AppError("NOT_FOUND");
+  await AuditRepository.audit({
+    organizationId: context.organizationId,
+    agentId: agent.id,
+    actorUserId: context.userId,
+    actorType: "USER",
+    type: "agent.updated",
+    summary: "Changed agent details",
+    before: { name: agent.name, description: agent.description },
+    after: { name: input.name, description },
+  });
+  return { id: agent.id, name: input.name, description, status: agent.status };
+}
+
+/**
  * Makes an exact READY (or previously deployed) version live for the team:
  * the human approval step. A replay of the same request returns the same
  * outcome; a request id reused for another version is refused.
@@ -384,6 +417,7 @@ export const TeamAgentService = {
   get,
   files,
   activity,
+  rename,
   deploy,
   transition,
   remove,
