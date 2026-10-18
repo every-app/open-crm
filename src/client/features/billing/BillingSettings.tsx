@@ -78,7 +78,7 @@ function Account({ checkoutSucceeded }: { checkoutSucceeded: boolean }) {
   return (
     <QueryState
       query={account}
-      errorFallback="We couldn't load your billing details right now. Please try again."
+      errorFallback="We couldn't load your billing details. Try again."
     >
       {(data) => (
         <AccountSections
@@ -101,34 +101,14 @@ function AccountSections({
 }) {
   const canManage = useCanManageBilling();
   const balance = creditBalance(account);
-  const { isFreePlan, isOutOfCredits, isLowCredits, refillDate } = balance;
-
-  const status = isOutOfCredits ? (
-    <span className="text-destructive">
-      {isFreePlan
-        ? "You’ve used your free credits. Upgrade your plan to continue."
-        : `You’ve used this month’s credits. Buy more below to keep going${
-            refillDate ? `, or wait for them to refill on ${refillDate}` : ""
-          }.`}
-    </span>
-  ) : isLowCredits ? (
-    <span className="text-warning-foreground dark:text-warning">
-      You&rsquo;re running low on credits.{" "}
-      {isFreePlan
-        ? `Upgrade to get $${BASE_PLAN_OFFER.monthlyCreditsUsd}/month.`
-        : "Buy more credits below."}
-    </span>
-  ) : null;
+  const { isFreePlan, refillDate } = balance;
 
   return (
     <>
       <SettingsSection title="Plan">
         <SettingsCard>
           {finalizing ? (
-            <SettingsRow
-              label="Finalizing your subscription…"
-              description="This usually takes a few seconds."
-            />
+            <SettingsRow label="Finalizing your subscription…" />
           ) : (
             <SettingsRow
               label={
@@ -154,7 +134,7 @@ function AccountSections({
             </SettingsRow>
           ) : null}
           {canManage ? null : (
-            <SettingsCardFooter note="Only the organization owner can change the plan or buy credits. Ask them if you need more.">
+            <SettingsCardFooter note="Only the organization owner can change the plan or buy credits.">
               {null}
             </SettingsCardFooter>
           )}
@@ -163,7 +143,7 @@ function AccountSections({
 
       <SettingsSection title="Credits">
         <SettingsCard>
-          <SettingsRow label="Remaining" description={status}>
+          <SettingsRow label="Remaining">
             <Amount
               value={usd(balance.monthlyRemaining + balance.topUpRemaining)}
             />
@@ -214,7 +194,7 @@ function UpgradeButton() {
       pending={checkout.isPending || checkout.isSuccess}
       onClick={() => checkout.mutate()}
     >
-      Upgrade Plan
+      Upgrade
     </Button>
   );
 }

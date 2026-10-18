@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
 import {
   SettingsCard,
-  SettingsRow,
   SettingsSection,
 } from "@/client/components/SettingsSection";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/client/components/ui/accordion";
 import { Badge } from "@/client/components/ui/badge";
 import { CodeBlock } from "@/client/features/settings/CodeBlock";
 import { TitleWithStatus } from "@/client/features/settings/ConnectionStatus";
@@ -27,16 +32,15 @@ function Status({ settings }: { settings: TrackingSettings }) {
 }
 
 /**
- * The tag to paste, or to add through Tag Manager, and pausing it. Every
- * member can copy it; owners and admins pause it.
+ * The tag, one way to install it at a time as the original CRM folds them
+ * (pasted into the HTML, or added through Tag Manager), and pausing it.
+ * Every member can copy it; owners and admins pause it.
  */
 export function TrackingScript({
   settings,
-  siteId,
   canManage,
 }: {
   settings: TrackingSettings;
-  siteId: string;
   canManage: boolean;
 }) {
   const pause = useTrackingMutation(
@@ -57,62 +61,62 @@ export function TrackingScript({
           Tracking script
         </TitleWithStatus>
       }
-      description="One tag, 4 KB, in the head of every page you measure."
     >
       <SettingsCard>
-        <SettingsRow stacked label="Paste it into your HTML">
-          <div className="w-full space-y-2">
-            {settings.snippet ? (
-              <CodeBlock
-                value={settings.snippet}
-                successMessage="Script copied."
-              />
-            ) : null}
-            <p className="text-xs text-muted-foreground">
-              Site ID{" "}
-              <span className="font-mono text-foreground">{siteId}</span> ·
-              Rotating it stops every copy of the old script at once.
-            </p>
-          </div>
-        </SettingsRow>
-        <SettingsRow stacked label="Add it through Google Tag Manager">
-          <div className="w-full space-y-2">
-            {settings.tagManagerSnippet ? (
-              <CodeBlock
-                value={settings.tagManagerSnippet}
-                successMessage="Script copied."
-              />
-            ) : null}
+        <Accordion defaultValue={["html"]}>
+          <InstallMethod
+            value="html"
+            label="Paste it into your HTML"
+            snippet={settings.snippet}
+          />
+          <InstallMethod
+            value="gtm"
+            label="Add it through Google Tag Manager"
+            snippet={settings.tagManagerSnippet}
+          >
             <ol className="list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
               <li>In Tag Manager, add a new Custom HTML tag.</li>
               <li>
                 Paste this snippet — not the one above — as the tag&apos;s HTML.
               </li>
-              <li>
-                Trigger it on All Pages, then publish the container. Keep{" "}
-                <span className="font-mono text-foreground">
-                  {settings.scriptUrl}
-                </span>{" "}
-                off any consent-blocked category you do not need.
-              </li>
+              <li>Trigger it on All Pages, then publish the container.</li>
             </ol>
-            <p className="text-xs text-muted-foreground">
-              Tag Manager drops a{" "}
-              <span className="font-mono text-foreground">data-site</span>{" "}
-              attribute when it injects a script, so this form carries the site
-              ID in the URL instead.
-            </p>
-          </div>
-        </SettingsRow>
+          </InstallMethod>
+        </Accordion>
         <SwitchRow
           label="Pause tracking"
-          hint="The script keeps loading and records nothing. Your domains and settings are kept"
+          hint="The script keeps loading and records nothing."
           checked={settings.paused}
           disabled={!canManage || pause.isPending}
           onChange={(paused) => pause.mutate(paused)}
         />
       </SettingsCard>
     </SettingsSection>
+  );
+}
+
+/** One way to install the tag: a row that opens onto its snippet. */
+function InstallMethod({
+  value,
+  label,
+  snippet,
+  children,
+}: {
+  value: "html" | "gtm";
+  label: string;
+  snippet: string | null;
+  children?: ReactNode;
+}) {
+  return (
+    <AccordionItem value={value} className="px-5">
+      <AccordionTrigger className="border-0 py-4">{label}</AccordionTrigger>
+      <AccordionContent className="space-y-3 pb-4">
+        {snippet ? (
+          <CodeBlock value={snippet} successMessage="Script copied." />
+        ) : null}
+        {children}
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -145,9 +149,7 @@ export function RotateSiteId() {
           onClose={() => setRotating(false)}
           onConfirm={() => rotate.mutate(undefined)}
         >
-          Every copy of the old script stops recording at once, including any
-          you have forgotten about. You will need to paste the new tag on every
-          page that carries the old one. Nothing already collected is lost.
+          Every copy of the old script stops recording at once.
         </ConfirmDialog>
       ) : null}
     </DangerZone>

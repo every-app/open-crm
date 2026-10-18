@@ -8,7 +8,6 @@ import {
   gtmSnippet,
   gtmTag,
   hostAllowed,
-  loaderUrl,
   MAX_VERIFY_BYTES,
   mintSiteId,
   normalizeHost,
@@ -54,7 +53,6 @@ async function getSettings(organizationId: string, appOrigin: string) {
   return {
     siteId,
     ready,
-    scriptUrl: loaderUrl(appOrigin),
     snippet: siteId ? trackingSnippet(appOrigin, siteId) : null,
     tagManagerSnippet: siteId ? gtmSnippet(appOrigin, siteId) : null,
     crossDomain: site.crossDomain,
@@ -258,9 +256,7 @@ async function verify(organizationId: string, url: string) {
   if (!target) {
     throw new AppError("VALIDATION_ERROR", `Not an https URL: ${url}`);
   }
-  const started = Date.now();
   const fetched = await fetchPage(target);
-  const responseMs = Date.now() - started;
   const host = fetched.url.hostname.toLowerCase();
   if (fetched.text === null) {
     return { status: "unreachable" as const, host, detail: fetched.detail };
@@ -271,12 +267,11 @@ async function verify(organizationId: string, url: string) {
   const containers = inHtml ? [] : gtmContainers(body);
   const container = inHtml ? null : await inContainers(containers, siteId);
   if (!inHtml && !container) {
-    return { status: "missing" as const, host, responseMs, containers };
+    return { status: "missing" as const, host, containers };
   }
   return {
     status: "found" as const,
     host,
-    responseMs,
     allowed: hostAllowed(host, trackingConfig(site, siteId, domains)),
     pageView: await WebsiteActivityRepository.seenOnHostSince(
       organizationId,

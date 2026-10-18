@@ -58,7 +58,6 @@ export function TrackingDomains({
   return (
     <SettingsSection
       title="Allowed domains"
-      description="The script records page views on these hosts only."
       action={
         <Button disabled={!canManage} onClick={() => setAdding(true)}>
           <Plus data-icon="inline-start" />
@@ -72,7 +71,7 @@ export function TrackingDomains({
             icon={Globe}
             media="rows"
             variant="plain"
-            title="Add the domain your website runs on to get your tracking script."
+            title="Add a domain to get your tracking script"
           />
         ) : (
           <Table>
@@ -166,7 +165,7 @@ function AddDomainDialog({ onClose }: { onClose: () => void }) {
                 host:
                   code === "CONFLICT"
                     ? "That domain is already on the list."
-                    : "That is not a domain. Try something like acme.com.",
+                    : "Enter a domain, like acme.com.",
               },
             },
           });
@@ -187,7 +186,7 @@ function AddDomainDialog({ onClose }: { onClose: () => void }) {
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <form.SubmitButton form={FORM_ID}>Add domain</form.SubmitButton>
+            <form.SubmitButton form={FORM_ID}>Add</form.SubmitButton>
           </>
         }
       >

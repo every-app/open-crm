@@ -36,10 +36,7 @@ export function SlackPeoplePage() {
   const refreshing = refresh.isPending || matches.data?.sync === "syncing";
 
   return (
-    <SettingsPage
-      title="Slack is connected"
-      description="Match your CRM people to Slack once. Agents use these exact accounts later instead of guessing from a similar name."
-    >
+    <SettingsPage title="Slack is connected">
       <QueryState
         query={matches}
         errorFallback="The people could not be loaded."
@@ -54,7 +51,7 @@ export function SlackPeoplePage() {
                 pending={refreshing}
                 onClick={() => refresh.mutate()}
               >
-                {refreshing ? "Refreshing…" : "Refresh from Slack"}
+                {refreshing ? "Refreshing…" : "Refresh"}
               </Button>
             }
           >
@@ -70,7 +67,7 @@ export function SlackPeoplePage() {
                   icon={Users}
                   media="rows"
                   variant="plain"
-                  title="No CRM teammates are available to match"
+                  title="No teammates to match"
                 />
               ) : (
                 rows.map((row) => (
@@ -90,11 +87,6 @@ export function SlackPeoplePage() {
                 ))
               )}
             </SettingsCard>
-            <p className="text-sm text-muted-foreground">
-              Refresh after a Slack email changes. The CRM matches exact email
-              addresses only. Someone with no exact match stays unmatched, and
-              an agent stops instead of guessing at a similar name.
-            </p>
             <div className="flex justify-end">
               <Button
                 nativeButton={false}

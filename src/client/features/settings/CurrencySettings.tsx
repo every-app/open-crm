@@ -27,7 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/client/components/ui/table";
-import { RelativeTime } from "@/client/features/records/LocalDateTime";
 import { ExchangeRates } from "@/client/features/settings/ExchangeRates";
 import {
   currencySettingsQueryOptions,
@@ -43,10 +42,7 @@ export function CurrencySettings() {
   const query = useQuery(currencySettingsQueryOptions());
 
   return (
-    <SettingsPage
-      title="Currencies"
-      description="What your numbers are reported in, and how the other currencies get there."
-    >
+    <SettingsPage title="Currencies">
       <QueryState
         query={query}
         errorFallback="The currency settings could not be loaded."
@@ -71,8 +67,7 @@ const CURRENCY_ITEMS = CURRENCIES.map(({ code, name }) => ({
   label: `${code} · ${name}`,
 }));
 
-const RECONVERTS =
-  "Changing this re-converts every deal at today's rates. Figures already reported will move.";
+const RECONVERTS = "Changing this re-converts every deal at today's rates.";
 
 function ReportingCurrency({
   current,
@@ -99,10 +94,7 @@ function ReportingCurrency({
   });
 
   return (
-    <SettingsSection
-      title="Reporting currency"
-      description="Every total, chart and average in the CRM is expressed in this currency. Each deal keeps the currency it was sold in."
-    >
+    <SettingsSection title="Reporting currency">
       <SettingsCard>
         <SettingsRow
           label="Report totals in"
@@ -110,7 +102,7 @@ function ReportingCurrency({
           description={
             canManage
               ? RECONVERTS
-              : "Only an owner or an admin can change how money is reported."
+              : "Only an owner or an admin can change this."
           }
         >
           <Select
@@ -150,24 +142,16 @@ function ReportingCurrency({
 }
 
 function CurrenciesInUse({ settings }: { settings: Settings }) {
-  const { unconverted, inUse, reportingCurrency, refreshedAt } = settings;
+  const { unconverted, inUse, reportingCurrency } = settings;
   const deals = `${unconverted.count} ${unconverted.count === 1 ? "deal" : "deals"}`;
 
   return (
     <SettingsSection
       title="Currencies in use"
       description={
-        <>
-          {unconverted.count === 0
-            ? "Every deal with an amount can be converted into the reporting currency."
-            : `${deals} cannot be converted, so ${unconverted.count === 1 ? "it is" : "they are"} left out of every total.`}
-          {refreshedAt ? (
-            <>
-              {" "}
-              Rates last fetched <RelativeTime date={refreshedAt} />.
-            </>
-          ) : null}
-        </>
+        unconverted.count === 0
+          ? undefined
+          : `${deals} cannot be converted, so ${unconverted.count === 1 ? "it is" : "they are"} left out of every total.`
       }
     >
       <SettingsCard>

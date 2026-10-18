@@ -24,20 +24,12 @@ export function GatewaySetupRows({
         <CodeBlock value={redirectUri} />
       </SettingsRow>
       {setup.command ? (
-        <SettingsRow
-          stacked
-          label="Command"
-          description="Then give the client to your Every App gateway."
-        >
+        <SettingsRow stacked label="Command">
           <CodeBlock value={setup.command} successMessage="Command copied" />
         </SettingsRow>
       ) : null}
       {setup.devVars ? (
-        <SettingsRow
-          stacked
-          label=".dev.vars"
-          description="Then put the client in .dev.vars and restart."
-        >
+        <SettingsRow stacked label=".dev.vars">
           <CodeBlock
             value={setup.devVars.map((name) => `${name}=`).join("\n")}
           />

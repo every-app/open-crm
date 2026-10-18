@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Bot, TriangleAlert, X } from "lucide-react";
+import { Bot, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
 import { EmptyState } from "@/client/components/EmptyState";
@@ -12,12 +12,7 @@ import {
   SettingsRow,
   SettingsSection,
 } from "@/client/components/SettingsSection";
-import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from "@/client/components/ui/alert";
+import { Alert, AlertAction, AlertTitle } from "@/client/components/ui/alert";
 import { Button } from "@/client/components/ui/button";
 import { ConnectionBadge } from "@/client/features/settings/ConnectionStatus";
 import { DangerRow, DangerZone } from "@/client/features/settings/DangerZone";
@@ -107,18 +102,16 @@ function Connected({
   return (
     <SettingsPage
       title="Slack"
-      description={
-        status.canManage
-          ? "Here is what Slack gave us. Agents only post where their deployed version says."
-          : "Here is what Slack gave us. Only an owner or an admin can disconnect it."
-      }
       actions={
-        <ConnectionBadge
-          state="connected"
-          label={
-            status.workspace ? `Connected to ${status.workspace}` : undefined
-          }
-        />
+        // Level with the title's line.
+        <span className="flex h-8 items-center">
+          <ConnectionBadge
+            state="connected"
+            label={
+              status.workspace ? `Connected to ${status.workspace}` : undefined
+            }
+          />
+        </span>
       }
     >
       {connectError || withheld.length > 0 || status.syncError ? (
@@ -132,17 +125,6 @@ function Connected({
                   ? `${app} cannot reach private channels`
                   : `Slack held back ${withheld.length} permission${withheld.length === 1 ? "" : "s"}`}
               </AlertTitle>
-              <AlertDescription>
-                <p>Reconnect to ask again. You lose nothing.</p>
-                <ul className="mt-2 space-y-1.5">
-                  {withheld.map((entry) => (
-                    <li key={entry.scope} className="flex items-start gap-2">
-                      <X aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-                      {entry.grant}
-                    </li>
-                  ))}
-                </ul>
-              </AlertDescription>
               {status.canManage ? (
                 <AlertAction>
                   <Button
@@ -172,7 +154,6 @@ function Connected({
 
       <SettingsSection
         title="Agents that use Slack"
-        description="Built in chat, not here. Open one to change it."
         action={
           <Button
             nativeButton={false}
@@ -219,13 +200,6 @@ function Connected({
                 </span>
               </Link>
             ))}
-            <Link
-              to="/chat"
-              state={{ builderDraft: "" }}
-              className="block px-5 py-4 text-sm font-medium outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.03]"
-            >
-              Describe another agent in chat
-            </Link>
           </SettingsCard>
         )}
       </SettingsSection>
@@ -235,8 +209,8 @@ function Connected({
           <SettingsRow
             label={
               people.reviewed === 0
-                ? "No workspace people have been reviewed yet."
-                : `${people.matched} of ${people.reviewed} reviewed people are matched.`
+                ? "Not reviewed yet"
+                : `${people.matched} of ${people.reviewed} matched`
             }
           >
             <Button
@@ -269,12 +243,7 @@ function Connected({
           pending={disconnect.isPending}
           onConfirm={() => disconnect.mutate()}
           onClose={() => setConfirming(false)}
-        >
-          Agents stop sending to Slack immediately, and the cached channel list
-          is cleared so a new app re-reads it. Who is matched to which Slack
-          account is kept, so reconnecting the same workspace does not ask you
-          to match everyone again.
-        </ConfirmDialog>
+        />
       ) : null}
     </SettingsPage>
   );

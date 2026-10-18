@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FormDialog } from "@/client/components/FormDialog";
 import { Button } from "@/client/components/ui/button";
-import { DialogDescription } from "@/client/components/ui/dialog";
 import { Input } from "@/client/components/ui/input";
 import { Label } from "@/client/components/ui/label";
 import { Switch } from "@/client/components/ui/switch";
@@ -47,15 +46,11 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
             pending={create.isPending}
             onClick={() => create.mutate()}
           >
-            Create channel
+            Create
           </Button>
         </>
       }
     >
-      <DialogDescription>
-        The CRM makes it in Slack and joins it. You can put the agent in it
-        straight after.
-      </DialogDescription>
       <div className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="new-channel-name">Name</Label>
@@ -65,11 +60,11 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
             placeholder="renewals"
             onChange={(event) => setName(event.target.value)}
           />
-          <p className="text-xs text-muted-foreground">
-            {slug && !valid
-              ? "Use lowercase letters, numbers and dashes."
-              : `Slack will call it #${slug || "renewals"}.`}
-          </p>
+          {slug && !valid ? (
+            <p className="text-xs text-muted-foreground">
+              Use lowercase letters, numbers and dashes.
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-3">
           <Switch
@@ -77,9 +72,7 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
             checked={isPrivate}
             onCheckedChange={setIsPrivate}
           />
-          <Label htmlFor="new-channel-private">
-            Private. Only people you invite can see it.
-          </Label>
+          <Label htmlFor="new-channel-private">Private</Label>
         </div>
       </div>
     </FormDialog>

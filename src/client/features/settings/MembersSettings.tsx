@@ -111,7 +111,6 @@ export function MembersSettings() {
   return (
     <SettingsPage
       title="Members"
-      description="Everyone who has access to your CRM."
       actions={
         account?.gatewayUrl ? (
           <Button

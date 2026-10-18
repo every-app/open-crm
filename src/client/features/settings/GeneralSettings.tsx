@@ -17,23 +17,14 @@ export function GeneralSettings() {
   const canManage = useCanManageWorkspace();
 
   return (
-    <SettingsPage
-      title="General"
-      description="Who you are, and the model the research agent thinks with."
-    >
+    <SettingsPage title="General">
       {workspace ? (
-        <SettingsSection
-          title="Workspace"
-          description="The name and website of the company using this CRM."
-        >
+        <SettingsSection title="Workspace">
           <WorkspaceSettingsCard workspace={workspace} canManage={canManage} />
         </SettingsSection>
       ) : null}
 
-      <SettingsSection
-        title="Company research"
-        description="What the agents use to research every company in the CRM."
-      >
+      <SettingsSection title="Company research">
         <SettingsCard>
           <GatewayKeyRow id="context" label="Context API key" />
         </SettingsCard>

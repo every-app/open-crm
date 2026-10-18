@@ -29,8 +29,8 @@ import { ScopeGroups } from "./SlackScopeGroups";
 type Status = Awaited<ReturnType<typeof getSlackStatus>>;
 
 const NEVER = [
-  "Send anything at all until you build an agent and deploy it",
-  "Post anywhere except the destination approved in that agent",
+  "Send anything until you deploy an agent",
+  "Post anywhere except the agent's approved destination",
   "Read a direct message between two people",
 ];
 
@@ -42,13 +42,12 @@ const SUGGESTIONS = [
 
 /** Why a connect came back without Slack, from the callback's outcome. */
 const CONNECT_ERRORS: Record<SlackConnectError, string> = {
-  access_denied: "Slack installation was cancelled before access was granted.",
+  access_denied: "Slack installation was cancelled.",
   invalid_state:
     "That Slack approval expired or was started by someone else. Start again.",
-  forbidden:
-    "Only an owner or an admin can connect Slack. One Slack workspace is shared by everyone here, so ask one of them to connect or reconnect it.",
+  forbidden: "Only an owner or an admin can connect Slack.",
   exchange_failed:
-    "Slack rejected the app credentials or redirect URL. Check the client ID, client secret, and OAuth redirect URL, then try again.",
+    "Slack rejected the app credentials or redirect URL. Check them, then try again.",
   not_configured: "Slack is not configured.",
   rejected: "Slack didn't finish the installation. Try again.",
   failed: "Slack could not be connected. Try again.",
@@ -85,11 +84,13 @@ export function SlackNotConnected({
   return (
     <SettingsPage
       title="Slack"
-      description="Connecting Slack gives the CRM a way in and a way out. What it actually does with that is up to you afterwards, one agent at a time."
       actions={
-        <ConnectionBadge
-          state={status.configured ? "disconnected" : "unconfigured"}
-        />
+        // Level with the title's line.
+        <span className="flex h-8 items-center">
+          <ConnectionBadge
+            state={status.configured ? "disconnected" : "unconfigured"}
+          />
+        </span>
       }
     >
       <SlackConnectAlert error={connectError} />
@@ -113,11 +114,9 @@ export function SlackNotConnected({
       {status.configured ? (
         <SettingsCard>
           <SettingsRow
-            label="You approve the workspace in Slack."
+            label="Connect Slack"
             description={
-              status.canManage
-                ? "You can disconnect it here at any time."
-                : CONNECT_ERRORS.forbidden
+              status.canManage ? undefined : CONNECT_ERRORS.forbidden
             }
           >
             <Button
@@ -125,7 +124,7 @@ export function SlackNotConnected({
               pending={connect.isPending}
               onClick={() => connect.mutate()}
             >
-              {connect.isPending ? "Opening Slack…" : "Connect Slack"}
+              {connect.isPending ? "Opening Slack…" : "Connect"}
             </Button>
           </SettingsRow>
         </SettingsCard>
@@ -151,10 +150,7 @@ export function SlackNotConnected({
           ) : null}
         </SettingsSection>
       )}
-      <SettingsSection
-        title="Afterwards, most teams start with one of these"
-        description="Suggestions, not settings. None of them exist until you pick one and switch it on."
-      >
+      <SettingsSection title="Suggestions">
         <div className="grid gap-3 md:grid-cols-3">
           {SUGGESTIONS.map(([name, description]) => (
             <Link

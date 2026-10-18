@@ -17,10 +17,7 @@ export function ResearchAgentSection() {
   const model = useQuery(agentModelQueryOptions());
 
   return (
-    <SettingsSection
-      title="Research agent"
-      description="The model the agent thinks with, routed through OpenRouter on your Every App gateway."
-    >
+    <SettingsSection title="Research agent">
       <SettingsCard>
         <SettingsRow label="Model">
           {model.data ? (

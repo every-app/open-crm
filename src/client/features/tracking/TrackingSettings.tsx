@@ -26,10 +26,7 @@ export function TrackingSettings() {
   const query = useQuery(trackingSettingsQueryOptions());
 
   return (
-    <SettingsPage
-      title="Tracking & Analytics"
-      description="Track website visitors and automatically add contacts when a form is submitted."
-    >
+    <SettingsPage title="Tracking & Analytics">
       <QueryState
         query={query}
         errorFallback="The tracking settings could not be loaded."
@@ -37,15 +34,8 @@ export function TrackingSettings() {
         {(settings) =>
           settings.ready && settings.siteId ? (
             <>
-              <TrackingScript
-                settings={settings}
-                siteId={settings.siteId}
-                canManage={canManage}
-              />
-              <VerifyInstallation
-                siteId={settings.siteId}
-                canManage={canManage}
-              />
+              <TrackingScript settings={settings} canManage={canManage} />
+              <VerifyInstallation canManage={canManage} />
               {canManage ? <TrafficSources /> : null}
               <TrackingRules settings={settings} canManage={canManage} />
               <TrackingDomains settings={settings} canManage={canManage} />

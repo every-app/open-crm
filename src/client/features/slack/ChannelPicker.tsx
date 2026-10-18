@@ -22,7 +22,6 @@ export type PickerChannel = {
 export function ChannelPicker({
   channels,
   canInviteItself,
-  appName = null,
   empty,
   value = null,
   pending = false,
@@ -33,8 +32,6 @@ export function ChannelPicker({
 }: {
   channels: PickerChannel[];
   canInviteItself: boolean;
-  /** The app's name in the workspace, once Slack has said it. */
-  appName?: string | null;
   empty?: ReactNode;
   value?: string | null;
   pending?: boolean;
@@ -92,7 +89,7 @@ export function ChannelPicker({
                 {channel.name}
               </span>
               <span className="block truncate text-xs text-muted-foreground">
-                {describe(channel, canInviteItself, appName)}
+                {describe(channel)}
               </span>
             </span>
             <span className="relative flex w-24 justify-end">
@@ -129,21 +126,18 @@ export function ChannelPicker({
   );
 }
 
-function describe(
-  channel: PickerChannel,
-  canInviteItself: boolean,
-  appName: string | null,
-): string {
+/**
+ * A channel's line under its name: how many people are in it. Whether the
+ * app is in, can join or must be invited shows as the check, the lock and
+ * the button beside it.
+ */
+function describe(channel: PickerChannel): string {
   const people =
-    channel.memberCount === null ? "" : ` · ${channel.memberCount} people`;
-  // The app's name when Slack has said it, as a sentence's subject or object.
-  const subject = appName ?? "The app";
-  const object = appName ?? "the app";
-  if (channel.isMember) return `${subject} is in${people}`;
-  if (!channel.classified) return `Not read from Slack yet${people}`;
-  if (!channel.isPrivate) return `${subject} can join this one${people}`;
-  if (canInviteItself) return `Private. ${subject} joins as you${people}`;
-  if (channel.inviteRequestedAt)
-    return `Private. Waiting on an invite${people}`;
-  return `Private. Someone inside has to invite ${object}${people}`;
+    channel.memberCount === null
+      ? null
+      : `${channel.memberCount} ${channel.memberCount === 1 ? "person" : "people"}`;
+  if (!channel.isMember && !channel.classified) {
+    return ["Not read from Slack yet", people].filter(Boolean).join(" · ");
+  }
+  return people ?? "";
 }

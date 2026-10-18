@@ -39,8 +39,7 @@ const formatRate = (rate: number) =>
 /**
  * Settings → Currencies' rates: fetched daily for everyone, and the
  * organization's own, which win. Owners and admins refresh them and enter
- * or remove their own; when they were last fetched shows under Currencies
- * in use.
+ * or remove their own.
  */
 export function ExchangeRates({
   settings,
@@ -62,7 +61,7 @@ export function ExchangeRates({
     onError: (error) => {
       toast.error(
         getErrorCode(error) === "UPSTREAM_UNAVAILABLE"
-          ? "Could not reach open.er-api.com. Rates entered by hand are unaffected."
+          ? "Could not reach open.er-api.com."
           : getStandardErrorMessage(error),
       );
     },
@@ -81,7 +80,6 @@ export function ExchangeRates({
   return (
     <SettingsSection
       title="Exchange rates"
-      description={`How many ${base} one unit of each currency buys. Fetched daily from open.er-api.com; a rate you enter here wins.`}
       action={
         canManage ? (
           <Button
@@ -107,11 +105,6 @@ export function ExchangeRates({
             media="rows"
             variant="plain"
             title="No rates yet"
-            description={
-              canManage
-                ? "Refresh to fetch them, or enter one by hand."
-                : "An owner or an admin can fetch them or enter one by hand."
-            }
           />
         ) : (
           <Table>

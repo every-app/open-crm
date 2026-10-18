@@ -23,10 +23,7 @@ export function ArchivedRecordsSection() {
   const query = useQuery(archiveRetentionQueryOptions());
 
   return (
-    <SettingsSection
-      title="Archived records"
-      description="Deleted records are archived and hidden, then pruned for good."
-    >
+    <SettingsSection title="Archived records">
       <QueryState
         query={query}
         errorFallback="The archive retention could not be loaded."
@@ -68,7 +65,7 @@ function RetentionForm({ days }: { days: number }) {
             {(field) => (
               <field.RowTextField
                 label="Prune archived records after"
-                description="Days. 180 is the default."
+                description="Days"
                 className="sm:w-28"
                 type="number"
                 inputMode="numeric"

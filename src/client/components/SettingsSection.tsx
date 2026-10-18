@@ -42,7 +42,14 @@ export function SettingsSection({
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-end justify-between gap-3">
+      <div
+        className={cn(
+          "flex justify-between gap-3",
+          // A title alone sits level with the action; under a description
+          // the action lines up with the description.
+          description ? "items-end" : "items-center",
+        )}
+      >
         <div className="min-w-0 space-y-1">
           <h2 className="text-base font-semibold tracking-tight">{title}</h2>
           {description ? (
