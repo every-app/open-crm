@@ -180,6 +180,24 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         { skip_reason: "One of our own addresses" },
       ]);
     });
+
+    it("keeps the members' work domains out, but never a free-mail one", async () => {
+      // Ana signs in at a.test; Cy, another member, with Gmail.
+      await database.exec(
+        `INSERT INTO "user" (id, name, email, email_verified) VALUES ('user_c', 'Cy', 'cy@gmail.com', true);
+         INSERT INTO member (id, organization_id, user_id, role, created_at) VALUES ('m_c', '${A}', 'user_c', 'member', '2026-01-01T00:00:00.000Z');`,
+      );
+      await submit({ email: "lee@a.test" });
+      await submit({ email: "jane@gmail.com" }, "visitor_0002");
+      expect(
+        await database.rows(
+          "SELECT email, skip_reason FROM form_submission ORDER BY email",
+        ),
+      ).toEqual([
+        { email: "jane@gmail.com", skip_reason: null },
+        { email: "lee@a.test", skip_reason: "One of our own addresses" },
+      ]);
+    });
   });
 }
 

@@ -3,21 +3,24 @@ import { primaryCalendar } from "@/server/features/mailbox/providers/calendar";
 import { gmailProfile } from "@/server/features/mailbox/providers/gmail";
 import { graphMe } from "@/server/features/mailbox/providers/outlook";
 import {
-  AUTHORIZE_URL,
   CALLBACK_PATH,
   GATEWAY_SECRETS,
+  authorizeUrl,
   clientStatus,
   revokeGoogleToken,
   tokenRequest,
 } from "@/server/features/mailbox/providers/oauth";
+import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
 import { SyncedDataRepository } from "@/server/features/mailbox/repositories/SyncedDataRepository";
 import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { SyncStateRepository } from "@/server/features/mailbox/repositories/SyncStateRepository";
 import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSyncService";
+import { MatchService } from "@/server/features/mailbox/services/MatchService";
 import { deploymentTierFor } from "@/server/lib/deployment-tier";
 import { AppError } from "@/server/lib/errors";
 import { codeChallenge, randomToken } from "@/server/lib/pkce";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
+import { normalizeDomain } from "@/shared/domain";
 import {
   grantedSources,
   MAILBOX_PROVIDERS,
@@ -34,8 +37,10 @@ import { hasOrgPermission } from "@/shared/org-permissions";
 // Better Auth link flow. Connect: an authorize URL with a single-use state
 // (ten minutes, bound to the member and organization) and PKCE; the callback
 // checks the state is the member's, exchanges the code through the gateway,
-// learns the mailbox's address, stores the member's tokens and starts the
-// sources the member granted. Everything here is the member's own.
+// learns the mailbox's address, refuses one that isn't the address the
+// member signs in with, stores the member's tokens and starts the sources
+// the member granted. Everything here is the member's own, but suppressing a
+// domain, which is the organization's.
 
 type Member = { organizationId: string; userId: string };
 
@@ -67,7 +72,7 @@ async function startConnect(
     codeVerifier,
     ttlMs: STATE_TTL_MS,
   });
-  const url = new URL(AUTHORIZE_URL[provider]);
+  const url = new URL(await authorizeUrl(provider));
   const params = url.searchParams;
   params.set("client_id", client.clientId);
   params.set("redirect_uri", redirectUri(origin, provider));
@@ -101,7 +106,7 @@ type CallbackOutcome = { ok: true } | { ok: false; error: ConnectError };
  * first, so a state presented twice, or by someone else, is refused.
  */
 async function completeConnect(
-  member: Member,
+  member: Member & { userEmail: string },
   provider: MailboxProvider,
   callbackUrl: URL,
 ): Promise<CallbackOutcome> {
@@ -150,6 +155,11 @@ async function completeConnect(
     sources,
   );
   if (!accountEmail) return { ok: false, error: "mailbox_unknown" };
+  // The member's own mailbox only, as the CRM's account linking allowed: the
+  // address they sign in with, in any case.
+  if (accountEmail !== member.userEmail.toLowerCase()) {
+    return { ok: false, error: "email_doesn't_match" };
+  }
 
   const previous = await ConnectionRepository.findWithTokens(
     member.organizationId,
@@ -320,6 +330,47 @@ async function purgeSynced(
 }
 
 /**
+ * "Not a customer", ported from the CRM's suppressDomain: the domain's people
+ * never become contacts on their own again, from mail, meetings or website
+ * forms. With `purge`, the threads and meetings already filed on its company
+ * go too. Our own domains are refused: they are excluded already.
+ */
+async function suppressDomain(
+  organizationId: string,
+  input: { domain: string; reason?: string; purge: boolean },
+): Promise<{ domain: string; purged: number }> {
+  const domain = normalizeDomain(input.domain);
+  if (!domain) {
+    throw new AppError("NOT_FOUND", `"${input.domain}" is not a domain.`);
+  }
+  const { ourDomains } = await MatchService.internalIdentity(organizationId);
+  if (ourDomains.has(domain)) {
+    throw new AppError(
+      "NOT_FOUND",
+      "That is our own domain — it is already excluded.",
+    );
+  }
+  await CaptureWriteRepository.suppressDomain(
+    organizationId,
+    domain,
+    input.reason ?? null,
+  );
+  if (!input.purge) return { domain, purged: 0 };
+
+  const { purged, targets } = await SyncedDataRepository.purgeDomain(
+    organizationId,
+    domain,
+  );
+  await ArchiveRepository.restamp(organizationId, targets);
+  console.log("[mailbox] domain suppressed", {
+    organizationId,
+    domain,
+    purged,
+  });
+  return { domain, purged };
+}
+
+/**
  * Stops capture and forgets the member's tokens; what was captured stays.
  * Google's grant is withdrawn at Google first (refusing to forget a grant
  * Google still honours); Microsoft has no way to withdraw consent from here,
@@ -363,5 +414,6 @@ export const ConnectionService = {
   setAutoCreate,
   checkNow,
   purgeSynced,
+  suppressDomain,
   disconnect,
 };

@@ -64,6 +64,8 @@ export const CONNECT_ERRORS = [
   "state_mismatch",
   "exchange_failed",
   "mailbox_unknown",
+  // The CRM's (Better Auth's) code: a mailbox not at the sign-in address.
+  "email_doesn't_match",
 ] as const;
 export type ConnectError = (typeof CONNECT_ERRORS)[number];
 

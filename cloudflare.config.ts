@@ -17,6 +17,12 @@ const CRM_SECRETS = [
   // wants another than GPT-6 Luna (src/server/lib/openrouter.ts). The key
   // itself, OPENROUTER_API_KEY, is the gateway's.
   "OPENROUTER_MODEL",
+  // The Microsoft Entra tenant members connect Outlook through
+  // (src/server/features/mailbox/providers/oauth.ts): `common` (the default)
+  // takes any work, school or personal account, `organizations` any work or
+  // school one, and a tenant's id or domain only that tenant's, for a client
+  // registered for one tenant. The client itself is the gateway's.
+  "MICROSOFT_TENANT_ID",
   // Overrides the deployment shape (src/server/lib/deployment-tier.ts). Its
   // use is local: `DEPLOYMENT_TIER=fork` in .dev.vars shows a fork's setup
   // commands, since `everyapp dev` pins no organization.

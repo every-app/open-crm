@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { vi } from "vitest";
 
 // Connecting a mailbox on both backends: the single-use state is a
@@ -27,8 +27,6 @@ vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
 
-import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
-import { MeetingWriteRepository } from "@/server/features/mailbox/repositories/MeetingWriteRepository";
 import {
   firstValue,
   json,
@@ -39,8 +37,18 @@ import { forOrganization } from "@/server/lib/gateway-attribution";
 import { ConnectionService } from "./ConnectionService";
 
 const ORIGIN = "https://crm.example.com";
-const ANA = { organizationId: "org_a", userId: "user_a" };
-const BO = { organizationId: "org_b", userId: "user_b" };
+// Each with the address the gateway signs them in with, which a mailbox's
+// must match in any case.
+const ANA = {
+  organizationId: "org_a",
+  userId: "user_a",
+  userEmail: "ana@acme.com",
+};
+const BO = {
+  organizationId: "org_b",
+  userId: "user_b",
+  userEmail: "Bo@Contoso.com",
+};
 
 async function challengeOf(verifier: string) {
   const digest = await crypto.subtle.digest(
@@ -49,29 +57,6 @@ async function challengeOf(verifier: string) {
   );
   return Buffer.from(digest).toString("base64url");
 }
-
-/** A captured Gmail (or, without a Gmail id, Outlook) message of org_a. */
-const message = (
-  rfc: string,
-  by: string,
-  sentAt: string,
-  gmail: string | null,
-) => ({
-  organizationId: "org_a",
-  rfcMessageId: rfc,
-  syncedByUserId: by,
-  direction: "INBOUND" as const,
-  fromEmail: "jane@globex.com",
-  fromName: null,
-  recipients: [],
-  subject: rfc,
-  snippet: `snippet ${rfc}`,
-  body: null,
-  sentAt,
-  gmailMessageId: gmail,
-  outlookMessageId: gmail ? null : `o-${rfc}`,
-  outlookWebLink: null,
-});
 
 for (const dialect of ["sqlite", "postgres"] as const) {
   describe(`ConnectionService (${dialect})`, () => {
@@ -263,6 +248,64 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
     });
 
+    it("refuses a mailbox that isn't at the member's sign-in address", async () => {
+      stubProviders({
+        "www.googleapis.com/calendar/v3/calendars/primary": () => ({
+          id: "ana.lovelace@gmail.com",
+        }),
+      });
+      gateway.answerTokens(() =>
+        json({
+          access_token: "access-1",
+          refresh_token: "refresh-1",
+          scope: "https://www.googleapis.com/auth/calendar.readonly",
+        }),
+      );
+      const { url } = await ConnectionService.startConnect(
+        ANA,
+        "google",
+        ORIGIN,
+      );
+      const state = new URL(url).searchParams.get("state") ?? "";
+
+      expect(await connect(ANA, "google", { state, code: "c" })).toEqual({
+        ok: false,
+        error: "email_doesn't_match",
+      });
+      expect(await database.rows(`SELECT id FROM mailbox_connection`)).toEqual(
+        [],
+      );
+      expect(await database.rows(`SELECT id FROM mailbox_sync`)).toEqual([]);
+    });
+
+    it("signs in and exchanges the code on the CRM's Microsoft tenant", async () => {
+      vi.stubEnv("MICROSOFT_TENANT_ID", "contoso.onmicrosoft.com");
+      onTestFinished(() => {
+        vi.unstubAllEnvs();
+      });
+      stubProviders({
+        "graph.microsoft.com/v1.0/me": () => ({ mail: "bo@contoso.com" }),
+      });
+      const { url } = await ConnectionService.startConnect(
+        BO,
+        "microsoft",
+        ORIGIN,
+      );
+      expect(
+        url.startsWith(
+          "https://login.microsoftonline.com/contoso.onmicrosoft.com/oauth2/v2.0/authorize?",
+        ),
+      ).toBe(true);
+
+      const state = new URL(url).searchParams.get("state") ?? "";
+      expect(await connect(BO, "microsoft", { state, code: "c" })).toEqual({
+        ok: true,
+      });
+      expect(gateway.tokenCalls[0]?.path).toBe(
+        "/api/integrations/microsoft-365/login.microsoftonline.com/contoso.onmicrosoft.com/oauth2/v2.0/token",
+      );
+    });
+
     it("withdraws Google's grant before forgetting it, and keeps what was captured", async () => {
       await seedMailbox({
         ...ANA,
@@ -294,99 +337,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         [],
       );
       expect(await database.rows(`SELECT id FROM mailbox_sync`)).toEqual([]);
-    });
-
-    it("deletes a member's synced data and rebuilds the threads others' mail keeps", async () => {
-      await database.exec(
-        `INSERT INTO company (id, organization_id, name, domain) VALUES ('co1', 'org_a', 'Globex', 'globex.com')`,
-      );
-      const file = async (
-        root: string,
-        messages: ReturnType<typeof message>[],
-      ) => {
-        const threadId = await CaptureWriteRepository.upsertThread({
-          organizationId: "org_a",
-          rootMessageId: root,
-          subject: root,
-          companyId: "co1",
-          contactId: null,
-          sentAt: messages[0]?.sentAt ?? "",
-        });
-        for (const entry of messages) {
-          await CaptureWriteRepository.insertMessage({ ...entry, threadId });
-          await CaptureWriteRepository.projectThread({
-            organizationId: "org_a",
-            threadId,
-            userId: entry.syncedByUserId,
-            message: entry,
-            companyId: "co1",
-            contactId: null,
-            origin: "gmail",
-          });
-        }
-      };
-      // A thread only Ana's Gmail brought in, and one another mailbox
-      // (Outlook) shares.
-      await file("mine", [
-        message("m1", "user_a", "2026-01-01T00:00:00.000Z", "g1"),
-      ]);
-      await file("shared", [
-        message("s1", "user_a", "2026-01-02T00:00:00.000Z", "g2"),
-        message("s2", "user_a", "2026-01-03T00:00:00.000Z", null),
-      ]);
-      await MeetingWriteRepository.upsertEvent({
-        organizationId: "org_a",
-        iCalUid: "ical-1",
-        originalStartTime: "2026-02-01T00:00:00.000Z",
-        recurringEventId: null,
-        title: "Kickoff",
-        description: null,
-        location: null,
-        conferenceUrl: null,
-        startsAt: "2026-02-01T00:00:00.000Z",
-        endsAt: "2026-02-01T01:00:00.000Z",
-        isAllDay: false,
-        status: "confirmed",
-        organizerEmail: null,
-        companyId: "co1",
-        contactId: null,
-        syncedByUserId: "user_a",
-        googleEventId: "ev1",
-      });
-
-      expect(await ConnectionService.purgeSynced(ANA, "google")).toEqual({
-        purged: 3,
-      });
-      expect(
-        await database.rows(
-          `SELECT root_message_id, message_count, subject FROM email_thread`,
-        ),
-      ).toEqual([
-        { root_message_id: "shared", message_count: 1, subject: "s2" },
-      ]);
-      expect(
-        await database.rows(
-          `SELECT type, body, occurred_at FROM activity ORDER BY type`,
-        ),
-      ).toEqual([
-        {
-          type: "EMAIL",
-          body: "snippet s2",
-          occurred_at: "2026-01-03T00:00:00.000Z",
-        },
-      ]);
-      expect(await database.rows(`SELECT id FROM calendar_event`)).toEqual([]);
-      expect(
-        await firstValue(
-          database.rows(`SELECT last_activity_at FROM company`),
-          "last_activity_at",
-        ),
-      ).toBe(
-        await firstValue(
-          database.rows(`SELECT created_at FROM activity`),
-          "created_at",
-        ),
-      );
     });
   });
 }

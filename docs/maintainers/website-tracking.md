@@ -90,7 +90,8 @@ A form submission becomes a contact under the same rules captured mail
 follows (`src/shared/participants.ts`):
 
 - Machine and shared mailboxes are skipped.
-- The organization's own domain is skipped.
+- Our own domains are skipped: the members' work domains and the workspace's
+  website, as mail capture counts them.
 - Deleted (suppressed) addresses and suppressed domains are skipped.
 - At most 50 new contacts per organization per hour. Attaching a
   submission to an existing contact costs nothing.

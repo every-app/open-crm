@@ -3,6 +3,7 @@ import { AgentTaskService } from "@/server/features/agent/services/AgentTaskServ
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
+import { MatchService } from "@/server/features/mailbox/services/MatchService";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
 import {
   TrackingEventRepository,
@@ -12,12 +13,7 @@ import {
   CONTACTS_PER_HOUR,
   hourWindow,
 } from "@/server/features/tracking/trackingRules";
-import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
-import {
-  isMachineDomain,
-  normalizeDomain,
-  normalizeEmail,
-} from "@/shared/domain";
+import { isMachineDomain, normalizeEmail } from "@/shared/domain";
 import {
   isAutomatedAddress,
   isMachineAddress,
@@ -26,10 +22,10 @@ import {
 
 // The only path from a website form to a contact. Every submission is
 // stored; filing it may decline, and the reason is kept on the row. It
-// applies the rules captured mail does (machine and automated addresses, the
-// organization's own domain, deleted contacts and suppressed domains stay
-// out), bounds a scripted form's damage with CONTACTS_PER_HOUR, and tells the
-// research agent about a new contact without asking it anything.
+// applies the rules captured mail does (machine and automated addresses, our
+// own domains, deleted contacts and suppressed domains stay out), bounds a
+// scripted form's damage with CONTACTS_PER_HOUR, and tells the research agent
+// about a new contact without asking it anything.
 
 type Submission = {
   id: string;
@@ -59,11 +55,6 @@ async function skip(
     reason,
   );
   return { filed: false, reason };
-}
-
-function ownDomain(website: string | null, domain: string): boolean {
-  const own = normalizeDomain(website);
-  return own !== null && (domain === own || domain.endsWith(`.${own}`));
 }
 
 async function suppression(
@@ -131,8 +122,10 @@ async function file(
   if (isMachineDomain(domain)) {
     return skip(organizationId, submission.id, "Not a domain a person reads");
   }
-  const workspace = await WorkspaceRepository.getOrCreate(organizationId);
-  if (ownDomain(workspace.website, domain)) {
+  // Our own people, as mail capture counts them: the members' work domains
+  // and the workspace's website (the CRM skipped its sign-in domains).
+  const { ourDomains } = await MatchService.internalIdentity(organizationId);
+  if (ourDomains.has(domain)) {
     return skip(organizationId, submission.id, "One of our own addresses");
   }
   const suppressed = await suppression(organizationId, email, domain);

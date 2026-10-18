@@ -6,7 +6,7 @@ import {
 } from "@every-app/sdk/server";
 import { z } from "zod";
 import { gatewayCallFor } from "@/server/lib/gateway-attribution";
-import { getWorkersEnv } from "@/server/lib/runtime-env";
+import { getOptionalEnvValue, getWorkersEnv } from "@/server/lib/runtime-env";
 import { REQUESTED_SCOPES, type MailboxProvider } from "@/shared/mailbox";
 
 // Google's and Microsoft's OAuth, with the client the Every App gateway
@@ -23,15 +23,28 @@ const CAPABILITY = {
   microsoft: "microsoft-365",
 } as const satisfies Record<MailboxProvider, string>;
 
-export const AUTHORIZE_URL = {
-  google: "https://accounts.google.com/o/oauth2/v2/auth",
-  microsoft: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-} as const satisfies Record<MailboxProvider, string>;
+/**
+ * Microsoft's sign-in and token endpoints, on the tenant the CRM's
+ * MICROSOFT_TENANT_ID names, as in the CRM: `common` (any work, school or
+ * personal account) unless set. A client registered for one tenant answers
+ * only on that tenant's path.
+ */
+async function microsoftEndpoints(): Promise<string> {
+  const tenant = (await getOptionalEnvValue("MICROSOFT_TENANT_ID")) ?? "common";
+  return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0`;
+}
 
-const TOKEN_URL = {
-  google: "https://oauth2.googleapis.com/token",
-  microsoft: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-} as const satisfies Record<MailboxProvider, string>;
+export async function authorizeUrl(provider: MailboxProvider): Promise<string> {
+  return provider === "google"
+    ? "https://accounts.google.com/o/oauth2/v2/auth"
+    : `${await microsoftEndpoints()}/authorize`;
+}
+
+async function tokenUrl(provider: MailboxProvider): Promise<string> {
+  return provider === "google"
+    ? "https://oauth2.googleapis.com/token"
+    : `${await microsoftEndpoints()}/token`;
+}
 
 const GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 
@@ -110,7 +123,7 @@ export async function tokenRequest(
       provider: CAPABILITY[provider],
       for: gatewayCallFor(env),
     });
-    response = await call(TOKEN_URL[provider], {
+    response = await call(await tokenUrl(provider), {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
