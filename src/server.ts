@@ -16,6 +16,12 @@ import {
   ATTACHMENT_ROUTE_PREFIX,
   serveAttachment,
 } from "@/server/features/team-agents/routes/attachments";
+import {
+  DISPATCH_HEALTH_PATH,
+  HEALTH_PATH,
+  serveDispatchHealth,
+  serveHealth,
+} from "@/server/features/health/healthRoutes";
 import { serveImage, IMAGE_ROUTE_PREFIX } from "@/server/lib/images";
 import { SLACK_REDIRECT_PATH } from "@/shared/slack";
 import { serveEveryAppRequest } from "@/server/lib/gateway-attribution";
@@ -65,6 +71,10 @@ function routeAppRequest(
   if (pathname.startsWith("/agents/crm-agent/")) {
     return routeAgentRequests(request, env);
   }
+  // The dispatcher's health check, for an owner or admin.
+  if (pathname === DISPATCH_HEALTH_PATH && user) {
+    return serveDispatchHealth(user);
+  }
   // Logos and photographs the agent copied into R2.
   if (pathname.startsWith(IMAGE_ROUTE_PREFIX)) {
     return serveImage(request, env);
@@ -96,13 +106,15 @@ async function handleRequest(
   }
   return withoutCookies(
     await everyApp<Env>((verified, _env, _ctx, user) => {
-      // Website tracking is the CRM's one public surface: the gateway
-      // forwards it with no identity (a signed-in member's is ignored), and
-      // its organization comes from the site id alone. Nothing else answers
-      // a request without one.
+      // Website tracking is the CRM's public surface: the gateway forwards
+      // it with no identity (a signed-in member's is ignored), and its
+      // organization comes from the site id alone. Beside it only the health
+      // check, which says whether the Worker and its database answer.
+      // Nothing else answers a request without one.
       if (isTrackingPath(new URL(verified.url).pathname)) {
         return serveTracking(verified);
       }
+      if (new URL(verified.url).pathname === HEALTH_PATH) return serveHealth();
       if (!user) return new Response("Not found", { status: 404 });
       return serveEveryAppRequest(verified, user, () =>
         routeAppRequest(verified, env, user),

@@ -92,8 +92,11 @@ export default {
   // scripts, and the collector they POST to. The tracker never sends a
   // preflight (a text/plain beacon), so OPTIONS stays private. The gateway's
   // tool calls (`/__everyapp/tools/*`) carry their own gateway-signed tokens.
+  // And the health check, which says only whether the CRM and its database
+  // answer (src/server/features/health).
   public: [
     { path: "/t/*", methods: ["GET"] },
     { path: "/t/e", methods: ["POST"] },
+    { path: "/health", methods: ["GET"] },
   ],
 } as const;
