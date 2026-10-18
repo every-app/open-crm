@@ -26,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/client/components/ui/select";
-import { Toggle } from "@/client/components/ui/toggle";
 import { slackChannelsQueryOptions } from "@/client/features/slack/slackQueries";
 import { SLACK_RESOURCE, slackChannelResourceId } from "@/shared/team-agents";
 import type { TaggedResource } from "./TagPicker";
@@ -193,24 +192,25 @@ export function NewAgentDialog() {
                     {PERMISSIONS.map((entry) => {
                       const on = field.state.value.includes(entry.id);
                       return (
-                        <Toggle
+                        <Button
                           key={entry.id}
-                          variant="outline"
+                          type="button"
+                          variant={on ? "secondary" : "outline"}
                           size="sm"
-                          pressed={on}
-                          onPressedChange={(pressed) =>
+                          aria-pressed={on}
+                          onClick={() =>
                             field.handleChange(
-                              pressed
-                                ? [...field.state.value, entry.id]
-                                : field.state.value.filter(
+                              on
+                                ? field.state.value.filter(
                                     (id) => id !== entry.id,
-                                  ),
+                                  )
+                                : [...field.state.value, entry.id],
                             )
                           }
                         >
                           {on ? <Check className="text-primary" /> : null}
                           {entry.label}
-                        </Toggle>
+                        </Button>
                       );
                     })}
                   </div>

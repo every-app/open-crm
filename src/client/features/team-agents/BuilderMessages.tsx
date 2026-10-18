@@ -21,6 +21,7 @@ import {
   isPendingDealList,
   withoutTables,
 } from "./DealListResult";
+import { tagText } from "./TagPicker";
 import { teamAgentKeys } from "./teamAgentQueries";
 
 // A builder chat's messages, as the CRM's builder chat draws them: the
@@ -130,7 +131,7 @@ export function UserMessage({
                 key={resource.label}
                 className="rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground"
               >
-                @{resource.label}
+                {tagText(resource.label)}
               </span>
             ))}
             {attachments.map((file) => {

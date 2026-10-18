@@ -21,7 +21,7 @@ import {
   consumeBuilderCommand,
 } from "@/shared/builder-command";
 import { PREVIEWABLE_IMAGE_TYPES } from "@/shared/team-agents";
-import { TagPicker, type TaggedResource } from "./TagPicker";
+import { TagPicker, tagText, type TaggedResource } from "./TagPicker";
 import { CREATE_AGENT_PREFIX } from "./teamAgentCopy";
 
 export type Attachment = {
@@ -182,7 +182,7 @@ export function BuilderComposer({
           {tags.map((tag) => (
             <Chip
               key={`${tag.kind}:${tag.id}`}
-              label={`@${tag.label}`}
+              label={tagText(tag.label)}
               onRemove={() =>
                 setTags((current) => current.filter((entry) => entry !== tag))
               }

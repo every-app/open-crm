@@ -29,6 +29,10 @@ type Resource = Awaited<ReturnType<typeof searchBuilderResources>>[number];
 /** A record or integration a message is tagged with. */
 export type TaggedResource = Pick<Resource, "kind" | "id" | "label">;
 
+/** A tag as a message shows it: a Slack channel by its own name. */
+export const tagText = (label: string) =>
+  label.startsWith("#") ? label : `@${label}`;
+
 const INTEGRATION_ICONS: Record<string, LucideIcon> = {
   [CAPTURE_GRANTS.email.resource.id]: Mail,
   [CAPTURE_GRANTS.calendar.resource.id]: CalendarDays,
