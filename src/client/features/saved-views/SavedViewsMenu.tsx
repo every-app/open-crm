@@ -269,7 +269,8 @@ function ManageViewsDialog({
           No views
         </p>
       ) : (
-        <ul className="-mx-4 max-h-96 divide-y overflow-y-auto border-y">
+        // The footer's border closes the list.
+        <ul className="-mx-4 -mb-4 max-h-96 divide-y divide-border overflow-y-auto border-t border-border">
           {views.map((view) => (
             <ManageViewRow key={view.id} entity={entity} view={view} />
           ))}
