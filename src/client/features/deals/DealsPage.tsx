@@ -7,6 +7,7 @@ import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
+import { SortMenu } from "@/client/components/table/SortMenu";
 import {
   DataTable,
   useDataTable,
@@ -207,6 +208,7 @@ export function DealsPage() {
                       })
                     }
                   />
+                  <SortMenu table={table} />
                   <ColumnsMenu table={table} />
                   <FieldsSheetButton entity="DEAL" />
                 </>
