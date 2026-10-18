@@ -62,6 +62,7 @@ import {
 import { MAX_STEPS, maxOutputTokens, prepareTurn } from "./runtime/turn";
 import { parseSessionName } from "./sessionName";
 import { normalizeTitle } from "./tools/conversation";
+import { consumeBuilderCommand } from "@/shared/builder-command";
 
 // A person's turn in a conversation gets this much research budget.
 const CHAT_BUDGET = 4;
@@ -418,8 +419,10 @@ export class CrmAgent extends Think {
           assistant: result.status === "completed",
         },
       );
-      // Named from the first message when the model didn't name it.
-      const title = normalizeTitle(lastText(this.messages.slice(0, 1), "user"));
+      // Named from the first message when the model didn't name it, without
+      // the "/Create agent" a build opens with.
+      const first = lastText(this.messages.slice(0, 1), "user");
+      const title = normalizeTitle(consumeBuilderCommand(first) ?? first);
       if (!session.conversation.title && title) {
         await AgentConversationRepository.setTitleIfEmpty(
           session.organizationId,

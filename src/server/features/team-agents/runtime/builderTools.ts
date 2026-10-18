@@ -1,5 +1,4 @@
 import { BuilderToolService } from "@/server/features/team-agents/services/BuilderToolService";
-import { openrouter } from "@openrouter/ai-sdk-provider";
 import { jsonSchema, tool, type ToolExecutionOptions, type ToolSet } from "ai";
 import { mapValues } from "remeda";
 import { z } from "zod";
@@ -12,6 +11,7 @@ import { lookupTools } from "@/server/features/agent/tools/lookup";
 import { peopleTools } from "@/server/features/agent/tools/people";
 import { researchTools } from "@/server/features/agent/tools/research";
 import { socialTools } from "@/server/features/agent/tools/socials";
+import { webSearch } from "@/server/features/agent/tools/web";
 import type { BuilderToolContext } from "../services/BuilderToolService";
 import { BUILDER_FILE_PATHS, draftInputSchema } from "../services/draft";
 import { webFetch } from "./webFetch";
@@ -28,19 +28,6 @@ import { webFetch } from "./webFetch";
 // composer (src/shared/agent-question.ts). It is declared here, not by the
 // chat client, so a turn the server started (a chat's first message) can ask
 // too.
-
-/**
- * The CRM chat's web_search: eve's built-in, which the model's provider runs.
- * The CRM's models go through Vercel's AI Gateway, where it is the gateway's
- * Parallel search; here it is OpenRouter's web search server tool on the same
- * engine and Parallel's ten results: OpenRouter searches inside the model
- * call, whose cost (usage accounting) includes the search, so the session's
- * meter bills it with the call.
- */
-const webSearch = openrouter.tools.webSearch({
-  engine: "parallel",
-  maxResults: 10,
-});
 
 /**
  * The research a question may use, as the research agent has it: LinkedIn

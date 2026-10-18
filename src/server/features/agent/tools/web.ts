@@ -15,9 +15,9 @@ import type { ToolGroup } from "./context";
  * Gateway's Parallel search). Here it is OpenRouter's web search server tool
  * on the same engine with Parallel's ten results, as the builder has it: it
  * searches inside the model call, whose cost includes the search, so the
- * session's meter bills it with the call.
+ * session's meter bills it with the call. The builder's chat uses it too.
  */
-const webSearch = openrouter.tools.webSearch({
+export const webSearch = openrouter.tools.webSearch({
   engine: "parallel",
   maxResults: 10,
 });
