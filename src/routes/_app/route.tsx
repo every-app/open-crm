@@ -9,6 +9,7 @@ import { OutOfCreditsDialog } from "@/client/features/billing/OutOfCreditsDialog
 import { RecordSheetHost } from "@/client/features/records/RecordSheetHost";
 import { appSearchSchema } from "@/client/features/records/recordStack";
 import { QuickSwitcher } from "@/client/features/search/QuickSwitcher";
+import { needsOnboarding } from "@/client/features/workspace/onboarding";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 
 export const Route = createFileRoute("/_app")({
@@ -19,12 +20,12 @@ export const Route = createFileRoute("/_app")({
 
 // One layout for every signed-in page. The gateway has already signed the
 // person in; the shell paints at once and the page waits for the workspace,
-// which also decides whether onboarding comes first.
+// which also decides whether onboarding comes first (for an owner or admin).
 function AppRouteLayout() {
   const workspaceQuery = useQuery(workspaceQueryOptions());
   const workspace = workspaceQuery.data;
 
-  if (workspace && !workspace.onboarded) {
+  if (workspace && needsOnboarding(workspace)) {
     return <Navigate to="/onboarding" replace />;
   }
 

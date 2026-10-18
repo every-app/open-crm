@@ -8,9 +8,9 @@ import {
 } from "@/client/components/ui/card";
 import { SkeletonCard } from "@/client/components/SkeletonPresets";
 import { QueryError } from "@/client/components/QueryState";
+import { needsOnboarding } from "@/client/features/workspace/onboarding";
 import { WorkspaceForm } from "@/client/features/workspace/WorkspaceForm";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
-import { hasOrgPermission } from "@/shared/org-permissions";
 import { pageHead } from "@/client/lib/page-title";
 
 export const Route = createFileRoute("/onboarding")({
@@ -19,14 +19,16 @@ export const Route = createFileRoute("/onboarding")({
 });
 
 // The first owner or admin to open the CRM names the workspace and says what
-// its website is, so the agent can learn the business before it researches
-// anyone. Everyone else waits for them.
+// its website is, so the agent can learn the business. Anyone with nothing to
+// answer here (a member, or anyone once it's done) goes on into the CRM.
 function OnboardingPage() {
   const navigate = useNavigate();
   const workspaceQuery = useQuery(workspaceQueryOptions());
   const workspace = workspaceQuery.data;
 
-  if (workspace?.onboarded) return <Navigate to="/" replace />;
+  if (workspace && !needsOnboarding(workspace)) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <main className="flex min-h-[100dvh] items-center justify-center bg-background p-4">
@@ -36,17 +38,11 @@ function OnboardingPage() {
         </CardHeader>
         <CardContent>
           {workspace ? (
-            hasOrgPermission(workspace.role, { workspace: ["manage"] }) ? (
-              <WorkspaceForm
-                initial={{ name: "", website: null }}
-                submitLabel="Continue"
-                onSaved={() => void navigate({ to: "/" })}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Ask an owner or an admin to set up the CRM first.
-              </p>
-            )
+            <WorkspaceForm
+              initial={{ name: "", website: null }}
+              submitLabel="Continue"
+              onSaved={() => void navigate({ to: "/" })}
+            />
           ) : workspaceQuery.isError ? (
             <QueryError
               error={workspaceQuery.error}
