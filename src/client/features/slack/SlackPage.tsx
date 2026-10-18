@@ -240,9 +240,7 @@ function Connected({
           pending={disconnect.isPending}
           onConfirm={() => disconnect.mutate()}
           onClose={() => setConfirming(false)}
-        >
-          Agents stop sending to Slack immediately.
-        </ConfirmDialog>
+        />
       ) : null}
     </SettingsPage>
   );

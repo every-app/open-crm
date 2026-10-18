@@ -31,7 +31,8 @@ export function ConfirmDialog({
   onClose: () => void;
   pending?: boolean;
   destructive?: boolean;
-  children: ReactNode;
+  /** At most one sentence: what can't be undone. */
+  children?: ReactNode;
 }) {
   return (
     <AlertDialog
@@ -43,7 +44,9 @@ export function ConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{children}</AlertDialogDescription>
+          {children ? (
+            <AlertDialogDescription>{children}</AlertDialogDescription>
+          ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
