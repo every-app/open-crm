@@ -158,7 +158,7 @@ describe("a builder chat's turn", () => {
 
   it("caps a build at twelve tool calls and two draft saves", async () => {
     const { tools } = turn([said("m1", "/Create agent Flag deals gone quiet")]);
-    const call = (name: string, input: unknown) =>
+    const call = async (name: string, input: unknown): Promise<unknown> =>
       tools[name]?.execute?.(input, { toolCallId: name, messages: [] });
     // A draft that doesn't hold: saving it is an attempt all the same.
     const unsafe = draft({ recordScope: "SELECTED" });

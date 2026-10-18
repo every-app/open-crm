@@ -5,6 +5,7 @@ import { forgetTranscript } from "@/server/features/agent/transcript";
 import { stopRunSession } from "@/server/features/team-agents/runtime/dispatch";
 import { pokeRuns } from "@/server/features/team-agents/runtime/poke";
 import { AgentRunService } from "@/server/features/team-agents/services/AgentRunService";
+import { BuilderResourceService } from "@/server/features/team-agents/services/BuilderResourceService";
 import { BuilderService } from "@/server/features/team-agents/services/BuilderService";
 import { TeamAgentService } from "@/server/features/team-agents/services/TeamAgentService";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
@@ -181,7 +182,7 @@ export const searchBuilderResources = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
   .validator(builderResourcesSchema)
   .handler(async ({ data, context }) =>
-    BuilderService.searchResources(context, data.q),
+    BuilderResourceService.search(context, data.q),
   );
 
 export const rateBuilderReply = createServerFn({ method: "POST" })

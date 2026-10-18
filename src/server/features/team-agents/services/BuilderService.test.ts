@@ -60,6 +60,7 @@ vi.mock("agents", () => ({
 
 import { SCOPE_FOR_SOURCE } from "@/shared/mailbox";
 import { BuilderRepository } from "../repositories/BuilderRepository";
+import { BuilderResourceService } from "./BuilderResourceService";
 import { BuilderService } from "./BuilderService";
 import { BuilderToolService } from "./BuilderToolService";
 
@@ -167,7 +168,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('theirs', 'org_b', 'Acme Two', '2026-10-17T09:00:00.000Z', NULL);
       `);
       const records = async (q: string) =>
-        (await BuilderService.searchResources(owner, q))
+        (await BuilderResourceService.search(owner, q))
           .filter((resource) => resource.kind !== "integration")
           .map((resource) => resource.label);
 
@@ -188,7 +189,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('their-sales', 'org_b', 'C3', 'sales-team');
       `);
       const channels = async (q: string) =>
-        (await BuilderService.searchResources(owner, q))
+        (await BuilderResourceService.search(owner, q))
           .filter((resource) => resource.id.startsWith("slack:channel:"))
           .map((resource) => [resource.id, resource.label]);
       expect(await channels("")).toEqual([]);
@@ -213,7 +214,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
     it("offers Email and Calendar only once someone here has connected them", async () => {
       const integrations = async () =>
-        (await BuilderService.searchResources(owner, ""))
+        (await BuilderResourceService.search(owner, ""))
           .filter((resource) => resource.kind === "integration")
           .map((resource) => resource.label);
       await database.exec(`
