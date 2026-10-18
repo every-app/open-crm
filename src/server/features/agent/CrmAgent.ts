@@ -239,13 +239,19 @@ export class CrmAgent extends Think {
       if (!turn.continuation) await this.openTurn(session);
       else if (session.kind === "chat") await this.continueTurn(session);
       if (session.kind === "chat" && session.conversation.kind === "BUILDER") {
-        const { system, tools } = prepareBuilderTurn(session, {
+        const { system, tools, messages } = prepareBuilderTurn(session, {
           thinkSystem: turn.system,
           messages: this.messages,
           spend: this.spender(session),
           sink: this.meter.sink,
         });
-        return { system, tools, maxOutputTokens: maxOutputTokens("chat") };
+        return {
+          system,
+          tools,
+          // What the person tagged and attached (team-agents/runtime/turns.ts).
+          messages: await messages(turn.messages),
+          maxOutputTokens: maxOutputTokens("chat"),
+        };
       }
       const install = await readCapabilities(this.env, session.organizationId);
       const { system, tools } = await prepareTurn(session, {

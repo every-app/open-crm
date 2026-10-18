@@ -38,6 +38,15 @@ export async function refusedUrl(url: URL): Promise<string | null> {
   if (url.username || url.password) {
     return "A URL with credentials in it can't be read.";
   }
+  return refusedHost(url);
+}
+
+/**
+ * Why `url`'s host may not be fetched at all (an address, a local name, the
+ * gateway's hosts), or null when it may. The agent's own reads of logos and
+ * pages (fetchPublic) check every redirect with it.
+ */
+export async function refusedHost(url: URL): Promise<string | null> {
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
   // The URL parser writes every IPv4 form as a dotted quad and IPv6 in
   // brackets.
