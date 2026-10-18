@@ -69,7 +69,7 @@ export function AgentDetailPage({ agentId }: { agentId: string }) {
 function LoadedAgent({ agent }: { agent: Agent }) {
   const [runsOpen, setRunsOpen] = useState(false);
   // Saving or discarding the page's changes starts its editor afresh.
-  const [edits, setEdits] = useState(0);
+  const [resets, setResets] = useState(0);
   const review = agent.reviewVersion;
   const current = agent.currentVersion;
   const isDraft = agent.status === "DRAFT";
@@ -236,12 +236,12 @@ function LoadedAgent({ agent }: { agent: Agent }) {
 
         {current?.readable ? (
           <AgentCapabilities
-            key={`${current.id}:${edits}`}
+            key={`${current.id}:${resets}`}
             agentId={agent.id}
             versionId={current.id}
             manifest={current.manifest}
             canManage={agent.canManage}
-            onReset={() => setEdits((count) => count + 1)}
+            onReset={() => setResets((count) => count + 1)}
           />
         ) : current ? (
           <Alert variant="destructive">
