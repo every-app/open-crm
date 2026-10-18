@@ -25,6 +25,8 @@ vi.mock("cloudflare:workers", () => ({
 vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
+// The dispatcher's background lane isn't under test (and would ask Autumn).
+vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
 import {
   daysFromNow,
