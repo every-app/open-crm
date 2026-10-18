@@ -226,7 +226,7 @@ function ManualRateForm({ base }: { base: string }) {
             )}
           </form.Subscribe>
         </div>
-        <form.SubmitButton>Save rate</form.SubmitButton>
+        <form.SubmitButton>Save</form.SubmitButton>
       </form.Form>
     </form.AppForm>
   );

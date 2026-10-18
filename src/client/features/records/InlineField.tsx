@@ -158,7 +158,7 @@ export function InlineField({
             {shown ? (
               <span className="truncate">{format ? format(shown) : shown}</span>
             ) : (
-              <span className="truncate text-muted-foreground">Empty</span>
+              <span className="truncate text-muted-foreground">—</span>
             )}
           </Button>
           {shown && trailing && !saving ? trailing(shown) : null}
@@ -218,7 +218,7 @@ export function InlineTextArea({
           {shown}
         </span>
       ) : (
-        <span className="text-sm text-muted-foreground">Empty</span>
+        <span className="text-sm text-muted-foreground">—</span>
       )}
     </Button>
   );

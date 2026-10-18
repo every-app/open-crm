@@ -23,15 +23,11 @@ export function ScopeGroups({
 }) {
   const held = describeSlackScopes(scopes);
   return (
-    <SettingsSection
-      title={title}
-      description="Broad means the whole workspace, not one channel."
-    >
+    <SettingsSection title={title}>
       <SettingsCard>
         {SLACK_SCOPE_GROUPS.map((group) => {
           const entries = held.filter((entry) => entry.group === group.id);
           if (entries.length === 0) return null;
-          const broad = entries.filter((entry) => entry.sensitive).length;
           return (
             <details key={group.id} className="group">
               <summary className="flex cursor-pointer list-none items-start gap-4 px-5 py-4 outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.03] [&::-webkit-details-marker]:hidden">
@@ -43,8 +39,7 @@ export function ScopeGroups({
                     {group.summary}
                   </span>
                 </span>
-                <span className="flex shrink-0 items-center gap-2 pt-0.5 text-xs text-muted-foreground">
-                  {broad} broad of {entries.length}
+                <span className="flex shrink-0 items-center pt-0.5 text-muted-foreground">
                   <ChevronDown
                     aria-hidden
                     className="size-4 transition-transform group-open:rotate-180"

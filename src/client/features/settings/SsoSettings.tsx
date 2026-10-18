@@ -31,7 +31,7 @@ export function SsoSettings() {
               : "Your Every App gateway can sign people in through Cloudflare Access, with any SAML or OIDC provider."
           }
         >
-          {gatewayUrl ? (
+          {gatewayUrl && !hosted ? (
             <Button
               variant="outline"
               nativeButton={false}

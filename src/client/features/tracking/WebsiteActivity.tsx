@@ -18,7 +18,7 @@ function Property({ label, children }: { label: string; children: ReactNode }) {
       <dt className="truncate text-xs leading-5 text-muted-foreground">
         {label}
       </dt>
-      <dd className="min-w-0">{children}</dd>
+      <dd className="min-w-0 px-2">{children}</dd>
     </div>
   );
 }

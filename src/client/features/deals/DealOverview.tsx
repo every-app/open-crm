@@ -73,9 +73,6 @@ export function DealOverview({
           <Property label="Opened">
             <LocalDateTime date={deal.createdAt} />
           </Property>
-          <Property label="In stage since">
-            <LocalDateTime date={deal.stageChangedAt} />
-          </Property>
           {deal.closedAt ? (
             <Property label="Closed">
               <LocalDateTime date={deal.closedAt} />

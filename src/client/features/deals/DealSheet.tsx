@@ -137,7 +137,7 @@ function DealStats({ deal }: { deal: Deal }) {
           </span>
         )}
       </SheetStat>
-      <SheetStat label="Expected close">
+      <SheetStat label="Close date">
         {deal.expectedCloseDate ? (
           <LocalDay date={deal.expectedCloseDate} />
         ) : (

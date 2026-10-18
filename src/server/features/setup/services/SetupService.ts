@@ -37,7 +37,7 @@ const KEYS: KeySpec[] = [
           : "missing",
     note: (availability) => {
       if (availability.model === "missing") {
-        return "This deployment isn't connected to a gateway. In local development, put OPENROUTER_API_KEY in .dev.vars.";
+        return "In local development, put OPENROUTER_API_KEY in .dev.vars.";
       }
       return availability.modelRefusal;
     },

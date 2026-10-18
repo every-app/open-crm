@@ -45,7 +45,6 @@ export function ConnectionsOverview() {
     mailbox.data?.providers.find((entry) => entry.provider === name);
   const google = provider("google");
   const microsoft = provider("microsoft");
-  const workspace = slack.data?.connected ? slack.data.workspace : null;
 
   const connections: Connection[] = [
     {
@@ -65,7 +64,6 @@ export function ConnectionsOverview() {
             ? "disconnected"
             : "unconfigured"
         : null,
-      label: workspace ? `Connected to ${workspace}` : undefined,
     },
     {
       name: COPY.microsoft.title,

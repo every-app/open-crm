@@ -199,7 +199,7 @@ export function ContactBackground({
               <dt className="truncate text-xs leading-5 text-muted-foreground">
                 {line.label}
               </dt>
-              <dd className="min-w-0 [overflow-wrap:anywhere]">
+              <dd className="min-w-0 px-2 [overflow-wrap:anywhere]">
                 {line.value ?? <EmptyValue />}
                 {line.suggested ? (
                   <div className="pt-1">{line.suggested}</div>
@@ -212,7 +212,7 @@ export function ContactBackground({
               <dt className="truncate text-xs leading-5 text-muted-foreground">
                 Previously
               </dt>
-              <dd className="min-w-0">
+              <dd className="min-w-0 px-2">
                 <PreviousRoles roles={previous} />
               </dd>
             </div>
