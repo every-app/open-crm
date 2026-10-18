@@ -80,6 +80,8 @@ export type ListFilter = {
   custom?: boolean;
   /** Its token reads like its option, without "<label> is". */
   bare?: boolean;
+  /** The token's verb, "is" unless the filter matches another way. */
+  verb?: string;
 };
 
 const isSet = (filter: ListFilter) => filter.value.length > 0;
@@ -321,7 +323,9 @@ export function FilterTokens({
         >
           <span className="min-w-0 truncate">
             {filter.bare ? null : (
-              <span className="text-muted-foreground">{filter.label} is </span>
+              <span className="text-muted-foreground">
+                {filter.label} {filter.verb ?? "is"}{" "}
+              </span>
             )}
             {filterSummary(filter.value.map((value) => labelOf(filter, value)))}
           </span>

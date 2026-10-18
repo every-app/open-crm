@@ -149,6 +149,7 @@ export function useFieldFilters(
             ...shared,
             options: [],
             value: applied ? [`“${applied}”`] : [],
+            verb: "contains",
             onChange: () => setFilter(null),
             panel: (
               <ContainsInput
