@@ -153,8 +153,7 @@ export const SLACK_SCOPE_GROUPS: ReadonlyArray<{
   {
     id: "people",
     label: "People",
-    summary:
-      "Names and email addresses, so it can match a Slack account to a CRM record.",
+    summary: "Names and email addresses.",
   },
   {
     id: "read",
