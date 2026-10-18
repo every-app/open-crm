@@ -26,8 +26,6 @@ import {
 } from "@/client/features/fields/FieldsListSections";
 import {
   CUSTOM_GROUP,
-  EMPTY_BODY,
-  EMPTY_BODY_READ_ONLY,
   EMPTY_TITLE,
   ERROR_BODY,
   ERROR_TITLE,
@@ -35,9 +33,7 @@ import {
   MANAGE_HINT,
   MANUAL_ONLY,
   NEW_FIELD,
-  ORDER_NOTE,
   STANDARD_FIELDS,
-  STANDARD_NOTE,
   STANDARD_ROW,
   TABLE_NOTE,
 } from "@/client/features/fields/fieldsCopy";
@@ -127,7 +123,7 @@ export function FieldsList({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <DisclosureRow
           title={STANDARD_ROW}
-          note={`${STANDARD_FIELDS[entity].length} · ${STANDARD_NOTE}`}
+          note={String(STANDARD_FIELDS[entity].length)}
         >
           <ul className="border-b bg-muted/40 py-1">
             {STANDARD_FIELDS[entity].map((name) => (
@@ -166,7 +162,6 @@ export function FieldsList({
               size="sm"
               icon={Plus}
               title={EMPTY_TITLE}
-              description={canManage ? EMPTY_BODY : EMPTY_BODY_READ_ONLY}
               action={
                 canManage ? (
                   <Button onClick={onNew}>
@@ -264,14 +259,11 @@ export function FieldsList({
       </div>
 
       {canManage && live.length > 0 ? (
-        <div className="flex shrink-0 items-center justify-between gap-3 border-t p-4">
+        <div className="flex shrink-0 items-center border-t p-4">
           <Button onClick={onNew}>
             <Plus data-icon="inline-start" />
             {NEW_FIELD}
           </Button>
-          <span className="text-right text-xs text-muted-foreground">
-            {ORDER_NOTE}
-          </span>
         </div>
       ) : null}
     </>

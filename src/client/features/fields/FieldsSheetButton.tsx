@@ -5,7 +5,6 @@ import { Button } from "@/client/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -14,10 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/client/components/ui/tabs";
 import { FieldEditor } from "@/client/features/fields/FieldEditor";
 import { fieldsQueryOptions } from "@/client/features/fields/fieldQueries";
 import { FieldsList } from "@/client/features/fields/FieldsList";
-import {
-  SHEET_TITLE,
-  sheetSubtitle,
-} from "@/client/features/fields/fieldsCopy";
+import { SHEET_TITLE } from "@/client/features/fields/fieldsCopy";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { FIELD_ENTITIES, type FieldEntity } from "@/shared/crm-enums";
 import { ENTITY_NOUNS } from "@/shared/fields";
@@ -52,12 +48,7 @@ export function FieldsSheetButton({ entity }: { entity: FieldEntity }) {
     <Sheet>
       <SheetTrigger
         render={
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={SHEET_TITLE}
-            title={SHEET_TITLE}
-          />
+          <Button variant="ghost" size="icon-xs" aria-label={SHEET_TITLE} />
         }
       >
         <Settings />
@@ -100,10 +91,7 @@ function FieldsSheetBody({ initialEntity }: { initialEntity: FieldEntity }) {
   return (
     <>
       <SheetHeader className="gap-3 border-b">
-        <div className="space-y-0.5 pr-8">
-          <SheetTitle>{SHEET_TITLE}</SheetTitle>
-          <SheetDescription>{sheetSubtitle(entity)}</SheetDescription>
-        </div>
+        <SheetTitle className="pr-8">{SHEET_TITLE}</SheetTitle>
         <Tabs
           value={entity}
           onValueChange={(next) => {
