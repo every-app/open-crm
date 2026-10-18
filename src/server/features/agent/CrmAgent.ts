@@ -108,10 +108,12 @@ export class CrmAgent extends Think {
   // Hosted billing: what the session spends (server/billing/meter.ts).
   private readonly meter = new SessionMeter((p) => this.ctx.waitUntil(p));
 
-  constructor(...args: ConstructorParameters<typeof Think>) {
-    super(...args);
-    // An answer to the agent's open question is checked before Think takes
-    // it (team-agents/runtime/answers.ts).
+  // An answer to the agent's open question is checked before Think takes it
+  // (team-agents/runtime/answers.ts). Think installs its chat protocol's
+  // socket handler as it starts, just before this runs, so this one goes in
+  // front of it.
+  override async onStart(...args: Parameters<Think["onStart"]>) {
+    await super.onStart(...args);
     const onMessage = this.onMessage.bind(this);
     this.onMessage = async (connection, message) => {
       const checked = checkedSocketMessage(message, this.messages);
