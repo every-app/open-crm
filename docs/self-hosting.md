@@ -77,14 +77,6 @@ Settings → Connections shows the exact redirect URI for your CRM to owners and
 
 Gmail's read scope is one Google restricts. If everyone who connects is in your own Google Workspace, make the consent screen _Internal_ and no review is needed. An _External_ consent screen needs Google's verification and a yearly security assessment before people outside your Workspace can connect Gmail. Microsoft client secrets expire (after 6 to 24 months): set a new one with the same command before it does.
 
-To let only accounts in your own Microsoft tenant connect, register the application for _accounts in this organizational directory only_ and set your tenant's ID (in Entra, **Overview** → **Directory (tenant) ID**) on the CRM:
-
-```bash
-pnpm everyapp secret set MICROSOFT_TENANT_ID
-```
-
-It defaults to `common`, which accepts any work, school or personal Microsoft account. `organizations` is the middle setting: any work or school account, no personal ones.
-
 ### Slack
 
 Team agents post to Slack through a Slack app whose client the gateway holds. At [api.slack.com/apps](https://api.slack.com/apps), create an app, add the redirect URL `https://<crm host>/integrations/slack/callback` under _OAuth & Permissions_, and add the bot token scopes `users:read`, `users:read.email`, `channels:read`, `groups:read`, `channels:history`, `groups:history`, `chat:write`, `chat:write.public`, `im:write`, `channels:join`, `channels:manage`, `groups:write`, `channels:write.invites`, `groups:write.invites`, `conversations.connect:write` and `links:write`, and the user token scopes `channels:read`, `channels:write`, `groups:read` and `groups:write`. Then give the gateway its client:
