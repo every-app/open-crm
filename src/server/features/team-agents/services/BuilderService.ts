@@ -68,8 +68,9 @@ const attachmentKey = (organizationId: string, chatId: string, id: string) =>
   `builder-attachments/${organizationId}/${chatId}/${id}`;
 
 /**
- * Starts a chat from Chat home, as the CRM's createBuilder: the chat, the
- * files its first message attaches and that message, in one call. Nothing is
+ * Starts a chat from Chat home or Slack's New agent, as the CRM's
+ * createBuilder: the chat, the files its first message attaches and that
+ * message, in one call. Nothing is
  * left behind when a file can't be kept or the message can't be handed to
  * the chat's agent. A retry with the same chat id finds the chat its first
  * try started and hands its message again, which the agent takes once.
