@@ -207,6 +207,19 @@ export const fieldTools = {
     },
   }),
 
+  get_field_coverage: crmTool({
+    description:
+      "How many live records have a value for a custom field, of how many: what fill_field would have left to do.",
+    risk: "read",
+    input: fieldIdInput,
+    output: z.object({
+      filled: z.number().describe("Live records with a value."),
+      total: z.number().describe("Live records."),
+    }),
+    handler: ({ id }, context) =>
+      FieldsService.coverage(context.organizationId, id),
+  }),
+
   fill_field: crmTool({
     description:
       "Ask the research agent to fill a custom field on records with no value yet, up to 500 at a time (owners and admins only, fields the agent fills). It costs the organization credits.",

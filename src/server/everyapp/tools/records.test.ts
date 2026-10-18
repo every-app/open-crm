@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 // The record tools end to end below the gateway: a minted identity in, the
 // SDK's checks, the feature's service, real SQL, the output schema's fields
@@ -217,6 +218,13 @@ describe("record tools", () => {
         { key: "account_manager", value: ana.email },
       ],
     });
+    const { fields } = await call("list_fields", { entity: "COMPANY" });
+    const { total } = await call("list_companies");
+    expect(
+      await call("get_field_coverage", {
+        id: z.array(z.object({ id: z.string() })).parse(fields)[0]?.id,
+      }),
+    ).toEqual({ filled: 1, total });
     expect(
       await call("list_companies", {
         fields: { segment: { op: "anyOf", values: ["enterprise"] } },
