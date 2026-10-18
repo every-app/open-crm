@@ -2,7 +2,9 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { workspace, workspaceProfile } from "@/db/schema";
 
-const DEFAULT_WORKSPACE_NAME = "Workspace";
+// The original CRM's name for a workspace nobody has named yet, which is
+// what a member sees until an owner or admin onboards it.
+const DEFAULT_WORKSPACE_NAME = "CRM";
 
 /**
  * The organization's workspace row, created on first read: every
