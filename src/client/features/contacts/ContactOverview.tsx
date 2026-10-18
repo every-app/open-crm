@@ -1,15 +1,9 @@
-import { useId, useState, type ReactNode } from "react";
-import { ExternalLink } from "lucide-react";
+import type { ReactNode } from "react";
 import { SafeExternalLink } from "@/client/components/SafeExternalLink";
-import { Button } from "@/client/components/ui/button";
-import {
-  formatMoney,
-  fullName,
-} from "@/client/features/companies/companyFormat";
 import {
   AgentFound,
-  ContactBrief,
-  ContactSuggestions,
+  ContactBackground,
+  Suggestion,
 } from "@/client/features/contacts/ContactResearch";
 import {
   factsByField,
@@ -17,25 +11,16 @@ import {
   type Contact,
 } from "@/client/features/contacts/contactFormat";
 import type { useContactMutations } from "@/client/features/contacts/useContactMutations";
-import { DealStageMenu } from "@/client/features/deals/DealStage";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { RecordFields } from "@/client/features/fields/RecordFields";
-import {
-  CompanyPicker,
-  type CompanyOption,
-} from "@/client/features/records/CompanyPicker";
+import { InlineCompanyField } from "@/client/features/records/CompanyPicker";
 import { InlineField } from "@/client/features/records/InlineField";
 import {
   LocalDateTime,
-  LocalDay,
   RelativeTime,
 } from "@/client/features/records/LocalDateTime";
 import { RecordLink } from "@/client/features/records/RecordLink";
-import {
-  SheetEmpty,
-  SheetSection,
-} from "@/client/features/records/RecordSheet";
-import { EmptyValue } from "@/client/features/records/cells";
+import { SheetSection } from "@/client/features/records/RecordSheet";
 import { OwnerField } from "@/client/features/records/owners";
 import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
 import { safeHttpUrl } from "@/shared/safe-url";
@@ -45,9 +30,10 @@ type Mutations = ReturnType<typeof useContactMutations>;
 type ContactPatch = Omit<UpdateContactInput, "id">;
 
 /**
- * A contact's Overview tab: the agent's suggestions, their details, the
- * agent's background on them, who and what we know around them, and their
- * deals.
+ * A contact's Overview tab: their details, with what the agent suggests
+ * under the row it would change; the agent's background on them; who and
+ * what we know around them; their links and visits. Their deals have a tab
+ * of their own.
  */
 export function ContactOverview({
   contact,
@@ -64,29 +50,26 @@ export function ContactOverview({
     saving: saving.includes(key),
     onSave: (value: string) => update.mutate({ [key]: value }),
   });
-  const { applied } = factsByField(contact.facts);
-  // Beside a value: where the agent found it, and a link that opens it.
-  const trailing =
-    (
-      key: "title" | "linkedinUrl" | "twitterUrl" | "githubUrl",
-      open?: string,
-    ) =>
+  const { applied, proposed } = factsByField(contact.facts);
+  // Under a row: the agent's suggestion for the fact it holds.
+  const suggestion = (fact: string): ReactNode => {
+    const proposal = proposed.get(fact);
+    return proposal ? (
+      <Suggestion fact={proposal} mutations={mutations} />
+    ) : undefined;
+  };
+  // Beside a value: where the agent found it.
+  const found =
+    (key: "title" | "linkedinUrl" | "twitterUrl" | "githubUrl") =>
     (value: string) => {
       const fact = applied.get(key);
-      return (
-        <>
-          {fact && sameValue(fact.value, value) ? (
-            <AgentFound fact={fact} />
-          ) : null}
-          {open ? <OpenLink href={value} label={open} /> : null}
-        </>
-      );
+      return fact && sameValue(fact.value, value) ? (
+        <AgentFound fact={fact} />
+      ) : null;
     };
 
   return (
     <div>
-      <ContactSuggestions contact={contact} mutations={mutations} />
-
       <SheetSection
         title="Details"
         action={<FieldsSheetButton entity="CONTACT" />}
@@ -100,6 +83,8 @@ export function ContactOverview({
             onSave={(firstName) => {
               if (firstName) update.mutate({ firstName });
             }}
+            // The agent suggests their whole name, first and last.
+            suggestion={suggestion("name")}
           />
           <InlineField
             label="Last name"
@@ -110,7 +95,8 @@ export function ContactOverview({
             label="Title"
             value={contact.title}
             placeholder="Head of Security"
-            trailing={trailing("title")}
+            trailing={found("title")}
+            suggestion={suggestion("title")}
             {...field("title")}
           />
           <InlineField
@@ -131,7 +117,8 @@ export function ContactOverview({
             type="url"
             value={contact.linkedinUrl}
             placeholder="https://www.linkedin.com/in/…"
-            trailing={trailing("linkedinUrl", "Open LinkedIn profile")}
+            trailing={found("linkedinUrl")}
+            suggestion={suggestion("linkedinUrl")}
             {...field("linkedinUrl")}
           />
           <InlineField
@@ -139,7 +126,8 @@ export function ContactOverview({
             type="url"
             value={contact.twitterUrl}
             placeholder="https://x.com/…"
-            trailing={trailing("twitterUrl", "Open X profile")}
+            trailing={found("twitterUrl")}
+            suggestion={suggestion("twitterUrl")}
             {...field("twitterUrl")}
           />
           <InlineField
@@ -147,82 +135,34 @@ export function ContactOverview({
             type="url"
             value={contact.githubUrl}
             placeholder="https://github.com/…"
-            trailing={trailing("githubUrl", "Open GitHub profile")}
+            trailing={found("githubUrl")}
+            suggestion={suggestion("githubUrl")}
             {...field("githubUrl")}
           />
-          <CompanyField
+          <InlineCompanyField
             company={contact.company}
             saving={saving.includes("companyId")}
+            clearable
             onSave={(companyId) => update.mutate({ companyId })}
+            suggestion={suggestion("employer")}
           />
           <OwnerField
             owner={contact.owner}
             saving={saving.includes("ownerId")}
             onSave={(ownerId) => update.mutate({ ownerId })}
           />
+          <RecordFields entity="CONTACT" recordId={contact.id} />
         </div>
-        <RecordFields entity="CONTACT" recordId={contact.id} />
       </SheetSection>
 
-      {contact.brief ? <ContactBrief brief={contact.brief} /> : null}
+      <ContactBackground brief={contact.brief} suggestion={suggestion} />
       <WeKnowThem contact={contact} />
-      <WebsiteActivity record={{ contactId: contact.id }} />
       <ContactLinks contact={contact} />
-      <ContactDeals contact={contact} />
+      <WebsiteActivity record={{ contactId: contact.id }} />
 
       <p className="px-5 py-4 text-xs text-muted-foreground">
         Added <LocalDateTime date={contact.createdAt} />
       </p>
-    </div>
-  );
-}
-
-function OpenLink({ href, label }: { href: string; label: string }) {
-  const url = safeHttpUrl(href);
-  if (!url) return null;
-  return (
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      aria-label={label}
-      title={label}
-      nativeButton={false}
-      render={<a href={url} target="_blank" rel="noreferrer" />}
-    >
-      <ExternalLink />
-    </Button>
-  );
-}
-
-/** The company they work at, picked from the live ones; empty for none. */
-function CompanyField({
-  company,
-  saving,
-  onSave,
-}: {
-  company: Contact["company"];
-  saving: boolean;
-  onSave: (companyId: string | null) => void;
-}) {
-  const id = useId();
-  // While saving, the pick shows until the contact comes back with it.
-  const [picked, setPicked] = useState<CompanyOption | null>(null);
-  return (
-    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-2">
-      <label htmlFor={id} className="truncate text-xs text-muted-foreground">
-        Company
-      </label>
-      <CompanyPicker
-        id={id}
-        value={saving ? picked : company}
-        disabled={saving}
-        placeholder="No company"
-        onChange={(next) => {
-          if ((next?.id ?? null) === (company?.id ?? null)) return;
-          setPicked(next);
-          onSave(next?.id ?? null);
-        }}
-      />
     </div>
   );
 }
@@ -326,57 +266,6 @@ function ContactLinks({ contact }: { contact: Contact }) {
           />
         ))}
       </div>
-    </SheetSection>
-  );
-}
-
-function ContactDeals({ contact }: { contact: Contact }) {
-  return (
-    <SheetSection title={`Deals (${contact.deals.length})`}>
-      {contact.deals.length === 0 ? (
-        <SheetEmpty
-          title="Not on any deals"
-          description={`${fullName(contact)} is not attached to anything being sold yet. Deals are opened on the company, then people are added to them.`}
-        />
-      ) : (
-        <ul className="-mx-2 divide-y divide-border">
-          {contact.deals.map((deal) => (
-            <li
-              key={deal.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-2 py-2 text-sm"
-            >
-              <div className="min-w-0">
-                <RecordLink
-                  record={{ kind: "deal", id: deal.id }}
-                  className="block font-medium"
-                >
-                  {deal.name}
-                </RecordLink>
-                <p className="truncate text-xs text-muted-foreground">
-                  {deal.role ? `${deal.role} · ` : null}
-                  {deal.expectedCloseDate ? (
-                    <>
-                      Closes <LocalDay date={deal.expectedCloseDate} />
-                    </>
-                  ) : (
-                    "No close date"
-                  )}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-right tabular-nums">
-                  {deal.amount === null ? (
-                    <EmptyValue />
-                  ) : (
-                    formatMoney(deal.amount, deal.currency)
-                  )}
-                </span>
-                <DealStageMenu dealId={deal.id} stage={deal.stage} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
     </SheetSection>
   );
 }

@@ -5,6 +5,7 @@ import { QueryError } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import { fullName } from "@/client/features/companies/companyFormat";
+import { ContactDeals } from "@/client/features/contacts/ContactDeals";
 import { ContactOverview } from "@/client/features/contacts/ContactOverview";
 import type { Contact } from "@/client/features/contacts/contactFormat";
 import { contactQueryOptions } from "@/client/features/contacts/contactQueries";
@@ -80,6 +81,17 @@ export function ContactSheet({ contactId }: { contactId: string }) {
         contact ? (
           <ContactOverview contact={contact} mutations={mutations} />
         ) : null
+      }
+      lists={
+        contact
+          ? [
+              {
+                value: "deals",
+                count: contact.deals.length,
+                content: <ContactDeals contact={contact} />,
+              },
+            ]
+          : undefined
       }
     />
   );

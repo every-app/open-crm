@@ -1,5 +1,5 @@
+import type { ReactNode } from "react";
 import { Check, ChevronRight, Sparkles, X } from "lucide-react";
-import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import {
   Collapsible,
@@ -13,57 +13,32 @@ import {
 } from "@/client/components/ui/tooltip";
 import {
   BAND_LABELS,
-  currentValue,
-  factLabel,
-  factsByField,
   type Contact,
   type ContactFact,
 } from "@/client/features/contacts/contactFormat";
 import type { useContactMutations } from "@/client/features/contacts/useContactMutations";
 import { LocalDay } from "@/client/features/records/LocalDateTime";
 import { SheetSection } from "@/client/features/records/RecordSheet";
+import { EmptyValue } from "@/client/features/records/cells";
 import { safeHostname, safeHttpUrl } from "@/shared/safe-url";
 
 // What the research agent found about a contact. A fact it was sure of, or
 // that filled a blank, is already on the record (the sparkle beside the
-// value says where it came from); the rest wait here for a person to accept
-// or dismiss, one per field at a time.
+// value says where it came from); the rest wait under the row they would
+// change for a person to accept or dismiss, one per field at a time.
 
 type Mutations = ReturnType<typeof useContactMutations>;
 
-/** The agent's proposals, each with the evidence behind it. */
-export function ContactSuggestions({
-  contact,
-  mutations,
-}: {
-  contact: Contact;
-  mutations: Mutations;
-}) {
-  const { proposed } = factsByField(contact.facts);
-  if (proposed.length === 0) return null;
-  return (
-    <SheetSection title="The agent suggests">
-      <ul className="-mx-2 divide-y divide-border">
-        {proposed.map((fact) => (
-          <Suggestion
-            key={fact.id}
-            fact={fact}
-            now={currentValue(contact, fact.field)}
-            mutations={mutations}
-          />
-        ))}
-      </ul>
-    </SheetSection>
-  );
-}
-
-function Suggestion({
+/**
+ * What the agent suggests for the row above it, as the CRM's Suggestion
+ * draws it: the value, the evidence on one muted line, and ✓ and ✕. The
+ * row shows what the record says now.
+ */
+export function Suggestion({
   fact,
-  now,
   mutations,
 }: {
   fact: ContactFact;
-  now: string | null;
   mutations: Mutations;
 }) {
   const { decide } = mutations;
@@ -75,51 +50,40 @@ function Suggestion({
       : null;
   const why = fact.evidence.map((item) => item.detail).join(" · ");
   return (
-    <li className="flex min-w-0 items-start gap-3 px-2 py-2.5">
+    <div className="flex min-w-0 items-start gap-2 pb-1.5">
       <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {factLabel(fact.field)}
-          <Badge variant="outline" size="sm">
-            {BAND_LABELS[fact.band]}
-          </Badge>
-        </p>
-        <p className="text-sm font-medium [overflow-wrap:anywhere]">
+        <p className="text-sm [overflow-wrap:anywhere]">
           <FactValue value={fact.value} />
         </p>
-        {now ? (
-          <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-            Now: {now}
-          </p>
-        ) : null}
         {why ? (
           <p className="text-xs text-pretty text-muted-foreground">{why}</p>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center">
         <Button
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Accept"
           pending={choice === "accept"}
           disabled={decide.isPending}
           onClick={() => decide.mutate({ factId: fact.id, decision: "accept" })}
         >
-          {choice === "accept" ? null : <Check data-icon="inline-start" />}
-          Accept
+          {choice === "accept" ? null : <Check />}
         </Button>
         <Button
           variant="ghost"
-          size="sm"
+          size="icon-xs"
+          aria-label="Dismiss"
           pending={choice === "dismiss"}
           disabled={decide.isPending}
           onClick={() =>
             decide.mutate({ factId: fact.id, decision: "dismiss" })
           }
         >
-          {choice === "dismiss" ? null : <X data-icon="inline-start" />}
-          Dismiss
+          {choice === "dismiss" ? null : <X />}
         </Button>
       </div>
-    </li>
+    </div>
   );
 }
 
@@ -170,47 +134,65 @@ export function AgentFound({ fact }: { fact: ContactFact }) {
   );
 }
 
-/** The agent's background on the person: who they are and where from. */
-export function ContactBrief({
+// The brief's lines, each with the fact field whose suggestion sits under it.
+const BACKGROUND_LINES = [
+  { label: "Current role", section: "currentRole", fact: null },
+  { label: "Tenure", section: "tenure", fact: "tenure" },
+  { label: "Seniority", section: "seniority", fact: "seniority" },
+  { label: "Function", section: "function", fact: "function" },
+  { label: "Based", section: "location", fact: "location" },
+] as const;
+
+/**
+ * The agent's background on the person: who they are and where from, with
+ * what it suggests for a line under that line. A suggestion for a line the
+ * brief doesn't have still gets the line, to sit under.
+ */
+export function ContactBackground({
   brief,
+  suggestion,
 }: {
-  brief: NonNullable<Contact["brief"]>;
+  brief: Contact["brief"];
+  suggestion: (field: string) => ReactNode;
 }) {
-  const { sections } = brief;
-  const lines = [
-    ["Current role", sections.currentRole],
-    ["Tenure", sections.tenure],
-    ["Seniority", sections.seniority],
-    ["Function", sections.function],
-    ["Based", sections.location],
-  ].flatMap(([label, value]) => (label && value ? [{ label, value }] : []));
-  const previous = sections.previousRoles ?? [];
-  const source = safeHttpUrl(brief.sourceUrl);
+  const sections = brief?.sections;
+  const lines = BACKGROUND_LINES.flatMap((line) => {
+    const value = sections?.[line.section] ?? null;
+    const suggested = line.fact ? suggestion(line.fact) : null;
+    return value || suggested ? [{ label: line.label, value, suggested }] : [];
+  });
+  const previous = sections?.previousRoles ?? [];
+  if (!brief && lines.length === 0) return null;
+  const source = safeHttpUrl(brief?.sourceUrl);
   return (
     <SheetSection
       title="Background"
       action={
-        <span className="text-xs text-muted-foreground">
-          {source ? (
-            <>
-              <a
-                href={source}
-                target="_blank"
-                rel="noreferrer"
-                className="underline-offset-4 hover:underline"
-              >
-                Source
-              </a>
-              {" · "}
-            </>
-          ) : null}
-          <LocalDay date={brief.refreshedAt} />
-        </span>
+        brief ? (
+          <span className="text-xs text-muted-foreground">
+            {source ? (
+              <>
+                <a
+                  href={source}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline-offset-4 hover:underline"
+                >
+                  Source
+                </a>
+                {" · "}
+              </>
+            ) : null}
+            <LocalDay date={brief.refreshedAt} />
+          </span>
+        ) : null
       }
     >
-      <p className="text-sm text-pretty whitespace-pre-line">
-        {brief.narrative}
-      </p>
+      {brief ? (
+        <p className="text-sm text-pretty whitespace-pre-line">
+          {brief.narrative}
+        </p>
+      ) : null}
       {lines.length > 0 || previous.length > 0 ? (
         <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-2 gap-y-1.5 pt-1 text-sm">
           {lines.map((line) => (
@@ -218,7 +200,12 @@ export function ContactBrief({
               <dt className="truncate text-xs leading-5 text-muted-foreground">
                 {line.label}
               </dt>
-              <dd className="min-w-0 [overflow-wrap:anywhere]">{line.value}</dd>
+              <dd className="min-w-0 [overflow-wrap:anywhere]">
+                {line.value ?? <EmptyValue />}
+                {line.suggested ? (
+                  <div className="pt-1">{line.suggested}</div>
+                ) : null}
+              </dd>
             </div>
           ))}
           {previous.length > 0 ? (
