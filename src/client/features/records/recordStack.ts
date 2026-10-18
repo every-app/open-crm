@@ -37,7 +37,7 @@ export type RecordTab = (typeof RECORD_TABS)[number];
 
 /** A company's quick-add forms, each on the tab of what it adds. */
 const QUICK_ADDS = ["contact", "deal"] as const;
-export type QuickAdd = (typeof QUICK_ADDS)[number];
+type QuickAdd = (typeof QUICK_ADDS)[number];
 const QUICK_ADD_TAB: Record<QuickAdd, RecordTab> = {
   contact: "contacts",
   deal: "deals",
