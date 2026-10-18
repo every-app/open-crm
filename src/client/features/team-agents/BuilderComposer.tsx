@@ -24,7 +24,7 @@ import { PREVIEWABLE_IMAGE_TYPES } from "@/shared/team-agents";
 import { TagPicker, tagText, type TaggedResource } from "./TagPicker";
 import { CREATE_AGENT_PREFIX } from "./teamAgentCopy";
 
-export type Attachment = {
+type Attachment = {
   id: string;
   name: string;
   mediaType: string;
