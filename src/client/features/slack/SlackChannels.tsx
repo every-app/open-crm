@@ -29,18 +29,16 @@ import { useCopy } from "@/client/hooks/useCopy";
 import { CodeBlock } from "@/client/features/settings/CodeBlock";
 import { joinSlackChannel, refreshSlack } from "@/serverFunctions/slack";
 import { ChannelPicker, type PickerChannel } from "./ChannelPicker";
-import { CreateChannelDialog } from "./CreateChannelDialog";
 import { slackChannelPagesQueryOptions, slackKeys } from "./slackQueries";
 
 /**
  * The channels the app can reach (the CRM's Slack channels section): search
- * them, add the app to one or ask for it, read the list again, or create a
- * channel.
+ * them, add the app to one or ask for it, or read the list again. Channels
+ * are created where an agent picks one (its "Lives in" step).
  */
 export function SlackChannels({ appName }: { appName: string | null }) {
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false);
   const [asking, setAsking] = useState<PickerChannel | null>(null);
   const search = useDeferredValue(query.trim());
   const channels = useInfiniteQuery(slackChannelPagesQueryOptions(search));
@@ -81,20 +79,14 @@ export function SlackChannels({ appName }: { appName: string | null }) {
   return (
     <SettingsSection
       title={`Channels ${object} can reach`}
-      description="Agents pick from this list."
       action={
-        <>
-          <Button
-            variant="outline"
-            pending={refreshing}
-            onClick={() => refresh.mutate()}
-          >
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </Button>
-          <Button variant="outline" onClick={() => setCreating(true)}>
-            Create a channel
-          </Button>
-        </>
+        <Button
+          variant="outline"
+          pending={refreshing}
+          onClick={() => refresh.mutate()}
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </Button>
       }
     >
       {first?.sync === "stalled" ? (
@@ -129,7 +121,6 @@ export function SlackChannels({ appName }: { appName: string | null }) {
         <ChannelPicker
           channels={rows}
           canInviteItself={canInviteItself}
-          appName={appName}
           pending={join.isPending}
           onAdd={(channel) => join.mutate(channel.id)}
           onRequest={setAsking}
@@ -151,7 +142,6 @@ export function SlackChannels({ appName }: { appName: string | null }) {
                 media="rows"
                 variant="plain"
                 title="No channels yet"
-                description="The CRM reads the list from Slack after it connects."
               />
             )
           }
@@ -176,9 +166,6 @@ export function SlackChannels({ appName }: { appName: string | null }) {
           onCancel={() => setAsking(null)}
           onConfirm={() => join.mutate(asking.id)}
         />
-      ) : null}
-      {creating ? (
-        <CreateChannelDialog onClose={() => setCreating(false)} />
       ) : null}
     </SettingsSection>
   );
@@ -225,8 +212,8 @@ function AskDialog({
           </AlertDialogTitle>
           <AlertDialogDescription>
             {canInviteItself
-              ? `It is a private channel, so ${object} joins as you. Same as typing the invite yourself. Everyone in the channel sees it join. It reads nothing until you turn a permission on.`
-              : `We cannot add ${object} to a private channel yet. Someone already in #${channel.name} has to ${command ? "run this" : "invite it"}.`}
+              ? "It joins as you, and everyone in the channel sees it."
+              : `Someone already in #${channel.name} has to ${command ? "run this" : "invite it"}.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!canInviteItself && command ? (
