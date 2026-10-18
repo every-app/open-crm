@@ -162,45 +162,41 @@ export function TrendChart({
   );
 }
 
+/** The stages holding open value: a bar of their shares, then the list. */
 export function StageBreakdown({
-  pipeline,
+  stages,
   currency,
 }: {
-  pipeline: DashboardSummary["pipeline"];
+  stages: DashboardSummary["pipeline"]["stages"];
   currency: string;
 }) {
-  const slices = pipeline.stages.filter((stage) => stage.value > 0);
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {slices.length > 0 ? (
-        <div className="flex h-3 gap-0.5">
-          {slices.map((slice) => {
-            const label = `${DEAL_STAGE_LABELS[slice.stage]}: ${formatMoney(slice.value, currency)}, ${formatCount(slice.count, "deal")}`;
-            return (
-              <Tooltip key={slice.stage}>
-                <TooltipTrigger
-                  render={
-                    <div
-                      tabIndex={0}
-                      aria-label={label}
-                      className={cn(
-                        "h-full min-w-1 basis-0 outline-none first:rounded-l-[4px] last:rounded-r-[4px] hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring",
-                        STAGE_FILL[slice.stage],
-                      )}
-                      style={{ flexGrow: slice.value }}
-                    />
-                  }
-                />
-                <TooltipContent>{label}</TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">Nothing open.</p>
-      )}
+      <div className="flex h-3 gap-0.5">
+        {stages.map((slice) => {
+          const label = `${DEAL_STAGE_LABELS[slice.stage]}: ${formatMoney(slice.value, currency)}, ${formatCount(slice.count, "deal")}`;
+          return (
+            <Tooltip key={slice.stage}>
+              <TooltipTrigger
+                render={
+                  <div
+                    tabIndex={0}
+                    aria-label={label}
+                    className={cn(
+                      "h-full min-w-1 basis-0 outline-none first:rounded-l-[4px] last:rounded-r-[4px] hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring",
+                      STAGE_FILL[slice.stage],
+                    )}
+                    style={{ flexGrow: slice.value }}
+                  />
+                }
+              />
+              <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
       <ul className="flex flex-col text-xs">
-        {pipeline.stages.map((stage) => (
+        {stages.map((stage) => (
           <li
             key={stage.stage}
             className="border-t border-border first:border-t-0"

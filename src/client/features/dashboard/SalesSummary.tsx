@@ -115,6 +115,8 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
   const hasTrend = summary.trend.some(
     (point) => point.won > 0 || point.created > 0,
   );
+  // Only the stages holding value, as the original CRM lists them.
+  const openStages = pipeline.stages.filter((stage) => stage.value > 0);
 
   return (
     <div className="space-y-4">
@@ -190,7 +192,11 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
           title="Open pipeline by stage"
           description="Where the value sits right now"
         >
-          <StageBreakdown pipeline={pipeline} currency={currency} />
+          {openStages.length > 0 ? (
+            <StageBreakdown stages={openStages} currency={currency} />
+          ) : (
+            <EmptyPanel label="Nothing open" />
+          )}
         </Panel>
       </div>
     </div>
