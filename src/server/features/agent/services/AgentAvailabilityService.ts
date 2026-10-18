@@ -8,7 +8,11 @@ import {
   scheduledResearchEnabled,
 } from "@/server/lib/deployment-tier";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
-import { ASKED_FOR_PRIORITY, DIRECT_KINDS } from "@/shared/agent-tasks";
+import {
+  AGENT_EVENT_KIND,
+  ASKED_FOR_PRIORITY,
+  DIRECT_KINDS,
+} from "@/shared/agent-tasks";
 import type {
   AgentAvailability,
   ModelState,
@@ -125,12 +129,14 @@ const DIRECT = new Set<string>(DIRECT_KINDS);
 /**
  * What keeps an open task from running: the workspace's credits, the model's
  * setup, the schedule, or nothing. Logos and photos (the visible lane) need
- * no model, so only credits hold them.
+ * no model, so only credits hold them. Nothing holds a CRM event: its runs
+ * are checked when they're queued and started.
  */
 export function taskHold(
   task: { kind: string; priority: number },
   hold: ResearchHold,
 ): TaskHold {
+  if (task.kind === AGENT_EVENT_KIND) return null;
   if (hold.outOfCredits) return "credits";
   if (DIRECT.has(task.kind)) return null;
   if (hold.paused) return "setup";

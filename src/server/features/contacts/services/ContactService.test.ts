@@ -68,7 +68,8 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         lastName: "Zed",
         email: " Ana@Acme.com ",
       });
-      // Filed under the company behind the work email, added for the agent.
+      // Filed under the company behind the work email, added for the agent,
+      // and the team agents hear of both.
       expect(
         await database.rows("SELECT id, name, domain FROM company"),
       ).toMatchObject([
@@ -76,9 +77,11 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
       expect(
         await database.rows(
-          "SELECT kind, contact_id FROM agent_task ORDER BY kind",
+          "SELECT kind, reason, contact_id FROM agent_task ORDER BY kind, reason",
         ),
       ).toMatchObject([
+        { kind: "agent-event", reason: "company.created" },
+        { kind: "agent-event", reason: "contact.created", contact_id: ana.id },
         { kind: "brand" },
         { kind: "company-profile" },
         { kind: "identify", contact_id: ana.id },
@@ -183,7 +186,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await expect(
         ContactService.purgeContact(A, ana.id),
       ).rejects.toMatchObject({ code: "CONFLICT" });
-      expect(await agentRows()).toHaveLength(2);
+      expect(await agentRows()).toHaveLength(3);
 
       await ContactService.archiveContact(A, ana.id);
       await ContactService.purgeContact(A, ana.id);

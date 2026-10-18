@@ -11,9 +11,17 @@ export const TASK_KINDS = [
   "company-profile",
   "workspace-profile",
   "field-backfill",
+  "agent-event",
 ] as const;
 
 export type TaskKind = (typeof TASK_KINDS)[number];
+
+/**
+ * A CRM event waiting to become team agent runs (the CRM's agent-event task).
+ * It is written in the same batch as the record write that caused it, and the
+ * team-agent lane turns it into runs (TriggerService), never research.
+ */
+export const AGENT_EVENT_KIND = "agent-event" satisfies TaskKind;
 
 /**
  * Kinds the dispatcher runs without a model (the "visible" lane): they fill
@@ -54,6 +62,7 @@ export const PRIORITY = {
   // Research for records a CSV brought in, spaced out (AgentTaskService).
   imported: 10,
   recheck: 0,
+  event: 700,
 } as const;
 
 /**

@@ -7,7 +7,6 @@ import {
   CAPTURE_GRANTS,
   CAPTURE_KINDS,
   SLACK_RESOURCE,
-  TEAM_AGENT_LIMITS,
   type CaptureGrants,
 } from "@/shared/team-agents";
 import {
@@ -135,10 +134,6 @@ async function builderContext(tool: BuilderToolContext) {
       ...CAPTURE_KINDS.map((kind) => CAPTURE_GRANTS[kind].resource),
       SLACK_RESOURCE,
     ].filter((resource) => tool.taggedIntegrations.includes(resource.id)),
-    limits: {
-      minScheduleMinutes: TEAM_AGENT_LIMITS.minScheduleMinutes,
-      maxRunsPerDay: TEAM_AGENT_LIMITS.maxRunsPerDay,
-    },
     existingDraft: agent
       ? {
           id: agent.id,

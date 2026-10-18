@@ -18,8 +18,6 @@ const ERROR_CODES = [
   "TEAM_AGENT_NOT_LIVE",
   // The team agent already has a run queued or running.
   "TEAM_AGENT_BUSY",
-  // The team agent has started as many runs as it may in a day.
-  "TEAM_AGENT_RUN_LIMIT",
   // Slack isn't set up on the gateway, or the workspace isn't connected.
   "SLACK_UNAVAILABLE",
   // Slack refused the request (a channel name taken, a missing permission).
@@ -43,7 +41,6 @@ const NON_REPORTABLE_ERROR_CODES = new Set<ErrorCode>([
   "INTEGRATION_UNAVAILABLE",
   "TEAM_AGENT_NOT_LIVE",
   "TEAM_AGENT_BUSY",
-  "TEAM_AGENT_RUN_LIMIT",
   "SLACK_UNAVAILABLE",
   "SLACK_REJECTED",
   "INSUFFICIENT_CREDITS",

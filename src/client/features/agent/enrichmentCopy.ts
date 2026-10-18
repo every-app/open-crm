@@ -27,6 +27,7 @@ const STEPS = {
   "company-profile": "Reading the company website",
   "workspace-profile": "Reading your own website",
   "field-backfill": "Filling in the blank details",
+  "agent-event": "Reacting to a change",
 } satisfies Record<TaskKind, string>;
 
 const STEP_BY_KIND = new Map<string, string>(Object.entries(STEPS));

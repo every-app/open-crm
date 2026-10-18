@@ -86,12 +86,17 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     it("keeps one live company per domain; an archived one keeps its domain", async () => {
       const acme = await create(A, "Acme", "https://www.Acme.com/pricing");
       expect(acme.domain).toBe("acme.com");
-      // The agent goes to fetch the brand and write the profile.
+      // The agent goes to fetch the brand and write the profile, and the
+      // team agents hear of it.
       expect(
         await database.rows(
-          "SELECT kind FROM agent_task WHERE organization_id = 'org_a' ORDER BY kind",
+          "SELECT kind, reason FROM agent_task WHERE organization_id = 'org_a' ORDER BY kind",
         ),
-      ).toMatchObject([{ kind: "brand" }, { kind: "company-profile" }]);
+      ).toMatchObject([
+        { kind: "agent-event", reason: "company.created" },
+        { kind: "brand" },
+        { kind: "company-profile" },
+      ]);
 
       await expect(create(A, "Acme again", "acme.com")).rejects.toMatchObject({
         code: "CONFLICT",
@@ -203,13 +208,14 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await expect(
         CompanyService.purgeCompany(A, acme.id),
       ).rejects.toMatchObject({ code: "CONFLICT" });
-      expect(await agentRows()).toHaveLength(6);
+      expect(await agentRows()).toHaveLength(8);
 
       await CompanyService.archiveCompany(A, acme.id);
       await CompanyService.purgeCompany(A, acme.id);
 
-      // Only the other company's brand and profile tasks are left.
+      // Only the other company's brand, profile and event tasks are left.
       expect(await agentRows()).toMatchObject([
+        { about: other.id },
         { about: other.id },
         { about: other.id },
       ]);

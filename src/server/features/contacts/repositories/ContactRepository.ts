@@ -15,6 +15,8 @@ import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
 import { company, contact, suppressedContact, user } from "@/db/schema";
 import type { RecordSource } from "@/shared/crm-enums";
+import { queueCrmEvents } from "@/server/features/team-agents/repositories/CrmEventRepository";
+import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import { leaveOtherCompanies } from "@/server/features/contacts/repositories/ContactRelationsRepository";
 import {
   FILTER_OPTIONS_MAX,
@@ -337,15 +339,17 @@ type NewContact = {
 };
 
 /**
- * Inserts the contact, lifting any suppression of its email in the same
- * batch. Throws a unique violation when a live contact has the email.
+ * Inserts the contact, lifting any suppression of its email and queueing the
+ * CRM events its creation emits in the same batch. Throws a unique violation
+ * when a live contact has the email.
  */
-async function insert(values: NewContact): Promise<string> {
+async function insert(values: NewContact, events: CrmEvent[] = []) {
   const id = crypto.randomUUID();
   const { email, organizationId } = values;
   await runBatch((tx) => [
     tx.insert(contact).values({ ...values, id }),
     ...(email ? [allowAgain(tx, organizationId, email)] : []),
+    ...queueCrmEvents(tx, { organizationId, recordId: id, events }),
   ]);
   return id;
 }

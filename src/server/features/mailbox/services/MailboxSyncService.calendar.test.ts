@@ -152,7 +152,11 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         await database.rows(
           `SELECT t.kind FROM agent_task t JOIN contact c ON c.id = t.contact_id ORDER BY t.kind`,
         ),
-      ).toEqual([{ kind: "identify" }, { kind: "meeting-prep" }]);
+      ).toEqual([
+        { kind: "agent-event" },
+        { kind: "identify" },
+        { kind: "meeting-prep" },
+      ]);
       expect(
         await firstValue(
           database.rows(`SELECT cursor FROM mailbox_sync`),

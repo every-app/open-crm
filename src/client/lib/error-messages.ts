@@ -23,8 +23,6 @@ const STANDARD_MESSAGES: Record<ErrorCode, string> = {
     "This agent isn't live. Deploy it, or resume it, before it runs.",
   TEAM_AGENT_BUSY:
     "This agent already has an active run. Stop it or wait for it to finish.",
-  TEAM_AGENT_RUN_LIMIT:
-    "This agent has started as many runs as it may today. It can run again tomorrow.",
   SLACK_UNAVAILABLE:
     "Slack isn't connected. An owner or admin connects it in Settings → Connections.",
   SLACK_REJECTED:

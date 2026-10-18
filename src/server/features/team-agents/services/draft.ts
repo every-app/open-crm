@@ -1,12 +1,12 @@
 import { z } from "zod";
 import {
   AGENT_ACTION_TYPES,
+  AGENT_TRIGGER_INTERVAL_MINUTES,
   CAPTURE_GRANTS,
   CAPTURE_KINDS,
   CRM_EVENT_CATALOG,
   CRM_EVENT_TYPES,
   SLACK_RESOURCE,
-  TEAM_AGENT_LIMITS,
   type AgentManifest,
   type CaptureGrants,
   type ManifestResource,
@@ -19,7 +19,7 @@ import type { DescribedRecord } from "../repositories/BuilderRepository";
 // permissions: a selected scope names only records tagged in the chat, by
 // their exact labels; a Slack destination is one the inventory holds; every
 // executable action has the integration it needs; a schedule is in the future
-// and no tighter than the limits allow.
+// and recurs from every minute to once a year.
 
 const triggerMetadata = {
   name: z.string().trim().min(1).max(120),
@@ -35,8 +35,8 @@ const draftTrigger = z.discriminatedUnion("type", [
     intervalMinutes: z
       .number()
       .int()
-      .min(1)
-      .max(TEAM_AGENT_LIMITS.maxScheduleMinutes),
+      .min(AGENT_TRIGGER_INTERVAL_MINUTES.min)
+      .max(AGENT_TRIGGER_INTERVAL_MINUTES.max),
   }),
   z.object({
     type: z.literal("EVENT"),
@@ -237,9 +237,13 @@ export function draftIssues(
       if (!Number.isFinite(next) || next <= now.getTime()) {
         issues.push("A scheduled trigger needs a future next run time.");
       }
-      if (trigger.intervalMinutes < TEAM_AGENT_LIMITS.minScheduleMinutes) {
+      if (
+        !trigger.intervalMinutes ||
+        trigger.intervalMinutes < AGENT_TRIGGER_INTERVAL_MINUTES.min ||
+        trigger.intervalMinutes > AGENT_TRIGGER_INTERVAL_MINUTES.max
+      ) {
         issues.push(
-          `A schedule can repeat at most every ${TEAM_AGENT_LIMITS.minScheduleMinutes} minutes.`,
+          "A scheduled trigger needs a recurrence from 1 minute to 1 year.",
         );
       }
     }

@@ -14,6 +14,7 @@ import {
   recordAgentStates,
   runBulk,
 } from "@/server/features/records/recordRules";
+import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import { requireCredits } from "@/server/billing/credits";
 import { AppError } from "@/server/lib/errors";
 import { normalizeEmail } from "@/shared/domain";
@@ -179,16 +180,24 @@ async function createContact(
   const lastName = blankToNull(input.lastName ?? "");
   let id: string;
   try {
-    id = await ContactRepository.insert({
-      organizationId,
-      firstName,
-      lastName,
-      email,
-      phone: blankToNull(input.phone ?? ""),
-      title: blankToNull(input.title ?? ""),
-      companyId,
-      ownerId,
-    });
+    id = await ContactRepository.insert(
+      {
+        organizationId,
+        firstName,
+        lastName,
+        email,
+        phone: blankToNull(input.phone ?? ""),
+        title: blankToNull(input.title ?? ""),
+        companyId,
+        ownerId,
+      },
+      [
+        {
+          type: "contact.created",
+          data: { firstName, lastName, email, companyId },
+        },
+      ],
+    );
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(
@@ -203,16 +212,12 @@ async function createContact(
     contactId: id,
     companyId,
   });
+  pokeEvents(organizationId);
   await AgentTaskService.contactCreated(
     organizationId,
     id,
     "Added by a person, with nothing on the record yet",
   );
-  await AgentTaskService.crmEvent(organizationId, {
-    type: "contact.created",
-    recordId: id,
-    data: { firstName, lastName, companyId },
-  });
   await FieldsService.queueFillForNewRecord(organizationId, "CONTACT", id);
   return { id, firstName, lastName, companyId };
 }

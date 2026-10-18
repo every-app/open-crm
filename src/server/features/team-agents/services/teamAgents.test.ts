@@ -6,9 +6,9 @@ import { z } from "zod";
 
 // Team agents end to end on both backends, below the runtime: a builder
 // chat's saved version waits for a person to deploy it; runs are queued once
-// per request, schedule slot and event; a stop settles the run with what it
-// had outstanding; a workspace out of credits starts none; and nothing
-// crosses organizations.
+// per request and schedule slot; a stop settles the run with what it had
+// outstanding; a workspace out of credits starts none, and nothing else caps
+// runs; and nothing crosses organizations.
 const { testDb } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -175,53 +175,16 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       });
     });
 
-    it("queues one run per live agent listening for an event", async () => {
-      const listener = draft({
-        recordScope: "WORKSPACE",
-        triggers: [
-          {
-            type: "EVENT",
-            name: "Stage moves",
-            summary: "When a deal changes stage",
-            event: "deal.stage.changed",
-          },
-        ],
-      });
-      const watching = await live(listener);
-      const paused = await live(listener);
-      await TeamAgentService.transition(owner, paused.agentId, "pause");
-      await live(draft());
-
-      expect(
-        await TriggerService.emitEvent("org_a", {
-          type: "deal.stage.changed",
-          recordId: "renewal",
-          data: { from: "DEMO_BOOKED", to: "CONTRACT_SENT" },
-        }),
-      ).toBe(1);
-      const [run] = await AgentRunRepository.listForAgent(
-        "org_a",
-        watching.agentId,
-        5,
-      );
-      expect(run).toMatchObject({
-        status: "QUEUED",
-        triggerType: "EVENT",
-        input: { record: { kind: "deal", id: "renewal" } },
-      });
-      expect(await runs()).toBe(1);
-    });
-
-    it("makes one run of a due schedule slot across overlapping ticks", async () => {
+    it("makes one run of an every-minute schedule's due slot across overlapping ticks", async () => {
       const version = await live(
         draft({
           triggers: [
             {
               type: "SCHEDULE",
-              name: "Mondays",
-              summary: "Every Monday morning",
-              nextRunAt: new Date(Date.now() + 3_600_000).toISOString(),
-              intervalMinutes: 10_080,
+              name: "Every minute",
+              summary: "Every minute",
+              nextRunAt: new Date(Date.now() + 60_000).toISOString(),
+              intervalMinutes: 1,
             },
           ],
         }),
@@ -279,6 +242,25 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           "SELECT summary FROM agent_audit_event WHERE type = 'run.skipped'",
         ),
       ).toEqual([{ summary: "Skipped: the workspace is out of credits." }]);
+    });
+
+    it("runs an agent however many runs it started today", async () => {
+      const version = await live();
+      const today = new Date().toISOString();
+      const values = Array.from(
+        { length: 60 },
+        (_, n) =>
+          `('earlier-${n}', 'org_a', '${version.agentId}', '${version.versionId}', 'MANUAL', 'SUCCEEDED', 'earlier-${n}', '${today}')`,
+      );
+      await database.exec(
+        `INSERT INTO agent_run (id, organization_id, agent_id, version_id, trigger_type, status, idempotency_key, created_at) VALUES ${values.join(", ")}`,
+      );
+
+      await AgentRunService.runNow(owner, {
+        agentId: version.agentId,
+        clientRequestId: crypto.randomUUID(),
+      });
+      expect(await runs()).toBe(61);
     });
 
     it("settles a stopped run with its outstanding actions, and its tools refuse after", async () => {
@@ -381,13 +363,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(
         await AgentFileRepository.versionFiles("org_b", version.versionId),
       ).toEqual([]);
-      expect(
-        await TriggerService.emitEvent("org_b", {
-          type: "deal.created",
-          recordId: "renewal",
-          data: {},
-        }),
-      ).toBe(0);
     });
   });
 }

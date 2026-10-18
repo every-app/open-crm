@@ -6,11 +6,7 @@ import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { backgroundCredits, requireCredits } from "@/server/billing/credits";
 import { AppError } from "@/server/lib/errors";
 import { sessionName } from "@/server/features/agent/sessionName";
-import {
-  ACTIVE_RUN_STATUSES,
-  TEAM_AGENT_LIMITS,
-  type TriggerType,
-} from "@/shared/team-agents";
+import { ACTIVE_RUN_STATUSES, type TriggerType } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import { canManageAgent, readableAgent } from "./access";
 import { RunSettlement } from "./RunSettlement";
@@ -26,39 +22,19 @@ import { RunSettlement } from "./RunSettlement";
 
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
-const DAY_MS = 86_400_000;
-
 const RUN_ERRORS = {
   cancelled: {
     code: "CANCELLED",
     message: "Stopped by a person before it finished.",
   },
-  limit: {
-    code: "RUN_LIMIT",
-    message: `Skipped: this agent already started ${TEAM_AGENT_LIMITS.maxRunsPerDay} runs in the last 24 hours.`,
-  },
   credits: { message: "Skipped: the workspace is out of credits." },
 } as const;
 
-/** Whether the agent may be given another run today. */
-async function underDailyCap(
-  organizationId: string,
-  agentId: string,
-): Promise<boolean> {
-  const since = new Date(Date.now() - DAY_MS).toISOString();
-  const runs = await AgentRunRepository.countSince(
-    organizationId,
-    agentId,
-    since,
-  );
-  return runs < TEAM_AGENT_LIMITS.maxRunsPerDay;
-}
-
 /**
  * Queues a run, once per idempotency key: the shared path of a person's
- * request, a due schedule and a matched event. Null when the agent is at its
- * daily cap, or a schedule's or an event's run finds the workspace out of
- * credits (the trigger's run is skipped, and the skip audited).
+ * request, a due schedule and a matched event. Null when a schedule's or an
+ * event's run finds the workspace out of credits (the trigger's run is
+ * skipped, and the skip audited).
  */
 async function queueRun(input: {
   organizationId: string;
@@ -82,20 +58,14 @@ async function queueRun(input: {
     }
     return { id: existing.id, created: false };
   }
-  const skipped = !(await underDailyCap(organizationId, agentId))
-    ? RUN_ERRORS.limit.message
-    : !input.initiatedById && !(await backgroundCredits(organizationId))
-      ? RUN_ERRORS.credits.message
-      : null;
-  if (skipped) {
+  if (!input.initiatedById && !(await backgroundCredits(organizationId))) {
     await AuditRepository.audit({
       organizationId,
       agentId,
       versionId: input.versionId,
-      actorUserId: input.initiatedById,
-      actorType: input.initiatedById ? "USER" : "SYSTEM",
+      actorType: "SYSTEM",
       type: "run.skipped",
-      summary: skipped,
+      summary: RUN_ERRORS.credits.message,
       requestId: input.idempotencyKey,
     });
     return null;
@@ -171,7 +141,7 @@ async function runNow(
     runInput: null,
     requestedSummary: "Requested a manual run",
   });
-  if (!run) throw new AppError("TEAM_AGENT_RUN_LIMIT");
+  if (!run) throw new AppError("INSUFFICIENT_CREDITS");
   return { id: run.id };
 }
 
@@ -213,7 +183,7 @@ async function retryRun(
     runInput: previous.input,
     requestedSummary: "Retried a run",
   });
-  if (!run) throw new AppError("TEAM_AGENT_RUN_LIMIT");
+  if (!run) throw new AppError("INSUFFICIENT_CREDITS");
   return { id: run.id };
 }
 

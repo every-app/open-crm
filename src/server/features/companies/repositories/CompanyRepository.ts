@@ -259,7 +259,7 @@ async function options(organizationId: string, q: string) {
     .limit(100);
 }
 
-type NewCompany = {
+export type NewCompany = {
   organizationId: string;
   name: string;
   domain: string | null;
@@ -284,7 +284,9 @@ type NewCompany = {
  * Inserts the company unless a live one of the organization already has its
  * domain (the partial unique index company_organization_domain_active_uidx):
  * then `created` is false and the row is that company. One statement on both
- * backends, so two requests racing to add a domain can't both win.
+ * backends, so two requests racing to add a domain can't both win. For CSV
+ * imports, which emit no CRM events (CompanyDirectoryRepository adds the
+ * companies that do).
  */
 async function insert(values: NewCompany) {
   const id = crypto.randomUUID();

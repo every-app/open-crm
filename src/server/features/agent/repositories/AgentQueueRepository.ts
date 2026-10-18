@@ -43,7 +43,8 @@ export type TaskLane =
   | { only: readonly string[] }
   | { except: readonly string[] };
 
-const leasedColumns = {
+// Read at call time, so a JSON column maps by the dialect in use.
+const leasedColumns = () => ({
   ...subjectColumns,
   reason: agentTask.reason,
   payload: agentTask.payload,
@@ -52,7 +53,7 @@ const leasedColumns = {
   priority: agentTask.priority,
   dueAt: agentTask.dueAt,
   leasedUntil: agentTask.leasedUntil,
-};
+});
 
 const unleased = (now: string) =>
   or(isNull(agentTask.leasedUntil), lt(agentTask.leasedUntil, now));
@@ -144,7 +145,7 @@ async function claimDue(input: {
         claimable,
       ),
     )
-    .returning(leasedColumns);
+    .returning(leasedColumns());
   // Postgres does not return an UPDATE's rows in any particular order.
   return sort(
     claimed,
