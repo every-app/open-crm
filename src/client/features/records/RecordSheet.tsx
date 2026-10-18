@@ -37,10 +37,13 @@ import type { RecordRef } from "@/shared/records";
 export function RecordSheet({
   open,
   onClose,
+  onFocus,
   children,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Focus moved into the sheet, as it does when the sheet opens. */
+  onFocus?: () => void;
   children: ReactNode;
 }) {
   // The sheet itself takes focus as it opens, not its first button: Tab
@@ -56,6 +59,7 @@ export function RecordSheet({
       <SheetContent
         ref={popup}
         initialFocus={popup}
+        onFocus={onFocus}
         side="right"
         showCloseButton={false}
         className="gap-0 p-0 outline-none data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"

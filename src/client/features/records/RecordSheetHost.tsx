@@ -21,10 +21,18 @@ export function RecordSheetHost() {
   // The record just closed keeps its content while the sheet animates shut.
   const [shown, setShown] = useState(top);
   if (top && (!shown || recordKey(top) !== recordKey(shown))) setShown(top);
+  // The sheet takes the focus as it opens; the dialogs the URL opens over it
+  // wait for that, then take it in turn.
+  const [focused, setFocused] = useState(false);
+  if (!top && focused) setFocused(false);
 
   return (
     <>
-      <RecordSheet open={top !== undefined} onClose={close}>
+      <RecordSheet
+        open={top !== undefined}
+        onClose={close}
+        onFocus={() => setFocused(true)}
+      >
         {shown?.kind === "company" ? (
           <CompanySheet key={recordKey(shown)} companyId={shown.id} />
         ) : shown?.kind === "contact" ? (
@@ -32,7 +40,7 @@ export function RecordSheetHost() {
         ) : shown?.kind === "deal" ? (
           <DealSheet key={recordKey(shown)} dealId={shown.id} />
         ) : null}
-        {top ? <UrlDialogs /> : null}
+        {top && focused ? <UrlDialogs /> : null}
       </RecordSheet>
       {top ? null : <UrlDialogs />}
     </>
@@ -42,8 +50,9 @@ export function RecordSheetHost() {
 /**
  * The dialogs the URL opens over the page: the fields sheet, the reason a
  * deal closing as lost asks for, and the quick switcher. With a record open
- * they open inside its sheet: two dialogs opened side by side, as when a
- * link names both, would each keep the other from the keyboard.
+ * they open inside its sheet, after it: two dialogs opening side by side, or
+ * at once, as when a link names both, leave the keyboard on the one
+ * underneath.
  */
 function UrlDialogs() {
   return (
