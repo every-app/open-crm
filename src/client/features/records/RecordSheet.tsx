@@ -227,7 +227,8 @@ function RecordTabs({
     >
       <TabsList
         variant="line"
-        className="w-full shrink-0 justify-start gap-6 border-b border-border px-5 *:flex-none"
+        // On a phone the tabs scroll sideways rather than cut the last off.
+        className="w-full shrink-0 justify-start gap-6 overflow-x-auto border-b border-border px-5 [scrollbar-width:none] *:flex-none"
       >
         {tabs.map((value) => {
           const count = lists.find((list) => list.value === value)?.count;
