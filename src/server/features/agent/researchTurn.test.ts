@@ -30,7 +30,7 @@ import { capabilityList } from "./prompt/capabilities";
 import type { LeasedTask } from "./repositories/AgentQueueRepository";
 import { recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
-import { budgetSpender } from "./runtime/budget";
+import { addTokens, budgetSpender, writeUpStep } from "./runtime/budget";
 import { reportResearch } from "./runtime/research";
 import { loadAgentSession } from "./runtime/session";
 import { MAX_STEPS, prepareTurn } from "./runtime/turn";
@@ -40,11 +40,16 @@ import { sessionName } from "./sessionName";
 const NARRATIVE =
   "Acme sells compliance automation to startups that need a SOC 2 audit, billed per seat each year.";
 
-function model() {
-  const usage = {
-    inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+/** A step's usage: `input` tokens read, 5 written. */
+function usageOf(input: number) {
+  return {
+    inputTokens: { total: input, noCache: input, cacheRead: 0, cacheWrite: 0 },
     outputTokens: { total: 5, text: 5, reasoning: 0 },
   };
+}
+
+function model() {
+  const usage = usageOf(10);
   return new MockLanguageModelV3({
     doGenerate: [
       {
@@ -94,16 +99,26 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
     role: null,
     sink: () => {},
   });
+  // The session's own storage, where CrmAgent keeps its tokens.
+  const stored = new Map<string, unknown>();
+  const storage = {
+    get: (key: string) => stored.get(key),
+    put: (key: string, value: unknown) => void stored.set(key, value),
+  };
   const result = await generateText({
     model: stub,
     system,
     prompt: researchBrief(session.task, task.attempts),
     tools,
     stopWhen: stepCountIs(MAX_STEPS),
-    onStepFinish: (step) =>
-      recordEvent(session, "step.completed", {
+    // CrmAgent.beforeStep: past its tokens, the session writes up.
+    prepareStep: () => writeUpStep(storage, system),
+    onStepFinish: (step) => {
+      addTokens(storage, step.usage);
+      return recordEvent(session, "step.completed", {
         finishReason: step.finishReason,
-      }),
+      });
+    },
   });
   await reportResearch(session, { status: "completed", text: result.text });
   return { sessionId };
@@ -173,5 +188,57 @@ describe("a research session", () => {
     expect(events.every((event) => event.organization_id === "org_a")).toBe(
       true,
     );
+  });
+
+  it("writes up what it has once its tokens are spent, with no more tools", async () => {
+    await AgentTaskService.workspaceChanged(
+      "org_a",
+      "acme.test",
+      "The company using this CRM said what its website is",
+    );
+    const stub = new MockLanguageModelV3({
+      doGenerate: [
+        {
+          content: [
+            {
+              type: "tool-call",
+              toolCallId: "call-1",
+              toolName: "search_crm",
+              input: JSON.stringify({ query: "acme" }),
+            },
+          ],
+          finishReason: { unified: "tool-calls", raw: undefined },
+          // More than a session's 500,000 tokens.
+          usage: usageOf(600_000),
+          warnings: [],
+        },
+        {
+          content: [
+            { type: "text", text: "Acme sells robots. Unread: pricing." },
+          ],
+          finishReason: { unified: "stop", raw: undefined },
+          usage: usageOf(10),
+          warnings: [],
+        },
+      ],
+    });
+    await runResearchLane({
+      start: (task) => runSession(task, stub),
+      modelConfigured: true,
+      askedForOnly: true,
+      defer: vi.fn(),
+    });
+
+    const [first, last] = stub.doGenerateCalls;
+    expect(first?.tools?.length).toBeGreaterThan(0);
+    expect(last?.tools ?? []).toEqual([]);
+    expect(JSON.stringify(last?.prompt)).toContain(
+      "The token budget for this session is spent.",
+    );
+    const [task] = await database.rows("SELECT * FROM agent_task");
+    expect(task).toMatchObject({
+      outcome: "Acme sells robots. Unread: pricing.",
+    });
+    expect(task?.finished_at).toBeTruthy();
   });
 });
