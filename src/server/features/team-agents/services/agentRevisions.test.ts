@@ -16,7 +16,7 @@ vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
 
-import { recordResources } from "@/shared/team-agents";
+import { recordResources, slackDestinationOf } from "@/shared/team-agents";
 import { AgentFileRepository } from "../repositories/AgentFileRepository";
 import { TriggerRepository } from "../repositories/TriggerRepository";
 import { AgentRevisionService } from "./AgentRevisionService";
@@ -104,6 +104,55 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       agent = await TeamAgentService.get(owner, agentId);
       expect(records(agent.currentVersion)).toEqual(["Globex"]);
       expect(agent.reviewVersion).toBeNull();
+    });
+
+    it("keeps a deployed agent's Slack channel, renamed since, when a change waits for review", async () => {
+      await database.exec(`
+        INSERT INTO slack_connection (id, organization_id, team_id, bot_token, bot_scopes, synced_at) VALUES ('slack', 'org_a', 'T1', 'xoxb-test', 'chat:write', '${new Date().toISOString()}');
+        INSERT INTO slack_channel (id, organization_id, slack_channel_id, name) VALUES ('sales', 'org_a', 'C1', 'sales');
+      `);
+      const { agentId, versionId } = await live(
+        draft({
+          integrations: ["slack"],
+          actions: [
+            { type: "run.summary", provider: "crm", summary: "Summarize" },
+            {
+              type: "slack.message.post",
+              provider: "slack",
+              summary: "Post the summary",
+              destination: {
+                kind: "channel",
+                resolution: "chosen",
+                id: "C1",
+                label: "#sales",
+              },
+            },
+          ],
+        }),
+      );
+      await database.exec(
+        `UPDATE slack_channel SET name = 'sales-team' WHERE id = 'sales';`,
+      );
+      const manifest: unknown = JSON.parse(
+        (await file(versionId, "agent/manifest.json")).content,
+      );
+
+      const proposed = await AgentRevisionService.saveFiles(owner, {
+        agentId,
+        clientRequestId: crypto.randomUUID(),
+        files: [
+          {
+            path: "agent/manifest.json",
+            content: JSON.stringify(
+              Object.assign({}, manifest, { description: "Posts to Slack." }),
+            ),
+          },
+        ],
+      });
+      expect(proposed).toMatchObject({ saved: true, review: true });
+      const review = (await TeamAgentService.get(owner, agentId)).reviewVersion;
+      if (!review?.readable) throw new Error("No readable review version");
+      expect(slackDestinationOf(review.manifest)?.label).toBe("#sales-team");
     });
 
     it("saves edited instructions at once and holds an edited manifest for review", async () => {

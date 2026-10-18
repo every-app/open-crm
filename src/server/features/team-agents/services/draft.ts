@@ -132,16 +132,21 @@ function accessOf(input: DraftInput): string[] {
 
 /**
  * Everything wrong with a draft, in sentences the builder can fix; empty when
- * it may be saved.
+ * it may be saved. `kept` is a Slack destination already approved in a
+ * deployed version, which isn't checked against the inventory again.
  */
 export function draftIssues(
   input: DraftInput,
   tagged: readonly DescribedRecord[],
   existing: readonly DescribedRecord[],
-  connections: { slack: SlackInventory; capture: CaptureGrants },
+  connections: {
+    slack: SlackInventory;
+    capture: CaptureGrants;
+    kept?: { kind: string; id: string } | null;
+  },
   now: Date,
 ): string[] {
-  const { slack, capture } = connections;
+  const { slack, capture, kept } = connections;
   const issues: string[] = [];
   if (input.recordScope === "SELECTED" && input.resources.length === 0) {
     issues.push("Selected CRM scope needs at least one tagged record.");
@@ -209,6 +214,12 @@ export function draftIssues(
       const option = options.find(
         (entry) => entry.id === action.destination.id,
       );
+      // A destination a deployed version already posts to was checked when
+      // that version was saved.
+      const approved =
+        kept?.kind === action.destination.kind &&
+        kept.id === action.destination.id;
+      if (approved) continue;
       if (!option) {
         issues.push(`The Slack ${noun} is not available to this workspace.`);
       } else if (option.label !== action.destination.label) {
