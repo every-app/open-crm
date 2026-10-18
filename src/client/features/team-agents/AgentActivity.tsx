@@ -120,7 +120,7 @@ export function AgentActivity({ agentId }: { agentId: string }) {
                 icon={History}
                 media={kind ? "icon" : "rows"}
                 variant="plain"
-                title="No changes match this filter."
+                title="No changes"
               />
             ) : (
               <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
