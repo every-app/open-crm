@@ -49,7 +49,9 @@ vi.mock("@/db/runBatch", () => ({
     databases[current.dialect].runBatch(build),
 }));
 
+import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { withBalance } from "@/server/billing/autumnTestSupport";
+import { toClientError } from "@/server/lib/errors";
 import { companyListSchema } from "@/types/schemas/companies";
 import { CompanyService } from "./CompanyService";
 
@@ -98,9 +100,13 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         { kind: "company-profile" },
       ]);
 
-      await expect(create(A, "Acme again", "acme.com")).rejects.toMatchObject({
-        code: "CONFLICT",
-      });
+      // The browser is told which company has the domain.
+      const taken = await create(A, "Acme again", "acme.com").catch(
+        (error: unknown) => error,
+      );
+      expect(getStandardErrorMessage(toClientError(taken))).toBe(
+        "Acme already uses the domain acme.com.",
+      );
       expect(await CompanyService.companyForEmail(A, "ana@acme.com")).toBe(
         acme.id,
       );

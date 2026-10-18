@@ -1,4 +1,8 @@
-import { isErrorCode, type ErrorCode } from "@/shared/error-codes";
+import {
+  UserMessageError,
+  isErrorCode,
+  type ErrorCode,
+} from "@/shared/error-codes";
 
 /** Copy for an error we did not expect. */
 const UNEXPECTED_ERROR_MESSAGE =
@@ -37,6 +41,8 @@ export function getStandardErrorMessage(
   fallback: string = STANDARD_MESSAGES.INTERNAL_ERROR,
 ): string {
   if (!(error instanceof Error)) return fallback;
+  // The server's own words, when it wrote them for people.
+  if (error instanceof UserMessageError) return error.userMessage;
   if (isErrorCode(error.message)) return STANDARD_MESSAGES[error.message];
   if (error.message) return error.message;
   return fallback;

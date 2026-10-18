@@ -37,19 +37,17 @@ export function invalidateContacts(queryClient: QueryClient) {
   ]);
 }
 
-/** Copy for a failed contact write: the server sends only the code. */
+/**
+ * Copy for a failed contact write. A taken email's comes from the server,
+ * which names the contact who has it.
+ */
 export function contactErrorMessage(
   error: unknown,
-  about?: "email" | "restore" | "fact",
+  about?: "email" | "fact",
 ): string {
   const code = getErrorCode(error);
   if (code === "CONFLICT" && about === "fact") {
     return "That suggestion has already been settled.";
-  }
-  if (code === "CONFLICT") {
-    return about === "restore"
-      ? "A live contact already uses this contact's email address. Change or archive that one first."
-      : "Another contact already uses that email address.";
   }
   if (code === "VALIDATION_ERROR" && about === "email") {
     return "That is not an email address.";
@@ -89,7 +87,6 @@ export function useContactMutations(
       toast.success(`${contact.name} was restored.`);
       await invalidate();
     },
-    onError: (error) => toast.error(contactErrorMessage(error, "restore")),
   });
 
   const purge = useMutation({
