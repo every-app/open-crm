@@ -78,11 +78,10 @@ export type ListFilter = {
 
 const isSet = (filter: ListFilter) => filter.value.length > 0;
 
-/** What the filter's token names: each chosen value's label. */
-function chosenLabels(filter: ListFilter): string[] {
-  return filter.value.map(
-    (value) =>
-      filter.options.find((option) => option.value === value)?.label ?? value,
+/** A value's label among the filter's options, or the value itself. */
+function labelOf(filter: ListFilter, value: string): string {
+  return (
+    filter.options.find((option) => option.value === value)?.label ?? value
   );
 }
 
@@ -183,7 +182,13 @@ function FilterSubmenu({
 }
 
 function FilterOptions({
-  filter: {
+  filter,
+  onPicked,
+}: {
+  filter: ListFilter;
+  onPicked: () => void;
+}) {
+  const {
     label,
     options,
     value,
@@ -195,19 +200,12 @@ function FilterOptions({
     searching = false,
     emptyLabel = "Nothing matches.",
     renderOption,
-  },
-  onPicked,
-}: {
-  filter: ListFilter;
-  onPicked: () => void;
-}) {
+  } = filter;
   // The chosen values as the submenu opened: they stay on top while it's
   // open, so a pick doesn't move the rows under the pointer.
   const [pinned] = useState(value);
-  const labelOf = (wanted: string) =>
-    options.find((option) => option.value === wanted)?.label ?? wanted;
   const items = [
-    ...pinned.map((pin) => ({ value: pin, label: labelOf(pin) })),
+    ...pinned.map((pin) => ({ value: pin, label: labelOf(filter, pin) })),
     ...options.filter(
       (option) =>
         !pinned.includes(option.value) &&
@@ -311,7 +309,7 @@ export function FilterTokens({
             {filter.bare ? null : (
               <span className="text-muted-foreground">{filter.label} is </span>
             )}
-            {filterSummary(chosenLabels(filter))}
+            {filterSummary(filter.value.map((value) => labelOf(filter, value)))}
           </span>
           <Button
             variant="ghost"
