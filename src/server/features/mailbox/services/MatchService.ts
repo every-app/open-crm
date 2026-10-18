@@ -44,8 +44,8 @@ const NO_MATCH: MatchResult = { companyId: null, contactId: null };
 /**
  * Who "we" are for one organization, as the CRM's internalIdentity: its
  * members' addresses and the mailboxes they connected, their work domains
- * (never a free-mail one) and the workspace's website. Suppressing a domain
- * counts the same domains as our own.
+ * (never a free-mail one) and the workspace's website. Website forms and
+ * suppressing a domain count the same domains as our own.
  */
 async function internalIdentity(organizationId: string) {
   const [members, mailboxes, workspace] = await Promise.all([
