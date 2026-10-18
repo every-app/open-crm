@@ -59,11 +59,9 @@ export function ShareChatDialog({
   });
   const busy = create.isPending || revoke.isPending;
   const linked = status.data?.shared === true;
-  const choice = create.isPending
-    ? "link"
-    : revoke.isPending || !linked
-      ? "private"
-      : "link";
+  // A choice shows at once, while it is saved.
+  const choice =
+    create.isPending || (linked && !revoke.isPending) ? "link" : "private";
   const url = token ? `${window.location.origin}/chat/shared/${token}` : null;
 
   return (
