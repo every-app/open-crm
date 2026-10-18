@@ -2,10 +2,12 @@ import { lazy, Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus, RefreshCw } from "lucide-react";
+import { EmptyState } from "@/client/components/EmptyState";
 import { QueryError } from "@/client/components/QueryState";
 import { Spinner } from "@/client/components/Spinner";
 import { Button } from "@/client/components/ui/button";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
+import { getErrorCode } from "@/client/lib/error-messages";
 import { DeleteChatAction } from "./ChatNav";
 import { builderChatQueryOptions } from "./teamAgentQueries";
 
@@ -34,6 +36,28 @@ export function BuilderChatPage({
   const [working, setWorking] = useState(false);
 
   if (!chat.data) {
+    // A chat that doesn't exist, or isn't this person's (the CRM's
+    // ChatUnavailable).
+    if (getErrorCode(chat.error) === "NOT_FOUND") {
+      return (
+        <div className="flex h-full items-center justify-center p-8">
+          <EmptyState
+            variant="plain"
+            icon={null}
+            title="Chat unavailable"
+            action={
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link to="/chat" />}
+              >
+                Start a new chat
+              </Button>
+            }
+          />
+        </div>
+      );
+    }
     return chat.isError ? (
       <div className="p-6">
         <QueryError
