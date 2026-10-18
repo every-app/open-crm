@@ -88,7 +88,14 @@ export function buildProgress(messages: readonly UIMessage[]) {
  * request for an agent says so beside the records it tagged and the files it
  * attached.
  */
-export function UserMessage({ message }: { message: UIMessage }) {
+export function UserMessage({
+  message,
+  share,
+}: {
+  message: UIMessage;
+  /** The link a shared chat was opened with, which opens its attachments. */
+  share?: string;
+}) {
   const shown: UIMessage = {
     ...message,
     parts: message.parts.map((part) =>
@@ -122,7 +129,7 @@ export function UserMessage({ message }: { message: UIMessage }) {
             {attachments.map((file) => (
               <a
                 key={file.id}
-                href={`/api/agent-attachments/${encodeURIComponent(file.id)}`}
+                href={`/api/agent-attachments/${encodeURIComponent(file.id)}${share ? `?share=${encodeURIComponent(share)}` : ""}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
