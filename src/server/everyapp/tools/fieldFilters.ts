@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { memberId } from "@/server/everyapp/crm-tool";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import { AppError } from "@/server/lib/errors";
@@ -21,6 +22,19 @@ export const fieldFiltersInput = fieldFiltersSchema
   .describe(
     'Filters by custom field key (list_fields gives the keys and types). Text, URL, email and phone fields take { "op": "contains" | "equals", "value" }; numbers { "op": "range", "min", "max" }; dates { "op": "dateRange", "from", "to" } (YYYY-MM-DD, inclusive); checkboxes { "op": "checked", "value": true | false }; selects { "op": "anyOf", "values": [option labels or ids] }; user fields { "op": "anyOf", "values": [member emails] }.',
   );
+
+/** A custom field's value: text, a number, a checkbox, or null when empty. */
+export const fieldValueOutput = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+/** A list row's values of the fields shown as table columns, by key. */
+export const fieldColumnsOutput = z
+  .record(z.string(), fieldValueOutput)
+  .describe("Custom fields shown as columns, by key (a select as its label).");
 
 const OPS: Partial<Record<FieldType, FieldFilter["op"][]>> = {
   NUMBER: ["range"],

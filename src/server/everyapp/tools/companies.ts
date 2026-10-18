@@ -1,6 +1,12 @@
 import { z } from "zod";
-import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
+  crmTool,
+  fullName,
+  memberId,
+  personOutput,
+} from "@/server/everyapp/crm-tool";
+import {
+  fieldColumnsOutput,
   fieldFiltersInput,
   resolveFieldFilters,
 } from "@/server/everyapp/tools/fieldFilters";
@@ -9,7 +15,7 @@ import {
   type CompanyDetail,
   type CompanyListRow,
 } from "@/server/features/companies/services/CompanyService";
-import { ENRICHMENT_STATUSES } from "@/shared/crm-enums";
+import { DEAL_STAGES, ENRICHMENT_STATUSES } from "@/shared/crm-enums";
 import {
   COMPANY_SORTS,
   companyListSchema,
@@ -41,85 +47,117 @@ function location(company: {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-function owner(value: CompanyListRow["owner"]) {
-  return value ? { name: value.name, email: value.email } : null;
-}
+const enrichment = z
+  .enum(ENRICHMENT_STATUSES)
+  .describe(
+    "The research agent's state: PENDING, RUNNING, COMPLETE, FAILED or SKIPPED (nothing found).",
+  );
 
-function summary(row: CompanyListRow) {
+const summaryOutput = z.object({
+  id: z.string(),
+  name: z.string(),
+  domain: z.string().nullable(),
+  industry: z.string().nullable(),
+  location: z.string().nullable(),
+  owner: personOutput.nullable(),
+  contacts: z.number(),
+  openDeals: z.number(),
+  lastActivityAt: z.string().nullable(),
+  enrichment,
+  archivedAt: z.string().nullable(),
+  fields: fieldColumnsOutput,
+});
+
+function summary(row: CompanyListRow): z.input<typeof summaryOutput> {
   return {
-    id: row.id,
-    name: row.name,
-    domain: row.domain,
-    industry: row.industry,
+    ...row,
     location: location(row),
-    owner: owner(row.owner),
     contacts: row.contactCount,
     openDeals: row.openDealCount,
-    lastActivityAt: row.lastActivityAt,
     enrichment: row.enrichmentStatus,
-    archivedAt: row.archivedAt,
-    fields: row.fields,
   };
 }
 
-function fullName(person: { firstName: string; lastName: string | null }) {
-  return [person.firstName, person.lastName].filter(Boolean).join(" ");
-}
+const detailsOutput = z.object({
+  id: z.string(),
+  name: z.string(),
+  domain: z.string().nullable(),
+  website: z.string().nullable(),
+  description: z.string().nullable(),
+  industry: z.string().nullable(),
+  location: z.string().nullable(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  linkedinUrl: z.string().nullable(),
+  twitterUrl: z.string().nullable(),
+  githubUrl: z.string().nullable(),
+  owner: personOutput.nullable(),
+  enrichment,
+  primaryContact: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string().nullable(),
+      title: z.string().nullable(),
+    })
+    .nullable(),
+  contacts: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      title: z.string().nullable(),
+      email: z.string().nullable(),
+    }),
+  ),
+  deals: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      stage: z.enum(DEAL_STAGES),
+      open: z.boolean(),
+      amount: z.number().nullable(),
+      currency: z.string(),
+      expectedCloseDate: z.string().nullable(),
+    }),
+  ),
+  lastActivityAt: z.string().nullable(),
+  createdAt: z.string(),
+  archivedAt: z.string().nullable(),
+});
 
-function details(company: CompanyDetail) {
+function details(company: CompanyDetail): z.input<typeof detailsOutput> {
   return {
-    id: company.id,
-    name: company.name,
-    domain: company.domain,
-    website: company.website,
-    description: company.description,
-    industry: company.industry,
+    ...company,
     location: location(company),
-    phone: company.phone,
-    email: company.email,
-    linkedinUrl: company.linkedinUrl,
-    twitterUrl: company.twitterUrl,
-    githubUrl: company.githubUrl,
-    owner: owner(company.owner),
     enrichment: company.enrichmentStatus,
     primaryContact: company.primaryContact
       ? {
-          id: company.primaryContact.id,
+          ...company.primaryContact,
           name: fullName(company.primaryContact),
-          email: company.primaryContact.email,
-          title: company.primaryContact.title,
         }
       : null,
     contacts: company.contacts.map((contact) => ({
-      id: contact.id,
+      ...contact,
       name: fullName(contact),
-      title: contact.title,
-      email: contact.email,
     })),
-    deals: company.deals.map((deal) => ({
-      id: deal.id,
-      name: deal.name,
-      stage: deal.stage,
-      open: deal.open,
-      amount: deal.amount,
-      currency: deal.currency,
-      expectedCloseDate: deal.expectedCloseDate,
-    })),
-    lastActivityAt: company.lastActivityAt,
-    createdAt: company.createdAt,
-    archivedAt: company.archivedAt,
   };
 }
+
+const companyRefOutput = z.object({
+  id: z.string(),
+  name: z.string(),
+  domain: z.string().nullable(),
+});
 
 const companyId = z
   .string()
   .min(1)
-  .describe("The company's id, from list_companies.");
+  .describe("The company's id, from list_companies or search_records.");
 
 export const companyTools = {
   list_companies: crmTool({
     description:
-      "Search and list the CRM's companies (accounts): domain, industry, location, owner, how many contacts and open deals each has, and when anything last happened. `query` matches part of the name or domain; `fields` filters by custom fields, and each company comes with the values of the fields shown as table columns (a select as its label). 25 a page, newest first unless sorted.",
+      "Search and list companies (accounts) with their domain, industry, location, owner, people, open deals and last activity, and the custom fields shown as table columns. `query` matches part of the name or domain. 25 a page, newest first unless sorted.",
     risk: "read",
     input: z
       .object({
@@ -143,9 +181,7 @@ export const companyTools = {
         enrichment: z
           .array(z.enum(ENRICHMENT_STATUSES))
           .optional()
-          .describe(
-            "Only companies the research agent has left in these states: PENDING (not researched), RUNNING, COMPLETE, FAILED or SKIPPED (nothing found).",
-          ),
+          .describe("Only companies in these research states."),
         activeWithinDays: z
           .literal([7, 30, 90])
           .optional()
@@ -162,6 +198,12 @@ export const companyTools = {
         page: z.number().int().min(1).optional(),
       })
       .strict(),
+    output: z.object({
+      total: z.number(),
+      page: z.number(),
+      pageSize: z.number(),
+      companies: z.array(summaryOutput),
+    }),
     handler: async (input, context) => {
       const owners = await Promise.all(
         (input.owners ?? []).map((value) =>
@@ -204,18 +246,20 @@ export const companyTools = {
       "One company in full: its details, owner, primary contact, the people who work there and its deals.",
     risk: "read",
     input: z.object({ id: companyId }).strict(),
+    output: detailsOutput,
     handler: async ({ id }, context) =>
       details(await CompanyService.getCompany(context.organizationId, id)),
   }),
 
   create_company: crmTool({
     description:
-      "Add a company. The domain (or a website URL, reduced to its host) must not belong to another live company. The research agent then fetches its logo and writes its profile.",
+      "Add a company. Its domain (or a website, reduced to its host) must not belong to another live company. The research agent then fetches its logo and writes its profile.",
     risk: "write",
     input: createCompanySchema
       .omit({ ownerId: true })
       .extend({ ownerEmail: ownerEmail.optional() })
       .strict(),
+    output: companyRefOutput,
     handler: async ({ ownerEmail: email, ...input }, context) =>
       CompanyService.createCompany(context.organizationId, {
         ...input,
@@ -225,7 +269,7 @@ export const companyTools = {
 
   update_company: crmTool({
     description:
-      "Change a company's details. Only the fields given change; an empty string clears a field. A new domain sends the research agent to look again.",
+      "Change a company's details. Only the fields given change; an empty string clears one. A new domain sends the research agent to look again.",
     risk: "write",
     input: updateCompanySchema
       .omit({ ownerId: true })
@@ -237,6 +281,7 @@ export const companyTools = {
           .describe("The new owner's email, or null for nobody."),
       })
       .strict(),
+    output: companyRefOutput,
     handler: async ({ ownerEmail: email, ...input }, context) =>
       CompanyService.updateCompany(context.organizationId, {
         ...input,
@@ -247,11 +292,34 @@ export const companyTools = {
       }),
   }),
 
+  set_primary_contact: crmTool({
+    description:
+      "Make someone who works at the company its primary contact, or clear it with null.",
+    risk: "write",
+    input: z
+      .object({
+        companyId,
+        contactId: z
+          .string()
+          .min(1)
+          .nullable()
+          .describe("The contact's id; get_company lists who works there."),
+      })
+      .strict(),
+    output: z.object({
+      id: z.string(),
+      primaryContactId: z.string().nullable(),
+    }),
+    handler: ({ companyId: id, contactId }, context) =>
+      CompanyService.setPrimaryContact(context.organizationId, id, contactId),
+  }),
+
   archive_company: crmTool({
     description:
-      "Archive a company: it leaves every list and its domain is free for another company. A person can restore it from the Archived view.",
-    risk: "destructive",
+      "Archive a company: it leaves every list and its domain is free for another company. bulk_restore brings it back.",
+    risk: "write",
     input: z.object({ id: companyId }).strict(),
+    output: z.object({ id: z.string(), name: z.string() }),
     handler: ({ id }, context) =>
       CompanyService.archiveCompany(context.organizationId, id),
   }),
