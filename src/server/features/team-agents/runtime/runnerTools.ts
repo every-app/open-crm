@@ -9,11 +9,10 @@ import {
   BILLABLE_CALL_UNITS,
   type Spend,
 } from "@/server/features/agent/runtime/budget";
-import type { AgentToolContext } from "@/server/features/agent/tools/context";
-import { webTools } from "@/server/features/agent/tools/web";
 import { RECORD_KINDS } from "@/shared/records";
 import { AGENT_ACTION_TYPES, type AgentManifest } from "@/shared/team-agents";
 import { RunActions } from "./runActions";
+import { webFetch } from "./webFetch";
 
 // A team agent run's tools, ported from the CRM's agent_runner tools. Which
 // tools exist follows the version: create_crm_activity only when it grants
@@ -24,7 +23,6 @@ import { RunActions } from "./runActions";
 
 type RunnerContext = {
   organizationId: string;
-  sessionId: string;
   runId: string;
   manifest: AgentManifest;
   spend: Spend;
@@ -40,16 +38,6 @@ export function runnerTools(context: RunnerContext): ToolSet {
   const postsToSlack = manifest.actions.some(
     (action) => action.type === AGENT_ACTION_TYPES.SLACK_MESSAGE_POST,
   );
-  const toolContext: AgentToolContext = {
-    organizationId,
-    sessionId: context.sessionId,
-    record: { contactId: null, companyId: null, dealId: null },
-    task: null,
-    conversation: null,
-    attended: false,
-    role: null,
-    spend: context.spend,
-  };
   const [firstType, ...otherTypes] = activityTypes;
   return {
     inspect_run: tool({
@@ -161,7 +149,7 @@ export function runnerTools(context: RunnerContext): ToolSet {
       },
     }),
 
-    ...webTools(toolContext),
+    web_fetch: webFetch,
 
     finish_run: tool({
       description:

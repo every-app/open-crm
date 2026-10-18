@@ -75,7 +75,6 @@ export async function prepareRunTurn(
     session,
     runnerTools({
       organizationId: session.organizationId,
-      sessionId: session.sessionId,
       runId: run.id,
       manifest: manifest.data,
       spend: input.spend,
