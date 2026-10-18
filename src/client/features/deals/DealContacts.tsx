@@ -29,7 +29,10 @@ import { getFieldError } from "@/client/lib/forms";
 
 type Mutations = ReturnType<typeof useDealMutations>;
 
-/** The people from the deal's company who are on it, and their roles. */
+/**
+ * A deal's Contacts tab: the people from its company who are on it, and
+ * their roles. The tab names the list and counts it.
+ */
 export function DealContacts({
   deal,
   mutations,
@@ -42,7 +45,6 @@ export function DealContacts({
 
   return (
     <SheetSection
-      title={`Contacts (${deal.contacts.length})`}
       action={
         adding || deal.contacts.length === 0 ? null : (
           <Button variant="ghost" size="xs" onClick={() => setAdding(true)}>

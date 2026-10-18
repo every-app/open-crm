@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { QueryError } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
+import { DealContacts } from "@/client/features/deals/DealContacts";
 import { DealOverview } from "@/client/features/deals/DealOverview";
 import { DealStageMenu } from "@/client/features/deals/DealStage";
 import {
@@ -109,6 +110,17 @@ export function DealSheet({ dealId }: { dealId: string }) {
       stats={deal ? <DealStats deal={deal} /> : undefined}
       overview={
         deal ? <DealOverview deal={deal} mutations={mutations} /> : null
+      }
+      lists={
+        deal
+          ? [
+              {
+                value: "contacts",
+                count: deal.contacts.length,
+                content: <DealContacts deal={deal} mutations={mutations} />,
+              },
+            ]
+          : undefined
       }
     />
   );

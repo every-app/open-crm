@@ -1,6 +1,5 @@
-import { useId, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
-import { DealContacts } from "@/client/features/deals/DealContacts";
 import { StageStepper } from "@/client/features/deals/DealStage";
 import {
   closeDay,
@@ -14,11 +13,13 @@ import type {
 } from "@/client/features/deals/useDealMutations";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { RecordFields } from "@/client/features/fields/RecordFields";
-import { CompanyPicker } from "@/client/features/records/CompanyPicker";
+import { InlineCompanyField } from "@/client/features/records/CompanyPicker";
 import {
   InlineField,
   InlineSelectField,
   InlineTextArea,
+  PROPERTY_LABEL,
+  PROPERTY_ROW,
 } from "@/client/features/records/InlineField";
 import {
   LocalDateTime,
@@ -30,10 +31,6 @@ import { CURRENCIES, normalizeCurrency } from "@/shared/currency";
 import { UNASSIGNED } from "@/types/schemas/records";
 
 type Mutations = ReturnType<typeof useDealMutations>;
-
-// Laid out as InlineField lays out its rows: a label, then the value.
-const ROW = "grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-2";
-const LABEL = "truncate text-xs text-muted-foreground";
 
 const CURRENCY_ITEMS = CURRENCIES.map((entry) => ({
   value: entry.code,
@@ -50,7 +47,10 @@ function currencyItems(currency: string) {
       ];
 }
 
-/** A deal's Overview tab: its stage, details, description and people. */
+/**
+ * A deal's Overview tab: its stage, details and description. The people on
+ * it have a tab of their own.
+ */
 export function DealOverview({
   deal,
   mutations,
@@ -138,18 +138,21 @@ export function DealOverview({
             format={(day) => <LocalDay date={day} />}
             onSave={(day) => save({ expectedCloseDate: day || null })}
           />
-          <CompanyField
-            deal={deal}
+          <InlineCompanyField
+            company={deal.company}
             saving={saving.includes("companyId")}
-            onSave={(companyId) => save({ companyId })}
+            // A deal always has a company: its menu has no "No company".
+            onSave={(companyId) => {
+              if (companyId) save({ companyId });
+            }}
           />
           <OwnerField
             owner={deal.owner}
             saving={saving.includes("ownerId")}
             onSave={(ownerId) => save({ ownerId })}
           />
+          <RecordFields entity="DEAL" recordId={deal.id} />
         </div>
-        <RecordFields entity="DEAL" recordId={deal.id} />
       </SheetSection>
 
       <SheetSection title="Description">
@@ -161,16 +164,14 @@ export function DealOverview({
           onSave={(description) => save({ description })}
         />
       </SheetSection>
-
-      <DealContacts deal={deal} mutations={mutations} />
     </div>
   );
 }
 
 function Property({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className={ROW}>
-      <dt className={LABEL}>{label}</dt>
+    <div className={`${PROPERTY_ROW} items-center`}>
+      <dt className={PROPERTY_LABEL}>{label}</dt>
       <dd className="min-w-0 px-2">{children}</dd>
     </div>
   );
@@ -185,8 +186,8 @@ function ReportedValue({ deal, currency }: { deal: Deal; currency: string }) {
   const counted =
     deal.baseAmount !== null && deal.baseCurrency === deal.reportingCurrency;
   return (
-    <div className={`${ROW} min-h-8`}>
-      <span className={LABEL}>In {deal.reportingCurrency}</span>
+    <div className={`${PROPERTY_ROW} min-h-8 items-center`}>
+      <span className={PROPERTY_LABEL}>In {deal.reportingCurrency}</span>
       <span className="truncate px-2 text-sm text-muted-foreground">
         {counted && deal.baseAmount !== null ? (
           <span
@@ -203,35 +204,6 @@ function ReportedValue({ deal, currency }: { deal: Deal; currency: string }) {
           `No ${currency} rate — left out of totals`
         )}
       </span>
-    </div>
-  );
-}
-
-/** The company it's sold to: any live company of the organization. */
-function CompanyField({
-  deal,
-  saving,
-  onSave,
-}: {
-  deal: Deal;
-  saving: boolean;
-  onSave: (companyId: string) => void;
-}) {
-  const id = useId();
-  return (
-    <div className={ROW}>
-      <label htmlFor={id} className={LABEL}>
-        Company
-      </label>
-      <CompanyPicker
-        id={id}
-        value={deal.company}
-        disabled={saving}
-        // A deal always has a company: clearing the picker changes nothing.
-        onChange={(company) => {
-          if (company && company.id !== deal.company.id) onSave(company.id);
-        }}
-      />
     </div>
   );
 }
