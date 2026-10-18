@@ -39,8 +39,18 @@ import { forOrganization } from "@/server/lib/gateway-attribution";
 import { ConnectionService } from "./ConnectionService";
 
 const ORIGIN = "https://crm.example.com";
-const ANA = { organizationId: "org_a", userId: "user_a" };
-const BO = { organizationId: "org_b", userId: "user_b" };
+// Each with the address the gateway signs them in with, which a mailbox's
+// must match in any case.
+const ANA = {
+  organizationId: "org_a",
+  userId: "user_a",
+  userEmail: "ana@acme.com",
+};
+const BO = {
+  organizationId: "org_b",
+  userId: "user_b",
+  userEmail: "Bo@Contoso.com",
+};
 
 async function challengeOf(verifier: string) {
   const digest = await crypto.subtle.digest(
@@ -261,6 +271,36 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toEqual([
         { source: "outlook", auto_create: dialect === "sqlite" ? 0 : false },
       ]);
+    });
+
+    it("refuses a mailbox that isn't at the member's sign-in address", async () => {
+      stubProviders({
+        "www.googleapis.com/calendar/v3/calendars/primary": () => ({
+          id: "ana.lovelace@gmail.com",
+        }),
+      });
+      gateway.answerTokens(() =>
+        json({
+          access_token: "access-1",
+          refresh_token: "refresh-1",
+          scope: "https://www.googleapis.com/auth/calendar.readonly",
+        }),
+      );
+      const { url } = await ConnectionService.startConnect(
+        ANA,
+        "google",
+        ORIGIN,
+      );
+      const state = new URL(url).searchParams.get("state") ?? "";
+
+      expect(await connect(ANA, "google", { state, code: "c" })).toEqual({
+        ok: false,
+        error: "email_doesn't_match",
+      });
+      expect(await database.rows(`SELECT id FROM mailbox_connection`)).toEqual(
+        [],
+      );
+      expect(await database.rows(`SELECT id FROM mailbox_sync`)).toEqual([]);
     });
 
     it("signs in and exchanges the code on the CRM's Microsoft tenant", async () => {

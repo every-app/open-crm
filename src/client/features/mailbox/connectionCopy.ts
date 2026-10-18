@@ -85,6 +85,8 @@ export function connectErrorCopy(
       return `${name} returned an error before the connection was made. Try again.`;
     case "mailbox_unknown":
       return `${name} didn't say which mailbox this is. Try again.`;
+    case "email_doesn't_match":
+      return `That ${name} account has a different email address to the one you sign in with, so it cannot be attached to your account. Connect the ${name} account that matches your sign-in address.`;
   }
 }
 

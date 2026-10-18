@@ -34,8 +34,9 @@ import { hasOrgPermission } from "@/shared/org-permissions";
 // Better Auth link flow. Connect: an authorize URL with a single-use state
 // (ten minutes, bound to the member and organization) and PKCE; the callback
 // checks the state is the member's, exchanges the code through the gateway,
-// learns the mailbox's address, stores the member's tokens and starts the
-// sources the member granted. Everything here is the member's own.
+// learns the mailbox's address, refuses one that isn't the address the
+// member signs in with, stores the member's tokens and starts the sources
+// the member granted. Everything here is the member's own.
 
 type Member = { organizationId: string; userId: string };
 
@@ -101,7 +102,7 @@ type CallbackOutcome = { ok: true } | { ok: false; error: ConnectError };
  * first, so a state presented twice, or by someone else, is refused.
  */
 async function completeConnect(
-  member: Member,
+  member: Member & { userEmail: string },
   provider: MailboxProvider,
   callbackUrl: URL,
 ): Promise<CallbackOutcome> {
@@ -150,6 +151,11 @@ async function completeConnect(
     sources,
   );
   if (!accountEmail) return { ok: false, error: "mailbox_unknown" };
+  // The member's own mailbox only, as the CRM's account linking allowed: the
+  // address they sign in with, in any case.
+  if (accountEmail !== member.userEmail.toLowerCase()) {
+    return { ok: false, error: "email_doesn't_match" };
+  }
 
   const previous = await ConnectionRepository.findWithTokens(
     member.organizationId,
