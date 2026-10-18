@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { Button } from "@/client/components/ui/button";
@@ -169,6 +170,32 @@ function PageButton({
       aria-label={label}
       disabled={disabled}
       onClick={() => onPageChange(page)}
+    >
+      {children}
+    </Button>
+  );
+}
+
+/**
+ * Prev and next as links to their page in the URL's `page` (none for the
+ * first), for lists whose page lives there: each page is then a step the
+ * browser's Back returns to.
+ */
+export function PageLink(props: PageButtonProps) {
+  const { page, disabled, label, children } = props;
+  if (disabled) return <PageButton {...props} />;
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={label}
+      nativeButton={false}
+      render={
+        <Link
+          to="."
+          search={(prev) => ({ ...prev, page: page > 1 ? page : undefined })}
+        />
+      }
     >
       {children}
     </Button>

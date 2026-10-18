@@ -11,7 +11,10 @@ import {
   useDataTable,
   useSelectionAnchor,
 } from "@/client/components/table/DataTable";
-import { TablePagination } from "@/client/components/table/TablePagination";
+import {
+  PageLink,
+  TablePagination,
+} from "@/client/components/table/TablePagination";
 import { Button } from "@/client/components/ui/button";
 import { CreateDealDialog } from "@/client/features/deals/CreateDealDialog";
 import { DealBulkActions } from "@/client/features/deals/DealBulkActions";
@@ -214,15 +217,11 @@ export function DealsPage() {
               pageSize={input.pageSize}
               totalCount={query.data?.total ?? null}
               isLoading={query.isPlaceholderData}
-              // Each page is a step the browser's Back returns to; the
-              // search, filters and sort replace theirs.
+              // Prev and next are links, each page a step the browser's
+              // Back returns to; a page put back in range replaces its own.
+              renderPageButton={PageLink}
               onPageChange={(page) =>
-                void navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    page: page > 1 ? page : undefined,
-                  }),
-                })
+                setSearch({ page: page > 1 ? page : undefined })
               }
               meta={
                 input.archived ? null : <PipelineSummary list={query.data} />
