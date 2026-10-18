@@ -20,7 +20,7 @@ export const MANIFEST_PATH = "agent/manifest.json";
  * The unsaved edits to a version's files: the page keeps them, with its other
  * changes, until its save bar saves or discards them.
  */
-export type CodeEdits = {
+type CodeEdits = {
   drafts: Record<string, string>;
   onDraft: (path: string, content: string) => void;
   /** What the checks refused in the last save. */

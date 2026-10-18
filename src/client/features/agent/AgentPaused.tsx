@@ -26,7 +26,7 @@ const OUT_OF_CREDITS = "The workspace is out of credits.";
 const LINK = "whitespace-nowrap text-foreground underline underline-offset-4";
 
 /** What the agent has to work with; undefined until it has loaded. */
-export function useAgentAvailability(): AgentAvailability | undefined {
+function useAgentAvailability(): AgentAvailability | undefined {
   return useQuery(agentStatusQueryOptions()).data;
 }
 
