@@ -2,7 +2,7 @@ import {
   createStartHandler,
   defaultStreamHandler,
 } from "@tanstack/react-start/server";
-import { everyApp, type EveryAppUser } from "@every-app/sdk/server";
+import { everyApp } from "@every-app/sdk/server";
 import { withPgClient } from "@/db";
 import { runCron } from "@/server/cron";
 import { withoutCookies } from "@/server/everyapp/cookies";
@@ -50,16 +50,8 @@ async function appFetch(request: Request): Promise<Response> {
 function routeAppRequest(
   request: Request,
   env: Env,
-  user: EveryAppUser | null,
 ): Response | Promise<Response> {
   const pathname = new URL(request.url).pathname;
-  // The REST API (docs/maintainers/rest-api.md), for scripts with a member's
-  // personal access token. Loaded on its first request only.
-  if (pathname.startsWith("/api/v1/")) {
-    return import("@/server/api/handler").then(({ handleApiRequest }) =>
-      handleApiRequest(request, user),
-    );
-  }
   // The agent's chats (WebSocket and history) and its Durable Objects. Only
   // the CrmAgent's own prefix: the rest of /agents/* is the team agents' pages.
   if (pathname.startsWith("/agents/crm-agent/")) {
@@ -83,8 +75,9 @@ function routeAppRequest(
 // The CRM is private behind an Every App gateway, which signs the person's
 // identity onto every request it forwards, or its public marker onto the
 // website tracking routes. Fail closed on anything else before routing. Gateway calls made while serving the request forward its identity
-// (gateway-attribution.ts). The gateway's tool calls (`/__everyapp/tools/*`)
-// load the agent tools on first use only.
+// (gateway-attribution.ts). The gateway's MCP tool calls
+// (`/__everyapp/tools/*`, the CRM's API: docs/maintainers/mcp.md) load the
+// tools on first use only.
 async function handleRequest(
   request: Request,
   env: Env,
@@ -105,7 +98,7 @@ async function handleRequest(
       }
       if (!user) return new Response("Not found", { status: 404 });
       return serveEveryAppRequest(verified, user, () =>
-        routeAppRequest(verified, env, user),
+        routeAppRequest(verified, env),
       );
     }).fetch(request, env, ctx),
   );

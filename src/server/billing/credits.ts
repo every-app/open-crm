@@ -13,7 +13,7 @@ import {
 // Billing fails closed: with no Autumn key, or no balance reading, paid
 // work doesn't start. A deployment that doesn't bill never asks.
 
-// What the MCP tools and the REST API say (the app shows its own copy).
+// What the MCP tools say (the app shows its own copy).
 const OUT_OF_CREDITS =
   "This organization doesn't have enough credits for this request. Retrying won't help until it has more credits: an owner can add them in Settings → Billing.";
 
