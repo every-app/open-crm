@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getAgentMessages, useAgentChat } from "@cloudflare/think/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useAgent } from "agents/react";
 import { toast } from "sonner";
 import { messageHasVisibleContent } from "@/client/components/chat/ChatMessage";
@@ -44,8 +43,9 @@ type Chat = Awaited<ReturnType<typeof getBuilderChat>>;
  * The builder conversation, over the chat's CrmAgent session like a record
  * chat (the Worker authorizes the socket, agentRoutes.ts). The builder may
  * stop to ask one question (its own ask_question, runtime/builderTools.ts),
- * answered in place of the composer. Under the
- * conversation sit the agent it makes, as it is built, saved and deployed.
+ * answered in place of the composer. A chat started from Chat home arrives
+ * with its first message already answering. Under the conversation sit the
+ * agent it makes, as it is built, saved and deployed.
  */
 export function BuilderThread({
   chat,
@@ -58,7 +58,6 @@ export function BuilderThread({
   onWorkingChange: (working: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { conversation } = chat;
   const agent = useAgent({
     agent: conversation.agent,
@@ -105,23 +104,6 @@ export function BuilderThread({
       void sendMessage({ text, metadata: { resources, attachments } });
     },
   });
-
-  // The message the chat was started with on the builder home, sent once the
-  // socket is identified, then dropped from history so a reload can't resend.
-  const firstMessage = useRouterState({
-    select: (state) => state.location.state.builderFirstMessage,
-  });
-  const sentFirst = useRef(false);
-  useEffect(() => {
-    if (!firstMessage || !agent.identified || sentFirst.current) return;
-    sentFirst.current = true;
-    pinToBottom();
-    void sendMessage({
-      text: firstMessage.text,
-      metadata: firstMessage.metadata,
-    });
-    void navigate({ to: ".", replace: true, state: {} });
-  }, [firstMessage, agent.identified, pinToBottom, sendMessage, navigate]);
 
   // While the builder works, its files and draft land in the chat.
   const wasBusy = useRef(false);

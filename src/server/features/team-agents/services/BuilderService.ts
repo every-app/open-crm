@@ -15,6 +15,7 @@ import {
 import { BuilderRepository } from "../repositories/BuilderRepository";
 import { BuilderResourceRepository } from "../repositories/BuilderResourceRepository";
 import { answeringSessions } from "../runtime/answering";
+import { handFirstMessage } from "../runtime/firstMessage";
 import { BuilderToolService } from "./BuilderToolService";
 
 // The agent builder's side of the CRM, ported from the CRM's conversations
@@ -58,18 +59,112 @@ function summary(row: ConversationRow) {
   };
 }
 
-async function createConversation(context: Context) {
-  const created = await BuilderRepository.createConversation({
-    organizationId: context.organizationId,
-    userId: context.userId,
-    sessionId: sessionName("chat", context.organizationId, crypto.randomUUID()),
-  });
-  const row = await BuilderRepository.findConversation(
-    context.organizationId,
-    context.userId,
-    created.id,
+/** A file's bytes from its base64, refused past the size a chat keeps. */
+function attachmentBytes(contentBase64: string): Uint8Array {
+  const bytes = Uint8Array.from(atob(contentBase64), (char) =>
+    char.charCodeAt(0),
   );
-  if (!row) throw new Error("Builder chat missing after insert");
+  if (bytes.length === 0 || bytes.length > MAX_ATTACHMENT_BYTES) {
+    throw new AppError("VALIDATION_ERROR", "Attachments are up to 2 MB.");
+  }
+  return bytes;
+}
+
+// Not under the organization's image prefix (src/server/lib/images.ts),
+// which every member may read: an attachment is its chat's owner's.
+const attachmentKey = (organizationId: string, chatId: string, id: string) =>
+  `builder-attachments/${organizationId}/${chatId}/${id}`;
+
+/**
+ * Starts a chat from Chat home, as the CRM's createBuilder: the chat, the
+ * files its first message attaches and that message, in one call. Nothing is
+ * left behind when a file can't be kept or the message can't be handed to
+ * the chat's agent. A retry with the same chat id finds the chat its first
+ * try started and hands its message again, which the agent takes once.
+ */
+async function startConversation(
+  context: Context,
+  input: {
+    chatId: string;
+    text: string;
+    resources: Array<{ kind: string; id: string; label: string }>;
+    attachments: Array<{
+      name: string;
+      mediaType: string;
+      contentBase64: string;
+    }>;
+  },
+) {
+  const { organizationId, userId } = context;
+  const find = () =>
+    BuilderRepository.findConversation(organizationId, userId, input.chatId);
+  let row = await find();
+  let started = false;
+  if (!row) {
+    const files = input.attachments.map((file) => {
+      const id = crypto.randomUUID();
+      return {
+        id,
+        organizationId,
+        conversationId: input.chatId,
+        userId,
+        name: file.name,
+        mediaType: file.mediaType,
+        bytes: attachmentBytes(file.contentBase64),
+        storageKey: attachmentKey(organizationId, input.chatId, id),
+      };
+    });
+    try {
+      for (const file of files) {
+        await env.R2.put(file.storageKey, file.bytes, {
+          httpMetadata: { contentType: file.mediaType },
+        });
+      }
+      await BuilderRepository.createConversation({
+        id: input.chatId,
+        organizationId,
+        userId,
+        sessionId: sessionName("chat", organizationId, crypto.randomUUID()),
+        attachments: files.map(({ bytes, ...file }) => ({
+          ...file,
+          size: bytes.length,
+        })),
+      });
+      started = true;
+    } catch (error) {
+      if (files.length > 0) {
+        await env.R2.delete(files.map((file) => file.storageKey));
+      }
+      // A retry that ran alongside its first try finds the chat that one
+      // started; anything else failed.
+      if (!(await find())) throw error;
+    }
+    row = await find();
+    if (!row) throw new Error("Builder chat missing after insert");
+  }
+  const attachments = await BuilderRepository.listAttachments(
+    organizationId,
+    row.id,
+  );
+  try {
+    await handFirstMessage(row.sessionId, {
+      id: row.id,
+      role: "user",
+      parts: [{ type: "text", text: input.text }],
+      metadata: {
+        resources: input.resources,
+        attachments: attachments.map(({ id, name, mediaType, size }) => ({
+          id,
+          name,
+          mediaType,
+          size,
+        })),
+      },
+    });
+  } catch (error) {
+    if (started) await removeConversation(context, row.id);
+    throw error;
+  }
   return summary(row);
 }
 
@@ -321,16 +416,13 @@ async function uploadAttachment(
     input.conversationId,
   );
   if (!row) throw new AppError("NOT_FOUND");
-  const bytes = Uint8Array.from(atob(input.contentBase64), (char) =>
-    char.charCodeAt(0),
-  );
-  if (bytes.length === 0 || bytes.length > MAX_ATTACHMENT_BYTES) {
-    throw new AppError("VALIDATION_ERROR", "Attachments are up to 2 MB.");
-  }
+  const bytes = attachmentBytes(input.contentBase64);
   const id = crypto.randomUUID();
-  // Not under the organization's image prefix (src/server/lib/images.ts),
-  // which every member may read: an attachment is its chat's owner's.
-  const storageKey = `builder-attachments/${context.organizationId}/${input.conversationId}/${id}`;
+  const storageKey = attachmentKey(
+    context.organizationId,
+    input.conversationId,
+    id,
+  );
   await env.R2.put(storageKey, bytes, {
     httpMetadata: { contentType: input.mediaType },
   });
@@ -365,7 +457,7 @@ async function attachmentObject(context: Context, id: string) {
 }
 
 export const BuilderService = {
-  createConversation,
+  startConversation,
   listConversations,
   getConversation,
   markRead,

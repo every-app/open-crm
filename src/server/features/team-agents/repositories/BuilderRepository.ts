@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { chunk } from "remeda";
 import { db } from "@/db";
+import { runBatch } from "@/db/runBatch";
 import {
   agentConversation,
   agentConversationAttachment,
@@ -33,20 +34,44 @@ const conversationColumns = () => ({
   agentStatus: agentDefinition.status,
 });
 
+type NewAttachment = {
+  id: string;
+  organizationId: string;
+  conversationId: string;
+  userId: string;
+  name: string;
+  mediaType: string;
+  size: number;
+  storageKey: string;
+};
+
+/**
+ * A builder chat, with the files its first message attaches, in one batch:
+ * the chat never exists without them. `id` is the client's, for a retry to
+ * find.
+ */
 async function createConversation(input: {
+  id?: string;
   organizationId: string;
   userId: string;
   sessionId: string;
+  attachments?: NewAttachment[];
 }): Promise<{ id: string; sessionId: string }> {
-  const id = crypto.randomUUID();
-  await db.insert(agentConversation).values({
-    id,
-    organizationId: input.organizationId,
-    kind: "BUILDER",
-    userId: input.userId,
-    sessionId: input.sessionId,
-    lastReadAt: new Date().toISOString(),
-  });
+  const id = input.id ?? crypto.randomUUID();
+  const attachments = input.attachments ?? [];
+  await runBatch((tx) => [
+    tx.insert(agentConversation).values({
+      id,
+      organizationId: input.organizationId,
+      kind: "BUILDER",
+      userId: input.userId,
+      sessionId: input.sessionId,
+      lastReadAt: new Date().toISOString(),
+    }),
+    ...(attachments.length > 0
+      ? [tx.insert(agentConversationAttachment).values(attachments)]
+      : []),
+  ]);
   return { id, sessionId: input.sessionId };
 }
 
@@ -273,16 +298,7 @@ const attachmentColumns = () => ({
   createdAt: agentConversationAttachment.createdAt,
 });
 
-async function insertAttachment(values: {
-  id: string;
-  organizationId: string;
-  conversationId: string;
-  userId: string;
-  name: string;
-  mediaType: string;
-  size: number;
-  storageKey: string;
-}): Promise<void> {
+async function insertAttachment(values: NewAttachment): Promise<void> {
   await db.insert(agentConversationAttachment).values(values);
 }
 

@@ -1,33 +1,59 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // A person's builder chats as Chat's column lists them, and the records the
-// composer offers to tag, on both backends. A chat is working only while its
-// own agent says a turn is answering, whatever its timestamps suggest; the
-// tag picker starts from the most recently active records, offers captured
-// email and meetings only once someone here has connected them, and never
-// shows another organization's.
-const { testDb, answering, asked } = await vi.hoisted(async () => {
-  const { createDualDialectTestDb } =
-    await import("@/server/testing/dualDialectTestDb");
-  return {
-    testDb: await createDualDialectTestDb(),
-    answering: new Set<string>(),
-    asked: vi.fn<(sessionId: string) => void>(),
-  };
-});
+// composer offers to tag, on both backends. A chat starts with its first
+// message and files in one call that leaves nothing behind when it fails and
+// starts no second chat when retried; a chat is working only while its own
+// agent says a turn is answering, whatever its timestamps suggest; the tag
+// picker starts from the most recently active records, offers captured email
+// and meetings only once someone here has connected them, and never shows
+// another organization's.
+const { testDb, answering, asked, stored, kept, handed } = await vi.hoisted(
+  async () => {
+    const { createDualDialectTestDb } =
+      await import("@/server/testing/dualDialectTestDb");
+    return {
+      testDb: await createDualDialectTestDb(),
+      answering: new Set<string>(),
+      asked: vi.fn<(sessionId: string) => void>(),
+      // R2's objects, by key.
+      stored: new Map<string, Uint8Array>(),
+      kept: vi.fn<(key: string) => void>(),
+      // What each chat's agent was handed, by session: its messages' ids.
+      handed: vi.fn<(sessionId: string, messageId: string) => void>(),
+    };
+  },
+);
 vi.mock("cloudflare:workers", () => ({
-  env: testDb.modules.workers.env,
+  env: {
+    get DATABASE_PROVIDER() {
+      return testDb.modules.workers.env.DATABASE_PROVIDER;
+    },
+    R2: {
+      put: async (key: string, bytes: Uint8Array) => {
+        kept(key);
+        stored.set(key, bytes);
+      },
+      delete: async (keys: string[]) => {
+        for (const key of keys) stored.delete(key);
+      },
+    },
+  },
   waitUntil: vi.fn(),
 }));
 vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
-// Each chat's CrmAgent, which the list asks whether a turn is answering.
+// Each chat's CrmAgent, which the list asks whether a turn is answering and
+// a new chat hands its first message.
 vi.mock("agents", () => ({
   getAgentByName: async (_namespace: unknown, sessionId: string) => ({
     isAnswering: async () => {
       asked(sessionId);
       return answering.has(sessionId);
+    },
+    submitMessages: async (messages: { id: string }[]) => {
+      for (const message of messages) handed(sessionId, message.id);
     },
   }),
 }));
@@ -36,6 +62,17 @@ import { SCOPE_FOR_SOURCE } from "@/shared/mailbox";
 import { BuilderService } from "./BuilderService";
 
 const owner = { organizationId: "org_a", userId: "user_a", role: "owner" };
+const outsider = { organizationId: "org_b", userId: "user_b", role: "owner" };
+
+/** A first message from Chat home, with a tag and a file. */
+const firstMessage = () => ({
+  chatId: crypto.randomUUID(),
+  text: "What do these say about Acme?",
+  resources: [{ kind: "company", id: "acme", label: "Acme" }],
+  attachments: [
+    { name: "shot.png", mediaType: "image/png", contentBase64: btoa("png") },
+  ],
+});
 
 for (const dialect of ["sqlite", "postgres"] as const) {
   describe(`builder chats (${dialect})`, () => {
@@ -44,8 +81,58 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     beforeEach(async () => {
       testDb.use(dialect);
       answering.clear();
+      stored.clear();
       await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
       await database.seedTwoOrganizations();
+    });
+
+    it("starts a chat with its first message and file in one call, and a retry starts no other", async () => {
+      const input = firstMessage();
+      const chat = await BuilderService.startConversation(owner, input);
+      expect(await BuilderService.startConversation(owner, input)).toEqual(
+        chat,
+      );
+
+      const chats = await BuilderService.listConversations(owner);
+      expect(chats.map((row) => row.id)).toEqual([input.chatId]);
+      const { attachments } = await BuilderService.getConversation(
+        owner,
+        input.chatId,
+      );
+      expect(attachments.map((file) => file.name)).toEqual(["shot.png"]);
+      expect(stored.size).toBe(1);
+      // Handed both times: the agent takes its first message once.
+      expect(handed.mock.calls).toEqual([
+        [chat.sessionId, input.chatId],
+        [chat.sessionId, input.chatId],
+      ]);
+
+      // The same id from another organization starts nothing there and
+      // touches nothing here.
+      await expect(
+        BuilderService.startConversation(outsider, input),
+      ).rejects.toThrow();
+      expect(await BuilderService.listConversations(outsider)).toEqual([]);
+      expect(stored.size).toBe(1);
+    });
+
+    it("leaves no chat behind when a file can't be kept or the message can't be handed over", async () => {
+      kept.mockImplementationOnce(() => {
+        throw new Error("R2 is down");
+      });
+      await expect(
+        BuilderService.startConversation(owner, firstMessage()),
+      ).rejects.toThrow("R2 is down");
+
+      handed.mockImplementationOnce(() => {
+        throw new Error("The agent is unreachable");
+      });
+      await expect(
+        BuilderService.startConversation(owner, firstMessage()),
+      ).rejects.toThrow("The agent is unreachable");
+
+      expect(await BuilderService.listConversations(owner)).toEqual([]);
+      expect(stored.size).toBe(0);
     });
 
     it("shows a chat working only while its agent is answering a turn", async () => {

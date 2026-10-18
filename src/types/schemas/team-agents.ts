@@ -83,9 +83,8 @@ export const rateBuilderReplySchema = z.object({
   rating: z.enum(FEEDBACK_RATINGS).nullable(),
 });
 
-/** One attachment per call, at most 2 MB of bytes (base64 grows it by ⅓). */
-export const uploadAttachmentSchema = z.object({
-  conversationId: id,
+/** A file to keep in a chat: at most 2 MB of bytes (base64 grows it by ⅓). */
+const attachmentContent = z.object({
   name: z.string().trim().min(1).max(180),
   mediaType: z.string().trim().min(1).max(120),
   contentBase64: z
@@ -93,4 +92,29 @@ export const uploadAttachmentSchema = z.object({
     .min(1)
     .max(2_800_000)
     .regex(/^[A-Za-z\d+/]*={0,2}$/, "Attachment content must be base64."),
+});
+
+/** One attachment per call. */
+export const uploadAttachmentSchema = attachmentContent.extend({
+  conversationId: id,
+});
+
+/**
+ * A chat started from Chat home, with its first message and the records and
+ * files that message carries. The client picks the chat's id, once per
+ * message, so that a retry finds the chat its first try started.
+ */
+export const startBuilderChatSchema = z.object({
+  chatId: requestId,
+  text: z.string().trim().min(1).max(20_000),
+  resources: z
+    .array(
+      z.object({
+        kind: z.enum(["company", "contact", "deal", "integration"]),
+        id,
+        label: z.string().trim().min(1).max(160),
+      }),
+    )
+    .max(20),
+  attachments: z.array(attachmentContent).max(5),
 });

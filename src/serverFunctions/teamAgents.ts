@@ -22,6 +22,7 @@ import {
   reviseAgentSchema,
   runAgentSchema,
   saveFilesSchema,
+  startBuilderChatSchema,
   uploadAttachmentSchema,
 } from "@/types/schemas/team-agents";
 
@@ -136,9 +137,12 @@ export const listBuilderChats = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
   .handler(async ({ context }) => BuilderService.listConversations(context));
 
-export const createBuilderChat = createServerFn({ method: "POST" })
+export const startBuilderChat = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
-  .handler(async ({ context }) => BuilderService.createConversation(context));
+  .validator(startBuilderChatSchema)
+  .handler(async ({ data, context }) =>
+    BuilderService.startConversation(context, data),
+  );
 
 export const getBuilderChat = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)

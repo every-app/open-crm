@@ -23,13 +23,7 @@ export type Attachment = {
   size: number;
 };
 
-/** What one message carries to the agent: its text, and its tags and files. */
-export type BuilderMessage = {
-  text: string;
-  metadata: { resources: TaggedResource[]; attachments: Attachment[] };
-};
-
-/** What the composer sends: the files are uploaded once the chat exists. */
+/** What the composer sends: the files are uploaded with the message. */
 export type ComposerMessage = {
   text: string;
   resources: TaggedResource[];
@@ -48,6 +42,15 @@ async function toBase64(file: File): Promise<string> {
   return btoa(binary);
 }
 
+/** A file as the server takes it: its name, type and base64 bytes. */
+export async function attachmentContent(file: File) {
+  return {
+    name: file.name,
+    mediaType: file.type || "application/octet-stream",
+    contentBase64: await toBase64(file),
+  };
+}
+
 /** Keeps the files a message attaches in its chat, for the message to name. */
 export async function uploadAttachments(
   conversationId: string,
@@ -57,12 +60,7 @@ export async function uploadAttachments(
   for (const file of files) {
     attachments.push(
       await uploadBuilderAttachment({
-        data: {
-          conversationId,
-          name: file.name,
-          mediaType: file.type || "application/octet-stream",
-          contentBase64: await toBase64(file),
-        },
+        data: { conversationId, ...(await attachmentContent(file)) },
       }),
     );
   }

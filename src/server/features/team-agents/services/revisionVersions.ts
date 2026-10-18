@@ -299,9 +299,9 @@ export async function saveForReview(
     ) {
       return action;
     }
-    const current = (
-      kept.kind === "user" ? slack.people : slack.channels
-    ).find((entry) => entry.id === kept.id);
+    const current = (kept.kind === "user" ? slack.people : slack.channels).find(
+      (entry) => entry.id === kept.id,
+    );
     return {
       ...action,
       destination: {
