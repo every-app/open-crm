@@ -1,9 +1,9 @@
 import type { ReactNode, Ref, UIEventHandler } from "react";
-import { Link } from "@tanstack/react-router";
 import { Sparkles } from "lucide-react";
 import { EmptyState } from "@/client/components/EmptyState";
 import { Button } from "@/client/components/ui/button";
 import type { RecordKind } from "@/shared/records";
+import { ModelNotSetUp } from "./AgentPaused";
 import { RECORD_COPY } from "./agentCopy";
 
 /**
@@ -85,15 +85,7 @@ export function AgentIdle({
 export function AgentUnavailable() {
   return (
     <p className="text-xs text-muted-foreground">
-      The agent can't answer yet: its model isn't set up on your Every App
-      gateway. An owner or admin sets it up once, as{" "}
-      <Link
-        to="/settings"
-        className="text-foreground underline underline-offset-4"
-      >
-        Settings → General
-      </Link>{" "}
-      shows.
+      <ModelNotSetUp />
     </p>
   );
 }

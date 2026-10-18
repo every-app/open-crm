@@ -19,11 +19,7 @@ import { RecordLink } from "@/client/features/records/RecordLink";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
 import type { getEnrichmentQueue } from "@/serverFunctions/agent";
 import { ENRICHMENT_PAGE, ENRICHMENT_PAGE_MAX } from "@/types/schemas/agent";
-import {
-  AgentSetupLink,
-  agentPausedReason,
-  useAgentAvailability,
-} from "./AgentPaused";
+import { PausedReason } from "./AgentPaused";
 import { enrichmentQueueQueryOptions } from "./agentQueries";
 import {
   dueLabel,
@@ -64,7 +60,6 @@ export function EnrichmentQueue() {
   const [limit, setLimit] = useState(ENRICHMENT_PAGE);
   const queue = useQuery(enrichmentQueueQueryOptions(limit));
 
-  const availability = useAgentAvailability();
   const rows = queue.data?.rows ?? [];
   const total = queue.data?.total ?? 0;
   const paused = queue.data?.paused ?? false;
@@ -126,14 +121,9 @@ export function EnrichmentQueue() {
           </span>
         </div>
         {paused ? (
-          <div className="space-y-1.5 border-b border-border px-4 py-3 text-xs">
-            <p className="text-muted-foreground">
-              {availability
-                ? agentPausedReason(availability)
-                : "The agent's model isn't set up."}
-            </p>
-            <AgentSetupLink className="text-foreground underline underline-offset-4" />
-          </div>
+          <p className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
+            <PausedReason />
+          </p>
         ) : null}
 
         {queue.isError && !queue.data ? (
