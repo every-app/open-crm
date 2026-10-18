@@ -1,5 +1,6 @@
 import { sortBy } from "remeda";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 // The enrichment sweep's selection is new SQL (correlated NOT EXISTS, a left
 // join, the claim's conditional update): both backends must pick the same
@@ -40,6 +41,7 @@ const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
 
+const taskRows = z.array(z.object({ kind: z.string(), subject: z.string() }));
 const ready = async () => true;
 const noKey = async () => false;
 
@@ -61,11 +63,13 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
     /** Open tasks as `kind subject`, sorted. */
     async function queued(organizationId = "org_a") {
-      const rows = await database.rows(
-        `SELECT kind, subject FROM agent_task WHERE organization_id = '${organizationId}' AND finished_at IS NULL`,
+      const rows = taskRows.parse(
+        await database.rows(
+          `SELECT kind, subject FROM agent_task WHERE organization_id = '${organizationId}' AND finished_at IS NULL`,
+        ),
       );
       return sortBy(
-        rows.map((row) => `${String(row.kind)} ${String(row.subject)}`),
+        rows.map((row) => `${row.kind} ${row.subject}`),
         (line) => line,
       );
     }
