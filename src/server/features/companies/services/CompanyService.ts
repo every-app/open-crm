@@ -1,5 +1,6 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
+import { CompanyDirectoryRepository } from "@/server/features/companies/repositories/CompanyDirectoryRepository";
 import { CompanyRelationsRepository } from "@/server/features/companies/repositories/CompanyRelationsRepository";
 import { CompanyRepository } from "@/server/features/companies/repositories/CompanyRepository";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
@@ -12,6 +13,7 @@ import {
   recordAgentStates,
   runBulk,
 } from "@/server/features/records/recordRules";
+import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { requireCredits } from "@/server/billing/credits";
 import { AppError } from "@/server/lib/errors";
@@ -136,32 +138,35 @@ async function createCompany(
 ) {
   const domain = domainOf(input.domain);
   await assertOwner(organizationId, input.ownerId);
-  const row = await CompanyRepository.insert({
-    organizationId,
-    name: input.name.trim(),
-    domain,
-    website: domain ? `https://${domain}` : null,
-    ownerId: input.ownerId ?? null,
-  });
-  if (!row.created) {
+  const name = input.name.trim();
+  let id: string;
+  try {
+    id = await CompanyDirectoryRepository.create(
+      {
+        organizationId,
+        name,
+        domain,
+        website: domain ? `https://${domain}` : null,
+        ownerId: input.ownerId ?? null,
+      },
+      [{ type: "company.created", data: { name, domain } }],
+    );
+  } catch (error) {
+    const taken =
+      domain && isUniqueViolation(error)
+        ? await CompanyDirectoryRepository.findLive(organizationId, domain)
+        : null;
+    if (!taken) throw error;
     throw new AppError(
       "CONFLICT",
-      `${row.name} already uses the domain ${domain}.`,
+      `${taken.name} already uses the domain ${domain}.`,
     );
   }
-  console.log("[companies] created", {
-    organizationId,
-    companyId: row.id,
-    domain,
-  });
-  await AgentTaskService.companyCreated(organizationId, row.id);
-  await AgentTaskService.crmEvent(organizationId, {
-    type: "company.created",
-    recordId: row.id,
-    data: { name: row.name, domain },
-  });
-  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", row.id);
-  return { id: row.id, name: row.name, domain };
+  console.log("[companies] created", { organizationId, companyId: id, domain });
+  pokeEvents(organizationId);
+  await AgentTaskService.companyCreated(organizationId, id);
+  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", id);
+  return { id, name, domain };
 }
 
 // Text fields a person edits as typed; a blank one clears the field.
@@ -393,32 +398,40 @@ async function companyForEmail(
 ): Promise<string | null> {
   const domain = domainFromEmail(email);
   if (!domain) return null;
-  const row = await CompanyRepository.insert({
+  const existing = await CompanyDirectoryRepository.findLive(
     organizationId,
-    name: domain,
     domain,
-    website: `https://${domain}`,
-    ownerId,
-    source,
-  });
-  if (row.created) {
-    await AgentTaskService.companyCreated(
-      organizationId,
-      row.id,
-      `Created from an email domain (${domain}): it has no name but the domain`,
+  );
+  if (existing) return existing.id;
+  let id: string;
+  try {
+    id = await CompanyDirectoryRepository.create(
+      {
+        organizationId,
+        name: domain,
+        domain,
+        website: `https://${domain}`,
+        ownerId,
+        source,
+      },
+      [{ type: "company.created", data: { name: domain, domain } }],
     );
-    await AgentTaskService.crmEvent(organizationId, {
-      type: "company.created",
-      recordId: row.id,
-      data: { name: domain, domain },
-    });
-    await FieldsService.queueFillForNewRecord(
-      organizationId,
-      "COMPANY",
-      row.id,
-    );
+  } catch (error) {
+    // Another request added the domain first.
+    const first = isUniqueViolation(error)
+      ? await CompanyDirectoryRepository.findLive(organizationId, domain)
+      : null;
+    if (!first) throw error;
+    return first.id;
   }
-  return row.id;
+  pokeEvents(organizationId);
+  await AgentTaskService.companyCreated(
+    organizationId,
+    id,
+    `Created from an email domain (${domain}): it has no name but the domain`,
+  );
+  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", id);
+  return id;
 }
 
 export const CompanyService = {

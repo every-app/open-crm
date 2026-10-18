@@ -15,7 +15,8 @@ import {
 import { AppError } from "@/server/lib/errors";
 import { normalizeCurrency, roundMoney } from "@/shared/currency";
 import { isClosedStage, isLosingStage } from "@/shared/deal-stages";
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
+import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import type {
   AttachDealContactInput,
   CreateDealInput,
@@ -127,32 +128,34 @@ async function createDeal(organizationId: string, input: CreateDealInput) {
   const amount =
     input.amount == null ? null : roundMoney(input.amount, currency);
   const now = new Date().toISOString();
-  const row = await DealRepository.insert({
-    organizationId,
-    name: input.name.trim(),
-    companyId: input.companyId,
-    ownerId: input.ownerId,
-    stage,
-    stageChangedAt: now,
-    closedAt: isClosedStage(stage) ? now : null,
-    amount,
-    currency,
-    ...(await ConversionService.dealFields(organizationId, amount, currency)),
-    expectedCloseDate: closeDateOf(input.expectedCloseDate),
-  });
-  console.log("[deals] created", { organizationId, dealId: row.id, stage });
-  await AgentTaskService.crmEvent(organizationId, {
-    type: "deal.created",
-    recordId: row.id,
-    data: { companyId: input.companyId, stage },
-  });
+  const { companyId } = input;
+  const events: CrmEvent[] = [
+    { type: "deal.created", data: { companyId, stage } },
+  ];
   if (isClosedStage(stage)) {
-    await AgentTaskService.crmEvent(organizationId, {
+    events.push({
       type: "deal.closed",
-      recordId: row.id,
-      data: { companyId: input.companyId, from: null, to: stage },
+      data: { companyId, from: null, to: stage },
     });
   }
+  const row = await DealRepository.insert(
+    {
+      organizationId,
+      name: input.name.trim(),
+      companyId,
+      ownerId: input.ownerId,
+      stage,
+      stageChangedAt: now,
+      closedAt: isClosedStage(stage) ? now : null,
+      amount,
+      currency,
+      ...(await ConversionService.dealFields(organizationId, amount, currency)),
+      expectedCloseDate: closeDateOf(input.expectedCloseDate),
+    },
+    events,
+  );
+  console.log("[deals] created", { organizationId, dealId: row.id, stage });
+  pokeEvents(organizationId);
   await FieldsService.queueFillForNewRecord(organizationId, "DEAL", row.id);
   return row;
 }
@@ -219,14 +222,19 @@ async function setStage(
       "Say why it was lost: a closed-lost deal with no reason teaches nobody anything.",
     );
   }
-  const moved = await DealRepository.moveStage(organizationId, {
-    id,
-    companyId: found.companyId,
-    from: found.stage,
-    to: stage,
-    reason,
-    movedById,
-  });
+  const move = { companyId: found.companyId, from: found.stage, to: stage };
+  const events: CrmEvent[] = [{ type: "deal.stage.changed", data: move }];
+  if (isClosedStage(stage) !== isClosedStage(found.stage)) {
+    events.push({
+      type: isClosedStage(stage) ? "deal.closed" : "deal.opened",
+      data: move,
+    });
+  }
+  const moved = await DealRepository.moveStage(
+    organizationId,
+    { ...move, id, reason, movedById },
+    events,
+  );
   if (!moved) {
     // Someone moved it first: fine if they moved it here too.
     const now = await requireDeal(organizationId, id);
@@ -242,19 +250,7 @@ async function setStage(
     from: found.stage,
     to: stage,
   });
-  const move = { companyId: found.companyId, from: found.stage, to: stage };
-  await AgentTaskService.crmEvent(organizationId, {
-    type: "deal.stage.changed",
-    recordId: id,
-    data: move,
-  });
-  if (isClosedStage(stage) !== isClosedStage(found.stage)) {
-    await AgentTaskService.crmEvent(organizationId, {
-      type: isClosedStage(stage) ? "deal.closed" : "deal.opened",
-      recordId: id,
-      data: move,
-    });
-  }
+  pokeEvents(organizationId);
   return { id, stage, changed: true };
 }
 

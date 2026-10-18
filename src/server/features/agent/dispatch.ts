@@ -3,7 +3,11 @@ import type { CreditCheck } from "@/server/billing/credits";
 import { billResearchSpend } from "@/server/billing/researchSpend";
 import { withSpendSink, type ProviderSpend } from "@/server/billing/spendSink";
 import { forOrganization } from "@/server/lib/gateway-attribution";
-import { ASKED_FOR_PRIORITY, DIRECT_KINDS } from "@/shared/agent-tasks";
+import {
+  AGENT_EVENT_KIND,
+  ASKED_FOR_PRIORITY,
+  DIRECT_KINDS,
+} from "@/shared/agent-tasks";
 import { DISPATCH } from "./dispatch/config";
 import { markRunning, settle } from "./dispatch/enrichment";
 import { runLimited, settledWithin } from "./dispatch/pool";
@@ -26,6 +30,9 @@ import { runPortrait } from "./visible/portrait";
 //   queued behind sixty research runs.
 // - The research lane starts one CrmAgent session per task, on a lease long
 //   enough for the session to finish and report back (CrmAgent).
+//
+// CRM events (agent-event) are neither: the team-agent lane turns them into
+// runs (TriggerService).
 //
 // Every gateway call is the task's organization's (forOrganization). A task
 // that fails is retried when its lease runs out, up to MAX_ATTEMPTS, then
@@ -176,7 +183,7 @@ export async function runResearchLane(options: {
   if (options.signal?.aborted || !options.modelConfigured) return 0;
   const tasks = await AgentQueueRepository.claimDue({
     limit: DISPATCH.research.batch,
-    lane: { except: DIRECT_KINDS },
+    lane: { except: [...DIRECT_KINDS, AGENT_EVENT_KIND] },
     leaseMs: DISPATCH.research.leaseMs,
     minPriority: options.askedForOnly ? ASKED_FOR_PRIORITY : undefined,
     heldSince: new Date(Date.now() - MODEL_RETRY_MS).toISOString(),

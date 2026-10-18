@@ -17,12 +17,14 @@ import { TriggerService } from "../services/TriggerService";
 
 // The team agents' lane of the minute cron, ported from the CRM's
 // drainAgentRuns: it settles runs that overran or never got going, queues
-// due schedules, then starts queued runs, one at a time per agent, each in
-// its own CrmAgent session (`run.<organization>.<run id>`). A person's "Run
-// now" pokes it for their organization at once. A run that can't run (no
-// model on the gateway, Slack not connected, the workspace out of credits)
-// fails with the reason instead of waiting. The per-minute scans are a few
-// indexed queries whatever the number of organizations.
+// due schedules and the runs of queued CRM events, then starts queued runs,
+// one at a time per agent, each in its own CrmAgent session
+// (`run.<organization>.<run id>`). A person's "Run now", and the runs a
+// record write's events queued, poke it for their organization at once. A
+// run that can't run (no model on the gateway, Slack not connected, the
+// workspace out of credits) fails with the reason instead of waiting. The
+// per-minute scans are a few indexed queries whatever the number of
+// organizations.
 
 const MINUTE_MS = 60_000;
 
@@ -193,9 +195,9 @@ async function start(
 }
 
 /**
- * The lane: recover, queue due schedules (unless unattended runs are held),
- * then start what is queued, across organizations or, for a poke, one.
- * How many runs it started.
+ * The lane: recover, queue due schedules (unless unattended runs are held)
+ * and the runs of queued CRM events, then start what is queued, across
+ * organizations or, for a poke, one. How many runs it started.
  */
 export async function runTeamAgentLane(
   env: Env,
@@ -210,6 +212,9 @@ export async function runTeamAgentLane(
   if (!options.organizationId) {
     await recover(env, options.defer);
     if (!options.holdUnattended) await TriggerService.queueDueSchedules();
+    await TriggerService.queueEventRuns({
+      held: options.holdUnattended ?? false,
+    });
   }
   if (options.signal?.aborted) return 0;
   const queued = await RunQueueRepository.queuedAcrossOrganizations(

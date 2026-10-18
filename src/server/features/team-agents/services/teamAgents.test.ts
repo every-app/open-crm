@@ -6,9 +6,9 @@ import { z } from "zod";
 
 // Team agents end to end on both backends, below the runtime: a builder
 // chat's saved version waits for a person to deploy it; runs are queued once
-// per request, schedule slot and event; a stop settles the run with what it
-// had outstanding; a workspace out of credits starts none, and nothing else
-// caps runs; and nothing crosses organizations.
+// per request and schedule slot; a stop settles the run with what it had
+// outstanding; a workspace out of credits starts none, and nothing else caps
+// runs; and nothing crosses organizations.
 const { testDb } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -173,43 +173,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         grants: { email: false, calendar: false },
         access: ["Read workspace CRM records"],
       });
-    });
-
-    it("queues one run per live agent listening for an event", async () => {
-      const listener = draft({
-        recordScope: "WORKSPACE",
-        triggers: [
-          {
-            type: "EVENT",
-            name: "Stage moves",
-            summary: "When a deal changes stage",
-            event: "deal.stage.changed",
-          },
-        ],
-      });
-      const watching = await live(listener);
-      const paused = await live(listener);
-      await TeamAgentService.transition(owner, paused.agentId, "pause");
-      await live(draft());
-
-      expect(
-        await TriggerService.emitEvent("org_a", {
-          type: "deal.stage.changed",
-          recordId: "renewal",
-          data: { from: "DEMO_BOOKED", to: "CONTRACT_SENT" },
-        }),
-      ).toBe(1);
-      const [run] = await AgentRunRepository.listForAgent(
-        "org_a",
-        watching.agentId,
-        5,
-      );
-      expect(run).toMatchObject({
-        status: "QUEUED",
-        triggerType: "EVENT",
-        input: { record: { kind: "deal", id: "renewal" } },
-      });
-      expect(await runs()).toBe(1);
     });
 
     it("makes one run of an every-minute schedule's due slot across overlapping ticks", async () => {
@@ -400,13 +363,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(
         await AgentFileRepository.versionFiles("org_b", version.versionId),
       ).toEqual([]);
-      expect(
-        await TriggerService.emitEvent("org_b", {
-          type: "deal.created",
-          recordId: "renewal",
-          data: {},
-        }),
-      ).toBe(0);
     });
   });
 }

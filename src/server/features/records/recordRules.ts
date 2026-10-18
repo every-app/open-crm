@@ -1,8 +1,9 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { chunk } from "remeda";
 import { db } from "@/db";
 import { agentTask } from "@/db/schema";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
+import { AGENT_EVENT_KIND } from "@/shared/agent-tasks";
 import {
   AgentAvailabilityService,
   taskHold,
@@ -133,6 +134,8 @@ export async function recordAgentStates(
           eq(agentTask.organizationId, organizationId),
           inArray(column, part),
           isNull(agentTask.finishedAt),
+          // A CRM event is the team agents' to handle, not research.
+          ne(agentTask.kind, AGENT_EVENT_KIND),
         ),
       );
     for (const row of rows) {
