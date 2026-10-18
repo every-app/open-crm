@@ -38,10 +38,11 @@ export const recordKey = (record: { kind: string; id: string }) =>
 /**
  * What the deployed version reads (the CRM's "What it can see"): its records
  * and the captured email and meetings, as the page's unsaved changes have
- * them.
+ * them. A workspace-wide agent can be narrowed to chosen records.
  */
 export function AgentScope({
   workspace,
+  narrowable,
   records,
   sources,
   canManage,
@@ -51,6 +52,8 @@ export function AgentScope({
 }: {
   /** It reads every record in the workspace. */
   workspace: boolean;
+  /** A workspace-wide agent may be narrowed to chosen records. */
+  narrowable: boolean;
   records: RecordResource[];
   sources: CaptureKind[];
   canManage: boolean;
@@ -78,7 +81,7 @@ export function AgentScope({
       action={
         canManage ? (
           <RecordTypePicker
-            workspace={workspace}
+            offersRecords={!workspace || narrowable}
             taken={
               new Set([
                 ...records.map(recordKey),
@@ -94,7 +97,7 @@ export function AgentScope({
       }
     >
       <SettingsCard>
-        {workspace ? (
+        {workspace && records.length === 0 ? (
           <SettingsRow label="Every record in the workspace" />
         ) : null}
         {records.map((record) => (
@@ -125,17 +128,17 @@ export function AgentScope({
 }
 
 /**
- * The records it could read too, and the captured email and meetings once
- * someone has connected a mailbox or calendar (the CRM's "Add a record
- * type"). A workspace-wide agent already reads every record.
+ * The records it could read (or, for a workspace-wide agent, the ones to
+ * narrow it to), and the captured email and meetings once someone has
+ * connected a mailbox or calendar (the CRM's "Add a record type").
  */
 function RecordTypePicker({
-  workspace,
+  offersRecords,
   taken,
   onRecord,
   onSource,
 }: {
-  workspace: boolean;
+  offersRecords: boolean;
   taken: Set<string>;
   onRecord: (record: RecordResource) => void;
   onSource: (kind: CaptureKind) => void;
@@ -153,7 +156,7 @@ function RecordTypePicker({
       !taken.has(recordKey(resource)) &&
       (resource.kind === "integration"
         ? sourceOf(resource.id) !== undefined
-        : !workspace),
+        : offersRecords),
   );
   const pick = (resource: (typeof options)[number]) => {
     const kind = sourceOf(resource.id);

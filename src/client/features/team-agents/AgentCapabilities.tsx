@@ -84,8 +84,10 @@ export function AgentCapabilities({
   const changed =
     moving || off.length > 0 || records !== null || sources !== null;
   const had = new Set(scope.map(recordKey));
+  // Records named for a workspace-wide agent narrow it.
   const widens =
-    shownRecords.some((record) => !had.has(recordKey(record))) ||
+    (!workspace &&
+      shownRecords.some((record) => !had.has(recordKey(record)))) ||
     shownSources.some((kind) => !granted[kind]);
   // An empty list would open every record in the workspace.
   const blocked = records !== null && !workspace && records.length === 0;
@@ -176,6 +178,10 @@ export function AgentCapabilities({
       />
       <AgentScope
         workspace={workspace}
+        // An event trigger needs every record in the workspace.
+        narrowable={
+          !manifest.triggers.some((trigger) => trigger.type === "EVENT")
+        }
         records={shownRecords}
         sources={shownSources}
         canManage={canManage}

@@ -106,6 +106,44 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(agent.reviewVersion).toBeNull();
     });
 
+    it("narrows a workspace-wide agent to chosen records at once, unless an event trigger needs the workspace", async () => {
+      const globex = {
+        kind: "company" as const,
+        id: "globex",
+        label: "Globex",
+      };
+      const { agentId } = await live();
+      const narrowed = await AgentRevisionService.revise(owner, {
+        agentId,
+        clientRequestId: crypto.randomUUID(),
+        resources: [globex],
+      });
+      expect(narrowed).toMatchObject({ saved: true, review: false });
+      const agent = await TeamAgentService.get(owner, agentId);
+      expect(records(agent.currentVersion)).toEqual(["Globex"]);
+      expect(agent.reviewVersion).toBeNull();
+
+      const { agentId: watcher } = await live(
+        draft({
+          triggers: [
+            {
+              type: "EVENT",
+              name: "On close",
+              summary: "When a deal closes",
+              event: "deal.closed",
+            },
+          ],
+        }),
+      );
+      await expect(
+        AgentRevisionService.revise(owner, {
+          agentId: watcher,
+          clientRequestId: crypto.randomUUID(),
+          resources: [globex],
+        }),
+      ).rejects.toThrow("Event triggers need workspace CRM scope.");
+    });
+
     it("keeps a deployed agent's Slack channel, renamed since, when a change waits for review", async () => {
       await database.exec(`
         INSERT INTO slack_connection (id, organization_id, team_id, bot_token, bot_scopes, synced_at) VALUES ('slack', 'org_a', 'T1', 'xoxb-test', 'chat:write', '${new Date().toISOString()}');
