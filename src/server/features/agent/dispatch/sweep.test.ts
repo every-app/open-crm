@@ -35,6 +35,7 @@ vi.mock("@/db/runBatch", () => ({
 }));
 vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
+import { pokeDispatcher } from "@/server/features/agent/poke";
 import { runEnrichmentSweep } from "./sweep";
 
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
@@ -111,6 +112,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         "company-profile company:never",
         "workspace-profile workspace",
       ]);
+      // The minute cron's own lanes take the work: no lane started per
+      // organization swept.
+      expect(pokeDispatcher).not.toHaveBeenCalled();
     });
 
     it("queues a photo where there is somewhere to look, and research for contacts never researched", async () => {

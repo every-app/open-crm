@@ -5,8 +5,8 @@ import { AgentTaskService } from "../services/AgentTaskService";
 import { DISPATCH } from "./config";
 
 // The enrichment sweep, ported from the CRM's automatic backfill
-// (BackfillService.auto). It queues work, never does it: the lanes do. For
-// each organization it finds
+// (BackfillService.auto). It queues work, never does it: the lanes do, from
+// the same tick on. For each organization it finds
 //
 // - the workspace's own website with no profile yet (a week between tries);
 // - companies never successfully looked up: their brand and their profile,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { FIELD_ENTITIES, type FieldEntity } from "@/shared/crm-enums";
-import { PRIORITY, taskSubject } from "@/shared/agent-tasks";
+import { DIRECT_KINDS, PRIORITY, taskSubject } from "@/shared/agent-tasks";
 import {
   AgentTaskRepository,
   type NewAgentTask,
@@ -34,7 +34,10 @@ async function enqueue(
         contactId: task.contactId ?? undefined,
         companyId: task.companyId ?? undefined,
       });
-      pokeDispatcher(organizationId);
+      // A logo or a photo is fetched at once; research waits for the cron.
+      if ((DIRECT_KINDS as readonly string[]).includes(task.kind)) {
+        pokeDispatcher(organizationId);
+      }
     }
     return created;
   } catch (error) {
@@ -155,7 +158,9 @@ async function meetingSoon(
 
 /**
  * Queues `kind` for each record that has no open task of that kind (the
- * CRM's backfill, which the enrichment sweep runs), in batched writes.
+ * CRM's backfill, which the enrichment sweep runs), in batched writes. The
+ * minute cron's lanes take it from there: a sweep of twenty organizations
+ * doesn't start a lane for each.
  */
 async function backfill(
   organizationId: string,
@@ -192,7 +197,6 @@ async function backfill(
       budget: input.budget ?? 4,
     })),
   );
-  if (fresh.length > 0) pokeDispatcher(organizationId);
   return { queued: fresh.length, alreadyQueued: ids.length - fresh.length };
 }
 
