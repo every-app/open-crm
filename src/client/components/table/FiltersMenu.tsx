@@ -163,7 +163,10 @@ function FilterSubmenu({
         if (!open) filter.onSearch?.("");
       }}
     >
-      <DropdownMenuSubTrigger openOnHover={openOnHover}>
+      <DropdownMenuSubTrigger
+        openOnHover={openOnHover}
+        className="[&>svg:last-child]:text-muted-foreground"
+      >
         <Icon className="text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate">{filter.label}</span>
         {isSet(filter) ? (
