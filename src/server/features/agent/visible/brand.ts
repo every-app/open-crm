@@ -5,6 +5,7 @@ import {
 } from "@/server/lib/provider-access";
 import type { EnrichmentStatus } from "@/shared/crm-enums";
 import { brandByDomain, type ContextFetch } from "../lib/contextDev";
+import { resolveFavicon } from "../lib/favicon";
 import { AgentEnrichmentRepository } from "../repositories/AgentEnrichmentRepository";
 import {
   AgentRecordRepository,
@@ -22,7 +23,9 @@ import {
 
 // A company's brand from Context.dev (logo, colors, industry, location,
 // socials), ported from the CRM's lib/brand.ts. It runs in the visible lane
-// for every new company, and as the agent's enrich_company tool.
+// for every new company, and as the agent's enrich_company tool. Where it
+// leaves the company without an icon, the visible lane falls back on the
+// company's own favicon (storeFavicon), as the CRM did.
 
 type BrandResult = {
   enriched: boolean;
@@ -152,6 +155,37 @@ async function mirrorBrandImages(
     }),
   );
   return mirrored;
+}
+
+/**
+ * The company's own favicon as its icon, when it still has none: free, from
+ * its site (lib/favicon.ts), and copied into R2 like every logo. A favicon
+ * that can't be copied keeps its source URL, as in the CRM. A brand lookup
+ * that finds an icon later replaces it. True when it was stored.
+ */
+export async function storeFavicon(input: {
+  organizationId: string;
+  companyId: string;
+}): Promise<boolean> {
+  const { organizationId, companyId } = input;
+  const company = await AgentEnrichmentRepository.companyForBrand(
+    organizationId,
+    companyId,
+  );
+  if (!company?.domain || company.iconUrl) return false;
+  const source = await resolveFavicon(company.domain);
+  if (!source) return false;
+  const stored = await storeImage(
+    organizationId,
+    `companies/${companyId}/icon`,
+    source,
+  );
+  return AgentEnrichmentRepository.setCompanyIcon(
+    organizationId,
+    companyId,
+    company.domain,
+    stored ?? source,
+  );
 }
 
 export function brandOutcome(result: BrandResult): string {

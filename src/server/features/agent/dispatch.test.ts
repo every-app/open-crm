@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_ATTEMPTS, PRIORITY, RETIRED_OUTCOME } from "@/shared/agent-tasks";
 import { AUTUMN_SEO_DATA_BALANCE_FEATURE_ID } from "@/shared/billing";
 
-const { database } = await vi.hoisted(async () => {
+const { database, r2 } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
-  return { database: await createSqliteTestDb() };
+  return { database: await createSqliteTestDb(), r2: { put: vi.fn() } };
 });
-vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
+vi.mock("cloudflare:workers", () => ({
+  env: { DATABASE_PROVIDER: "d1", R2: r2 },
+}));
 vi.mock("@/db", () => ({
   db: database.db,
   withPgClient: (fn: () => unknown) => fn(),
@@ -67,6 +69,11 @@ async function row(table: string, id: string) {
 describe("the dispatcher", () => {
   beforeEach(async () => {
     withBalance(autumn, 500);
+    // Company sites (favicons) answer nothing unless a test says otherwise.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 404 })),
+    );
     await database.exec(
       `DELETE FROM agent_task; DELETE FROM contact; DELETE FROM company; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
     );
@@ -90,6 +97,41 @@ describe("the dispatcher", () => {
     expect((await row("agent_task", "t1"))?.finished_at).toBeTruthy();
     expect(await row("company", "co1")).toMatchObject({
       enrichment_status: "PENDING",
+    });
+  });
+
+  it("falls back on the company's own favicon, the largest it declares, kept with the organization's images", async () => {
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "https://acme.test/") {
+        return new Response(
+          '<link rel="icon" sizes="32x32" href="/icon-32.png"><link rel="apple-touch-icon" sizes="180x180" href="/touch.png">',
+          { headers: { "content-type": "text/html" } },
+        );
+      }
+      return new Response(
+        init?.method === "HEAD" ? null : new Uint8Array([137, 80, 78, 71]),
+        { headers: { "content-type": "image/png" } },
+      );
+    });
+    await queue("t1", {
+      kind: "brand",
+      priority: PRIORITY.brand,
+      companyId: "co1",
+    });
+    await runVisibleLane({ defer });
+    const downloaded = vi
+      .mocked(fetch)
+      .mock.calls.filter(([, init]) => init?.method !== "HEAD")
+      .map(([input]) => String(input));
+    expect(downloaded).toEqual([
+      "https://acme.test/",
+      "https://acme.test/touch.png",
+    ]);
+    const [key] = r2.put.mock.calls[0] ?? [];
+    expect(key).toMatch(/^org_a\/companies\/co1\/icon-[0-9a-f]{12}\.png$/);
+    expect(await row("company", "co1")).toMatchObject({
+      icon_url: `/api/images/${String(key)}`,
     });
   });
 

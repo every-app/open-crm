@@ -8,7 +8,8 @@ import {
   type BrandUpdate,
 } from "../visible/brandMapping";
 
-// The visible lane's writes: a company's brand and a contact's photograph.
+// The visible lane's writes: a company's brand or favicon, and a contact's
+// photograph.
 // Both fill blanks with conditional SQL rather than read-then-write, so a value
 // a person types while a lookup is in flight is never overwritten.
 
@@ -103,6 +104,31 @@ async function fillCompanyBrand(
   ]);
 }
 
+/**
+ * Puts a favicon on a company that still has no icon and still has the
+ * domain it was found on. True when it was written.
+ */
+async function setCompanyIcon(
+  organizationId: string,
+  companyId: string,
+  domain: string,
+  iconUrl: string,
+): Promise<boolean> {
+  const updated = await db
+    .update(company)
+    .set({ iconUrl, updatedAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(company.organizationId, organizationId),
+        eq(company.id, companyId),
+        isNull(company.iconUrl),
+        eq(company.domain, domain),
+      ),
+    )
+    .returning({ id: company.id });
+  return updated.length > 0;
+}
+
 async function contactForPortrait(organizationId: string, contactId: string) {
   const [row] = await db
     .select({
@@ -160,6 +186,7 @@ async function setContactImage(
 export const AgentEnrichmentRepository = {
   companyForBrand,
   fillCompanyBrand,
+  setCompanyIcon,
   contactForPortrait,
   setContactImage,
 };
