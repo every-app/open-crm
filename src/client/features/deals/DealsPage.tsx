@@ -7,6 +7,7 @@ import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
+import { SortMenu } from "@/client/components/table/SortMenu";
 import {
   DataTable,
   useDataTable,
@@ -181,8 +182,13 @@ export function DealsPage() {
               search={search}
               onSearchChange={setSearch}
               placeholder="Search deals by name or company…"
+              facetCounts={query.data?.facetCounts}
               filters={
-                <DealFilters search={search} onSearchChange={setSearch} />
+                <DealFilters
+                  search={search}
+                  onSearchChange={setSearch}
+                  facetCounts={query.data?.facetCounts}
+                />
               }
               actions={
                 <>
@@ -207,6 +213,7 @@ export function DealsPage() {
                       })
                     }
                   />
+                  <SortMenu table={table} />
                   <ColumnsMenu table={table} />
                   <FieldsSheetButton entity="DEAL" />
                 </>

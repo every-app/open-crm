@@ -7,6 +7,7 @@ import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
+import { SortMenu } from "@/client/components/table/SortMenu";
 import {
   DataTable,
   useDataTable,
@@ -180,8 +181,13 @@ export function ContactsPage() {
               search={search}
               onSearchChange={setSearch}
               placeholder="Search by name, email or company…"
+              facetCounts={query.data?.facetCounts}
               filters={
-                <ContactFilters search={search} onSearchChange={setSearch} />
+                <ContactFilters
+                  search={search}
+                  onSearchChange={setSearch}
+                  facetCounts={query.data?.facetCounts}
+                />
               }
               actions={
                 <>
@@ -206,6 +212,7 @@ export function ContactsPage() {
                       })
                     }
                   />
+                  <SortMenu table={table} />
                   <ColumnsMenu table={table} />
                   <FieldsSheetButton entity="CONTACT" />
                 </>

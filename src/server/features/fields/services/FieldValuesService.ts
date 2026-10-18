@@ -1,6 +1,7 @@
-import type { SQL } from "drizzle-orm";
+import type { SQL, SQLWrapper } from "drizzle-orm";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { FieldDefinitionRepository } from "@/server/features/fields/repositories/FieldDefinitionRepository";
+import { FieldFacetRepository } from "@/server/features/fields/repositories/FieldFacetRepository";
 import {
   FieldValueRepository,
   storedValue,
@@ -18,6 +19,7 @@ import {
   type FieldValueJson,
 } from "@/shared/fields";
 import type { FieldFilters } from "@/types/schemas/fields";
+import type { FacetCounts } from "@/types/schemas/records";
 
 async function requireRecord(
   organizationId: string,
@@ -210,9 +212,40 @@ async function filterConditions(
   });
 }
 
+/**
+ * What a list's filters on custom fields count: for each live select and
+ * user field, how many records in the list's scope (`inScope`, a query of
+ * their ids) hold each option or member, under `field:<key>`.
+ */
+async function facetCounts(
+  organizationId: string,
+  entity: FieldEntity,
+  inScope: SQLWrapper,
+): Promise<FacetCounts> {
+  const [definitions, rows] = await Promise.all([
+    FieldDefinitionRepository.list(organizationId, entity, {
+      includeArchived: false,
+    }),
+    FieldFacetRepository.choiceCounts(organizationId, entity, inScope),
+  ]);
+  const keys = new Map(
+    definitions.map((definition) => [definition.id, definition.key]),
+  );
+  const counts: FacetCounts = {};
+  for (const row of rows) {
+    const key = keys.get(row.fieldId);
+    const value = row.optionId ?? row.userId;
+    if (!key || !value) continue;
+    const field = (counts[`field:${key}`] ??= {});
+    field[value] = (field[value] ?? 0) + row.count;
+  }
+  return counts;
+}
+
 export const FieldValuesService = {
   recordFields,
   setValues,
   tableValues,
   filterConditions,
+  facetCounts,
 };

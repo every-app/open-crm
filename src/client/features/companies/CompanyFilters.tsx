@@ -1,7 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { Factory, Sparkles } from "lucide-react";
-import { FilterChip } from "@/client/components/table/FilterChip";
-import { companyFilterOptionsQueryOptions } from "@/client/features/companies/companyQueries";
+import { FilterChip, countsFor } from "@/client/components/table/FilterChip";
 import type { CompanyListSearch } from "@/client/features/companies/companySearch";
 import { ENRICHMENT_OPTIONS } from "@/client/features/records/EnrichmentStatus";
 import {
@@ -10,7 +8,7 @@ import {
   valueOptions,
 } from "@/client/features/records/ListFilters";
 import { ENRICHMENT_STATUSES } from "@/shared/crm-enums";
-import { FACET_FILTER_MAX } from "@/types/schemas/records";
+import { FACET_FILTER_MAX, type FacetCounts } from "@/types/schemas/records";
 
 /**
  * The companies list's own filters, after the owner: industry, where the
@@ -19,19 +17,20 @@ import { FACET_FILTER_MAX } from "@/types/schemas/records";
 export function CompanyFilters({
   search,
   onSearchChange,
+  facetCounts,
 }: {
   search: CompanyListSearch;
   onSearchChange: (update: Partial<CompanyListSearch>) => void;
+  facetCounts: FacetCounts | undefined;
 }) {
-  const options = useQuery(
-    companyFilterOptionsQueryOptions(search.archived ?? false),
-  );
+  const industries = countsFor(facetCounts, "industry");
   return (
     <>
       <FilterChip
         label="Industry"
         icon={Factory}
-        options={valueOptions(options.data?.industries)}
+        options={valueOptions(industries)}
+        counts={industries}
         value={search.industry ?? []}
         max={FACET_FILTER_MAX}
         onChange={(industry) =>
@@ -42,6 +41,7 @@ export function CompanyFilters({
         label="Enrichment"
         icon={Sparkles}
         options={ENRICHMENT_OPTIONS}
+        counts={countsFor(facetCounts, "enrichment")}
         value={search.enrichment ?? []}
         onChange={(values) =>
           onSearchChange({
@@ -54,6 +54,7 @@ export function CompanyFilters({
       />
       <ActivityFilter
         value={search.activity}
+        counts={countsFor(facetCounts, "activity")}
         onChange={(activity) => onSearchChange({ activity, page: undefined })}
       />
     </>

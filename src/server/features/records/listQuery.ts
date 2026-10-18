@@ -1,5 +1,6 @@
 import {
   asc,
+  count,
   desc,
   gte,
   inArray,
@@ -12,6 +13,7 @@ import {
   type SQLWrapper,
 } from "drizzle-orm";
 import {
+  ACTIVITY_WINDOWS,
   UNASSIGNED,
   type ActivityWindow,
   type ListInput,
@@ -19,11 +21,50 @@ import {
 } from "@/types/schemas/records";
 
 // The parts every record list's query shares: the page window, the search,
-// the owner, archived and activity filters, and the order. Each repository
-// combines them with its organization filter and its own columns.
+// the owner, archived and activity filters, the order, and the counts of its
+// filters' values. Each repository combines them with its organization
+// filter and its own columns.
+//
+// A list's scope is the organization's live (or archived) records its search
+// finds. Its filters narrow the scope to its rows; their counts (the original
+// CRM's facet counts) are over the whole scope, so each filter offers the
+// values the scope holds, however the other filters are set.
 
-/** The most options a list filter offers: its column's commonest values. */
+/** The most values a free-text filter counts: its column's commonest. */
 export const FILTER_OPTIONS_MAX = 200;
+
+/**
+ * GROUP BY rows as one filter's counts, by value. Rows with no value count
+ * under `nullKey` (the filter's value for none), or not at all.
+ */
+export function countsByValue(
+  rows: { value: string | null; count: number }[],
+  nullKey?: string,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    const key = row.value ?? nullKey;
+    if (key !== undefined) counts[key] = (counts[key] ?? 0) + row.count;
+  }
+  return counts;
+}
+
+/** How many rows `condition` holds for, as a column of an aggregate select. */
+export function countWhere(condition: SQL | undefined) {
+  return condition
+    ? sql<number>`count(case when ${condition} then 1 end)`.mapWith(Number)
+    : count();
+}
+
+/** The Activity filter's counts: rows with activity in each window. */
+export function activityCounts(column: AnyColumn) {
+  return Object.fromEntries(
+    ACTIVITY_WINDOWS.map((window) => [
+      window,
+      countWhere(activityCondition(column, window)),
+    ]),
+  );
+}
 
 /** LIMIT and OFFSET for the requested page. */
 export function pageWindow(input: Pick<ListInput, "page" | "pageSize">) {

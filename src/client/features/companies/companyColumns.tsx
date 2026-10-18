@@ -47,7 +47,7 @@ export function companyColumns({
       header: ({ column }) => (
         <SortableHeader column={column} label="Company" />
       ),
-      meta: { width: "w-[24%]" },
+      meta: { label: "Company", width: "w-[24%]" },
       cell: ({ row }) => {
         const company = row.original;
         return (

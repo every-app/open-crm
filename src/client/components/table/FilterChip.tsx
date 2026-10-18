@@ -10,12 +10,24 @@ import {
   PopoverTrigger,
 } from "@/client/components/ui/popover";
 import { Spinner } from "@/client/components/ui/spinner";
+import type { FacetCounts } from "@/types/schemas/records";
 
 // A list's filters, above its rows: each a compact outline button with an
 // icon, the filter's name (or, once set, its value) and a chevron, opening a
 // popover. A set filter has a button beside it that clears it.
 
 export type FilterOption = { value: string; label: string };
+
+/**
+ * One filter's counts from a list's facet counts: undefined while the list
+ * loads; a value they don't name has no records.
+ */
+export function countsFor(
+  facetCounts: FacetCounts | undefined,
+  filter: string,
+): Record<string, number> | undefined {
+  return facetCounts ? (facetCounts[filter] ?? {}) : undefined;
+}
 
 /**
  * One filter's button and popover. `summary` is its value as the button
@@ -94,7 +106,9 @@ function summaryOf(
  * A filter on a list of values: a search field over the options, each with
  * a check mark when chosen, the chosen ones first. `single` takes one value
  * at a time; `onSearch` searches on the server instead of within `options`
- * (which must then hold the chosen values too, to name them).
+ * (which must then hold the chosen values too, to name them). With
+ * `counts` (the list's facet counts for the filter), it offers only the
+ * options the list's search finds records for, each with how many.
  */
 export function FilterChip({
   label,
@@ -102,6 +116,7 @@ export function FilterChip({
   options,
   value,
   onChange,
+  counts,
   single = false,
   max,
   onSearch,
@@ -114,6 +129,8 @@ export function FilterChip({
   options: FilterOption[];
   value: string[];
   onChange: (next: string[]) => void;
+  /** Records per option; undefined while the list loads. */
+  counts?: Record<string, number>;
   single?: boolean;
   /** The most values it takes at once. */
   max?: number;
@@ -130,7 +147,11 @@ export function FilterChip({
     options.find((option) => option.value === wanted)?.label ?? wanted;
   const items = [
     ...pinned.map((pin) => ({ value: pin, label: labelOf(pin) })),
-    ...options.filter((option) => !pinned.includes(option.value)),
+    ...options.filter(
+      (option) =>
+        !pinned.includes(option.value) &&
+        (counts === undefined || (counts[option.value] ?? 0) > 0),
+    ),
   ];
   const full = max !== undefined && value.length >= max;
 
@@ -198,6 +219,11 @@ export function FilterChip({
               <span className="min-w-0 truncate">
                 {renderOption ? renderOption(item) : item.label}
               </span>
+              {counts ? (
+                <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                  {counts[item.value] ?? 0}
+                </span>
+              ) : null}
             </ComboboxItem>
           )}
         </ComboboxList>

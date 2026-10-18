@@ -19,8 +19,10 @@ import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 import {
   FILTER_OPTIONS_MAX,
   activityCondition,
+  activityCounts,
   anyOfCondition,
   archivedCondition,
+  countsByValue,
   ownerCondition,
   pageWindow,
   searchCondition,
@@ -29,6 +31,7 @@ import {
 } from "@/server/features/records/listQuery";
 import { idChunks } from "@/server/features/records/recordRules";
 import type { CompanyListInput, CompanySort } from "@/types/schemas/companies";
+import { UNASSIGNED, type FacetCounts } from "@/types/schemas/records";
 
 const ownerColumns = {
   ownerId: company.ownerId,
@@ -67,16 +70,26 @@ function inOrganization(organizationId: string, id: string) {
   return and(eq(company.organizationId, organizationId), eq(company.id, id));
 }
 
-/** `fieldConditions`: the custom field filters' conditions on `company`. */
+/** The list's scope: the live (or archived) companies its search finds. */
+function scopeWhere(organizationId: string, input: CompanyListInput) {
+  return and(
+    eq(company.organizationId, organizationId),
+    archivedCondition(company.archivedAt, input.archived),
+    searchCondition(input.q, [company.name, company.domain]),
+  );
+}
+
+/**
+ * The scope narrowed by the list's filters, `fieldConditions` being its
+ * custom field filters' conditions on `company`.
+ */
 function listWhere(
   organizationId: string,
   input: CompanyListInput,
   fieldConditions: SQL[],
 ) {
   return and(
-    eq(company.organizationId, organizationId),
-    archivedCondition(company.archivedAt, input.archived),
-    searchCondition(input.q, [company.name, company.domain]),
+    scopeWhere(organizationId, input),
     ownerCondition(company.ownerId, input.owner),
     anyOfCondition(company.industry, input.industry),
     anyOfCondition(company.enrichmentStatus, input.enrichment),
@@ -177,24 +190,52 @@ async function findById(organizationId: string, id: string) {
 }
 
 /**
- * The industries of the organization's live (or archived) companies, the
- * commonest first: what the list's Industry filter offers.
+ * How many companies in the list's scope have each value of its filters:
+ * each owner (nobody's as UNASSIGNED), the commonest industries, each
+ * research state and each activity window.
  */
-async function industries(organizationId: string, archived: boolean) {
-  const rows = await db
-    .select({ value: company.industry })
+async function facetCounts(
+  organizationId: string,
+  input: CompanyListInput,
+): Promise<FacetCounts> {
+  const where = scopeWhere(organizationId, input);
+  const [owners, industries, enrichment, [activity]] = await Promise.all([
+    db
+      .select({ value: company.ownerId, count: count() })
+      .from(company)
+      .where(where)
+      .groupBy(company.ownerId),
+    db
+      .select({ value: company.industry, count: count() })
+      .from(company)
+      .where(and(where, isNotNull(company.industry)))
+      .groupBy(company.industry)
+      .orderBy(desc(count()), asc(company.industry))
+      .limit(FILTER_OPTIONS_MAX),
+    db
+      .select({ value: company.enrichmentStatus, count: count() })
+      .from(company)
+      .where(where)
+      .groupBy(company.enrichmentStatus),
+    db
+      .select(activityCounts(company.lastActivityAt))
+      .from(company)
+      .where(where),
+  ]);
+  return {
+    owner: countsByValue(owners, UNASSIGNED),
+    industry: countsByValue(industries),
+    enrichment: countsByValue(enrichment),
+    activity: activity ?? {},
+  };
+}
+
+/** The ids of the companies in the list's scope, as a subquery. */
+function idsInScope(organizationId: string, input: CompanyListInput) {
+  return db
+    .select({ id: company.id })
     .from(company)
-    .where(
-      and(
-        eq(company.organizationId, organizationId),
-        archivedCondition(company.archivedAt, archived),
-        isNotNull(company.industry),
-      ),
-    )
-    .groupBy(company.industry)
-    .orderBy(desc(count()), asc(company.industry))
-    .limit(FILTER_OPTIONS_MAX);
-  return rows.flatMap((row) => (row.value ? [row.value] : []));
+    .where(scopeWhere(organizationId, input));
 }
 
 /** Live companies whose name or domain contains `q`, for pickers. */
@@ -401,8 +442,9 @@ async function markEnrichmentRequested(
 
 export const CompanyRepository = {
   list,
+  facetCounts,
+  idsInScope,
   findById,
-  industries,
   options,
   insert,
   update,

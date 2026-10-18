@@ -38,7 +38,7 @@ export function dealColumns({
       enableSorting: true,
       enableHiding: false,
       header: ({ column }) => <SortableHeader column={column} label="Deal" />,
-      meta: { width: "w-[21%]" },
+      meta: { label: "Deal", width: "w-[21%]" },
       cell: ({ row }) => (
         <RecordLink
           record={{ kind: "deal", id: row.original.id }}

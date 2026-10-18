@@ -53,18 +53,24 @@ async function requireCompany(organizationId: string, id: string) {
 
 /**
  * A page of the list, its custom field filters applied in the same query as
- * the rest, each row with its values for the fields shown as columns.
+ * the rest, each row with its values for the fields shown as columns; and
+ * how many companies its search finds have each value of its filters.
  */
 async function listCompanies(organizationId: string, input: CompanyListInput) {
-  const { rows, total } = await CompanyRepository.list(
+  const fieldConditions = await FieldValuesService.filterConditions(
     organizationId,
-    input,
-    await FieldValuesService.filterConditions(
+    "COMPANY",
+    input.fields,
+  );
+  const [{ rows, total }, facetCounts, fieldFacetCounts] = await Promise.all([
+    CompanyRepository.list(organizationId, input, fieldConditions),
+    CompanyRepository.facetCounts(organizationId, input),
+    FieldValuesService.facetCounts(
       organizationId,
       "COMPANY",
-      input.fields,
+      CompanyRepository.idsInScope(organizationId, input),
     ),
-  );
+  ]);
   const ids = rows.map((row) => row.id);
   const [agent, fields] = await Promise.all([
     recordAgentStates(organizationId, "company", ids),
@@ -78,19 +84,13 @@ async function listCompanies(organizationId: string, input: CompanyListInput) {
       fields: fields[row.id] ?? {},
     })),
     total,
+    facetCounts: { ...facetCounts, ...fieldFacetCounts },
   };
 }
 
 export type CompanyListRow = Awaited<
   ReturnType<typeof listCompanies>
 >["rows"][number];
-
-/** What the list's Industry filter offers, in its live or Archived view. */
-async function filterOptions(organizationId: string, archived: boolean) {
-  return {
-    industries: await CompanyRepository.industries(organizationId, archived),
-  };
-}
 
 /** A company with what its sheet shows: owner, people, deals, queue state. */
 async function getCompany(organizationId: string, id: string) {
@@ -423,7 +423,6 @@ async function companyForEmail(
 
 export const CompanyService = {
   listCompanies,
-  filterOptions,
   getCompany,
   companyOptions,
   createCompany,

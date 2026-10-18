@@ -27,7 +27,7 @@ export const contactRoutes = [
     path: "/contacts/search",
     tag,
     summary:
-      "List contacts: search, owner, company, title, seniority, persona, activity, archived and custom field filters, sorting and paging, as the Contacts list takes them.",
+      "List contacts: search, owner, company, title, seniority, persona, activity, archived and custom field filters, sorting and paging, as the Contacts list takes them. `facetCounts` counts the contacts the search finds by each filter's values.",
     input: contactListSchema,
     handler: (data, context) =>
       ContactService.listContacts(context.organizationId, data),

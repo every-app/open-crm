@@ -38,10 +38,13 @@ export const facetFilterSchema = z
 export const ACTIVITY_WINDOWS = ["7", "30", "90"] as const;
 export type ActivityWindow = (typeof ACTIVITY_WINDOWS)[number];
 
-/** What a list's filters offer to pick from, in its live or Archived view. */
-export const filterOptionsSchema = z.object({
-  archived: z.boolean().default(false),
-});
+/**
+ * How many records in a list's scope (the live or archived ones its search
+ * finds) have each value of each of its filters, by filter then value:
+ * `owner`, the list's own filters, and `field:<key>` for its select and user
+ * fields.
+ */
+export type FacetCounts = Record<string, Record<string, number>>;
 
 export const listInputSchema = z.object({
   q: z.string().trim().max(200).default(""),

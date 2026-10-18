@@ -1,13 +1,15 @@
 import { CalendarClock, CircleDot, Milestone } from "lucide-react";
-import { FilterChip } from "@/client/components/table/FilterChip";
+import { FilterChip, countsFor } from "@/client/components/table/FilterChip";
 import { DealStageIndicator } from "@/client/features/deals/DealStage";
 import type { DealListSearch } from "@/client/features/deals/dealSearch";
 import { chosen } from "@/client/features/records/ListFilters";
 import { DEAL_STAGE_LABELS, DEAL_STAGE_ORDER } from "@/shared/deal-stages";
 import { CLOSING_WINDOWS, type ClosingWindow } from "@/types/schemas/deals";
+import type { FacetCounts } from "@/types/schemas/records";
 
 // The deals list's own filters, after the shared search and owner filter:
-// the pipeline or the outcomes, stages, and when deals are expected to close.
+// the pipeline or the outcomes, stages, and when deals are expected to close,
+// each offering the values the list's search finds deals for.
 
 const STATUS_OPTIONS = [
   { value: "open", label: "Open" },
@@ -35,9 +37,11 @@ const CLOSING_OPTIONS = CLOSING_WINDOWS.map((window) => ({
 export function DealFilters({
   search,
   onSearchChange,
+  facetCounts,
 }: {
   search: DealListSearch;
   onSearchChange: (update: Partial<DealListSearch>) => void;
+  facetCounts: FacetCounts | undefined;
 }) {
   return (
     <>
@@ -46,6 +50,7 @@ export function DealFilters({
         icon={CircleDot}
         single
         options={STATUS_OPTIONS}
+        counts={countsFor(facetCounts, "status")}
         value={search.status ? [search.status] : []}
         onChange={([status]) =>
           onSearchChange({
@@ -59,6 +64,7 @@ export function DealFilters({
         label="Stage"
         icon={Milestone}
         options={STAGE_OPTIONS}
+        counts={countsFor(facetCounts, "stage")}
         value={search.stage ?? []}
         renderOption={(option) => {
           const stage = DEAL_STAGE_ORDER.find(
@@ -79,6 +85,7 @@ export function DealFilters({
         label="Closing"
         icon={CalendarClock}
         options={CLOSING_OPTIONS}
+        counts={countsFor(facetCounts, "closing")}
         value={search.closing ?? []}
         onChange={(values) =>
           onSearchChange({

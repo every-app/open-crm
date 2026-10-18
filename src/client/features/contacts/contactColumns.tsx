@@ -78,7 +78,7 @@ export function contactColumns({
       enableSorting: true,
       enableHiding: false,
       header: ({ column }) => <SortableHeader column={column} label="Name" />,
-      meta: { width: "w-[20%]" },
+      meta: { label: "Name", width: "w-[20%]" },
       cell: ({ row }) => {
         const contact = row.original;
         const name = fullName(contact);

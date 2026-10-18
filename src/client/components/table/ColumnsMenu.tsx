@@ -10,8 +10,8 @@ import {
   DropdownMenuTrigger,
 } from "@/client/components/ui/dropdown-menu";
 
-/** What the menu calls a column: its `meta.label`, or its header's text. */
-function columnLabel<TData>(column: Column<TData>): string {
+/** What a menu calls a column: its `meta.label`, or its header's text. */
+export function columnLabel<TData>(column: Column<TData>): string {
   const { header, meta } = column.columnDef;
   return meta?.label ?? (typeof header === "string" ? header : column.id);
 }

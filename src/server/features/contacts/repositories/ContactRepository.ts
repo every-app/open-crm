@@ -19,8 +19,10 @@ import { leaveOtherCompanies } from "@/server/features/contacts/repositories/Con
 import {
   FILTER_OPTIONS_MAX,
   activityCondition,
+  activityCounts,
   anyOfCondition,
   archivedCondition,
+  countsByValue,
   ownerCondition,
   pageWindow,
   searchCondition,
@@ -33,6 +35,7 @@ import {
   type ContactListInput,
   type ContactSort,
 } from "@/types/schemas/contacts";
+import { UNASSIGNED, type FacetCounts } from "@/types/schemas/records";
 
 // Contacts: the people in the pipeline. A live contact's email is unique in
 // its organization (the partial unique index contact_organization_email_
@@ -131,16 +134,29 @@ function companyCondition(values: string[]): SQL | undefined {
   );
 }
 
-/** `fieldConditions`: the custom field filters' conditions on `contact`. */
+/**
+ * The list's scope: the live (or archived) contacts its search finds. The
+ * search reads the company's name, so queries over it join `company`.
+ */
+function scopeWhere(organizationId: string, input: ContactListInput) {
+  return and(
+    eq(contact.organizationId, organizationId),
+    archivedCondition(contact.archivedAt, input.archived),
+    searchWords(input.q),
+  );
+}
+
+/**
+ * The scope narrowed by the list's filters, `fieldConditions` being its
+ * custom field filters' conditions on `contact`.
+ */
 function listWhere(
   organizationId: string,
   input: ContactListInput,
   fieldConditions: SQL[],
 ) {
   return and(
-    eq(contact.organizationId, organizationId),
-    archivedCondition(contact.archivedAt, input.archived),
-    searchWords(input.q),
+    scopeWhere(organizationId, input),
     ownerCondition(contact.ownerId, input.owner),
     companyCondition(input.company),
     anyOfCondition(contact.title, input.title),
@@ -151,42 +167,66 @@ function listWhere(
   );
 }
 
+type ContactFacetColumn =
+  | typeof contact.ownerId
+  | typeof contact.companyId
+  | typeof contact.title
+  | typeof contact.seniority
+  | typeof contact.function;
+
 /**
- * The values of `column` among the organization's live (or archived)
- * contacts, the commonest first: what a list filter offers.
+ * How many contacts in the list's scope have each value of its filters: each
+ * owner (nobody's as UNASSIGNED), each company (none as NO_COMPANY), the
+ * commonest titles, seniorities and personas, and each activity window.
  */
-async function commonValues(
+async function facetCounts(
   organizationId: string,
-  archived: boolean,
-  column:
-    | typeof contact.title
-    | typeof contact.seniority
-    | typeof contact.function,
-) {
-  const rows = await db
-    .select({ value: column })
-    .from(contact)
-    .where(
-      and(
-        eq(contact.organizationId, organizationId),
-        archivedCondition(contact.archivedAt, archived),
-        isNotNull(column),
-      ),
-    )
-    .groupBy(column)
-    .orderBy(desc(count()), asc(column))
-    .limit(FILTER_OPTIONS_MAX);
-  return rows.flatMap((row) => (row.value ? [row.value] : []));
+  input: ContactListInput,
+): Promise<FacetCounts> {
+  const where = scopeWhere(organizationId, input);
+  const grouped = (column: ContactFacetColumn, condition = where) =>
+    db
+      .select({ value: column, count: count() })
+      .from(contact)
+      .leftJoin(company, companyJoin)
+      .where(condition)
+      .groupBy(column);
+  // Free text: its commonest values.
+  const commonest = (column: ContactFacetColumn) =>
+    grouped(column, and(where, isNotNull(column)))
+      .orderBy(desc(count()), asc(column))
+      .limit(FILTER_OPTIONS_MAX);
+  const [owners, companies, titles, seniorities, personas, [activity]] =
+    await Promise.all([
+      grouped(contact.ownerId),
+      // Every company: the Company filter searches them all by name.
+      grouped(contact.companyId),
+      commonest(contact.title),
+      commonest(contact.seniority),
+      commonest(contact.function),
+      db
+        .select(activityCounts(contact.lastActivityAt))
+        .from(contact)
+        .leftJoin(company, companyJoin)
+        .where(where),
+    ]);
+  return {
+    owner: countsByValue(owners, UNASSIGNED),
+    company: countsByValue(companies, NO_COMPANY),
+    title: countsByValue(titles),
+    seniority: countsByValue(seniorities),
+    persona: countsByValue(personas),
+    activity: activity ?? {},
+  };
 }
 
-/** What the list's Title, Seniority and Persona filters offer. */
-async function filterValues(organizationId: string, archived: boolean) {
-  const [titles, seniorities, personas] = await Promise.all([
-    commonValues(organizationId, archived, contact.title),
-    commonValues(organizationId, archived, contact.seniority),
-    commonValues(organizationId, archived, contact.function),
-  ]);
-  return { titles, seniorities, personas };
+/** The ids of the contacts in the list's scope, as a subquery. */
+function idsInScope(organizationId: string, input: ContactListInput) {
+  return db
+    .select({ id: contact.id })
+    .from(contact)
+    .leftJoin(company, companyJoin)
+    .where(scopeWhere(organizationId, input));
 }
 
 async function list(
@@ -432,7 +472,8 @@ async function markEnrichmentRequested(
 
 export const ContactRepository = {
   list,
-  filterValues,
+  facetCounts,
+  idsInScope,
   findById,
   findLiveByEmail,
   insert,
