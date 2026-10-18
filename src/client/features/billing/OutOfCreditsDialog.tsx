@@ -28,18 +28,18 @@ export function OutOfCreditsDialog() {
   const loaded = accountQuery.data !== undefined;
 
   const description = !canManageBilling
-    ? "Your organization has used its credits. Ask your organization owner to add more."
+    ? "Ask your organization owner to add more."
     : !loaded
-      ? "Add credits on the Billing page to keep going."
+      ? null
       : isFreePlan
-        ? `You've used your free credits. Upgrade to get $${BASE_PLAN_OFFER.monthlyCreditsUsd} of credits every month.`
+        ? `Upgrade to get $${BASE_PLAN_OFFER.monthlyCreditsUsd} of credits every month.`
         : refillDate
-          ? `Buy more credits to keep going, or wait for your monthly credits to refill on ${refillDate}.`
-          : "Buy more credits to keep going.";
+          ? `Buy more, or wait for your monthly credits to refill on ${refillDate}.`
+          : null;
   const action = !loaded
     ? "Go to Billing"
     : isFreePlan
-      ? "Upgrade plan"
+      ? "Upgrade"
       : "Buy credits";
 
   return (
@@ -52,7 +52,9 @@ export function OutOfCreditsDialog() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>You&rsquo;re out of credits</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : null}
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={close}>
