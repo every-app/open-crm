@@ -81,4 +81,18 @@ async function forRecord(organizationId: string, record: WebsiteActivityInput) {
   };
 }
 
-export const WebsiteActivityService = { forRecord };
+const SUBMISSIONS = 10;
+
+/** The record's newest form submissions: where, when and by whom. */
+async function submissions(
+  organizationId: string,
+  record: WebsiteActivityInput,
+) {
+  return WebsiteActivityRepository.submissionsFor(
+    organizationId,
+    record,
+    SUBMISSIONS,
+  );
+}
+
+export const WebsiteActivityService = { forRecord, submissions };

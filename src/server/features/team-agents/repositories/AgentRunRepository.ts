@@ -283,6 +283,7 @@ async function listForAgent(
   organizationId: string,
   agentId: string,
   limit: number,
+  runId?: string,
 ) {
   return db
     .select({
@@ -297,6 +298,7 @@ async function listForAgent(
       and(
         eq(agentRun.organizationId, organizationId),
         eq(agentRun.agentId, agentId),
+        runId ? eq(agentRun.id, runId) : undefined,
       ),
     )
     .orderBy(desc(agentRun.createdAt), desc(agentRun.id))

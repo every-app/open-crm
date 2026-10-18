@@ -156,6 +156,44 @@ async function activityOf(organizationId: string, visitorIds: string[]) {
   };
 }
 
+/**
+ * The newest form submissions filed under a contact, or under anyone at a
+ * company, with whom each was filed under.
+ */
+async function submissionsFor(
+  organizationId: string,
+  record: { contactId: string } | { companyId: string },
+  limit: number,
+) {
+  return db
+    .select({
+      host: formSubmission.host,
+      path: formSubmission.path,
+      submittedAt: formSubmission.createdAt,
+      contactId: contact.id,
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+    })
+    .from(formSubmission)
+    .innerJoin(
+      contact,
+      and(
+        eq(contact.id, formSubmission.contactId),
+        eq(contact.organizationId, organizationId),
+      ),
+    )
+    .where(
+      and(
+        eq(formSubmission.organizationId, organizationId),
+        "contactId" in record
+          ? eq(contact.id, record.contactId)
+          : eq(contact.companyId, record.companyId),
+      ),
+    )
+    .orderBy(desc(formSubmission.createdAt), desc(formSubmission.id))
+    .limit(limit);
+}
+
 const TOP_SOURCES = 20;
 
 /** Page views per source, and the contacts each first brought in. */
@@ -229,5 +267,6 @@ export const WebsiteActivityRepository = {
   totals,
   visitorIdsFor,
   activityOf,
+  submissionsFor,
   sources,
 };

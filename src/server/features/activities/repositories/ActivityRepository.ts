@@ -280,6 +280,43 @@ async function setCompleted(
   return rows.length > 0;
 }
 
+type ActivityPatch = Partial<
+  Pick<
+    typeof activity.$inferInsert,
+    "subject" | "body" | "occurredAt" | "dueAt"
+  >
+>;
+
+/**
+ * Changes an activity's text or times; false when the organization has no
+ * such activity.
+ */
+async function update(
+  organizationId: string,
+  id: string,
+  patch: ActivityPatch,
+): Promise<boolean> {
+  const rows = await db
+    .update(activity)
+    .set({ ...patch, updatedAt: new Date().toISOString() })
+    .where(
+      and(eq(activity.organizationId, organizationId), eq(activity.id, id)),
+    )
+    .returning({ id: activity.id });
+  return rows.length > 0;
+}
+
+/** Deletes an activity; false when the organization has no such activity. */
+async function remove(organizationId: string, id: string): Promise<boolean> {
+  const rows = await db
+    .delete(activity)
+    .where(
+      and(eq(activity.organizationId, organizationId), eq(activity.id, id)),
+    )
+    .returning({ id: activity.id });
+  return rows.length > 0;
+}
+
 /**
  * The company a record of the organization is filed under (the company
  * itself, for one), or null when the organization has no such record.
@@ -320,5 +357,7 @@ export const ActivityRepository = {
   recent,
   insert,
   setCompleted,
+  update,
+  remove,
   recordCompany,
 };

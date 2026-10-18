@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { contactBrief, contactFact } from "@/db/schema";
+import { contact, contactBrief, contactFact } from "@/db/schema";
 
 // What the research agent wrote about a contact: evidence-priced facts and
 // a brief, as the contact sheet reads them. The agent writes them, and a
@@ -64,6 +64,60 @@ async function listOpen(organizationId: string, contactId: string) {
   }));
 }
 
+/**
+ * The facts waiting for a person on the organization's live contacts (or
+ * one contact's), newest first, a page at a time, with how many there are.
+ */
+async function listProposed(
+  organizationId: string,
+  input: { contactId?: string; limit: number; offset: number },
+) {
+  const where = and(
+    eq(contactFact.organizationId, organizationId),
+    eq(contactFact.status, "PROPOSED"),
+    input.contactId ? eq(contactFact.contactId, input.contactId) : undefined,
+    isNull(contact.archivedAt),
+  );
+  const ofLiveContact = and(
+    eq(contact.id, contactFact.contactId),
+    eq(contact.organizationId, organizationId),
+  );
+  const [rows, [counted]] = await Promise.all([
+    db
+      .select({
+        id: contactFact.id,
+        contactId: contact.id,
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        email: contact.email,
+        field: contactFact.field,
+        value: contactFact.value,
+        band: contactFact.band,
+        evidence: contactFact.evidence,
+        sourceUrl: contactFact.sourceUrl,
+        observedAt: contactFact.observedAt,
+      })
+      .from(contactFact)
+      .innerJoin(contact, ofLiveContact)
+      .where(where)
+      .orderBy(desc(contactFact.observedAt), desc(contactFact.id))
+      .limit(input.limit)
+      .offset(input.offset),
+    db
+      .select({ value: count() })
+      .from(contactFact)
+      .innerJoin(contact, ofLiveContact)
+      .where(where),
+  ]);
+  return {
+    rows: rows.map((row) => ({
+      ...row,
+      evidence: evidenceSchema.parse(row.evidence),
+    })),
+    total: counted?.value ?? 0,
+  };
+}
+
 /** The contact's brief, if the agent wrote one. */
 async function findBrief(organizationId: string, contactId: string) {
   const [row] = await db
@@ -87,5 +141,6 @@ async function findBrief(organizationId: string, contactId: string) {
 
 export const ContactFactRepository = {
   listOpen,
+  listProposed,
   findBrief,
 };

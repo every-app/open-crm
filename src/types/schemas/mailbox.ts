@@ -14,7 +14,7 @@ export const setAutoCreateSchema = z.object({
   enabled: z.boolean(),
 });
 
-/** POST /google/suppress-domain, as the CRM's suppressDomainInput. */
+/** Suppressing a domain, as the CRM's suppressDomainInput. */
 export const suppressDomainSchema = z.object({
   domain: z.string().trim().min(1),
   reason: z.string().trim().max(200).optional(),

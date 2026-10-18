@@ -226,15 +226,41 @@ const runEvent = z.object({
 
 const RUN_EVENT_LIMIT = 200;
 
+type RunRow = Awaited<
+  ReturnType<typeof AgentRunRepository.listForAgent>
+>[number];
+
 /** The agent's runs for the drawer: each with its steps and its actions. */
 async function history(context: Context, agentId: string, limit: number) {
   const agent = await readableAgent(context, agentId);
-  const { organizationId } = context;
   const runs = await AgentRunRepository.listForAgent(
-    organizationId,
+    context.organizationId,
     agent.id,
     limit,
   );
+  return withSteps(context, agent, runs);
+}
+
+/** One of the agent's runs with its steps and its actions. */
+async function runDetail(context: Context, agentId: string, runId: string) {
+  const agent = await readableAgent(context, agentId);
+  const runs = await AgentRunRepository.listForAgent(
+    context.organizationId,
+    agent.id,
+    1,
+    runId,
+  );
+  const [found] = await withSteps(context, agent, runs);
+  if (!found) throw new AppError("NOT_FOUND", `No run with id ${runId}.`);
+  return found;
+}
+
+async function withSteps(
+  context: Context,
+  agent: Parameters<typeof canManageAgent>[1],
+  runs: RunRow[],
+) {
+  const { organizationId } = context;
   const sessions = runs.map((run) =>
     sessionName("run", organizationId, run.id),
   );
@@ -288,4 +314,5 @@ export const AgentRunService = {
   retryRun,
   cancelRun,
   history,
+  runDetail,
 };
