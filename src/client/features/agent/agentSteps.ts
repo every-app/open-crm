@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { safeHostname, safeHttpUrl } from "@/shared/safe-url";
-import { ASK_QUESTION } from "./askQuestion";
+import { ASK_QUESTION } from "@/shared/agent-question";
 
 // How the Agent tab words what the agent did, ported from the CRM's
 // lib/agent-transcript.ts. Every tool call is a step: what it did, and why

@@ -14,6 +14,7 @@ import { useStickToBottom } from "@/client/components/chat/useStickToBottom";
 import { ErrorState } from "@/client/components/ErrorState";
 import { Markdown } from "@/client/components/Markdown";
 import { Button } from "@/client/components/ui/button";
+import { ASK_QUESTION, parseQuestion } from "@/shared/agent-question";
 import type { RecordRef } from "@/shared/records";
 import { markAgentConversationRead } from "@/serverFunctions/agent";
 import { AgentComposer } from "./AgentComposer";
@@ -25,12 +26,7 @@ import { RECORD_COPY } from "./agentCopy";
 import { agentKeys } from "./agentQueries";
 import { describeStep } from "./agentSteps";
 import { pendingApproval, pendingQuestion } from "./agentTranscript";
-import {
-  ASK_QUESTION,
-  askQuestionTool,
-  parseQuestion,
-  type QuestionAnswer,
-} from "./askQuestion";
+import { askQuestionTool } from "./askQuestion";
 import { useOutOfCreditsReplies } from "@/client/features/billing/OutOfCreditsDialog";
 
 type Conversation = {
@@ -214,7 +210,7 @@ export function ConversationThread({
             addToolOutput({
               toolCallId: question.toolCallId,
               toolName: ASK_QUESTION,
-              output: { answer } satisfies QuestionAnswer,
+              output: answer,
             });
           }}
         />

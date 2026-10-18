@@ -1,8 +1,8 @@
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
-import { ASK_QUESTION, parseQuestion } from "./askQuestion";
+import { ASK_QUESTION, parseQuestion } from "@/shared/agent-question";
 
 // What a conversation waits on the rep for, read from its last message: an
-// open question (askQuestion.ts) or a step to approve. Only the connected
+// open question (src/shared/agent-question.ts) or a step to approve. Only the connected
 // thread reads messages, so this, and the AI SDK it needs, load with it.
 
 type Part = UIMessage["parts"][number];

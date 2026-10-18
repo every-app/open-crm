@@ -104,13 +104,15 @@ Slack id. When a named person matches exactly one entry in
 \`availableConnections.slackPeople\` by CRM name, CRM email, or Slack handle,
 use that exact inspected id and label silently. When zero or several people
 plausibly match, call \`ask_question\` with two to four matched Slack people as
-options, their handles as labels and their CRM names and emails as
-descriptions. Do not ask the person to type a handle or Slack id when inspected
+options, their inspected ids as option ids, their handles as labels and their
+CRM names and emails as descriptions. Do not ask the person to type a handle or Slack id when inspected
 people are available. When the person explicitly names a channel and exactly
 one inspected channel has that label, use its inspected id and label silently.
 For a channel that was not already explicitly selected, ask one focused
-\`ask_question\`, offer only inspected channels with member counts in the
-option descriptions, and restate why it cannot be derived. If an explicitly
+\`ask_question\`, offer only inspected channels with their inspected ids as
+option ids and member counts in the option descriptions, and restate why it
+cannot be derived. A Slack channel tagged in \`taggedIntegrations\` is
+explicitly selected. If an explicitly
 named channel is not inspected, tell the person to add the Slack app to it in
 Settings → Connections and to answer once that is done; re-inspect when they
 answer. Never accept a pasted name or id as an executable destination until it
@@ -121,7 +123,8 @@ If no safe and useful draft is possible because an essential target,
 explicitly requested connection, schedule, outcome, or side effect remains
 ambiguous, do not call \`save_agent_draft\`. Call \`ask_question\` with one
 focused question. Include two to four mutually exclusive options when they
-clarify a real choice. Ask only when the answer materially changes the bounded
+clarify a real choice, and allow freeform input when a custom answer is valid.
+Ask only when the answer materially changes the bounded
 behavior and the least-privilege defaults above do not resolve it. Ask exactly
 one decision per pause; never bundle several missing details into one
 question. Do not interrupt for a name, wording, optional polish, or another

@@ -22,6 +22,7 @@ import {
   staticAssistantModel,
 } from "@/server/lib/chatAgent";
 import { AgentRunRepository } from "@/server/features/team-agents/repositories/AgentRunRepository";
+import { checkedSocketMessage } from "@/server/features/team-agents/runtime/answers";
 import {
   prepareBuilderTurn,
   prepareRunTurn,
@@ -106,6 +107,17 @@ export class CrmAgent extends Think {
 
   // Hosted billing: what the session spends (server/billing/meter.ts).
   private readonly meter = new SessionMeter((p) => this.ctx.waitUntil(p));
+
+  constructor(...args: ConstructorParameters<typeof Think>) {
+    super(...args);
+    // An answer to the agent's open question is checked before Think takes
+    // it (team-agents/runtime/answers.ts).
+    const onMessage = this.onMessage.bind(this);
+    this.onMessage = async (connection, message) => {
+      const checked = checkedSocketMessage(message, this.messages);
+      if (checked !== null) await onMessage(connection, checked);
+    };
+  }
 
   getModel() {
     return buildCrmAgentModel(this.env, () => this.chooseModel());

@@ -73,7 +73,13 @@ describe("pendingQuestion", () => {
       state: "input-available",
       input: {
         prompt: "Two Marchettis work at Fernhill. Which one?",
-        options: [{ label: "Paula Marchetti", description: "Head of Sales" }],
+        options: [
+          {
+            id: "ct_1",
+            label: "Paula Marchetti",
+            description: "Head of Sales",
+          },
+        ],
       },
     },
   ]);
@@ -83,7 +89,14 @@ describe("pendingQuestion", () => {
       toolCallId: "call_1",
       question: {
         prompt: "Two Marchettis work at Fernhill. Which one?",
-        options: [{ label: "Paula Marchetti", description: "Head of Sales" }],
+        options: [
+          {
+            id: "ct_1",
+            label: "Paula Marchetti",
+            description: "Head of Sales",
+          },
+        ],
+        allowFreeform: false,
       },
     });
   });

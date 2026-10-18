@@ -10,11 +10,8 @@ import { ErrorState } from "@/client/components/ErrorState";
 import { Button } from "@/client/components/ui/button";
 import { QuestionComposer } from "@/client/features/agent/AgentQuestion";
 import { AgentUnavailable } from "@/client/features/agent/AgentThreadParts";
-import {
-  ASK_QUESTION,
-  type QuestionAnswer,
-} from "@/client/features/agent/askQuestion";
 import { pendingQuestion } from "@/client/features/agent/agentTranscript";
+import { ASK_QUESTION } from "@/shared/agent-question";
 import type { getBuilderChat } from "@/serverFunctions/teamAgents";
 import { markBuilderChatRead } from "@/serverFunctions/teamAgents";
 import {
@@ -30,7 +27,6 @@ import {
   hasText,
   UserMessage,
 } from "./BuilderMessages";
-import { builderAskQuestionTool } from "./builderQuestion";
 import { AgentCodeWorkspace } from "./AgentCodeWorkspace";
 import {
   BuilderFailureCard,
@@ -47,7 +43,8 @@ type Chat = Awaited<ReturnType<typeof getBuilderChat>>;
 /**
  * The builder conversation, over the chat's CrmAgent session like a record
  * chat (the Worker authorizes the socket, agentRoutes.ts). The builder may
- * stop to ask one question, answered in place of the composer. Under the
+ * stop to ask one question (its own ask_question, runtime/builderTools.ts),
+ * answered in place of the composer. Under the
  * conversation sit the agent it makes, as it is built, saved and deployed.
  */
 export function BuilderThread({
@@ -86,7 +83,6 @@ export function BuilderThread({
         agent: agentName,
         name,
       }),
-    body: { clientTools: [builderAskQuestionTool] },
   });
   const busy = status === "submitted" || isStreaming || isRecovering;
   const { scrollRef, onScroll, pinToBottom } = useStickToBottom(
@@ -213,7 +209,7 @@ export function BuilderThread({
             addToolOutput({
               toolCallId: question.toolCallId,
               toolName: ASK_QUESTION,
-              output: { answer } satisfies QuestionAnswer,
+              output: answer,
             });
           }}
         />
