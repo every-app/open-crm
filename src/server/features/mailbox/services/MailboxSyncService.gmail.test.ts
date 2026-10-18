@@ -42,6 +42,14 @@ import { MailboxSyncService } from "./MailboxSyncService";
 const GMAIL = "gmail.googleapis.com/gmail/v1/users/me";
 const ANA = { organizationId: "org_a", userId: "user_a" };
 
+/** A JSON column as read back: jsonb comes parsed, SQLite's text doesn't. */
+function jsonColumn(row: unknown, column: string): unknown {
+  const value: unknown = Reflect.get(Object(row), column);
+  if (typeof value !== "string") return value;
+  const parsed: unknown = JSON.parse(value);
+  return parsed;
+}
+
 type History = { id: string; messages: string[] }[];
 
 /** Gmail with `messages` by id and a history of them since any cursor. */
@@ -169,6 +177,39 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         { type: "ENRICHMENT", subject: "Company added from your inbox" },
         { type: "ENRICHMENT", subject: "Contact added from your inbox" },
       ]);
+      // The team agents hear of both, as the CRM tells them.
+      const companyId = await firstValue(
+        database.rows(`SELECT id FROM company`),
+        "id",
+      );
+      const contactId = await firstValue(
+        database.rows(`SELECT id FROM contact`),
+        "id",
+      );
+      const events = async () =>
+        (
+          await database.rows(
+            `SELECT payload FROM agent_task WHERE kind = 'agent-event' ORDER BY reason`,
+          )
+        ).map((row) => jsonColumn(row, "payload"));
+      expect(await events()).toMatchObject([
+        {
+          type: "company.created",
+          record: { kind: "company", id: companyId },
+          data: { name: "globex.com", domain: "globex.com" },
+        },
+        {
+          type: "contact.created",
+          record: { kind: "contact", id: contactId },
+          data: {
+            firstName: "Jane",
+            lastName: "Doe",
+            email: "jane@globex.com",
+            companyId,
+            source: "EMAIL",
+          },
+        },
+      ]);
       const threads = database.rows(
         `SELECT id, message_count FROM email_thread`,
       );
@@ -204,6 +245,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         2,
       );
       expect(await database.rows(`SELECT id FROM activity`)).toHaveLength(3);
+      expect(await events()).toHaveLength(2);
     });
 
     it("files mail from people it knows, and adds no one the member never wrote to", async () => {

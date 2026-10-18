@@ -14,6 +14,7 @@ import {
   type ExternalFilterOptions,
   type Participant,
 } from "@/shared/participants";
+import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
 import { domainFromEmail, normalizeDomain } from "@/shared/domain";
@@ -171,9 +172,9 @@ async function resolve(
 
 /**
  * The person at `domain` as a contact of the company: the live contact with
- * their address, or a new one. A name the mail carries replaces one only
- * made from the address; a new contact with no name at all is the agent's
- * to identify.
+ * their address, or a new one, written with its contact.created event. A
+ * name the mail carries replaces one only made from the address; a new
+ * contact with no name at all is the agent's to identify.
  */
 async function createContact(
   organizationId: string,
@@ -195,17 +196,31 @@ async function createContact(
   let created = false;
   if (!contact) {
     try {
-      const id = await ContactRepository.insert({
-        organizationId,
-        firstName,
-        lastName,
-        email: person.email,
-        phone: null,
-        title: null,
-        companyId,
-        ownerId: request.ownerId,
-        source: request.source,
-      });
+      const id = await ContactRepository.insert(
+        {
+          organizationId,
+          firstName,
+          lastName,
+          email: person.email,
+          phone: null,
+          title: null,
+          companyId,
+          ownerId: request.ownerId,
+          source: request.source,
+        },
+        [
+          {
+            type: "contact.created",
+            data: {
+              firstName,
+              lastName,
+              email: person.email,
+              companyId,
+              source: request.source,
+            },
+          },
+        ],
+      );
       contact = { id, firstName, lastName };
       created = true;
     } catch (error) {
@@ -220,6 +235,7 @@ async function createContact(
   }
 
   if (created) {
+    pokeEvents(organizationId);
     await ActivityRepository.insert({
       organizationId,
       type: "ENRICHMENT",
