@@ -6,7 +6,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/client/components/ui/card";
 import {
   StageBreakdown,
@@ -43,7 +42,7 @@ function StatTile({
   label: string;
   value: string;
   delta?: Delta;
-  description: string;
+  description?: string;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-2 bg-card p-4 md:p-5">
@@ -56,45 +55,37 @@ function StatTile({
       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
         <span className="text-2xl font-semibold tracking-tight">{value}</span>
         {delta ? (
-          <span className="text-xs">
-            <span
-              className={cn(
-                "font-medium tabular-nums",
-                delta.up === null
-                  ? "text-muted-foreground"
-                  : delta.up
-                    ? "text-success"
-                    : "text-destructive",
-              )}
-            >
-              {delta.up === null ? null : (
-                <span aria-hidden>{delta.up ? "↑ " : "↓ "}</span>
-              )}
-              {delta.text}
-            </span>{" "}
-            <span className="text-muted-foreground">vs. last month</span>
+          <span
+            className={cn(
+              "text-xs font-medium tabular-nums",
+              delta.up === null
+                ? "text-muted-foreground"
+                : delta.up
+                  ? "text-success"
+                  : "text-destructive",
+            )}
+          >
+            {delta.up === null ? null : (
+              <span aria-hidden>{delta.up ? "↑ " : "↓ "}</span>
+            )}
+            {delta.text}
           </span>
         ) : null}
       </div>
-      <p className="text-xs text-pretty text-muted-foreground">{description}</p>
+      {description ? (
+        <p className="text-xs text-pretty text-muted-foreground">
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function Panel({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card className="min-w-0">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">{children}</CardContent>
     </Card>
@@ -130,7 +121,7 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
         <StatTile
           label="Open pipeline"
           value={money(pipeline.total)}
-          description={`${formatCount(pipeline.count, "deal")} in progress · ${money(closingThisMonth.value)} due this month`}
+          description={`${formatCount(pipeline.count, "deal")} · ${money(closingThisMonth.value)} due this month`}
         />
         <StatTile
           label={`Win rate (${performance.windowDays}d)`}
@@ -139,11 +130,7 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
               ? "—"
               : formatPercent(performance.winRate)
           }
-          description={
-            performance.wins + performance.losses === 0
-              ? "Nothing has closed yet"
-              : `${performance.wins} won · ${performance.losses} lost`
-          }
+          description={`${performance.wins} won · ${performance.losses} lost`}
         />
         <StatTile
           label={`Average deal (${performance.windowDays}d)`}
@@ -154,19 +141,17 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
           }
           description={
             performance.averageCycleDays === null
-              ? "No wins to measure"
-              : `${performance.averageCycleDays}-day average cycle`
+              ? undefined
+              : `${performance.averageCycleDays}-day cycle`
           }
         />
       </div>
 
       {unconverted.count > 0 ? (
         <p className="text-xs text-muted-foreground">
-          Every figure here is in {currency}.{" "}
           {formatCount(unconverted.count, "deal")} in{" "}
           {unconverted.currencies.join(", ")}{" "}
-          {unconverted.count === 1 ? "is" : "are"} left out: there is no rate to
-          convert {unconverted.count === 1 ? "it" : "them"} with.{" "}
+          {unconverted.count === 1 ? "is" : "are"} left out: no exchange rate.{" "}
           <Link
             to="/settings/currencies"
             className="underline underline-offset-3 hover:text-foreground"
@@ -178,20 +163,14 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Panel
-          title="Closed won vs. new pipeline"
-          description="Last six months, by the month a deal closed or was created"
-        >
+        <Panel title="Closed won vs. new pipeline">
           {hasTrend ? (
             <TrendChart trend={summary.trend} currency={currency} />
           ) : (
             <EmptyPanel label="No deals closed or created yet" />
           )}
         </Panel>
-        <Panel
-          title="Open pipeline by stage"
-          description="Where the value sits right now"
-        >
+        <Panel title="Open pipeline by stage">
           {openStages.length > 0 ? (
             <StageBreakdown stages={openStages} currency={currency} />
           ) : (
