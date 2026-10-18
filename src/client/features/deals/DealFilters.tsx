@@ -1,5 +1,8 @@
 import { CalendarClock, CircleDot, Milestone } from "lucide-react";
-import { FilterChip, countsFor } from "@/client/components/table/FilterChip";
+import {
+  countsFor,
+  type ListFilter,
+} from "@/client/components/table/FiltersMenu";
 import { DealStageIndicator } from "@/client/features/deals/DealStage";
 import type { DealListSearch } from "@/client/features/deals/dealSearch";
 import { chosen } from "@/client/features/records/ListFilters";
@@ -34,68 +37,59 @@ const CLOSING_OPTIONS = CLOSING_WINDOWS.map((window) => ({
   label: CLOSING_LABELS[window],
 }));
 
-export function DealFilters({
-  search,
-  onSearchChange,
-  facetCounts,
-}: {
-  search: DealListSearch;
-  onSearchChange: (update: Partial<DealListSearch>) => void;
-  facetCounts: FacetCounts | undefined;
-}) {
-  return (
-    <>
-      <FilterChip
-        label="Status"
-        icon={CircleDot}
-        single
-        options={STATUS_OPTIONS}
-        counts={countsFor(facetCounts, "status")}
-        value={search.status ? [search.status] : []}
-        onChange={([status]) =>
-          onSearchChange({
-            status:
-              status === "open" || status === "closed" ? status : undefined,
-            page: undefined,
-          })
-        }
-      />
-      <FilterChip
-        label="Stage"
-        icon={Milestone}
-        options={STAGE_OPTIONS}
-        counts={countsFor(facetCounts, "stage")}
-        value={search.stage ?? []}
-        renderOption={(option) => {
-          const stage = DEAL_STAGE_ORDER.find(
-            (value) => value === option.value,
-          );
-          return stage ? <DealStageIndicator stage={stage} /> : option.label;
-        }}
-        onChange={(values) =>
-          onSearchChange({
-            stage: chosen(
-              DEAL_STAGE_ORDER.filter((stage) => values.includes(stage)),
-            ),
-            page: undefined,
-          })
-        }
-      />
-      <FilterChip
-        label="Closing"
-        icon={CalendarClock}
-        options={CLOSING_OPTIONS}
-        counts={countsFor(facetCounts, "closing")}
-        value={search.closing ?? []}
-        onChange={(values) =>
-          onSearchChange({
-            closing: chosen(
-              CLOSING_WINDOWS.filter((window) => values.includes(window)),
-            ),
-            page: undefined,
-          })
-        }
-      />
-    </>
-  );
+export function dealFilters(
+  search: DealListSearch,
+  onSearchChange: (update: Partial<DealListSearch>) => void,
+  facetCounts: FacetCounts | undefined,
+): ListFilter[] {
+  return [
+    {
+      key: "status",
+      label: "Status",
+      icon: CircleDot,
+      single: true,
+      options: STATUS_OPTIONS,
+      counts: countsFor(facetCounts, "status"),
+      value: search.status ? [search.status] : [],
+      onChange: ([status]) =>
+        onSearchChange({
+          status: status === "open" || status === "closed" ? status : undefined,
+          page: undefined,
+        }),
+    },
+    {
+      key: "stage",
+      label: "Stage",
+      icon: Milestone,
+      options: STAGE_OPTIONS,
+      counts: countsFor(facetCounts, "stage"),
+      value: search.stage ?? [],
+      renderOption: (option) => {
+        const stage = DEAL_STAGE_ORDER.find((value) => value === option.value);
+        return stage ? <DealStageIndicator stage={stage} /> : option.label;
+      },
+      onChange: (values) =>
+        onSearchChange({
+          stage: chosen(
+            DEAL_STAGE_ORDER.filter((stage) => values.includes(stage)),
+          ),
+          page: undefined,
+        }),
+    },
+    {
+      key: "closing",
+      label: "Closing",
+      icon: CalendarClock,
+      options: CLOSING_OPTIONS,
+      counts: countsFor(facetCounts, "closing"),
+      value: search.closing ?? [],
+      onChange: (values) =>
+        onSearchChange({
+          closing: chosen(
+            CLOSING_WINDOWS.filter((window) => values.includes(window)),
+          ),
+          page: undefined,
+        }),
+    },
+  ];
 }

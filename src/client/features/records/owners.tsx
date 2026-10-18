@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { UserRound } from "lucide-react";
-import { FilterChip } from "@/client/components/table/FilterChip";
+import type { ListFilter } from "@/client/components/table/FiltersMenu";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import { InlineSelectField } from "@/client/features/records/InlineField";
 import type { Owner } from "@/client/features/records/cells";
@@ -55,25 +55,21 @@ export function OwnerField({
   );
 }
 
-/** The list toolbar's owner filter: records any of the chosen owners own. */
-export function OwnerFilter({
-  value,
-  onChange,
-  counts,
-}: {
-  value: string[];
-  onChange: (owners: string[]) => void;
-  counts: Record<string, number> | undefined;
-}) {
-  return (
-    <FilterChip
-      label="Owner"
-      icon={UserRound}
-      options={useOwnerOptions()}
-      value={value}
-      onChange={onChange}
-      counts={counts}
-      max={OWNER_FILTER_MAX}
-    />
-  );
+/** The lists' Owner filter: records any of the chosen owners own. */
+export function useOwnerFilter(
+  value: string[],
+  onChange: (owners: string[]) => void,
+  counts: Record<string, number> | undefined,
+): ListFilter {
+  const options = useOwnerOptions();
+  return {
+    key: "owner",
+    label: "Owner",
+    icon: UserRound,
+    options,
+    value,
+    onChange,
+    counts,
+    max: OWNER_FILTER_MAX,
+  };
 }

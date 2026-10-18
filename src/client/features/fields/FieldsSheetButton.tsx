@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, Settings2 } from "lucide-react";
+import { Settings } from "lucide-react";
 import { Button } from "@/client/components/ui/button";
 import {
   Sheet,
@@ -27,46 +27,55 @@ import { fieldEntitySchema } from "@/types/schemas/fields";
 const NEW = "new";
 
 /**
- * Opens the sheet that manages an entity's custom fields (and, from its
- * tabs, the other entities'): the list toolbar's "Fields" button, or the
- * settings cog of a record sheet's Details.
+ * The sheet that manages an entity's custom fields (and, from its tabs, the
+ * other entities'), opened from a list's Columns menu: "Edit fields…".
  */
-export function FieldsSheetButton({
+export function FieldsSheet({
   entity,
-  cog = false,
+  open,
+  onOpenChange,
 }: {
   entity: FieldEntity;
-  cog?: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <Sheet>
-      {cog ? (
-        <SheetTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label={SHEET_TITLE}
-              title={SHEET_TITLE}
-            />
-          }
-        >
-          <Settings />
-        </SheetTrigger>
-      ) : (
-        <SheetTrigger render={<Button variant="outline" size="sm" />}>
-          <Settings2 data-icon="inline-start" />
-          {SHEET_TITLE}
-        </SheetTrigger>
-      )}
-      <SheetContent className="w-full gap-0 sm:max-w-md">
-        <FieldsSheet initialEntity={entity} />
-      </SheetContent>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <FieldsSheetContent entity={entity} />
     </Sheet>
   );
 }
 
-function FieldsSheet({ initialEntity }: { initialEntity: FieldEntity }) {
+/** The settings cog of a record sheet's Details, opening the fields sheet. */
+export function FieldsSheetButton({ entity }: { entity: FieldEntity }) {
+  return (
+    <Sheet>
+      <SheetTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={SHEET_TITLE}
+            title={SHEET_TITLE}
+          />
+        }
+      >
+        <Settings />
+      </SheetTrigger>
+      <FieldsSheetContent entity={entity} />
+    </Sheet>
+  );
+}
+
+function FieldsSheetContent({ entity }: { entity: FieldEntity }) {
+  return (
+    <SheetContent className="w-full gap-0 sm:max-w-md">
+      <FieldsSheetBody initialEntity={entity} />
+    </SheetContent>
+  );
+}
+
+function FieldsSheetBody({ initialEntity }: { initialEntity: FieldEntity }) {
   const [entity, setEntity] = useState(initialEntity);
   // The field being edited: its id, NEW, or null for the list.
   const [editing, setEditing] = useState<string | null>(null);

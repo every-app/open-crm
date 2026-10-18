@@ -6,8 +6,6 @@ import { Plus, Upload, Users } from "lucide-react";
 import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
-import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
-import { SortMenu } from "@/client/components/table/SortMenu";
 import {
   DataTable,
   useDataTable,
@@ -16,7 +14,7 @@ import {
 import { TablePagination } from "@/client/components/table/TablePagination";
 import { Button } from "@/client/components/ui/button";
 import { ContactBulkActions } from "@/client/features/contacts/ContactBulkActions";
-import { ContactFilters } from "@/client/features/contacts/ContactFilters";
+import { useContactFilters } from "@/client/features/contacts/ContactFilters";
 import { CreateContactDialog } from "@/client/features/contacts/CreateContactDialog";
 import {
   CONTACT_HIDDEN_COLUMNS,
@@ -30,9 +28,8 @@ import {
   contactListSearchSchema,
   type ContactListSearch,
 } from "@/client/features/contacts/contactSearch";
-import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
-import { ExportButton } from "@/client/features/csv/ExportButton";
+import { CsvMenu } from "@/client/features/csv/CsvMenu";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { CONTACT_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
@@ -40,12 +37,10 @@ import {
   clearedFilters,
   columnVisibility,
   isListFiltered,
-  savedViewOf,
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
 import { useRecordStack } from "@/client/features/records/recordStack";
-import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listContacts } from "@/serverFunctions/contacts";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -67,6 +62,7 @@ export function ContactsPage() {
 
   const input = contactListInput(search);
   const query = useQuery(contactListQueryOptions(input));
+  const filters = useContactFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
   const workspace = useQuery(workspaceQueryOptions());
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
@@ -123,7 +119,7 @@ export function ContactsPage() {
   const importCsv = (
     <Button variant="outline" onClick={() => setImporting(true)}>
       <Upload data-icon="inline-start" />
-      Import
+      Import CSV
     </Button>
   );
 
@@ -135,7 +131,14 @@ export function ContactsPage() {
           description="Everyone in the pipeline."
           actions={
             <>
-              {importCsv}
+              <CsvMenu
+                entity="CONTACT"
+                columns={CONTACT_EXPORT}
+                fetchPage={(page, pageSize) =>
+                  listContacts({ data: { ...input, page, pageSize } })
+                }
+                onImport={() => setImporting(true)}
+              />
               {newContact}
             </>
           }
@@ -178,45 +181,19 @@ export function ContactsPage() {
           toolbar={
             <RecordListToolbar
               entity="CONTACT"
+              table={table}
               search={search}
               onSearchChange={setSearch}
+              onApplyView={(view) =>
+                void navigate({
+                  search: (prev) =>
+                    searchFromSavedView(contactListSearchSchema, view, prev),
+                })
+              }
               placeholder="Search by name, email or company…"
               facetCounts={query.data?.facetCounts}
-              filters={
-                <ContactFilters
-                  search={search}
-                  onSearchChange={setSearch}
-                  facetCounts={query.data?.facetCounts}
-                />
-              }
-              actions={
-                <>
-                  <ExportButton
-                    entity="CONTACT"
-                    columns={CONTACT_EXPORT}
-                    fetchPage={(page, pageSize) =>
-                      listContacts({ data: { ...input, page, pageSize } })
-                    }
-                  />
-                  <SavedViewsMenu
-                    entity="CONTACT"
-                    current={savedViewOf(search)}
-                    onApply={(filters) =>
-                      void navigate({
-                        search: (prev) =>
-                          searchFromSavedView(
-                            contactListSearchSchema,
-                            filters,
-                            prev,
-                          ),
-                      })
-                    }
-                  />
-                  <SortMenu table={table} />
-                  <ColumnsMenu table={table} />
-                  <FieldsSheetButton entity="CONTACT" />
-                </>
-              }
+              filters={filters}
+              filterKeys={CONTACT_FILTER_KEYS}
             />
           }
           footer={

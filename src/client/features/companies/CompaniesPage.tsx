@@ -6,8 +6,6 @@ import { Building2, Plus, Upload } from "lucide-react";
 import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
-import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
-import { SortMenu } from "@/client/components/table/SortMenu";
 import {
   DataTable,
   useDataTable,
@@ -16,7 +14,7 @@ import {
 import { TablePagination } from "@/client/components/table/TablePagination";
 import { Button } from "@/client/components/ui/button";
 import { CompanyBulkActions } from "@/client/features/companies/CompanyBulkActions";
-import { CompanyFilters } from "@/client/features/companies/CompanyFilters";
+import { companyFilters } from "@/client/features/companies/CompanyFilters";
 import { CreateCompanyDialog } from "@/client/features/companies/CreateCompanyDialog";
 import {
   COMPANY_HIDDEN_COLUMNS,
@@ -30,9 +28,8 @@ import {
   type CompanyListSearch,
 } from "@/client/features/companies/companySearch";
 import type { CompanyRow } from "@/client/features/companies/companyFormat";
-import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
-import { ExportButton } from "@/client/features/csv/ExportButton";
+import { CsvMenu } from "@/client/features/csv/CsvMenu";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { COMPANY_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
@@ -40,12 +37,10 @@ import {
   clearedFilters,
   columnVisibility,
   isListFiltered,
-  savedViewOf,
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
 import { useRecordStack } from "@/client/features/records/recordStack";
-import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listCompanies } from "@/serverFunctions/companies";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -67,6 +62,7 @@ export function CompaniesPage() {
 
   const input = companyListInput(search);
   const query = useQuery(companyListQueryOptions(input));
+  const filters = companyFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
   const workspace = useQuery(workspaceQueryOptions());
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
@@ -123,7 +119,7 @@ export function CompaniesPage() {
   const importCsv = (
     <Button variant="outline" onClick={() => setImporting(true)}>
       <Upload data-icon="inline-start" />
-      Import
+      Import CSV
     </Button>
   );
 
@@ -135,7 +131,14 @@ export function CompaniesPage() {
           description="Every account in the pipeline."
           actions={
             <>
-              {importCsv}
+              <CsvMenu
+                entity="COMPANY"
+                columns={COMPANY_EXPORT}
+                fetchPage={(page, pageSize) =>
+                  listCompanies({ data: { ...input, page, pageSize } })
+                }
+                onImport={() => setImporting(true)}
+              />
               {newCompany}
             </>
           }
@@ -178,45 +181,19 @@ export function CompaniesPage() {
           toolbar={
             <RecordListToolbar
               entity="COMPANY"
+              table={table}
               search={search}
               onSearchChange={setSearch}
+              onApplyView={(view) =>
+                void navigate({
+                  search: (prev) =>
+                    searchFromSavedView(companyListSearchSchema, view, prev),
+                })
+              }
               placeholder="Search companies by name or domain…"
               facetCounts={query.data?.facetCounts}
-              filters={
-                <CompanyFilters
-                  search={search}
-                  onSearchChange={setSearch}
-                  facetCounts={query.data?.facetCounts}
-                />
-              }
-              actions={
-                <>
-                  <ExportButton
-                    entity="COMPANY"
-                    columns={COMPANY_EXPORT}
-                    fetchPage={(page, pageSize) =>
-                      listCompanies({ data: { ...input, page, pageSize } })
-                    }
-                  />
-                  <SavedViewsMenu
-                    entity="COMPANY"
-                    current={savedViewOf(search)}
-                    onApply={(filters) =>
-                      void navigate({
-                        search: (prev) =>
-                          searchFromSavedView(
-                            companyListSearchSchema,
-                            filters,
-                            prev,
-                          ),
-                      })
-                    }
-                  />
-                  <SortMenu table={table} />
-                  <ColumnsMenu table={table} />
-                  <FieldsSheetButton entity="COMPANY" />
-                </>
-              }
+              filters={filters}
+              filterKeys={COMPANY_FILTER_KEYS}
             />
           }
           footer={

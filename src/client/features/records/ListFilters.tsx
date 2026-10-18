@@ -1,9 +1,9 @@
 import { Activity } from "lucide-react";
 import { sort } from "remeda";
-import {
-  FilterChip,
-  type FilterOption,
-} from "@/client/components/table/FilterChip";
+import type {
+  FilterOption,
+  ListFilter,
+} from "@/client/components/table/FiltersMenu";
 import {
   ACTIVITY_DAYS,
   ACTIVITY_OPTIONS,
@@ -28,8 +28,11 @@ export function valueOptions(
   );
 }
 
-/** Records something happened on in the last 7, 30 or 90 days. */
-export function ActivityFilter({
+/**
+ * Records something happened on in the last 7, 30 or 90 days. Its token
+ * reads like its option: "Active within 30 days".
+ */
+export function activityFilter({
   value,
   onChange,
   counts,
@@ -37,18 +40,17 @@ export function ActivityFilter({
   value: number | undefined;
   onChange: (days: (typeof ACTIVITY_DAYS)[number] | undefined) => void;
   counts: Record<string, number> | undefined;
-}) {
-  return (
-    <FilterChip
-      label="Activity"
-      icon={Activity}
-      single
-      options={ACTIVITY_OPTIONS}
-      counts={counts}
-      value={value === undefined ? [] : [String(value)]}
-      onChange={([picked]) =>
-        onChange(ACTIVITY_DAYS.find((days) => String(days) === picked))
-      }
-    />
-  );
+}): ListFilter {
+  return {
+    key: "activity",
+    label: "Activity",
+    icon: Activity,
+    single: true,
+    bare: true,
+    options: ACTIVITY_OPTIONS,
+    counts,
+    value: value === undefined ? [] : [String(value)],
+    onChange: ([picked]) =>
+      onChange(ACTIVITY_DAYS.find((days) => String(days) === picked)),
+  };
 }

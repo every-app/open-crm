@@ -89,7 +89,7 @@ export function ContactOverview({
 
       <SheetSection
         title="Details"
-        action={<FieldsSheetButton entity="CONTACT" cog />}
+        action={<FieldsSheetButton entity="CONTACT" />}
       >
         <div className="space-y-0.5">
           <InlineField

@@ -204,7 +204,12 @@ export function ImportDialog({
         if (!open && !busy) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-3xl" showCloseButton={!busy}>
+      {/* One column no wider than the dialog: a wide preview scrolls in its
+          own box rather than pushing the buttons out. */}
+      <DialogContent
+        className="grid-cols-1 sm:max-w-3xl"
+        showCloseButton={!busy}
+      >
         <DialogHeader>
           <DialogTitle>Import {noun.many} from a CSV</DialogTitle>
           <DialogDescription>

@@ -59,7 +59,7 @@ export function CompanyOverview({
 
       <SheetSection
         title="Details"
-        action={<FieldsSheetButton entity="COMPANY" cog />}
+        action={<FieldsSheetButton entity="COMPANY" />}
       >
         <div className="space-y-0.5">
           <InlineField

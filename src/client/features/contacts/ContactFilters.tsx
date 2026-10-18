@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { Briefcase, Building2, Layers, Shapes } from "lucide-react";
-import { FilterChip, countsFor } from "@/client/components/table/FilterChip";
+import {
+  countsFor,
+  type ListFilter,
+} from "@/client/components/table/FiltersMenu";
 import {
   companyOptionsQueryOptions,
   companyQueryOptions,
 } from "@/client/features/companies/companyQueries";
 import type { ContactListSearch } from "@/client/features/contacts/contactSearch";
 import {
-  ActivityFilter,
+  activityFilter,
   chosen,
   valueOptions,
 } from "@/client/features/records/ListFilters";
@@ -21,67 +24,60 @@ const SEARCH_DELAY_MS = 250;
  * The contacts list's own filters, after the owner: their company (or
  * none), title, seniority, persona, and how recently anything happened.
  */
-export function ContactFilters({
-  search,
-  onSearchChange,
-  facetCounts,
-}: {
-  search: ContactListSearch;
-  onSearchChange: (update: Partial<ContactListSearch>) => void;
-  facetCounts: FacetCounts | undefined;
-}) {
+export function useContactFilters(
+  search: ContactListSearch,
+  onSearchChange: (update: Partial<ContactListSearch>) => void,
+  facetCounts: FacetCounts | undefined,
+): ListFilter[] {
   const titles = countsFor(facetCounts, "title");
   const seniorities = countsFor(facetCounts, "seniority");
   const personas = countsFor(facetCounts, "persona");
-  return (
-    <>
-      <CompanyFilter
-        value={search.company ?? []}
-        counts={countsFor(facetCounts, "company")}
-        onChange={(company) =>
-          onSearchChange({ company: chosen(company), page: undefined })
-        }
-      />
-      <FilterChip
-        label="Title"
-        icon={Briefcase}
-        options={valueOptions(titles)}
-        counts={titles}
-        value={search.title ?? []}
-        max={FACET_FILTER_MAX}
-        onChange={(title) =>
-          onSearchChange({ title: chosen(title), page: undefined })
-        }
-      />
-      <FilterChip
-        label="Seniority"
-        icon={Layers}
-        options={valueOptions(seniorities)}
-        counts={seniorities}
-        value={search.seniority ?? []}
-        max={FACET_FILTER_MAX}
-        onChange={(seniority) =>
-          onSearchChange({ seniority: chosen(seniority), page: undefined })
-        }
-      />
-      <FilterChip
-        label="Persona"
-        icon={Shapes}
-        options={valueOptions(personas)}
-        counts={personas}
-        value={search.persona ?? []}
-        max={FACET_FILTER_MAX}
-        onChange={(persona) =>
-          onSearchChange({ persona: chosen(persona), page: undefined })
-        }
-      />
-      <ActivityFilter
-        value={search.activity}
-        counts={countsFor(facetCounts, "activity")}
-        onChange={(activity) => onSearchChange({ activity, page: undefined })}
-      />
-    </>
+  const company = useCompanyFilter(
+    search.company ?? [],
+    countsFor(facetCounts, "company"),
+    (values) => onSearchChange({ company: chosen(values), page: undefined }),
   );
+  return [
+    company,
+    {
+      key: "title",
+      label: "Title",
+      icon: Briefcase,
+      options: valueOptions(titles),
+      counts: titles,
+      value: search.title ?? [],
+      max: FACET_FILTER_MAX,
+      onChange: (title) =>
+        onSearchChange({ title: chosen(title), page: undefined }),
+    },
+    {
+      key: "seniority",
+      label: "Seniority",
+      icon: Layers,
+      options: valueOptions(seniorities),
+      counts: seniorities,
+      value: search.seniority ?? [],
+      max: FACET_FILTER_MAX,
+      onChange: (seniority) =>
+        onSearchChange({ seniority: chosen(seniority), page: undefined }),
+    },
+    {
+      key: "persona",
+      label: "Persona",
+      icon: Shapes,
+      options: valueOptions(personas),
+      counts: personas,
+      value: search.persona ?? [],
+      max: FACET_FILTER_MAX,
+      onChange: (persona) =>
+        onSearchChange({ persona: chosen(persona), page: undefined }),
+    },
+    activityFilter({
+      value: search.activity,
+      counts: countsFor(facetCounts, "activity"),
+      onChange: (activity) => onSearchChange({ activity, page: undefined }),
+    }),
+  ];
 }
 
 /**
@@ -89,15 +85,11 @@ export function ContactFilters({
  * searched on the server as you type, the chosen ones named by their own
  * records. Of those, it offers the ones the list's search finds contacts at.
  */
-function CompanyFilter({
-  value,
-  counts,
-  onChange,
-}: {
-  value: string[];
-  counts: Record<string, number> | undefined;
-  onChange: (next: string[]) => void;
-}) {
+function useCompanyFilter(
+  value: string[],
+  counts: Record<string, number> | undefined,
+  onChange: (next: string[]) => void,
+): ListFilter {
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
   useEffect(() => {
@@ -130,18 +122,17 @@ function CompanyFilter({
       .filter((company) => !value.includes(company.id))
       .map((company) => ({ value: company.id, label: company.name })),
   ];
-  return (
-    <FilterChip
-      label="Company"
-      icon={Building2}
-      options={options}
-      counts={counts}
-      value={value}
-      max={FACET_FILTER_MAX}
-      onChange={onChange}
-      onSearch={setInput}
-      searching={found.isFetching || input.trim() !== query}
-      emptyLabel="No company matches."
-    />
-  );
+  return {
+    key: "company",
+    label: "Company",
+    icon: Building2,
+    options,
+    counts,
+    value,
+    max: FACET_FILTER_MAX,
+    onChange,
+    onSearch: setInput,
+    searching: found.isFetching || input.trim() !== query,
+    emptyLabel: "No company matches.",
+  };
 }

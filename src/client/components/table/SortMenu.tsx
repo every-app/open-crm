@@ -31,7 +31,7 @@ export function SortMenu<TData>({ table }: { table: Table<TData> }) {
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
         <ArrowUpDown data-icon="inline-start" />
-        Sort
+        <span className="max-sm:sr-only">Sort</span>
         <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
