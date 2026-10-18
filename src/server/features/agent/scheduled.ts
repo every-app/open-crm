@@ -2,21 +2,29 @@ import { getAgentByName } from "agents";
 import { laneCreditCheck } from "@/server/billing/credits";
 import { scheduledResearchEnabled } from "@/server/lib/deployment-tier";
 import { getOpenRouterFetch } from "@/server/lib/openrouter";
+import { hasContextAccess } from "@/server/lib/provider-access";
 import { runResearchLane, runVisibleLane, type Defer } from "./dispatch";
 import { DISPATCH } from "./dispatch/config";
 import { reconcileStaleTasks } from "./dispatch/staleTasks";
+import { runEnrichmentSweep } from "./dispatch/sweep";
 import { sweepAllBlankFacts } from "./lib/blankFacts";
 import type { CrmAgent } from "./CrmAgent";
 import type { LeasedTask } from "./repositories/AgentQueueRepository";
+import {
+  DispatchHealthRepository,
+  type LaneName,
+} from "./repositories/DispatchHealthRepository";
 import { sessionName } from "./sessionName";
 import { runTeamAgentLane } from "@/server/features/team-agents/runtime/dispatch";
 
 /**
  * The minute cron: the agent's dispatcher. It closes stale tasks, then drains
- * both lanes across every organization (dispatch.ts), and beside them fills
- * fields that went blank from the suggestions waiting on them
- * (lib/blankFacts.ts). It decides nothing on its own: anything that looks
- * like "every N minutes" is a task's `due_at`.
+ * both lanes across every organization (dispatch.ts) and the team agents'
+ * runs, and sweeps a few organizations' records for work to queue
+ * (dispatch/sweep.ts). Beside them it fills fields that went blank from the
+ * suggestions waiting on them (lib/blankFacts.ts). It decides nothing else on
+ * its own: anything that looks like "every N minutes" is a task's `due_at`.
+ * When each lane ran is kept for the health check (src/server/features/health).
  */
 export async function runScheduledWork(
   env: Env,
@@ -34,44 +42,68 @@ export async function runScheduledWork(
   const askedForOnly = !scheduledResearchEnabled(env);
   // Where usage is billed, organizations out of credits wait.
   const credits = laneCreditCheck(env);
-  const lanes = await Promise.allSettled([
-    runVisibleLane({ signal, defer, credits }),
-    // Team agents' runs: their schedules are unattended spending, held with
-    // the scheduled research.
-    runTeamAgentLane(env, {
-      signal,
-      defer,
-      holdUnattended: askedForOnly,
-      credits,
-    }),
-    runResearchLane({
-      signal,
-      defer,
-      askedForOnly,
-      credits,
-      // Without the gateway's binding (or, in dev, a key) no session can run.
-      modelConfigured: modelConfigured(env),
-      start: (task) => startResearchSession(env, task),
-    }),
-  ]);
-  const [visible, runs, research] = lanes;
-  if (
-    visible.status === "fulfilled" &&
-    runs.status === "fulfilled" &&
-    research.status === "fulfilled"
-  ) {
-    if (visible.value + runs.value + research.value > 0) {
-      console.log("[agent] dispatched", {
-        visible: visible.value,
-        runs: runs.value,
-        research: research.value,
+  const lanes: { lane: LaneName; run: Promise<number> }[] = [
+    { lane: "visible", run: runVisibleLane({ signal, defer, credits }) },
+    {
+      lane: "runs",
+      // Team agents' runs: their schedules are unattended spending, held
+      // with the scheduled research.
+      run: runTeamAgentLane(env, {
+        signal,
+        defer,
+        holdUnattended: askedForOnly,
+        credits,
+      }),
+    },
+    {
+      lane: "research",
+      run: runResearchLane({
+        signal,
+        defer,
         askedForOnly,
-      });
-    }
-    return;
+        credits,
+        // Without the gateway's binding (or, in dev, a key) no session can run.
+        modelConfigured: modelConfigured(env),
+        start: (task) => startResearchSession(env, task),
+      }),
+    },
+  ];
+  // The enrichment sweep queues scheduled research: held with it.
+  if (!askedForOnly) {
+    lanes.push({
+      lane: "sweep",
+      run: runEnrichmentSweep({
+        signal,
+        credits,
+        contextReady: hasContextAccess,
+      }),
+    });
   }
-  for (const lane of lanes) {
-    if (lane.status === "rejected") throw lane.reason;
+  const passes = await Promise.all(
+    lanes.map(async ({ lane, run }) => {
+      try {
+        return { lane, handled: await run, failure: null };
+      } catch (error) {
+        return { lane, handled: 0, failure: { error } };
+      }
+    }),
+  );
+  await DispatchHealthRepository.recordLanes(
+    passes.map(({ lane, handled, failure }) => ({
+      lane,
+      handled,
+      failed: failure !== null,
+    })),
+  ).catch((error: unknown) => {
+    console.error("[agent] could not note when the lanes ran", error);
+  });
+  const failed = passes.find((pass) => pass.failure !== null);
+  if (failed?.failure) throw failed.failure.error;
+  if (passes.some((pass) => pass.handled > 0)) {
+    console.log("[agent] dispatched", {
+      ...Object.fromEntries(passes.map((pass) => [pass.lane, pass.handled])),
+      askedForOnly,
+    });
   }
 }
 

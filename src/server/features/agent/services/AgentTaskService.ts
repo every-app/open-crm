@@ -153,7 +153,10 @@ async function meetingSoon(
   });
 }
 
-/** Queues `kind` for each record that has no open task of that kind. */
+/**
+ * Queues `kind` for each record that has no open task of that kind (the
+ * CRM's backfill, which the enrichment sweep runs), in batched writes.
+ */
 async function backfill(
   organizationId: string,
   input: {
@@ -168,22 +171,29 @@ async function backfill(
   const byContact = Boolean(input.contactIds);
   const ids = [...new Set(input.contactIds ?? input.companyIds ?? [])];
   if (ids.length === 0) return { queued: 0, alreadyQueued: 0 };
-  let queued = 0;
-  for (const id of ids) {
-    const created = await AgentTaskRepository.insertIfAbsent({
+  const subjectOf = (id: string) =>
+    taskSubject(byContact ? { contactId: id } : { companyId: id });
+  const open = await AgentTaskRepository.openBySubjects(
+    organizationId,
+    input.kind,
+    ids.map(subjectOf),
+  );
+  const taken = new Set(open.map((task) => task.subject));
+  const fresh = ids.filter((id) => !taken.has(subjectOf(id)));
+  await AgentTaskRepository.upsertMany(
+    fresh.map((id) => ({
       organizationId,
       contactId: byContact ? id : null,
       companyId: byContact ? null : id,
-      subject: taskSubject(byContact ? { contactId: id } : { companyId: id }),
+      subject: subjectOf(id),
       kind: input.kind,
       reason: input.reason,
       priority: input.priority ?? PRIORITY.sweep,
       budget: input.budget ?? 4,
-    });
-    if (created) queued += 1;
-  }
-  if (queued > 0) pokeDispatcher(organizationId);
-  return { queued, alreadyQueued: ids.length - queued };
+    })),
+  );
+  if (fresh.length > 0) pokeDispatcher(organizationId);
+  return { queued: fresh.length, alreadyQueued: ids.length - fresh.length };
 }
 
 export const fieldBackfillPayloadSchema = z.object({

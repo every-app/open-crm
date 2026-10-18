@@ -279,7 +279,9 @@ describe("the agent's ledger, people and field tools", () => {
     ).toMatchObject({ written: true });
     const [url, init] = contextFetch.mock.calls[0] ?? [];
     expect(url).toBe("https://api.context.dev/v1/web/extract");
-    expect(JSON.parse(String(init?.body))).toMatchObject({
+    expect(
+      JSON.parse(typeof init?.body === "string" ? init.body : "{}"),
+    ).toMatchObject({
       url: "https://fernhill.test",
       maxPages: 8,
     });

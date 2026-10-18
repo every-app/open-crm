@@ -4,7 +4,10 @@ import { AUTUMN_SEO_DATA_BALANCE_FEATURE_ID } from "@/shared/billing";
 
 const { database, r2 } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
-  return { database: await createSqliteTestDb(), r2: { put: vi.fn() } };
+  return {
+    database: await createSqliteTestDb(),
+    r2: { put: vi.fn<(key: string, value: unknown) => Promise<void>>() },
+  };
 });
 vi.mock("cloudflare:workers", () => ({
   env: { DATABASE_PROVIDER: "d1", R2: r2 },
@@ -39,6 +42,8 @@ import { reconcileStaleTasks } from "./dispatch/staleTasks";
 import { NO_CONTEXT_REASON } from "./visible/brand";
 
 const defer = vi.fn();
+const urlOf = (input: RequestInfo | URL) =>
+  input instanceof Request ? input.url : input.toString();
 const past = (ms = 1000) => new Date(Date.now() - ms).toISOString();
 
 async function queue(
@@ -102,8 +107,7 @@ describe("the dispatcher", () => {
 
   it("falls back on the company's own favicon, the largest it declares, kept with the organization's images", async () => {
     vi.mocked(fetch).mockImplementation(async (input, init) => {
-      const url = String(input);
-      if (url === "https://acme.test/") {
+      if (urlOf(input) === "https://acme.test/") {
         return new Response(
           '<link rel="icon" sizes="32x32" href="/icon-32.png"><link rel="apple-touch-icon" sizes="180x180" href="/touch.png">',
           { headers: { "content-type": "text/html" } },
@@ -123,7 +127,7 @@ describe("the dispatcher", () => {
     const downloaded = vi
       .mocked(fetch)
       .mock.calls.filter(([, init]) => init?.method !== "HEAD")
-      .map(([input]) => String(input));
+      .map(([input]) => urlOf(input));
     expect(downloaded).toEqual([
       "https://acme.test/",
       "https://acme.test/touch.png",

@@ -81,6 +81,7 @@ export const {
   oauthState,
   mailboxSync,
   agentTask,
+  dispatcherLane,
   agentEvent,
   agentConversation,
   trackingSite,

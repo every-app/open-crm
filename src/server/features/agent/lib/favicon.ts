@@ -1,3 +1,4 @@
+import { sortBy } from "remeda";
 import { fetchPublic } from "./publicFetch";
 
 // A company's own favicon, the free logo the CRM fell back on when
@@ -29,7 +30,7 @@ function iconsFromHtml(html: string, base: URL): string[] {
       // Not a URL; skip it.
     }
   }
-  return found.sort((a, b) => b.size - a.size).map((icon) => icon.href);
+  return sortBy(found, [(icon) => icon.size, "desc"]).map((icon) => icon.href);
 }
 
 /** The home page's first MAX_HTML_BYTES, and where it was served from. */
