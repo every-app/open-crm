@@ -24,13 +24,7 @@ import { verifyTrackingSchema } from "@/types/schemas/tracking";
  * page's Tag Manager containers when the HTML has none. Owners and admins
  * run it.
  */
-export function VerifyInstallation({
-  siteId,
-  canManage,
-}: {
-  siteId: string;
-  canManage: boolean;
-}) {
+export function VerifyInstallation({ canManage }: { canManage: boolean }) {
   const [result, setResult] = useState<VerifyResult | null>(null);
   const verify = useMutation({
     mutationFn: (url: string) => verifyTracking({ data: { url } }),
@@ -53,7 +47,6 @@ export function VerifyInstallation({
           Verify installation
         </TitleWithStatus>
       }
-      description="We load one page and look for the script, then read your Tag Manager container if it is not in the HTML."
     >
       <form.AppForm>
         <form.Form>
@@ -65,7 +58,7 @@ export function VerifyInstallation({
               {(field) => (
                 <field.RowTextField
                   label="Page to check"
-                  description="The page has to be public. A page behind a login always fails this check."
+                  description="The page has to be public."
                   prefix="https://"
                   placeholder="acme.com/pricing"
                   inputMode="url"
@@ -80,7 +73,7 @@ export function VerifyInstallation({
               <form.Subscribe selector={(state) => state.values.url}>
                 {(url) => (
                   <form.SubmitButton disabled={!canManage || url.trim() === ""}>
-                    Check now
+                    Check
                   </form.SubmitButton>
                 )}
               </form.Subscribe>
@@ -88,7 +81,7 @@ export function VerifyInstallation({
           </SettingsCard>
         </form.Form>
       </form.AppForm>
-      {result ? <Outcome result={result} siteId={siteId} /> : null}
+      {result ? <Outcome result={result} /> : null}
     </SettingsSection>
   );
 }
@@ -107,15 +100,15 @@ function Indicator({ result }: { result: VerifyResult }) {
   );
 }
 
-function Outcome({ result, siteId }: { result: VerifyResult; siteId: string }) {
+function Outcome({ result }: { result: VerifyResult }) {
   if (result.status === "unreachable") {
     return (
       <Alert variant="destructive">
         <CircleAlert />
         <AlertTitle>Could not open {result.host}</AlertTitle>
         <AlertDescription>
-          {result.detail} We only follow public pages, and we never follow a
-          redirect to a private address.
+          {result.detail} We only follow public pages, never a redirect to a
+          private address.
         </AlertDescription>
       </Alert>
     );
@@ -126,11 +119,9 @@ function Outcome({ result, siteId }: { result: VerifyResult; siteId: string }) {
         <CircleAlert />
         <AlertTitle>No script on {result.host}</AlertTitle>
         <AlertDescription>
-          The page answered in {result.responseMs} ms, but the tag was not in
-          the HTML. Check that it sits in the head, above anything that rewrites
-          the page.
+          Check that it sits in the head, above anything that rewrites the page.
           {result.containers.length > 0
-            ? ` We also read Tag Manager container ${result.containers.join(" and ")}, and the tag is not in there either.`
+            ? ` It isn't in Tag Manager container ${result.containers.join(" or ")} either.`
             : ""}
         </AlertDescription>
       </Alert>
@@ -142,13 +133,11 @@ function Outcome({ result, siteId }: { result: VerifyResult; siteId: string }) {
         <CircleAlert />
         <AlertTitle>Tag Manager will drop the site ID</AlertTitle>
         <AlertDescription>
-          Container {result.container.id} carries the tag, but the site ID is
-          not in the script URL. Tag Manager keeps only the URL when it injects
-          a script, so a data-site attribute never reaches the page and the
-          tracker never starts. Copy the Tag Manager snippet above and replace
-          the tag&apos;s HTML.
+          Container {result.container.id} carries the tag without the site ID in
+          its URL, so the tracker never starts. Replace the tag&apos;s HTML with
+          the Tag Manager snippet above.
           {result.pageView
-            ? " A page view did arrive in the last five minutes, so something on this site is still recording."
+            ? " Something on this site still sent a page view in the last five minutes."
             : ""}
         </AlertDescription>
       </Alert>
@@ -163,14 +152,10 @@ function Outcome({ result, siteId }: { result: VerifyResult; siteId: string }) {
           : `Script found on ${result.host}`}
       </AlertTitle>
       <AlertDescription>
-        It answered in {result.responseMs} ms. Site ID {siteId} matched, and
-        this domain is {result.allowed ? "on" : "not on"} the allow list.
-        {result.container
-          ? " The tag is not in the HTML, so it only runs once Tag Manager fires it — a page view is the proof."
-          : ""}
+        This domain is {result.allowed ? "on" : "not on"} the allow list.
         {result.pageView
-          ? " A page view arrived in the last five minutes."
-          : " No page view has arrived yet — open the page in a browser to send one."}
+          ? ""
+          : " Open the page in a browser to send a page view."}
       </AlertDescription>
     </Alert>
   );

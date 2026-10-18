@@ -45,7 +45,7 @@ export function SwitchRow({
   onChange,
 }: {
   label: string;
-  hint: string;
+  hint?: string;
   checked: boolean;
   disabled: boolean;
   onChange: (checked: boolean) => void;
@@ -66,35 +66,15 @@ export function SwitchRow({
 /** The rules, which name the domains as above or below them on the page. */
 function rules(where: "above" | "below") {
   return [
-    {
-      flag: "crossDomain",
-      label: "Automatic cross-domain linking",
-      hint: `Carry the visitor between the domains ${where}, so one journey is not counted as two people`,
-    },
-    {
-      flag: "limitToDomains",
-      label: `Limit tracking to the domains ${where}`,
-      hint: "On any other domain the script loads and then does nothing",
-    },
+    { flag: "crossDomain", label: "Automatic cross-domain linking" },
+    { flag: "limitToDomains", label: `Limit tracking to the domains ${where}` },
   ] as const;
 }
 
 const COOKIE_SWITCHES = [
-  {
-    flag: "cookieSubdomains",
-    label: "Limit cookies to subdomains",
-    hint: "Set the cookie on the exact host that served the page, never on the parent domain",
-  },
-  {
-    flag: "secureCookies",
-    label: "Use secure cookies only",
-    hint: "Send the cookie over HTTPS and drop it on plain HTTP",
-  },
-  {
-    flag: "honourDnt",
-    label: "Honour Do Not Track",
-    hint: "Record nothing at all when the browser asks not to be tracked",
-  },
+  { flag: "cookieSubdomains", label: "Limit cookies to subdomains" },
+  { flag: "secureCookies", label: "Use secure cookies only" },
+  { flag: "honourDnt", label: "Honour Do Not Track" },
 ] as const;
 
 function useSetFlag() {
@@ -117,16 +97,12 @@ export function TrackingRules({
 }) {
   const setFlag = useSetFlag();
   return (
-    <SettingsSection
-      title="Tracking rules"
-      description="Where the script may run, and how it follows a visitor."
-    >
+    <SettingsSection title="Tracking rules">
       <SettingsCard>
         {rules(settings.ready ? "below" : "above").map((rule) => (
           <SwitchRow
             key={rule.flag}
             label={rule.label}
-            hint={rule.hint}
             checked={settings[rule.flag]}
             disabled={!canManage || setFlag.isPending}
             onChange={(enabled) => setFlag.mutate({ flag: rule.flag, enabled })}
@@ -158,16 +134,12 @@ export function TrackingCookies({
   );
   const busy = !canManage || setFlag.isPending || setLifetime.isPending;
   return (
-    <SettingsSection
-      title="Cookies"
-      description="How a returning visitor is recognised."
-    >
+    <SettingsSection title="Cookies">
       <SettingsCard>
         {COOKIE_SWITCHES.map((entry) => (
           <SwitchRow
             key={entry.flag}
             label={entry.label}
-            hint={entry.hint}
             checked={settings[entry.flag]}
             disabled={busy}
             onChange={(enabled) =>
@@ -175,11 +147,7 @@ export function TrackingCookies({
             }
           />
         ))}
-        <SettingsRow
-          label="Cookie lifetime"
-          htmlFor={lifetimeId}
-          description="After this a returning visitor counts as somebody new. Shorten it if your policy asks you to."
-        >
+        <SettingsRow label="Cookie lifetime" htmlFor={lifetimeId}>
           <Select
             items={LIFETIME_ITEMS}
             value={String(settings.cookieDays)}
@@ -209,10 +177,7 @@ export function TrackingCookies({
 export function TrafficSources() {
   const query = useQuery(trafficSourcesQueryOptions());
   return (
-    <SettingsSection
-      title="Traffic sources"
-      description="Where your visitors come from. Only people who have submitted a form are attributed to a record."
-    >
+    <SettingsSection title="Traffic sources">
       <QueryState
         query={query}
         errorFallback="The traffic sources could not be loaded."
@@ -225,7 +190,6 @@ export function TrafficSources() {
                 media="rows"
                 variant="plain"
                 title="No sources yet"
-                description="They appear once the script records its first page view."
               />
             ) : (
               <Table>
