@@ -198,19 +198,6 @@ async function removeConversation(context: Context, id: string) {
   return removed;
 }
 
-const CAPTURE_TAGS = {
-  email: {
-    detail: "Captured mail on CRM records",
-    unavailable:
-      "Nobody here has connected a mailbox yet (Settings → Connections)",
-  },
-  calendar: {
-    detail: "Captured meetings on CRM records",
-    unavailable:
-      "Nobody here has connected a calendar yet (Settings → Connections)",
-  },
-} as const;
-
 /** How many records of each kind the tag picker offers. */
 const TAGGABLE_PER_KIND = 6;
 
@@ -225,8 +212,8 @@ const NO_PICTURE: Picture = { url: null, darkUrl: null, tone: null };
 /**
  * Records and integrations a person can tag in the composer, as the CRM's
  * builder resources: before they type, the most recently active companies,
- * contacts and deals. Email and Calendar are always offered, with the reason
- * they can't be granted yet when no member has connected one.
+ * contacts and deals. Email, Calendar and Slack are offered once someone has
+ * connected them.
  */
 async function searchResources(context: Context, q: string) {
   const term = q.trim();
@@ -242,15 +229,14 @@ async function searchResources(context: Context, q: string) {
   const matches = (label: string) =>
     !term || label.toLowerCase().includes(term.toLowerCase());
   return [
-    ...CAPTURE_KINDS.filter((kind) =>
-      matches(CAPTURE_GRANTS[kind].resource.label),
+    ...CAPTURE_KINDS.filter(
+      (kind) => capture[kind] && matches(CAPTURE_GRANTS[kind].resource.label),
     ).map((kind) => ({
       kind: "integration" as const,
       id: CAPTURE_GRANTS[kind].resource.id,
       label: CAPTURE_GRANTS[kind].resource.label,
-      detail: CAPTURE_TAGS[kind].detail,
+      detail: null,
       picture: NO_PICTURE,
-      unavailable: capture[kind] ? null : CAPTURE_TAGS[kind].unavailable,
     })),
     ...(slack && matches("slack")
       ? [
@@ -258,9 +244,8 @@ async function searchResources(context: Context, q: string) {
             kind: "integration" as const,
             id: SLACK_RESOURCE.id,
             label: SLACK_RESOURCE.label,
-            detail: "Connected workspace",
+            detail: null,
             picture: NO_PICTURE,
-            unavailable: null,
           },
         ]
       : []),
@@ -274,7 +259,6 @@ async function searchResources(context: Context, q: string) {
         darkUrl: row.iconDarkUrl,
         tone: row.iconTone,
       },
-      unavailable: null,
     })),
     ...records.contacts.map((row) => ({
       kind: "contact" as const,
@@ -284,7 +268,6 @@ async function searchResources(context: Context, q: string) {
         (row.email ?? "Unnamed"),
       detail: row.companyName ?? row.email,
       picture: { ...NO_PICTURE, url: row.imageUrl },
-      unavailable: null,
     })),
     ...records.deals.map((row) => ({
       kind: "deal" as const,
@@ -296,7 +279,6 @@ async function searchResources(context: Context, q: string) {
         darkUrl: row.iconDarkUrl,
         tone: row.iconTone,
       },
-      unavailable: null,
     })),
   ];
 }
