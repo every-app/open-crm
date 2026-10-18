@@ -194,6 +194,18 @@ export function CompaniesPage() {
               facetCounts={query.data?.facetCounts}
               filters={filters}
               filterKeys={COMPANY_FILTER_KEYS}
+              selection={{
+                count: selection.selectedIds.length,
+                onClear: selection.clear,
+                actions: (
+                  <CompanyBulkActions
+                    ids={selection.selectedIds}
+                    archived={input.archived}
+                    canPurge={canPurge}
+                    onDone={selection.clear}
+                  />
+                ),
+              }}
             />
           }
           footer={
@@ -212,12 +224,6 @@ export function CompaniesPage() {
         />
       </div>
 
-      <CompanyBulkActions
-        ids={selection.selectedIds}
-        archived={input.archived}
-        canPurge={canPurge}
-        onDone={selection.clear}
-      />
       {importing ? (
         <ImportDialog entity="COMPANY" onClose={() => setImporting(false)} />
       ) : null}

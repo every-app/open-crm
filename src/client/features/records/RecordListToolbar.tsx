@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Table } from "@tanstack/react-table";
 import { Search } from "lucide-react";
 import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
@@ -10,6 +10,7 @@ import {
   type ListFilter,
 } from "@/client/components/table/FiltersMenu";
 import { SortMenu } from "@/client/components/table/SortMenu";
+import { Button } from "@/client/components/ui/button";
 import {
   InputGroup,
   InputGroupAddon,
@@ -36,7 +37,8 @@ import type { FacetCounts } from "@/types/schemas/records";
 // right; under it, while any filter is set, a token for each. Every change
 // goes to the URL and takes the list back to its first page. The filters
 // offer the values the list's search finds records for, with how many
-// (`facetCounts`).
+// (`facetCounts`). While rows are selected, their count, the list's Actions
+// menu and Clear take the place of the toolbar and its tokens.
 
 const trim = (value: string) => value.trim();
 
@@ -78,6 +80,7 @@ export function RecordListToolbar<TData>({
   facetCounts,
   filters,
   filterKeys,
+  selection,
 }: {
   /** Whose custom fields the filters and the fields sheet offer. */
   entity: FieldEntity;
@@ -93,6 +96,8 @@ export function RecordListToolbar<TData>({
   filters: ListFilter[];
   /** The URL params the list filters by, its search included. */
   filterKeys: readonly string[];
+  /** The selected rows: how many, the list's Actions menu, and Clear. */
+  selection: { count: number; actions: ReactNode; onClear: () => void };
 }) {
   const [editingFields, setEditingFields] = useState(false);
   const owner = useOwnerFilter(
@@ -118,6 +123,7 @@ export function RecordListToolbar<TData>({
   // Every filter, but not the search.
   const clearFilters = () =>
     onSearchChange(clearedFilters(filterKeys.filter((key) => key !== "q")));
+  const selecting = selection.count > 0;
 
   return (
     <>
@@ -133,30 +139,50 @@ export function RecordListToolbar<TData>({
         <TabsTrigger value="live">Active</TabsTrigger>
         <TabsTrigger value="archived">Archived</TabsTrigger>
       </DataTableTabs>
-      <div className="border-b border-border">
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-          <ListSearchInput
-            value={search.q ?? ""}
-            placeholder={placeholder}
-            onCommit={(q) =>
-              onSearchChange({ q: q || undefined, page: undefined })
-            }
-          />
-          <FiltersMenu filters={all} onClear={clearFilters} />
-          <div className="ml-auto flex items-center gap-2">
-            <SavedViewsMenu
-              entity={entity}
-              current={savedViewOf(search)}
-              onApply={onApplyView}
+      <div className="relative border-b border-border">
+        {/* Under a selection the toolbar stays mounted and keeps its
+            height, so the rows don't move under the pointer. */}
+        <div className={selecting ? "invisible" : undefined}>
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+            <ListSearchInput
+              value={search.q ?? ""}
+              placeholder={placeholder}
+              onCommit={(q) =>
+                onSearchChange({ q: q || undefined, page: undefined })
+              }
             />
-            <SortMenu table={table} />
-            <ColumnsMenu
-              table={table}
-              onEditFields={() => setEditingFields(true)}
-            />
+            <FiltersMenu filters={all} onClear={clearFilters} />
+            <div className="ml-auto flex items-center gap-2">
+              <SavedViewsMenu
+                entity={entity}
+                current={savedViewOf(search)}
+                onApply={onApplyView}
+              />
+              <SortMenu table={table} />
+              <ColumnsMenu
+                table={table}
+                onEditFields={() => setEditingFields(true)}
+              />
+            </div>
           </div>
+          <FilterTokens filters={all} onClear={clearFilters} />
         </div>
-        <FilterTokens filters={all} onClear={clearFilters} />
+        {selecting ? (
+          <div className="absolute inset-0 flex items-center gap-2 px-4">
+            <span className="text-[0.8rem] text-muted-foreground">
+              <span className="font-medium text-foreground tabular-nums">
+                {selection.count.toLocaleString()}
+              </span>{" "}
+              selected
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              {selection.actions}
+              <Button variant="ghost" size="sm" onClick={selection.onClear}>
+                Clear
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
       <FieldsSheet
         entity={entity}

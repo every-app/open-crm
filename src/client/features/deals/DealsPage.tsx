@@ -195,6 +195,18 @@ export function DealsPage() {
               facetCounts={query.data?.facetCounts}
               filters={filters}
               filterKeys={DEAL_FILTER_KEYS}
+              selection={{
+                count: selection.selectedIds.length,
+                onClear: selection.clear,
+                actions: (
+                  <DealBulkActions
+                    ids={selection.selectedIds}
+                    archived={input.archived}
+                    canPurge={canPurge}
+                    onDone={selection.clear}
+                  />
+                ),
+              }}
             />
           }
           footer={
@@ -216,12 +228,6 @@ export function DealsPage() {
         />
       </div>
 
-      <DealBulkActions
-        ids={selection.selectedIds}
-        archived={input.archived}
-        canPurge={canPurge}
-        onDone={selection.clear}
-      />
       {importing ? (
         <ImportDialog entity="DEAL" onClose={() => setImporting(false)} />
       ) : null}

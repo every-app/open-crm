@@ -1,20 +1,17 @@
-import { useId, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
-import { FormDialog } from "@/client/components/FormDialog";
-import { TableBulkActionButton } from "@/client/components/table/TableBulkActionBar";
-import { Button } from "@/client/components/ui/button";
-import { Field, FieldLabel } from "@/client/components/ui/field";
+import { MenuSearchInput } from "@/client/components/table/FiltersMenu";
+import { ComboboxItem, ComboboxList } from "@/client/components/ui/combobox";
+import { companyOptionsQueryOptions } from "@/client/features/companies/companyQueries";
 import { invalidateContacts } from "@/client/features/contacts/useContactMutations";
 import {
-  CompanyPicker,
-  type CompanyOption,
-} from "@/client/features/records/CompanyPicker";
-import {
-  RecordBulkBar,
+  BulkSubmenu,
+  RecordBulkMenu,
   reportBulk,
   type RecordNoun,
-} from "@/client/features/records/RecordBulkBar";
+} from "@/client/features/records/RecordBulkMenu";
 import {
   bulkArchiveContacts,
   bulkAssignContactOwner,
@@ -23,9 +20,12 @@ import {
   bulkRestoreContacts,
   bulkSetContactCompany,
 } from "@/serverFunctions/contacts";
+import { NO_COMPANY } from "@/types/schemas/contacts";
 import type { BulkResult } from "@/types/schemas/records";
 
 const NOUN: RecordNoun = { one: "contact", many: "contacts" };
+
+const SEARCH_DELAY_MS = 250;
 
 /** What the contacts list does to its selected rows. */
 export function ContactBulkActions({
@@ -40,7 +40,8 @@ export function ContactBulkActions({
   onDone: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [moving, setMoving] = useState(false);
+  // A pick in Move to company's search closes the whole menu.
+  const [menuOpen, setMenuOpen] = useState(false);
   const settled = (done: (count: string) => string) => ({
     onSuccess: async (result: BulkResult) => {
       reportBulk(result, NOUN, done);
@@ -82,81 +83,100 @@ export function ContactBulkActions({
       bulkPurgeContacts({ data: { ids: selected } }),
     ...settled((count) => `${count} deleted forever.`),
   });
-  const pending = [assign, move, enrich, archive, restore, purge].some(
-    (mutation) => mutation.isPending,
-  );
 
   return (
-    <>
-      <RecordBulkBar
-        selectedCount={ids.length}
-        noun={NOUN}
-        archived={archived}
-        canPurge={canPurge}
-        pending={pending}
-        onClear={onDone}
-        onAssignOwner={(ownerId) => assign.mutate({ ids, ownerId })}
-        onEnrich={() => enrich.mutate(ids)}
-        onArchive={() => archive.mutate(ids)}
-        onRestore={() => restore.mutate(ids)}
-        onPurge={() => purge.mutate(ids)}
-        purgeWarning="Their email addresses are suppressed, so the inbox sync will not file them again. This cannot be undone."
-        actions={
-          <TableBulkActionButton
-            icon={<Building2 />}
-            onClick={() => setMoving(true)}
-            disabled={pending}
-          >
-            Move to company
-          </TableBulkActionButton>
-        }
-      />
-      {moving ? (
-        <MoveContactsDialog
-          count={ids.length}
-          onClose={() => setMoving(false)}
-          onMove={(companyId) => {
-            setMoving(false);
+    <RecordBulkMenu
+      noun={NOUN}
+      count={ids.length}
+      archived={archived}
+      canPurge={canPurge}
+      pending={[assign, move, enrich, archive, restore, purge].some(
+        (mutation) => mutation.isPending,
+      )}
+      open={menuOpen}
+      onOpenChange={setMenuOpen}
+      onAssignOwner={(ownerId) => assign.mutate({ ids, ownerId })}
+      onEnrich={() => enrich.mutate(ids)}
+      onArchive={() => archive.mutate(ids)}
+      onRestore={() => restore.mutate(ids)}
+      onPurge={() => purge.mutate(ids)}
+      purgeWarning="Their email addresses are suppressed, so the inbox sync will not file them again. This cannot be undone."
+    >
+      <BulkSubmenu
+        icon={Building2}
+        label="Move to company"
+        className="w-64 p-0"
+      >
+        <CompanySearch
+          onPick={(companyId) => {
+            setMenuOpen(false);
             move.mutate({ ids, companyId });
           }}
         />
-      ) : null}
-    </>
+      </BulkSubmenu>
+    </RecordBulkMenu>
   );
 }
 
-/** Picks the company the selected people move to, or none. */
-function MoveContactsDialog({
-  count,
-  onClose,
-  onMove,
+type CompanyItem = { id: string; name: string; domain: string | null };
+
+/**
+ * Move to company's submenu: "No company", then the live companies; typing
+ * searches them on the server.
+ */
+function CompanySearch({
+  onPick,
 }: {
-  count: number;
-  onClose: () => void;
-  onMove: (companyId: string | null) => void;
+  onPick: (companyId: string | null) => void;
 }) {
-  const id = useId();
-  const [company, setCompany] = useState<CompanyOption | null>(null);
-  const people = count === 1 ? "1 contact" : `${count} contacts`;
+  const [input, setInput] = useState("");
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setQuery(input.trim()),
+      SEARCH_DELAY_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [input]);
+  const found = useQuery(companyOptionsQueryOptions(query));
+  const searching = found.isFetching || input.trim() !== query;
+  const items: CompanyItem[] = [
+    ...(query ? [] : [{ id: NO_COMPANY, name: "No company", domain: null }]),
+    ...(found.data ?? []),
+  ];
+
   return (
-    <FormDialog
-      title={`Move ${people}`}
-      onClose={onClose}
-      actions={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={() => onMove(company?.id ?? null)}>
-            {company ? `Move to ${company.name}` : "Take off their company"}
-          </Button>
-        </>
-      }
+    <ComboboxPrimitive.Root
+      inline
+      open
+      items={items}
+      onValueChange={(company: CompanyItem | null) => {
+        if (company) onPick(company.id === NO_COMPANY ? null : company.id);
+      }}
+      onInputValueChange={setInput}
+      itemToStringLabel={(company: CompanyItem) => company.name}
+      // The server already matched the search.
+      filter={null}
     >
-      <Field>
-        <FieldLabel htmlFor={id}>Company</FieldLabel>
-        <CompanyPicker id={id} value={company} onChange={setCompany} />
-      </Field>
-    </FormDialog>
+      <MenuSearchInput placeholder="Search companies…" searching={searching} />
+      <ComboboxPrimitive.Empty>
+        <p className="px-3 py-5 text-center text-sm text-muted-foreground">
+          {searching ? "Searching…" : "No company matches."}
+        </p>
+      </ComboboxPrimitive.Empty>
+      <ComboboxList className="max-h-64">
+        {(company: CompanyItem) => (
+          // Nothing is ever chosen here, so no room for a check mark.
+          <ComboboxItem key={company.id} value={company} className="pr-2">
+            <span className="max-w-full shrink-0 truncate">{company.name}</span>
+            {company.domain ? (
+              <span className="ml-auto min-w-0 truncate pl-2 text-xs text-muted-foreground">
+                {company.domain}
+              </span>
+            ) : null}
+          </ComboboxItem>
+        )}
+      </ComboboxList>
+    </ComboboxPrimitive.Root>
   );
 }

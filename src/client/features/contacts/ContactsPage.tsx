@@ -194,6 +194,18 @@ export function ContactsPage() {
               facetCounts={query.data?.facetCounts}
               filters={filters}
               filterKeys={CONTACT_FILTER_KEYS}
+              selection={{
+                count: selection.selectedIds.length,
+                onClear: selection.clear,
+                actions: (
+                  <ContactBulkActions
+                    ids={selection.selectedIds}
+                    archived={input.archived}
+                    canPurge={canPurge}
+                    onDone={selection.clear}
+                  />
+                ),
+              }}
             />
           }
           footer={
@@ -212,12 +224,6 @@ export function ContactsPage() {
         />
       </div>
 
-      <ContactBulkActions
-        ids={selection.selectedIds}
-        archived={input.archived}
-        canPurge={canPurge}
-        onDone={selection.clear}
-      />
       {importing ? (
         <ImportDialog entity="CONTACT" onClose={() => setImporting(false)} />
       ) : null}
