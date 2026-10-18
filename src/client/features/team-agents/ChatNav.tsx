@@ -153,7 +153,7 @@ function ChatNavLists() {
         ))}
         {chats.isSuccess && grouped.length === 0 ? (
           <p className="px-2.5 py-2 text-xs text-muted-foreground">
-            No chats in the last 7 days.
+            No recent chats
           </p>
         ) : null}
       </SectionNavGroup>
@@ -312,8 +312,7 @@ export function DeleteChatAction({
           onConfirm={() => remove.mutate()}
           onClose={() => setConfirming(false)}
         >
-          This permanently deletes the chat, its messages and attachments. Any
-          agent created from it stays available.
+          This permanently deletes its messages and attachments.
         </ConfirmDialog>
       ) : null}
     </>

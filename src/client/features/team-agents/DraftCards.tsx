@@ -116,10 +116,7 @@ export function BuildingAgentCard({
           );
         })}
       </ol>
-      <footer className="flex items-center gap-2 border-t border-border bg-foreground/[0.02] px-4 py-3">
-        <p className="min-w-0 flex-1 text-xs text-pretty text-muted-foreground">
-          Runs in the background
-        </p>
+      <footer className="flex items-center justify-end border-t border-border bg-foreground/[0.02] px-4 py-3">
         <Button variant="outline" size="sm" onClick={onStop}>
           Stop
         </Button>
@@ -141,18 +138,13 @@ export function BuilderFailureCard({
   return (
     <div
       role="alert"
-      className="flex flex-col items-stretch gap-3 rounded-xl border border-destructive/30 bg-card px-4 py-3 shadow-xs sm:flex-row sm:items-start"
+      className="flex flex-col items-stretch gap-3 rounded-xl border border-destructive/30 bg-card px-4 py-3 shadow-xs sm:flex-row sm:items-center"
     >
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">
-            {creatingAgent ? "Agent creation stopped" : "Response stopped"}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            The builder could not finish this request. Try again.
-          </p>
-        </div>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <TriangleAlert className="size-4 shrink-0 text-destructive" />
+        <p className="min-w-0 flex-1 text-sm font-medium">
+          {creatingAgent ? "Agent creation stopped" : "Response stopped"}
+        </p>
       </div>
       {onRetry ? (
         <Button
@@ -192,28 +184,10 @@ function AgentCard({
   );
 }
 
-function CardFooter({
-  note,
-  children,
-}: {
-  note?: string;
-  children: ReactNode;
-}) {
+function CardFooter({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col items-stretch gap-3 border-t border-border bg-foreground/[0.02] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      {note ? (
-        <p className="min-w-0 text-xs text-pretty text-muted-foreground">
-          {note}
-        </p>
-      ) : null}
-      <div
-        className={cn(
-          "flex items-center gap-2 sm:shrink-0",
-          !note && "justify-end sm:ml-auto",
-        )}
-      >
-        {children}
-      </div>
+    <div className="flex items-center justify-end gap-2 border-t border-border bg-foreground/[0.02] px-4 py-3">
+      {children}
     </div>
   );
 }
@@ -284,44 +258,36 @@ export function ReviewAgentCard({
 }) {
   const review = reviewOf(manifest);
   return (
-    <div className="flex flex-col gap-5">
-      <p className="text-sm">Your private draft is ready to review.</p>
-      <AgentCard name={manifest?.name.trim() || agentName} status="Private">
-        <dl className="flex flex-col gap-2 p-4">
-          <ReviewRow label="When">{review.trigger}</ReviewRow>
-          <ReviewRow label="Find">{review.looksAt}</ReviewRow>
-          <ReviewRow label="Then">{review.action}</ReviewRow>
-          <ReviewRow label="Scope">
-            {review.access.length === 0 ? (
-              "Bounded CRM read access"
-            ) : (
-              <span className="flex min-w-0 flex-wrap gap-1">
-                {review.access.map((scope) => (
-                  <Badge
-                    key={scope}
-                    variant="secondary"
-                    title={scope}
-                    className="max-w-full"
-                  >
-                    <span className="truncate">{scope}</span>
-                  </Badge>
-                ))}
-              </span>
-            )}
-          </ReviewRow>
-        </dl>
-        <CardFooter>
-          <Button
-            size="sm"
-            nativeButton={false}
-            render={<Link to="/agents/$agentId" params={{ agentId }} />}
-          >
-            View details
-            <ArrowRight data-icon="inline-end" />
-          </Button>
-        </CardFooter>
-      </AgentCard>
-    </div>
+    <AgentCard name={manifest?.name.trim() || agentName} status="Private">
+      <dl className="flex flex-col gap-2 p-4">
+        <ReviewRow label="When">{review.trigger}</ReviewRow>
+        <ReviewRow label="Find">{review.looksAt}</ReviewRow>
+        <ReviewRow label="Then">{review.action}</ReviewRow>
+        <ReviewRow label="Scope">
+          {review.access.length === 0 ? (
+            "Bounded CRM read access"
+          ) : (
+            <span className="flex min-w-0 flex-wrap gap-1">
+              {review.access.map((scope) => (
+                <Badge key={scope} variant="secondary" className="max-w-full">
+                  <span className="truncate">{scope}</span>
+                </Badge>
+              ))}
+            </span>
+          )}
+        </ReviewRow>
+      </dl>
+      <CardFooter>
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={<Link to="/agents/$agentId" params={{ agentId }} />}
+        >
+          View details
+          <ArrowRight data-icon="inline-end" />
+        </Button>
+      </CardFooter>
+    </AgentCard>
   );
 }
 
@@ -353,7 +319,7 @@ export function DeployedAgentCard({
         data: { agentId, clientRequestId: crypto.randomUUID() },
       }),
     onSuccess: async () => {
-      toast.success("Agent run queued.");
+      toast.success("Run queued.");
       await queryClient.invalidateQueries({
         queryKey: teamAgentKeys.agent(agentId),
       });
@@ -365,13 +331,6 @@ export function DeployedAgentCard({
   const nextRunAt = enabled.length === 1 ? enabled[0]?.nextRunAt : null;
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-col gap-1 text-sm">
-        <p>{name} is live.</p>
-        <p className="text-muted-foreground">
-          I created the agent, applied its bounded CRM and integration access,
-          and made it live for the team.
-        </p>
-      </div>
       <AgentCard name={name} status="Live">
         <dl className="flex flex-col gap-2 p-4">
           <ReviewRow label="Trigger">
@@ -388,7 +347,7 @@ export function DeployedAgentCard({
             {createdBy ? `Team · ${createdBy}` : "Team"}
           </ReviewRow>
         </dl>
-        <CardFooter note="The chat stays private. The agent is team-owned.">
+        <CardFooter>
           <Button
             variant="outline"
             size="sm"
