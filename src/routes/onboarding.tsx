@@ -11,8 +11,10 @@ import { QueryError } from "@/client/components/QueryState";
 import { WorkspaceForm } from "@/client/features/workspace/WorkspaceForm";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
+import { pageHead } from "@/client/lib/page-title";
 
 export const Route = createFileRoute("/onboarding")({
+  head: () => pageHead("Set up"),
   component: OnboardingPage,
 });
 

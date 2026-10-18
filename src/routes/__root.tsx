@@ -11,6 +11,7 @@ import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryClientProvider } from "@tanstack/react-query";
 import * as React from "react";
 import { DefaultCatchBoundary } from "@/client/components/DefaultCatchBoundary";
+import { PRODUCT_NAME } from "@/client/lib/page-title";
 import { themePreferenceInitScript } from "@/client/lib/theme";
 import { NotFound } from "@/client/components/NotFound";
 import { TooltipProvider } from "@/client/components/ui/tooltip";
@@ -22,7 +23,7 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       {
-        title: "CRM",
+        title: PRODUCT_NAME,
       },
       {
         charSet: "utf-8",
