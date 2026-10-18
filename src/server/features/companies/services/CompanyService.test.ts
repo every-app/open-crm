@@ -171,7 +171,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(total).toBe(2);
     });
 
-    it("shows a company's live contacts and deals, open deals first", async () => {
+    it("shows a company's live contacts and deals with their owners, open deals first", async () => {
       const acme = await create(A, "Acme", "acme.com");
       await database.exec(`
         INSERT INTO contact (id, organization_id, first_name, last_name, company_id) VALUES ('p1', 'org_a', 'Ana', 'Zed', '${acme.id}');
@@ -188,9 +188,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(rows[0]).toMatchObject({ contactCount: 1, openDealCount: 1 });
 
       const company = await CompanyService.getCompany(A, acme.id);
-      expect(company.contacts.map((contact) => contact.id)).toEqual(["p1"]);
+      expect(company.contacts).toMatchObject([{ id: "p1", owner: null }]);
       expect(company.deals).toMatchObject([
-        { id: "d2", open: true },
+        { id: "d2", open: true, owner: { id: "user_a", name: "Ana" } },
         { id: "d1", open: false },
       ]);
     });

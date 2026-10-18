@@ -1,13 +1,14 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { contact, deal } from "@/db/schema";
+import { contact, deal, user } from "@/db/schema";
+import { ownerColumns } from "@/server/features/records/listQuery";
 import { DEAL_STAGE_ORDER, OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 
 // What a company's sheet reads about the people and deals filed on it: the
 // contacts and deals features own those records; the companies feature only
 // lists them, compactly, and links to them.
 
-/** The company's live contacts, by last name then first name. */
+/** The company's live contacts and their owners, by last name then first name. */
 async function listContacts(organizationId: string, companyId: string) {
   return db
     .select({
@@ -17,8 +18,10 @@ async function listContacts(organizationId: string, companyId: string) {
       email: contact.email,
       title: contact.title,
       imageUrl: contact.imageUrl,
+      owner: ownerColumns,
     })
     .from(contact)
+    .leftJoin(user, eq(user.id, contact.ownerId))
     .where(
       and(
         eq(contact.organizationId, organizationId),
@@ -41,7 +44,10 @@ const stageRank = sql`case ${deal.stage} ${sql.join(
   sql` `,
 )} end`;
 
-/** The company's live deals, in pipeline order, soonest close first. */
+/**
+ * The company's live deals and their owners, in pipeline order, soonest
+ * close first.
+ */
 async function listDeals(organizationId: string, companyId: string) {
   const rows = await db
     .select({
@@ -52,8 +58,10 @@ async function listDeals(organizationId: string, companyId: string) {
       currency: deal.currency,
       baseAmount: deal.baseAmount,
       expectedCloseDate: deal.expectedCloseDate,
+      owner: ownerColumns,
     })
     .from(deal)
+    .leftJoin(user, eq(user.id, deal.ownerId))
     .where(
       and(
         eq(deal.organizationId, organizationId),

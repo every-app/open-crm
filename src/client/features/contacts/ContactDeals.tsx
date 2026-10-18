@@ -7,7 +7,7 @@ import {
   SheetEmpty,
   SheetSection,
 } from "@/client/features/records/RecordSheet";
-import { EmptyValue } from "@/client/features/records/cells";
+import { EmptyValue, SubListOwner } from "@/client/features/records/cells";
 
 /**
  * A contact's Deals tab: the deals they're on, with their role on each. A
@@ -53,6 +53,7 @@ export function ContactDeals({ contact }: { contact: Contact }) {
                   )}
                 </span>
                 <DealStageMenu dealId={deal.id} stage={deal.stage} />
+                <SubListOwner owner={deal.owner} />
               </div>
             </li>
           ))}

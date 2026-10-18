@@ -269,7 +269,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
       const contact = await ContactService.getContact(A, ana.id);
       expect(contact.deals).toMatchObject([
-        { id: "d2", open: true, role: null },
+        { id: "d2", open: true, role: null, owner: { name: "Ana" } },
         { id: "d1", open: false, role: "Champion" },
       ]);
       expect(contact.relationship).toEqual({

@@ -12,6 +12,7 @@ import {
   type SQL,
   type SQLWrapper,
 } from "drizzle-orm";
+import { user } from "@/db/schema";
 import {
   ACTIVITY_WINDOWS,
   UNASSIGNED,
@@ -32,6 +33,17 @@ import {
 
 /** The most values a free-text filter counts: its column's commonest. */
 export const FILTER_OPTIONS_MAX = 200;
+
+/**
+ * A record's owner as a list row shows them, from `user` left-joined on the
+ * record's owner: null for nobody.
+ */
+export const ownerColumns = {
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  image: user.image,
+};
 
 /**
  * GROUP BY rows as one filter's counts, by value. Rows with no value count

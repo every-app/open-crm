@@ -18,7 +18,11 @@ import {
   SheetEmpty,
   SheetSection,
 } from "@/client/features/records/RecordSheet";
-import { EmptyValue, PersonAvatar } from "@/client/features/records/cells";
+import {
+  EmptyValue,
+  PersonAvatar,
+  SubListOwner,
+} from "@/client/features/records/cells";
 
 // A company's Contacts and Deals tabs, each with a form that adds one
 // without leaving the sheet. The tab names the list and counts it.
@@ -118,6 +122,7 @@ export function CompanyContacts({
                     {[contact.title, contact.email].filter(Boolean).join(" · ")}
                   </p>
                 </div>
+                <SubListOwner owner={contact.owner} />
                 <Button
                   variant="ghost"
                   size="icon-xs"
@@ -208,6 +213,7 @@ export function CompanyDeals({ company }: { company: Company }) {
                   )}
                 </span>
                 <DealStageMenu dealId={deal.id} stage={deal.stage} />
+                <SubListOwner owner={deal.owner} />
               </div>
             </li>
           ))}
