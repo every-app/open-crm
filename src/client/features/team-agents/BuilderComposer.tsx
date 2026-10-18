@@ -1,4 +1,11 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { ArrowUp, Bot, Paperclip, Square, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -13,6 +20,7 @@ import {
   builderCommandType,
   consumeBuilderCommand,
 } from "@/shared/builder-command";
+import { PREVIEWABLE_IMAGE_TYPES } from "@/shared/team-agents";
 import { TagPicker, type TaggedResource } from "./TagPicker";
 import { CREATE_AGENT_PREFIX } from "./teamAgentCopy";
 
@@ -184,6 +192,7 @@ export function BuilderComposer({
             <Chip
               key={`${file.name}:${index}`}
               label={`${file.name} · ${formatBytes(file.size)}`}
+              thumbnail={<FileThumbnail file={file} />}
               onRemove={() =>
                 setFiles((current) => current.filter((entry) => entry !== file))
               }
@@ -279,9 +288,32 @@ export function BuilderComposer({
   );
 }
 
-function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
+/** An image file's thumbnail, as the CRM's attachment chips showed one. */
+function FileThumbnail({ file }: { file: File }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!PREVIEWABLE_IMAGE_TYPES.has(file.type.toLowerCase())) return undefined;
+    const next = URL.createObjectURL(file);
+    setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [file]);
+  return url ? (
+    <img src={url} alt="" className="size-4 shrink-0 rounded-sm object-cover" />
+  ) : null;
+}
+
+function Chip({
+  label,
+  thumbnail,
+  onRemove,
+}: {
+  label: string;
+  thumbnail?: ReactNode;
+  onRemove: () => void;
+}) {
   return (
-    <span className="inline-flex h-6 max-w-60 items-center gap-1 rounded-md border border-border bg-muted/50 pr-1 pl-2 text-xs">
+    <span className="inline-flex h-6 max-w-60 items-center gap-1 rounded-md border border-border bg-muted/50 pr-1 pl-2 text-xs has-[img]:pl-1">
+      {thumbnail}
       <span className="truncate">{label}</span>
       <button
         type="button"

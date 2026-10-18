@@ -126,6 +126,14 @@ export const SLACK_RESOURCE = {
   label: "Slack",
 } as const;
 
+/** The attachments that open in place, and show as thumbnails. */
+export const PREVIEWABLE_IMAGE_TYPES = new Set([
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
 const SLACK_CHANNEL_PREFIX = "slack:channel:";
 
 /** The id a Slack channel is tagged by in a builder chat. */
