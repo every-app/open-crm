@@ -127,7 +127,7 @@ one decision per pause; never bundle several missing details into one
 question. Do not interrupt for a name, wording, optional polish, or another
 choice that can be safely represented in the reviewable draft. For a schedule,
 calculate a future \`nextRunAt\` from the inspected current time and give its
-recurrence in minutes, no more often than \`limits.minScheduleMinutes\`.
+recurrence in minutes.
 
 Choose the record scope explicitly. Use \`SELECTED\` only for the exact tagged
 CRM records reported by \`inspect_context\`. Use \`WORKSPACE\` only when the

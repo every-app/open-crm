@@ -49,16 +49,10 @@ export const ACTION_STATUSES = [
 
 export const FEEDBACK_RATINGS = ["UP", "DOWN"] as const;
 
-/**
- * What bounds a team agent's spending (docs/maintainers/agent.md, "Team
- * agents"): runs are model calls the gateway's keys pay for.
- */
-export const TEAM_AGENT_LIMITS = {
-  /** The shortest schedule; with the daily cap, at most two runs an hour. */
-  minScheduleMinutes: 30,
-  maxScheduleMinutes: 525_600,
-  /** Runs one agent may start in any 24 hours, however they are triggered. */
-  maxRunsPerDay: 50,
+/** How often a schedule may recur, as in the CRM: every minute to once a year. */
+export const AGENT_TRIGGER_INTERVAL_MINUTES = {
+  min: 1,
+  max: 525_600,
 } as const;
 
 // The CRM events an EVENT trigger can listen for, as the CRM's crm-events.ts.
@@ -240,7 +234,7 @@ const manifestTrigger = z.discriminatedUnion("type", [
     type: z.literal("SCHEDULE"),
     name: z.string(),
     summary: z.string(),
-    intervalMinutes: z.number().int().min(1),
+    intervalMinutes: z.number().int().min(AGENT_TRIGGER_INTERVAL_MINUTES.min),
     nextRunAt: z.string(),
   }),
   z.object({

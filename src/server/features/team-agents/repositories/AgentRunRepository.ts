@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
 import { agentDefinition, agentRun, agentVersion, user } from "@/db/schema";
@@ -138,25 +138,6 @@ async function hasActiveRun(
     )
     .limit(1);
   return Boolean(row);
-}
-
-/** How many runs the agent was given since `since`. */
-async function countSince(
-  organizationId: string,
-  agentId: string,
-  since: string,
-): Promise<number> {
-  const [row] = await db
-    .select({ runs: count() })
-    .from(agentRun)
-    .where(
-      and(
-        eq(agentRun.organizationId, organizationId),
-        eq(agentRun.agentId, agentId),
-        gte(agentRun.createdAt, since),
-      ),
-    );
-  return row?.runs ?? 0;
 }
 
 /**
@@ -328,7 +309,6 @@ export const AgentRunRepository = {
   findById,
   findWithVersion,
   hasActiveRun,
-  countSince,
   claim,
   setSession,
   requeue,

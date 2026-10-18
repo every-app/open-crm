@@ -59,7 +59,7 @@ export function builderTools(
     ...reads,
     inspect_context: tool({
       description:
-        "Read the authoritative builder context: supported CRM events, connected sources, matched Slack people, available Slack channels, the records tagged in this chat, the current time, the limits, and the latest draft.",
+        "Read the authoritative builder context: supported CRM events, connected sources, matched Slack people, available Slack channels, the records tagged in this chat, the current time, and the latest draft.",
       inputSchema: z.object({}),
       execute: () => BuilderToolService.builderContext(tool_),
     }),
