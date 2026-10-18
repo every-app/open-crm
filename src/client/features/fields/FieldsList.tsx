@@ -87,7 +87,7 @@ export function FieldsList({
   entity: FieldEntity;
   query: UseQueryResult<Field[]>;
   canManage: boolean;
-  onEdit: (id: string) => void;
+  onEdit: (key: string) => void;
   onNew: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -121,7 +121,7 @@ export function FieldsList({
       <FieldRow
         field={field}
         canManage={canManage}
-        onEdit={() => onEdit(field.id)}
+        onEdit={() => onEdit(field.key)}
         onArchive={() => archive.mutate(field.id)}
       />
     );

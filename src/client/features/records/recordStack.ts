@@ -1,5 +1,8 @@
+import { useCallback } from "react";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
+import { DEAL_STAGES } from "@/shared/crm-enums";
+import { isLosingStage } from "@/shared/deal-stages";
 import { RECORD_KINDS, type RecordRef } from "@/shared/records";
 
 // The record sheets open over whatever page is current, as the CRM opens
@@ -7,6 +10,19 @@ import { RECORD_KINDS, type RecordRef } from "@/shared/records";
 // and `tab` is the top sheet's tab. A record opened from a sheet stacks on
 // it, and the sheet's Back returns to the one under it. Opening the first
 // adds a history entry, so the browser's back button closes the sheets.
+//
+// The panels opened in a sheet or over the page are in the URL too, under
+// the CRM's keys, so a refresh or a link brings them back:
+//   add                    a company's quick-add form, "contact" or "deal"
+//   timeline               the Activity tab's view; All when absent
+//   emailThread            the email thread open on the timeline
+//   manageFields           the fields sheet, on a kind of record's fields
+//   manageField            the field it edits, by key, or "new"
+//   k                      the quick switcher (⌘K)
+//   closeDeal, closeStage  the reason a deal closing as lost or unqualified
+//                          asks for
+// They replace the history entry rather than add one, and opening or
+// closing a record closes them all.
 
 // Every sheet has Overview, Activity and Agent; a company's sheet adds
 // Contacts and Deals, a contact's Deals and a deal's Contacts.
@@ -18,6 +34,25 @@ export const RECORD_TABS = [
   "agent",
 ] as const;
 export type RecordTab = (typeof RECORD_TABS)[number];
+
+/** A company's quick-add forms, each on the tab of what it adds. */
+const QUICK_ADDS = ["contact", "deal"] as const;
+export type QuickAdd = (typeof QUICK_ADDS)[number];
+const QUICK_ADD_TAB: Record<QuickAdd, RecordTab> = {
+  contact: "contacts",
+  deal: "deals",
+};
+
+/** The views of a record's timeline (its Activity tab). */
+export const TIMELINE_VIEWS = [
+  "all",
+  "notes",
+  "email",
+  "meetings",
+  "upcoming",
+  "done",
+] as const;
+export type TimelineView = (typeof TIMELINE_VIEWS)[number];
 
 /** The most sheets a stack holds: deeper, the oldest drops off. */
 const STACK_MAX = 10;
@@ -50,6 +85,13 @@ function formatStack(stack: RecordRef[]): string | undefined {
     : undefined;
 }
 
+/** An id or a key from the URL, as text: the router reads `?k=42` as 42. */
+const textParam = z
+  .union([z.string().min(1), z.number()])
+  .transform(String)
+  .optional()
+  .catch(undefined);
+
 /**
  * The search params every signed-in page takes (validated on the `_app`
  * route). A stale or hand-edited link keeps what still parses.
@@ -61,13 +103,62 @@ export const appSearchSchema = z.object({
     .optional()
     .catch(undefined),
   tab: z.enum(RECORD_TABS).optional().catch(undefined),
+  add: z.enum(QUICK_ADDS).optional().catch(undefined),
+  timeline: z.enum(TIMELINE_VIEWS).optional().catch(undefined),
+  emailThread: textParam,
+  manageFields: z.enum(RECORD_KINDS).optional().catch(undefined),
+  manageField: textParam,
+  k: z.boolean().optional().catch(undefined),
+  closeDeal: textParam,
+  closeStage: z
+    .enum(DEAL_STAGES)
+    .refine(isLosingStage)
+    .optional()
+    .catch(undefined),
 });
+
+export type AppSearch = z.infer<typeof appSearchSchema>;
+
+/** The app's params, each a key of `appSearchSchema`. */
+export const APP_SEARCH_KEYS = appSearchSchema.keyof().options;
+
+/** Every panel closed, as opening or closing a record leaves them. */
+const PANELS_CLOSED = {
+  tab: undefined,
+  add: undefined,
+  timeline: undefined,
+  emailThread: undefined,
+  manageFields: undefined,
+  manageField: undefined,
+  k: undefined,
+  closeDeal: undefined,
+  closeStage: undefined,
+} satisfies Omit<Record<keyof AppSearch, undefined>, "record">;
 
 const appRoute = getRouteApi("/_app");
 
+/** The app's params: the open sheets and their panels. */
+export function useAppSearch(): AppSearch {
+  return appRoute.useSearch();
+}
+
+/** Sets some of the app's params, in place of the current history entry. */
+export function useSetAppSearch() {
+  const navigate = useNavigate();
+  return useCallback(
+    (update: Partial<AppSearch>) =>
+      void navigate({
+        to: ".",
+        search: (prev) => ({ ...prev, ...update }),
+        replace: true,
+      }),
+    [navigate],
+  );
+}
+
 /** The open sheets, and the ways to open, go back and close them. */
 export function useRecordStack() {
-  const { record } = appRoute.useSearch();
+  const { record } = useAppSearch();
   const navigate = useNavigate();
   const stack = parseStack(record);
 
@@ -77,7 +168,7 @@ export function useRecordStack() {
     <TSearch extends object>(prev: TSearch) => ({
       ...prev,
       record: formatStack(next),
-      tab: undefined,
+      ...PANELS_CLOSED,
     });
   const write = (next: RecordRef[], replace: boolean) =>
     void navigate({ to: ".", search: searchFor(next), replace });
@@ -105,20 +196,32 @@ export function useOpenRecord() {
   return useRecordStack().open;
 }
 
-/** The top sheet's tab, kept in the URL. */
+/**
+ * The top sheet's tab, kept in the URL: a quick-add form shows on its own
+ * tab. Another tab closes the panels open on this one.
+ */
 export function useRecordTab() {
-  const { tab } = appRoute.useSearch();
-  const navigate = useNavigate();
+  const { tab, add } = useAppSearch();
+  const setSearch = useSetAppSearch();
   return [
-    tab ?? "overview",
+    add ? QUICK_ADD_TAB[add] : (tab ?? "overview"),
     (next: RecordTab) =>
-      void navigate({
-        to: ".",
-        search: (prev) => ({
-          ...prev,
-          tab: next === "overview" ? undefined : next,
-        }),
-        replace: true,
+      setSearch({
+        tab: next === "overview" ? undefined : next,
+        add: undefined,
+        timeline: undefined,
+        emailThread: undefined,
       }),
+  ] as const;
+}
+
+/** A company sheet's quick-add form: which is open, and opening or closing one. */
+export function useQuickAdd() {
+  const { add } = useAppSearch();
+  const setSearch = useSetAppSearch();
+  return [
+    add,
+    (next: QuickAdd | undefined) =>
+      setSearch(next ? { add: next, tab: QUICK_ADD_TAB[next] } : { add: next }),
   ] as const;
 }

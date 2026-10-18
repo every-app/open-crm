@@ -15,5 +15,27 @@ describe("the record stack in the URL", () => {
     expect(
       appSearchSchema.parse({ record: deep.join(",") }).record?.split(","),
     ).toEqual(deep.slice(2));
+
+    // The panels: an id the router read as a number stays text, and only a
+    // losing stage asks for a reason.
+    expect(
+      appSearchSchema.parse({
+        timeline: "email",
+        emailThread: 42,
+        manageFields: "COMPANY",
+        closeDeal: "d1",
+        closeStage: "CLOSED_WON",
+        k: "yes",
+      }),
+    ).toMatchObject({
+      timeline: "email",
+      emailThread: "42",
+      manageFields: undefined,
+      closeStage: undefined,
+      k: undefined,
+    });
+    expect(
+      appSearchSchema.parse({ closeStage: "CLOSED_LOST" }).closeStage,
+    ).toBe("CLOSED_LOST");
   });
 });
