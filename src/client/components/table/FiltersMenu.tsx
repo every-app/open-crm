@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from "react";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
 import {
-  Check,
   ChevronDown,
   ListFilterIcon,
   Search,
   X,
   type LucideIcon,
 } from "lucide-react";
+import { RowCheckbox } from "@/client/components/table/RowCheckbox";
 import { filterSummary } from "@/client/components/table/filterSummary";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
@@ -265,11 +265,9 @@ function FilterOptions({
             key={item.value}
             value={item}
             disabled={full && !single && !value.includes(item.value)}
-            className="group/option flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+            className="group/check flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
           >
-            <span className="flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border border-input group-aria-selected/option:border-primary group-aria-selected/option:bg-primary group-aria-selected/option:text-primary-foreground">
-              <Check className="hidden size-2.5 stroke-[3.5] group-aria-selected/option:block" />
-            </span>
+            <RowCheckbox />
             <span className="min-w-0 truncate">
               {renderOption ? renderOption(item) : item.label}
             </span>

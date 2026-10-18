@@ -1,9 +1,10 @@
+import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import type { Column, Table } from "@tanstack/react-table";
 import { ChevronDown, Columns3, Settings2 } from "lucide-react";
+import { RowCheckbox } from "@/client/components/table/RowCheckbox";
 import { Button } from "@/client/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -43,13 +44,15 @@ export function ColumnsMenu<TData>({
         <DropdownMenuGroup>
           <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
           {columns.map((column) => (
-            <DropdownMenuCheckboxItem
+            <MenuPrimitive.CheckboxItem
               key={column.id}
               checked={column.getIsVisible()}
               onCheckedChange={(checked) => column.toggleVisibility(checked)}
+              className="group/check flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground"
             >
+              <RowCheckbox />
               {columnLabel(column)}
-            </DropdownMenuCheckboxItem>
+            </MenuPrimitive.CheckboxItem>
           ))}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
