@@ -82,40 +82,35 @@ export async function slackCallOrThrow(
   return reply.body;
 }
 
-/** Every page of a cursor-paginated list method. */
-export async function slackPages<Item>(
+/**
+ * One page of a cursor-paginated list method (`cursor` empty for the first):
+ * the items under `list.key`, and the next page's cursor, empty after the
+ * last.
+ */
+export async function slackPage<Item>(
   token: string,
   method: string,
-  key: string,
-  item: z.ZodType<Item>,
-  query: Record<string, string> = {},
-): Promise<Item[]> {
-  const page = z.object({
-    items: z.array(z.unknown()).catch([]),
-    next: z.string().nullish().catch(null),
+  list: { key: string; item: z.ZodType<Item>; query?: Record<string, string> },
+  cursor: string,
+): Promise<{ items: Item[]; next: string }> {
+  const body = await slackCallOrThrow(token, method, {
+    query: { limit: "200", ...list.query, ...(cursor ? { cursor } : {}) },
   });
-  const items: Item[] = [];
-  let cursor = "";
-  do {
-    const body = await slackCallOrThrow(token, method, {
-      query: { limit: "200", ...query, ...(cursor ? { cursor } : {}) },
+  const record = z.record(z.string(), z.unknown()).catch({}).parse(body);
+  const items = z
+    .array(z.unknown())
+    .catch([])
+    .parse(record[list.key])
+    .flatMap((entry) => {
+      const one = list.item.safeParse(entry);
+      return one.success ? [one.data] : [];
     });
-    const record = z.record(z.string(), z.unknown()).catch({}).parse(body);
-    const parsed = page.parse({
-      items: record[key],
-      next: z
-        .object({ next_cursor: z.string().nullish() })
-        .nullish()
-        .catch(null)
-        .parse(record.response_metadata)?.next_cursor,
-    });
-    for (const entry of parsed.items) {
-      const one = item.safeParse(entry);
-      if (one.success) items.push(one.data);
-    }
-    cursor = parsed.next ?? "";
-  } while (cursor);
-  return items;
+  const next = z
+    .object({ next_cursor: z.string().nullish() })
+    .nullish()
+    .catch(null)
+    .parse(record.response_metadata)?.next_cursor;
+  return { items, next: next ?? "" };
 }
 
 /** Slack's error code in words a person can act on. */

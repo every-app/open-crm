@@ -1,24 +1,20 @@
 import { waitUntil } from "cloudflare:workers";
 import { z } from "zod";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
-import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
+import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { AppError } from "@/server/lib/errors";
 import {
   SlackRepository,
   type SlackConnectionRow,
 } from "../repositories/SlackRepository";
-import {
-  explainSlackError,
-  slackCall,
-  slackPages,
-  SlackError,
-} from "../lib/slackApi";
+import { explainSlackError, slackCall } from "../lib/slackApi";
 
 // What the CRM knows of the connected Slack workspace, ported from the CRM's
 // slack-people.ts and slack-membership.ts: the channels the app can reach
 // (joining and creating them), and which members are which Slack users,
 // matched by exact email. The agent builder pins destinations to this
-// inventory.
+// inventory. Reading it from Slack is a task the dispatcher leases and
+// retries, as in the CRM (SlackSyncService).
 
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
@@ -210,159 +206,39 @@ async function createChannel(
   return { created: true, channel };
 }
 
-/** Reads Slack's people and channels again, after the response. */
+/** Reads Slack's people and channels again, starting now. */
 async function refresh(context: Context) {
   await requireConnection(context.organizationId);
-  startSync(context.organizationId);
+  await queueSync(context.organizationId, true);
   return { requested: true };
 }
 
+/** Starts a read of Slack's people and channels, after the response. */
 function startSync(organizationId: string): void {
   waitUntil(
-    sync(organizationId).catch((error: unknown) => {
-      console.error("[slack] sync failed", { organizationId }, error);
+    queueSync(organizationId, false).catch((error: unknown) => {
+      console.error(
+        "[slack] could not queue a sync",
+        { organizationId },
+        error,
+      );
     }),
   );
 }
 
-const slackMember = z.object({
-  id: z.string().min(1),
-  name: z.string().optional(),
-  deleted: z.boolean().optional(),
-  is_bot: z.boolean().optional(),
-  profile: z.object({ email: z.string().nullish() }).nullish(),
-});
-
-const slackChannelItem = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  num_members: z.number().int().nonnegative().nullish(),
-  is_member: z.boolean().optional(),
-  is_archived: z.boolean().optional(),
-  is_private: z.boolean().optional(),
-});
-
-const authTest = z
-  .object({ user: z.string().nullish(), bot_id: z.string().nullish() })
-  .catch({ user: null, bot_id: null });
-
-const botInfo = z
-  .object({ bot: z.object({ name: z.string().min(1) }).nullish() })
-  .catch({ bot: null });
-
 /**
- * The app's name in the workspace, which `/invite @…` takes: its bot's
- * name, or the bot user's when Slack won't give that. Null when Slack won't
- * say at all.
+ * Queues a read of Slack's people and channels, which the dispatcher starts
+ * at once, and says it is on. A read already queued or running is left to
+ * finish. `required`: a person asked, so a failure to queue is theirs to see.
  */
-async function appName(token: string): Promise<string | null> {
-  const self = await slackCall(token, "auth.test");
-  if (!self.ok) return null;
-  const { user, bot_id: botId } = authTest.parse(self.body);
-  if (botId) {
-    const info = await slackCall(token, "bots.info", { query: { bot: botId } });
-    const name = info.ok ? botInfo.parse(info.body).bot?.name : null;
-    if (name) return name;
-  }
-  return user ?? null;
-}
-
-/**
- * Matches every member to a Slack user by exact email, and replaces the
- * channel inventory with what the app (and, with the installer's grant, the
- * installer) can see. Ported from the CRM's runSlackPeopleMatch.
- */
-async function sync(organizationId: string): Promise<string> {
-  const connection = await SlackRepository.getConnection(organizationId);
-  if (!connection) return "Slack is not connected.";
-  await SlackRepository.markSync(organizationId, {
-    syncStartedAt: new Date().toISOString(),
-  });
-  try {
-    const bot = connection.botToken;
-    const channelQuery = {
-      types: "public_channel,private_channel",
-      exclude_archived: "true",
-    };
-    const [name, people, botChannels, userChannels, members] =
-      await Promise.all([
-        // Display-only: a failed lookup keeps the name read last time.
-        appName(bot).catch(() => null),
-        slackPages(bot, "users.list", "members", slackMember),
-        slackPages(
-          bot,
-          "conversations.list",
-          "channels",
-          slackChannelItem,
-          channelQuery,
-        ),
-        connection.userToken
-          ? slackPages(
-              connection.userToken,
-              "conversations.list",
-              "channels",
-              slackChannelItem,
-              channelQuery,
-            ).catch(() => [])
-          : Promise.resolve([]),
-        AuthRepository.listMembers(organizationId),
-      ]);
-    const byEmail = new Map(
-      people
-        .filter((person) => !person.deleted && !person.is_bot)
-        .flatMap((person) => {
-          const email = person.profile?.email?.trim().toLowerCase();
-          return email ? [[email, person] as const] : [];
-        }),
-    );
-    const memberMatches = members.map((row) => {
-      const slack = byEmail.get(row.email.trim().toLowerCase());
-      return {
-        userId: row.userId,
-        slackUserId: slack?.id ?? null,
-        slackHandle: slack ? `@${slack.name ?? slack.id}` : null,
-        slackEmail: slack?.profile?.email ?? null,
-      };
-    });
-    await SlackRepository.saveMatches(organizationId, memberMatches);
-    const seen = new Map(botChannels.map((channel) => [channel.id, channel]));
-    for (const channel of userChannels) {
-      if (!seen.has(channel.id))
-        seen.set(channel.id, { ...channel, is_member: false });
-    }
-    const canInviteItself = Boolean(connection.userToken);
-    const available = [...seen.values()].filter(
-      (channel) =>
-        !channel.is_archived &&
-        (channel.is_member || !channel.is_private || canInviteItself),
-    );
-    await SlackRepository.replaceChannels(
-      organizationId,
-      available.map((channel) => ({
-        slackChannelId: channel.id,
-        name: channel.name,
-        memberCount: channel.num_members ?? null,
-        isPrivate: channel.is_private ?? false,
-        isMember: channel.is_member ?? false,
-      })),
-    );
+async function queueSync(
+  organizationId: string,
+  required: boolean,
+): Promise<void> {
+  if (await AgentTaskService.slackSyncRequested(organizationId, required)) {
     await SlackRepository.markSync(organizationId, {
-      syncedAt: new Date().toISOString(),
-      syncError: null,
-      ...(name ? { botName: name } : {}),
+      syncStartedAt: new Date().toISOString(),
     });
-    const matched = memberMatches.filter((match) => match.slackUserId).length;
-    return `Matched ${matched} of ${memberMatches.length} members by email and found ${available.length} available channels.`;
-  } catch (error) {
-    const reason =
-      error instanceof SlackError
-        ? error.message
-        : "Slack could not be read. Try again in a moment.";
-    await SlackRepository.markSync(organizationId, {
-      syncedAt: new Date().toISOString(),
-      syncError: reason,
-    });
-    throw error;
   }
 }
 
@@ -432,7 +308,6 @@ export const SlackInventoryService = {
   joinChannel,
   createChannel,
   refresh,
-  sync,
   matches,
   builderInventory,
   startSync,

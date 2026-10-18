@@ -3,10 +3,13 @@ import type { CreditCheck } from "@/server/billing/credits";
 import { billResearchSpend } from "@/server/billing/researchSpend";
 import { withSpendSink, type ProviderSpend } from "@/server/billing/spendSink";
 import { forOrganization } from "@/server/lib/gateway-attribution";
+import { SlackSyncService } from "@/server/features/slack/services/SlackSyncService";
 import {
   AGENT_EVENT_KIND,
   ASKED_FOR_PRIORITY,
   DIRECT_KINDS,
+  FREE_KINDS,
+  SLACK_SYNC_KIND,
 } from "@/shared/agent-tasks";
 import { DISPATCH } from "./dispatch/config";
 import { markRunning, settle } from "./dispatch/enrichment";
@@ -25,10 +28,12 @@ import { runPortrait } from "./visible/portrait";
 // queue (agent_task) says what the work is; the lane only says whether it
 // needs a conversation:
 //
-// - The visible lane (brand, portrait) has nothing to decide, so it runs here
-//   with no model: many at once, on a short lease, first. Through a session it
-//   queued behind sixty research runs. A brand that leaves the company without
-//   an icon falls back on the company's own favicon, which is free.
+// - The visible lane (brand, portrait, the Slack inventory) has nothing to
+//   decide, so it runs here with no model: many at once, on a short lease,
+//   first. Through a session it queued behind sixty research runs. A brand
+//   that leaves the company without an icon falls back on the company's own
+//   favicon, which is free. A read of Slack goes a few pages a run, each run
+//   going on from where the last stopped (SlackSyncService).
 // - The research lane starts one CrmAgent session per task, on a lease long
 //   enough for the session to finish and report back (CrmAgent).
 //
@@ -38,7 +43,8 @@ import { runPortrait } from "./visible/portrait";
 // Every gateway call is the task's organization's (forOrganization). A task
 // that fails is retried when its lease runs out, up to MAX_ATTEMPTS, then
 // retired by the stale-task sweep. Where usage is billed, both lanes leave an
-// organization out of credits waiting (`credits`, billing/credits.ts).
+// organization out of credits waiting (`credits`, billing/credits.ts), but for
+// work that costs nothing (FREE_KINDS).
 
 /** Work that outlives the call that started it (ctx.waitUntil). */
 export type Defer = (work: Promise<unknown>) => void;
@@ -126,6 +132,24 @@ async function handleDirectBilled(task: LeasedTask): Promise<void> {
 
 async function handleDirect(task: LeasedTask): Promise<void> {
   const { organizationId } = task;
+  if (task.kind === SLACK_SYNC_KIND) {
+    const run = await SlackSyncService.runSync(
+      organizationId,
+      task.payload,
+      (progress) =>
+        AgentTaskRepository.replaceOpenPayload(
+          organizationId,
+          task.id,
+          progress,
+        ),
+    );
+    if (run.done) {
+      await AgentTaskRepository.complete(organizationId, task.id, run.outcome);
+    } else {
+      await AgentTaskRepository.release(organizationId, task.id, run.resumeAt);
+    }
+    return;
+  }
   if (task.kind === "brand" && task.companyId) {
     const result = await runBrand({
       organizationId,
@@ -201,9 +225,12 @@ export async function runResearchLane(options: {
   return funded.length;
 }
 
+const COSTS_NOTHING = new Set<string>(FREE_KINDS);
+
 /**
- * The leased tasks whose organizations have credits to pay for them. The
- * others go back to the queue, their attempts uncounted, to wait for credits.
+ * The leased tasks whose organizations have credits to pay for them, or that
+ * cost nothing. The others go back to the queue, their attempts uncounted, to
+ * wait for credits.
  */
 async function withCredits(
   tasks: LeasedTask[],
@@ -212,8 +239,9 @@ async function withCredits(
   if (!credits) return tasks;
   const funded: LeasedTask[] = [];
   for (const task of tasks) {
-    if (await credits(task.organizationId)) funded.push(task);
-    else await AgentTaskRepository.release(task.organizationId, task.id);
+    if (COSTS_NOTHING.has(task.kind) || (await credits(task.organizationId))) {
+      funded.push(task);
+    } else await AgentTaskRepository.release(task.organizationId, task.id);
   }
   return funded;
 }
