@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
 import {
   ChevronDown,
@@ -70,6 +70,12 @@ export type ListFilter = {
   searching?: boolean;
   emptyLabel?: string;
   renderOption?: (option: FilterOption) => ReactNode;
+  /**
+   * The submenu's own content in place of the options, such as inputs for
+   * text it contains or a range. `value` then holds what the filter is set
+   * to, as its token reads it, and `onChange([])` clears it.
+   */
+  panel?: ReactNode;
   /** A custom field's, offered under "Custom fields". */
   custom?: boolean;
   /** Its token reads like its option, without "<label> is". */
@@ -77,6 +83,14 @@ export type ListFilter = {
 };
 
 const isSet = (filter: ListFilter) => filter.value.length > 0;
+
+/**
+ * Keys typed into a submenu's fields stay there: the menus around them must
+ * not read letters as typeahead or arrows as moves. Escape still closes it.
+ */
+function keepKeys(event: KeyboardEvent) {
+  if (event.key !== "Escape" && event.key !== "Tab") event.stopPropagation();
+}
 
 /** A value's label among the filter's options, or the value itself. */
 function labelOf(filter: ListFilter, value: string): string {
@@ -175,7 +189,13 @@ function FilterSubmenu({
         ) : null}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-64 p-0">
-        <FilterOptions filter={filter} onPicked={onPicked} />
+        {filter.panel ? (
+          <div className="p-2" onKeyDown={keepKeys}>
+            {filter.panel}
+          </div>
+        ) : (
+          <FilterOptions filter={filter} onPicked={onPicked} />
+        )}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   );
@@ -245,13 +265,7 @@ function FilterOptions({
         <ComboboxPrimitive.Input
           autoFocus
           placeholder={`Search ${label.toLowerCase()}…`}
-          // Keys typed here stay here: the menus around it must not read
-          // letters as typeahead or arrows as moves. Escape still closes.
-          onKeyDown={(event) => {
-            if (event.key !== "Escape" && event.key !== "Tab") {
-              event.stopPropagation();
-            }
-          }}
+          onKeyDown={keepKeys}
           className="h-9 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
