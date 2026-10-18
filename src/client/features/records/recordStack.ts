@@ -8,7 +8,15 @@ import { RECORD_KINDS, type RecordRef } from "@/shared/records";
 // it, and the sheet's Back returns to the one under it. Opening the first
 // adds a history entry, so the browser's back button closes the sheets.
 
-export const RECORD_TABS = ["overview", "activity", "agent"] as const;
+// Every sheet has Overview, Activity and Agent; a company's sheet adds
+// Contacts and Deals, a contact's Deals and a deal's Contacts.
+export const RECORD_TABS = [
+  "overview",
+  "contacts",
+  "deals",
+  "activity",
+  "agent",
+] as const;
 export type RecordTab = (typeof RECORD_TABS)[number];
 
 /** The most sheets a stack holds: deeper, the oldest drops off. */

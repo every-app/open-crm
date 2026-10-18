@@ -5,6 +5,10 @@ import { QueryError } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import { CompanyOverview } from "@/client/features/companies/CompanyOverview";
+import {
+  CompanyContacts,
+  CompanyDeals,
+} from "@/client/features/companies/CompanySections";
 import { companyQueryOptions } from "@/client/features/companies/companyQueries";
 import {
   formatMoney,
@@ -113,6 +117,24 @@ export function CompanySheet({ companyId }: { companyId: string }) {
         company ? (
           <CompanyOverview company={company} mutations={mutations} />
         ) : null
+      }
+      lists={
+        company
+          ? [
+              {
+                value: "contacts",
+                count: company.contacts.length,
+                content: (
+                  <CompanyContacts company={company} mutations={mutations} />
+                ),
+              },
+              {
+                value: "deals",
+                count: company.deals.length,
+                content: <CompanyDeals company={company} />,
+              },
+            ]
+          : undefined
       }
     />
   );

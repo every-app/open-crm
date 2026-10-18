@@ -1,10 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { cn } from "cn";
-import { Button } from "@/client/components/ui/button";
-import {
-  fullName,
-  type Company,
-} from "@/client/features/companies/companyFormat";
+import type { Company } from "@/client/features/companies/companyFormat";
 import type { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { RecordFields } from "@/client/features/fields/RecordFields";
@@ -14,22 +10,20 @@ import {
   InlineTextArea,
 } from "@/client/features/records/InlineField";
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
-import { RecordLink } from "@/client/features/records/RecordLink";
 import { SheetSection } from "@/client/features/records/RecordSheet";
-import { PersonAvatar } from "@/client/features/records/cells";
 import { OwnerField } from "@/client/features/records/owners";
 import { safeHttpUrl } from "@/shared/safe-url";
 import type { UpdateCompanyInput } from "@/types/schemas/companies";
 import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
-import {
-  CompanyContacts,
-  CompanyDeals,
-} from "@/client/features/companies/CompanySections";
 
 type Mutations = ReturnType<typeof useCompanyMutations>;
 type CompanyPatch = Omit<UpdateCompanyInput, "id">;
 
-/** A company's Overview tab: its details, people and deals. */
+/**
+ * A company's Overview tab: what it does (once that's known), its details
+ * and links, and its visits to the website. Its people and deals have tabs
+ * of their own.
+ */
 export function CompanyOverview({
   company,
   mutations,
@@ -48,14 +42,16 @@ export function CompanyOverview({
 
   return (
     <div>
-      <SheetSection title="About">
-        <InlineTextArea
-          label="Description"
-          value={company.description}
-          placeholder="What the company does"
-          {...field("description")}
-        />
-      </SheetSection>
+      {company.description ? (
+        <SheetSection title="About">
+          <InlineTextArea
+            label="Description"
+            value={company.description}
+            placeholder="What the company does"
+            {...field("description")}
+          />
+        </SheetSection>
+      ) : null}
 
       <SheetSection
         title="Details"
@@ -83,7 +79,6 @@ export function CompanyOverview({
             type="url"
             value={company.website}
             placeholder="https://acme.com"
-            trailing={(value) => <OpenLink href={value} label="Open website" />}
             {...field("website")}
           />
           <InlineField
@@ -114,63 +109,18 @@ export function CompanyOverview({
             saving={saving.includes("ownerId")}
             onSave={(ownerId) => update.mutate({ ownerId })}
           />
+          <RecordFields entity="COMPANY" recordId={company.id} />
         </div>
-        <RecordFields entity="COMPANY" recordId={company.id} />
         <AgentPending company={company} />
       </SheetSection>
 
       <CompanyLinks company={company} />
-
-      {company.primaryContact ? (
-        <SheetSection title="Primary contact">
-          <div className="flex min-w-0 items-center gap-2.5 text-sm">
-            <PersonAvatar src={null} name={fullName(company.primaryContact)} />
-            <div className="min-w-0">
-              <RecordLink
-                record={{ kind: "contact", id: company.primaryContact.id }}
-                className="block font-medium"
-              >
-                {fullName(company.primaryContact)}
-              </RecordLink>
-              <p className="truncate text-xs text-muted-foreground">
-                {[
-                  company.primaryContact.title,
-                  company.primaryContact.email,
-                  company.primaryContact.phone,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            </div>
-          </div>
-        </SheetSection>
-      ) : null}
-
-      <CompanyContacts company={company} mutations={mutations} />
       <WebsiteActivity record={{ companyId: company.id }} />
-      <CompanyDeals company={company} />
 
       <p className="px-5 py-4 text-xs text-muted-foreground">
         Added <LocalDateTime date={company.createdAt} />
       </p>
     </div>
-  );
-}
-
-function OpenLink({ href, label }: { href: string; label: string }) {
-  const url = safeHttpUrl(href);
-  if (!url) return null;
-  return (
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      aria-label={label}
-      title={label}
-      nativeButton={false}
-      render={<a href={url} target="_blank" rel="noreferrer" />}
-    >
-      <ExternalLink />
-    </Button>
   );
 }
 

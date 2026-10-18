@@ -175,7 +175,7 @@ function ChoiceValue({
         <SelectTrigger
           size="sm"
           aria-labelledby={labelId}
-          className="w-full border-transparent bg-transparent px-2 hover:bg-muted"
+          className="h-8 w-full border-transparent bg-transparent px-2 shadow-none hover:border-input"
         >
           <SelectValue />
         </SelectTrigger>
@@ -328,7 +328,7 @@ function TextValue({ field, value, saving, onSave, labelId }: EditorProps) {
         size="sm"
         aria-labelledby={labelId}
         disabled={saving}
-        className="h-auto min-h-8 min-w-0 flex-1 justify-start px-2 py-1.5 text-left text-sm font-normal whitespace-normal"
+        className="h-auto min-h-8 min-w-0 flex-1 justify-start border border-transparent px-2 py-1.5 text-left text-sm font-normal whitespace-normal hover:border-input hover:bg-transparent"
         onClick={() => setDraft(current)}
       >
         {shown}

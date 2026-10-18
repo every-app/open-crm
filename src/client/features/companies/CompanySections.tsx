@@ -20,8 +20,8 @@ import {
 } from "@/client/features/records/RecordSheet";
 import { EmptyValue, PersonAvatar } from "@/client/features/records/cells";
 
-// A company's People and Deals sections, each with a form that adds one
-// without leaving the sheet.
+// A company's Contacts and Deals tabs, each with a form that adds one
+// without leaving the sheet. The tab names the list and counts it.
 
 type Mutations = ReturnType<typeof useCompanyMutations>;
 
@@ -67,7 +67,6 @@ export function CompanyContacts({
   const empty = company.contacts.length === 0;
   return (
     <SheetSection
-      title={`People (${company.contacts.length})`}
       action={
         adding || empty ? null : (
           <AddButton
@@ -153,7 +152,6 @@ export function CompanyDeals({ company }: { company: Company }) {
   const empty = company.deals.length === 0;
   return (
     <SheetSection
-      title={`Deals (${company.deals.length})`}
       action={
         adding || empty ? null : (
           <AddButton

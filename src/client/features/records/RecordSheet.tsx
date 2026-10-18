@@ -20,7 +20,6 @@ import {
 import { RecordTimeline } from "@/client/features/activities/RecordTimeline";
 import { RecordAgentPanel } from "@/client/features/agent/RecordAgentPanel";
 import {
-  RECORD_TABS,
   useRecordStack,
   useRecordTab,
   type RecordTab,
@@ -31,7 +30,9 @@ import type { RecordRef } from "@/shared/records";
 // (RecordSheetHost). The shell is the same for companies, contacts and
 // deals: a header with Back (when it sits on another record's sheet), the
 // record's picture, name, status and actions, and Close; optional stats; and
-// three tabs: the record's own Overview, its Activity timeline and its Agent.
+// the tabs: the record's own Overview, the records it lists (a company's
+// Contacts and Deals, a contact's Deals, a deal's Contacts), its Activity
+// timeline and its Agent.
 
 export function RecordSheet({
   open,
@@ -75,6 +76,13 @@ type RecordHeader = {
   actions?: ReactNode;
 };
 
+/** A tab between Overview and Activity, counted when it lists anything. */
+type RecordListTab = {
+  value: "contacts" | "deals";
+  count: number;
+  content: ReactNode;
+};
+
 /**
  * A record's header and tabs. `header` is undefined while the record loads
  * or when it couldn't be loaded (`error`, a QueryError).
@@ -85,12 +93,14 @@ export function RecordSheetFrame({
   error,
   stats,
   overview,
+  lists = [],
 }: {
   record: RecordRef;
   header: RecordHeader | undefined;
   error?: ReactNode;
   stats?: ReactNode;
   overview: ReactNode;
+  lists?: RecordListTab[];
 }) {
   const { stack, back, close } = useRecordStack();
   const [tab, setTab] = useRecordTab();
@@ -160,6 +170,7 @@ export function RecordSheetFrame({
             tab={tab}
             onTabChange={setTab}
             overview={overview}
+            lists={lists}
           />
         </>
       ) : error ? (
@@ -173,6 +184,8 @@ export function RecordSheetFrame({
 
 const TAB_LABELS: Record<RecordTab, string> = {
   overview: "Overview",
+  contacts: "Contacts",
+  deals: "Deals",
   activity: "Activity",
   agent: "Agent",
 };
@@ -182,22 +195,32 @@ function RecordTabs({
   tab,
   onTabChange,
   overview,
+  lists,
 }: {
   record: RecordRef;
   tab: RecordTab;
   onTabChange: (tab: RecordTab) => void;
   overview: ReactNode;
+  lists: RecordListTab[];
 }) {
+  const tabs: RecordTab[] = [
+    "overview",
+    ...lists.map((list) => list.value),
+    "activity",
+    "agent",
+  ];
+  // A link can name a tab this kind of record doesn't have.
+  const shown = tabs.includes(tab) ? tab : "overview";
   // The agent's chat keeps its connection once opened, so switching tabs
   // doesn't drop a conversation.
-  const [agentOpened, setAgentOpened] = useState(tab === "agent");
-  if (tab === "agent" && !agentOpened) setAgentOpened(true);
+  const [agentOpened, setAgentOpened] = useState(shown === "agent");
+  if (shown === "agent" && !agentOpened) setAgentOpened(true);
 
   return (
     <Tabs
-      value={tab}
+      value={shown}
       onValueChange={(value) => {
-        const next = RECORD_TABS.find((candidate) => candidate === value);
+        const next = tabs.find((candidate) => candidate === value);
         if (next) onTabChange(next);
       }}
       className="min-h-0 flex-1 gap-0"
@@ -206,15 +229,32 @@ function RecordTabs({
         variant="line"
         className="w-full shrink-0 justify-start gap-6 border-b border-border px-5 *:flex-none"
       >
-        {RECORD_TABS.map((value) => (
-          <TabsTrigger key={value} value={value}>
-            {TAB_LABELS[value]}
-          </TabsTrigger>
-        ))}
+        {tabs.map((value) => {
+          const count = lists.find((list) => list.value === value)?.count;
+          return (
+            <TabsTrigger key={value} value={value}>
+              {TAB_LABELS[value]}
+              {count ? (
+                <span className="font-normal text-muted-foreground tabular-nums">
+                  {count}
+                </span>
+              ) : null}
+            </TabsTrigger>
+          );
+        })}
       </TabsList>
       <TabsContent value="overview" className="min-h-0 overflow-y-auto">
         {overview}
       </TabsContent>
+      {lists.map((list) => (
+        <TabsContent
+          key={list.value}
+          value={list.value}
+          className="min-h-0 overflow-y-auto"
+        >
+          {list.content}
+        </TabsContent>
+      ))}
       <TabsContent value="activity" className="min-h-0 overflow-y-auto">
         <RecordTimeline record={record} />
       </TabsContent>

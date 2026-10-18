@@ -8,15 +8,20 @@ import {
   recordListsKey,
 } from "@/client/features/fields/fieldQueries";
 import { InlineFieldValue } from "@/client/features/fields/FieldValue";
+import {
+  PROPERTY_LABEL,
+  PROPERTY_ROW,
+} from "@/client/features/records/InlineField";
 import type { RecordField } from "@/server/features/fields/services/fieldShape";
 import { setRecordFieldValues } from "@/serverFunctions/fields";
 import type { FieldEntity } from "@/shared/crm-enums";
 import type { FieldValueJson } from "@/shared/fields";
 
 /**
- * The custom fields section of a record sheet: each field shown on sheets,
- * in the order the fields sheet sets, editable in place by anyone. Renders
- * nothing when the entity has no such fields.
+ * A record sheet's custom fields, under its built-in properties and on their
+ * label column: each field shown on sheets, in the order the fields sheet
+ * sets, editable in place by anyone. Renders nothing when the entity has no
+ * such fields.
  */
 export function RecordFields({
   entity,
@@ -51,7 +56,7 @@ export function RecordFields({
   const fields = query.data.filter((field) => field.showOnSheet);
   if (fields.length === 0) return null;
   return (
-    <dl className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] items-center gap-x-3 text-sm">
+    <dl className="space-y-0.5">
       {fields.map((field) => (
         <RecordFieldRow
           key={field.id}
@@ -99,8 +104,8 @@ function RecordFieldRow({
   });
 
   return (
-    <>
-      <dt id={labelId} className="truncate py-1.5 text-muted-foreground">
+    <div className={`${PROPERTY_ROW} items-center`}>
+      <dt id={labelId} className={PROPERTY_LABEL}>
         {field.label}
       </dt>
       <dd className="min-w-0">
@@ -112,6 +117,6 @@ function RecordFieldRow({
           labelId={labelId}
         />
       </dd>
-    </>
+    </div>
   );
 }
