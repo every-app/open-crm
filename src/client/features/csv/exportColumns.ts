@@ -2,7 +2,7 @@ import type { CompanyRow } from "@/client/features/companies/companyFormat";
 import type { ContactRow } from "@/client/features/contacts/contactFormat";
 import type { DealRow } from "@/client/features/deals/dealFormat";
 import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
-import { csvDay, type ExportColumn } from "./ExportButton";
+import { csvDay, type ExportColumn } from "./CsvMenu";
 
 // Each list's columns in an export, headed as the import reads them back
 // (IMPORT_TARGETS): owners by email, days as 2027-03-31, stages by name.

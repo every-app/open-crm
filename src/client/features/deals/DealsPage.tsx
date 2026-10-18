@@ -33,7 +33,7 @@ import {
 import type { DealRow } from "@/client/features/deals/dealFormat";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
-import { ExportButton } from "@/client/features/csv/ExportButton";
+import { CsvMenu } from "@/client/features/csv/CsvMenu";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { DEAL_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
@@ -124,7 +124,7 @@ export function DealsPage() {
   const importCsv = (
     <Button variant="outline" onClick={() => setImporting(true)}>
       <Upload data-icon="inline-start" />
-      Import
+      Import CSV
     </Button>
   );
 
@@ -136,7 +136,14 @@ export function DealsPage() {
           description="The pipeline, and everything that has already closed."
           actions={
             <>
-              {importCsv}
+              <CsvMenu
+                entity="DEAL"
+                columns={DEAL_EXPORT}
+                fetchPage={(page, pageSize) =>
+                  listDeals({ data: { ...input, page, pageSize } })
+                }
+                onImport={() => setImporting(true)}
+              />
               {newDeal}
             </>
           }
@@ -192,13 +199,6 @@ export function DealsPage() {
               }
               actions={
                 <>
-                  <ExportButton
-                    entity="DEAL"
-                    columns={DEAL_EXPORT}
-                    fetchPage={(page, pageSize) =>
-                      listDeals({ data: { ...input, page, pageSize } })
-                    }
-                  />
                   <SavedViewsMenu
                     entity="DEAL"
                     current={savedViewOf(search)}

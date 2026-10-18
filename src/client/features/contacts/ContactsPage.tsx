@@ -32,7 +32,7 @@ import {
 } from "@/client/features/contacts/contactSearch";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
-import { ExportButton } from "@/client/features/csv/ExportButton";
+import { CsvMenu } from "@/client/features/csv/CsvMenu";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { CONTACT_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
@@ -123,7 +123,7 @@ export function ContactsPage() {
   const importCsv = (
     <Button variant="outline" onClick={() => setImporting(true)}>
       <Upload data-icon="inline-start" />
-      Import
+      Import CSV
     </Button>
   );
 
@@ -135,7 +135,14 @@ export function ContactsPage() {
           description="Everyone in the pipeline."
           actions={
             <>
-              {importCsv}
+              <CsvMenu
+                entity="CONTACT"
+                columns={CONTACT_EXPORT}
+                fetchPage={(page, pageSize) =>
+                  listContacts({ data: { ...input, page, pageSize } })
+                }
+                onImport={() => setImporting(true)}
+              />
               {newContact}
             </>
           }
@@ -191,13 +198,6 @@ export function ContactsPage() {
               }
               actions={
                 <>
-                  <ExportButton
-                    entity="CONTACT"
-                    columns={CONTACT_EXPORT}
-                    fetchPage={(page, pageSize) =>
-                      listContacts({ data: { ...input, page, pageSize } })
-                    }
-                  />
                   <SavedViewsMenu
                     entity="CONTACT"
                     current={savedViewOf(search)}

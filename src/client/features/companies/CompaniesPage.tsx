@@ -32,7 +32,7 @@ import {
 import type { CompanyRow } from "@/client/features/companies/companyFormat";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
-import { ExportButton } from "@/client/features/csv/ExportButton";
+import { CsvMenu } from "@/client/features/csv/CsvMenu";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { COMPANY_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
@@ -123,7 +123,7 @@ export function CompaniesPage() {
   const importCsv = (
     <Button variant="outline" onClick={() => setImporting(true)}>
       <Upload data-icon="inline-start" />
-      Import
+      Import CSV
     </Button>
   );
 
@@ -135,7 +135,14 @@ export function CompaniesPage() {
           description="Every account in the pipeline."
           actions={
             <>
-              {importCsv}
+              <CsvMenu
+                entity="COMPANY"
+                columns={COMPANY_EXPORT}
+                fetchPage={(page, pageSize) =>
+                  listCompanies({ data: { ...input, page, pageSize } })
+                }
+                onImport={() => setImporting(true)}
+              />
               {newCompany}
             </>
           }
@@ -191,13 +198,6 @@ export function CompaniesPage() {
               }
               actions={
                 <>
-                  <ExportButton
-                    entity="COMPANY"
-                    columns={COMPANY_EXPORT}
-                    fetchPage={(page, pageSize) =>
-                      listCompanies({ data: { ...input, page, pageSize } })
-                    }
-                  />
                   <SavedViewsMenu
                     entity="COMPANY"
                     current={savedViewOf(search)}
