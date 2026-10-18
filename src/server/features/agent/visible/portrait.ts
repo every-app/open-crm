@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { imageStorageReady, storeImage } from "@/server/lib/images";
 import {
-  extractFromPage,
+  extractFromSite,
   personByProfileUrl,
   type ContextFetch,
   type JsonSchema,
@@ -270,7 +270,7 @@ async function fromEmployerSite(
   contextFetch: ContextFetch,
   subject: Subject,
 ): Promise<Candidate | null> {
-  const result = await extractFromPage(
+  const result = await extractFromSite(
     contextFetch,
     `https://${subject.companyDomain}`,
     TEAM_SCHEMA,

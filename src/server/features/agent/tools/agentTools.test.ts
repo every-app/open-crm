@@ -269,6 +269,33 @@ describe("the agent's ledger, people and field tools", () => {
     ).not.toMatchObject({ written: false });
   });
 
+  it("researches a company from up to eight pages of its site, for one lookup's budget", async () => {
+    contextFetch.mockImplementation(async () =>
+      Response.json({ data: { positioning: "Fleet software, per vehicle." } }),
+    );
+    const chat = toolSession();
+    expect(
+      await chat.call("research_company", { companyId: "co_a" }),
+    ).toMatchObject({ written: true });
+    const [url, init] = contextFetch.mock.calls[0] ?? [];
+    expect(url).toBe("https://api.context.dev/v1/web/extract");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      url: "https://fernhill.test",
+      maxPages: 8,
+    });
+    expect(chat.budget.spent).toBe(2);
+    expect(
+      await database.rows(
+        "SELECT subject, body FROM activity WHERE company_id = 'co_a'",
+      ),
+    ).toEqual([
+      {
+        subject: "Research brief — Fernhill",
+        body: "Fleet software, per vehicle.",
+      },
+    ]);
+  });
+
   it("sets a custom value as a person would, never a manual one, and backfills only a blank", async () => {
     const chat = toolSession();
     expect(await set(chat, "notes", "Hates golf")).toMatchObject({

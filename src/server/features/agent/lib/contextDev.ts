@@ -6,7 +6,7 @@ import { personFromMatch, type PersonMatch } from "./people";
 
 // The agent's Context.dev client: brand data by domain, a person read back
 // from a profile URL or matched on the clues the CRM holds (their address,
-// name and employer), and structured extraction from a page. Ported from the
+// name and employer), and structured extraction from a site. Ported from the
 // CRM's lib/context-dev.ts and lib/people.ts, which used the context.dev SDK;
 // here the calls go to the REST API (https://api.context.dev/v1) over the
 // gateway's fetch (getContextFetch()), which holds the key and attributes each
@@ -257,8 +257,16 @@ function personFrom(answer: Answer, notFound: string): PersonMatch {
 /** A JSON Schema object describing what to extract. */
 export type JsonSchema = Record<string, unknown>;
 
-/** Facts from one page, in the shape `schema` describes. */
-export async function extractFromPage(
+/** The most pages one extraction reads, as the CRM's web.extract asked. */
+const EXTRACT_MAX_PAGES = 8;
+
+/**
+ * Facts from a site, in the shape `schema` describes. Context.dev crawls from
+ * `url` (its own domain, not its subdomains) and reads up to
+ * EXTRACT_MAX_PAGES pages before it answers, so a brief can draw on the
+ * pricing, customers and about pages, not only the one at `url`.
+ */
+export async function extractFromSite(
   contextFetch: ContextFetch,
   url: string,
   schema: JsonSchema,
@@ -266,32 +274,24 @@ export async function extractFromPage(
 ): Promise<
   { outcome: "found"; data: unknown } | { outcome: "failed"; reason: string }
 > {
-  const answer = await post(contextFetch, "/web/scrape", {
+  const answer = await post(contextFetch, "/web/extract", {
     url,
-    formats: { json: true },
-    jsonParams: { schema, instructions },
+    schema,
+    instructions,
+    maxPages: EXTRACT_MAX_PAGES,
   });
   if (!answer.ok) return { outcome: "failed", reason: answer.reason };
-  const json = z
-    .object({
-      json: z
-        .object({
-          success: z.boolean().catch(false),
-          data: z.unknown(),
-          message: z.string().optional().catch(undefined),
-        })
-        .nullable()
-        .catch(null),
-    })
-    .catch({ json: null })
-    .parse(answer.body).json;
-  if (!json?.success) {
+  const { data } = z
+    .object({ data: z.unknown() })
+    .catch({ data: null })
+    .parse(answer.body);
+  if (data === null || data === undefined) {
     return {
       outcome: "failed",
-      reason: json?.message ?? "Nothing could be extracted from that page.",
+      reason: "Nothing could be extracted from that site.",
     };
   }
-  return { outcome: "found", data: json.data };
+  return { outcome: "found", data };
 }
 
 function retryable(status: number): boolean {
