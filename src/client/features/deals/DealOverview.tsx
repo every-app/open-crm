@@ -91,7 +91,7 @@ export function DealOverview({
 
       <SheetSection
         title="Details"
-        action={<FieldsSheetButton entity="DEAL" cog />}
+        action={<FieldsSheetButton entity="DEAL" />}
       >
         <div className="space-y-0.5">
           <InlineField

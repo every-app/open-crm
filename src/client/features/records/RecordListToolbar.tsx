@@ -1,10 +1,15 @@
-import type { ReactNode } from "react";
+import { useState } from "react";
+import type { Table } from "@tanstack/react-table";
 import { Search } from "lucide-react";
+import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
+import { DataTableTabs } from "@/client/components/table/DataTableToolbar";
 import {
-  DataTableTabs,
-  DataTableToolbar,
-} from "@/client/components/table/DataTableToolbar";
-import { countsFor } from "@/client/components/table/FilterChip";
+  FilterTokens,
+  FiltersMenu,
+  countsFor,
+  type ListFilter,
+} from "@/client/components/table/FiltersMenu";
+import { SortMenu } from "@/client/components/table/SortMenu";
 import {
   InputGroup,
   InputGroupAddon,
@@ -12,17 +17,25 @@ import {
 } from "@/client/components/ui/input-group";
 import { TabsTrigger } from "@/client/components/ui/tabs";
 import { useDebouncedDraft } from "@/client/hooks/useDebouncedDraft";
-import { FieldFilterChips } from "@/client/features/fields/FieldFilterControls";
-import type { RecordListSearch } from "@/client/features/records/listSearch";
-import { OwnerFilter } from "@/client/features/records/owners";
+import { useFieldFilters } from "@/client/features/fields/FieldFilterControls";
+import { FieldsSheet } from "@/client/features/fields/FieldsSheetButton";
+import {
+  clearedFilters,
+  savedViewOf,
+  type RecordListSearch,
+} from "@/client/features/records/listSearch";
+import { useOwnerFilter } from "@/client/features/records/owners";
+import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import type { FieldEntity } from "@/shared/crm-enums";
+import type { SavedViewFilters } from "@/types/schemas/saved-views";
 import type { FacetCounts } from "@/types/schemas/records";
 
-// Above a record list's rows: the live/archived view switch, then the
-// search and the filters (the owner, the list's own, then its custom
-// fields'), with the list's actions on the right. Every change goes to the
-// URL and takes the list back to its first page. The filters offer the
-// values the list's search finds records for, with how many
+// Above a record list's rows: the live/archived view switch, then one row
+// with the search and the Filters menu (the owner, the list's own filters,
+// then its custom fields'), and the saved views, sort and columns on the
+// right; under it, while any filter is set, a token for each. Every change
+// goes to the URL and takes the list back to its first page. The filters
+// offer the values the list's search finds records for, with how many
 // (`facetCounts`).
 
 const trim = (value: string) => value.trim();
@@ -55,27 +68,57 @@ function ListSearchInput({
   );
 }
 
-export function RecordListToolbar({
+export function RecordListToolbar<TData>({
   entity,
+  table,
   search,
   onSearchChange,
+  onApplyView,
   placeholder,
   facetCounts,
   filters,
-  actions,
+  filterKeys,
 }: {
-  /** Whose custom fields the filters offer. */
+  /** Whose custom fields the filters and the fields sheet offer. */
   entity: FieldEntity;
+  table: Table<TData>;
   search: RecordListSearch;
   onSearchChange: (update: Partial<RecordListSearch>) => void;
+  /** Applies a view chosen in Views. */
+  onApplyView: (filters: SavedViewFilters) => void;
   placeholder: string;
   /** The list's counts of its filters' values; undefined while it loads. */
   facetCounts: FacetCounts | undefined;
   /** After the owner filter: the list's own filters. */
-  filters?: ReactNode;
-  /** On the right: export, saved views, sort, columns and fields. */
-  actions?: ReactNode;
+  filters: ListFilter[];
+  /** The URL params the list filters by, its search included. */
+  filterKeys: readonly string[];
 }) {
+  const [editingFields, setEditingFields] = useState(false);
+  const owner = useOwnerFilter(
+    search.owner ?? [],
+    (next) =>
+      onSearchChange({
+        owner: next.length > 0 ? next : undefined,
+        page: undefined,
+      }),
+    countsFor(facetCounts, "owner"),
+  );
+  const fieldFilters = useFieldFilters(
+    entity,
+    facetCounts,
+    search.fields ?? {},
+    (fields) =>
+      onSearchChange({
+        fields: Object.keys(fields).length > 0 ? fields : undefined,
+        page: undefined,
+      }),
+  );
+  const all = [owner, ...filters, ...fieldFilters];
+  // Every filter, but not the search.
+  const clearFilters = () =>
+    onSearchChange(clearedFilters(filterKeys.filter((key) => key !== "q")));
+
   return (
     <>
       <DataTableTabs
@@ -90,37 +133,36 @@ export function RecordListToolbar({
         <TabsTrigger value="live">Active</TabsTrigger>
         <TabsTrigger value="archived">Archived</TabsTrigger>
       </DataTableTabs>
-      <DataTableToolbar actions={actions}>
-        <ListSearchInput
-          value={search.q ?? ""}
-          placeholder={placeholder}
-          onCommit={(q) =>
-            onSearchChange({ q: q || undefined, page: undefined })
-          }
-        />
-        <OwnerFilter
-          value={search.owner ?? []}
-          onChange={(owner) =>
-            onSearchChange({
-              owner: owner.length > 0 ? owner : undefined,
-              page: undefined,
-            })
-          }
-          counts={countsFor(facetCounts, "owner")}
-        />
-        {filters}
-        <FieldFilterChips
-          entity={entity}
-          facetCounts={facetCounts}
-          value={search.fields ?? {}}
-          onChange={(fields) =>
-            onSearchChange({
-              fields: Object.keys(fields).length > 0 ? fields : undefined,
-              page: undefined,
-            })
-          }
-        />
-      </DataTableToolbar>
+      <div className="border-b border-border">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+          <ListSearchInput
+            value={search.q ?? ""}
+            placeholder={placeholder}
+            onCommit={(q) =>
+              onSearchChange({ q: q || undefined, page: undefined })
+            }
+          />
+          <FiltersMenu filters={all} onClear={clearFilters} />
+          <div className="ml-auto flex items-center gap-2">
+            <SavedViewsMenu
+              entity={entity}
+              current={savedViewOf(search)}
+              onApply={onApplyView}
+            />
+            <SortMenu table={table} />
+            <ColumnsMenu
+              table={table}
+              onEditFields={() => setEditingFields(true)}
+            />
+          </div>
+        </div>
+        <FilterTokens filters={all} onClear={clearFilters} />
+      </div>
+      <FieldsSheet
+        entity={entity}
+        open={editingFields}
+        onOpenChange={setEditingFields}
+      />
     </>
   );
 }

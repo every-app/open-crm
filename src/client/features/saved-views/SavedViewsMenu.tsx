@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { revalidateLogic } from "@tanstack/react-form";
-import { Bookmark, Check, Pencil, Users } from "lucide-react";
+import { Bookmark, Check, ChevronDown, Pencil, Users } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { FormDialog } from "@/client/components/FormDialog";
@@ -66,7 +66,11 @@ export function SavedViewsMenu({
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
           <Bookmark data-icon="inline-start" />
-          Views
+          <span className="max-sm:sr-only">Views</span>
+          <ChevronDown
+            data-icon="inline-end"
+            className="text-muted-foreground"
+          />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-auto max-w-80 min-w-56">
           <DropdownMenuItem onClick={() => setDialog("save")}>

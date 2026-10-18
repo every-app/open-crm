@@ -6,8 +6,6 @@ import { CircleDollarSign, Plus, Upload } from "lucide-react";
 import { findLast } from "remeda";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
-import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
-import { SortMenu } from "@/client/components/table/SortMenu";
 import {
   DataTable,
   useDataTable,
@@ -17,7 +15,7 @@ import { TablePagination } from "@/client/components/table/TablePagination";
 import { Button } from "@/client/components/ui/button";
 import { CreateDealDialog } from "@/client/features/deals/CreateDealDialog";
 import { DealBulkActions } from "@/client/features/deals/DealBulkActions";
-import { DealFilters } from "@/client/features/deals/DealFilters";
+import { dealFilters } from "@/client/features/deals/DealFilters";
 import {
   DEAL_HIDDEN_COLUMNS,
   dealColumns,
@@ -31,7 +29,6 @@ import {
   type DealListSearch,
 } from "@/client/features/deals/dealSearch";
 import type { DealRow } from "@/client/features/deals/dealFormat";
-import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
 import { CsvMenu } from "@/client/features/csv/CsvMenu";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
@@ -41,12 +38,10 @@ import {
   clearedFilters,
   columnVisibility,
   isListFiltered,
-  savedViewOf,
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
 import { useRecordStack } from "@/client/features/records/recordStack";
-import { SavedViewsMenu } from "@/client/features/saved-views/SavedViewsMenu";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listDeals } from "@/serverFunctions/deals";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -68,6 +63,7 @@ export function DealsPage() {
 
   const input = dealListInput(search);
   const query = useQuery(dealListQueryOptions(input));
+  const filters = dealFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
   const workspace = useQuery(workspaceQueryOptions());
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
@@ -186,38 +182,19 @@ export function DealsPage() {
           toolbar={
             <RecordListToolbar
               entity="DEAL"
+              table={table}
               search={search}
               onSearchChange={setSearch}
+              onApplyView={(view) =>
+                void navigate({
+                  search: (prev) =>
+                    searchFromSavedView(dealListSearchSchema, view, prev),
+                })
+              }
               placeholder="Search deals by name or company…"
               facetCounts={query.data?.facetCounts}
-              filters={
-                <DealFilters
-                  search={search}
-                  onSearchChange={setSearch}
-                  facetCounts={query.data?.facetCounts}
-                />
-              }
-              actions={
-                <>
-                  <SavedViewsMenu
-                    entity="DEAL"
-                    current={savedViewOf(search)}
-                    onApply={(filters) =>
-                      void navigate({
-                        search: (prev) =>
-                          searchFromSavedView(
-                            dealListSearchSchema,
-                            filters,
-                            prev,
-                          ),
-                      })
-                    }
-                  />
-                  <SortMenu table={table} />
-                  <ColumnsMenu table={table} />
-                  <FieldsSheetButton entity="DEAL" />
-                </>
-              }
+              filters={filters}
+              filterKeys={DEAL_FILTER_KEYS}
             />
           }
           footer={
