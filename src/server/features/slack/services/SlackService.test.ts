@@ -234,7 +234,7 @@ describe("SlackService", () => {
     ]);
   });
 
-  it("reads Slack a page at a time, and a run that fails goes on from the page it stopped at", async () => {
+  it("reads Slack a page at a time, and a run that fails or is rate limited goes on from the page it stopped at", async () => {
     const state = await startedState();
     await SlackService.completeConnect(owner, {
       ...web,
@@ -243,7 +243,8 @@ describe("SlackService", () => {
       error: null,
     });
     await backgroundReads();
-    // Ana is on the second page of people, which fails the first time.
+    // Ana is on the second page of people, which fails the first time and is
+    // rate limited the second.
     const asked: string[] = [];
     vi.stubGlobal(
       "fetch",
@@ -261,6 +262,12 @@ describe("SlackService", () => {
           });
         }
         if (asked.length === 2) throw new TypeError("fetch failed");
+        if (asked.length === 3) {
+          return Response.json(
+            { ok: false, error: "ratelimited" },
+            { status: 429, headers: { "retry-after": "30" } },
+          );
+        }
         return Response.json({
           ok: true,
           members: [
@@ -271,13 +278,18 @@ describe("SlackService", () => {
     );
     await SlackInventoryService.refresh(owner);
     await backgroundReads();
-    // Its lease runs out, and the dispatcher takes it again.
-    await database.exec(
-      `UPDATE agent_task SET leased_until = '2000-01-01T00:00:00.000Z' WHERE finished_at IS NULL`,
-    );
+    // Its lease runs out, and the dispatcher takes it again; then Slack's
+    // pause is over.
+    const due = async () =>
+      database.exec(
+        `UPDATE agent_task SET leased_until = NULL, due_at = '2000-01-01T00:00:00.000Z' WHERE finished_at IS NULL`,
+      );
+    await due();
+    await runVisibleLane({ defer: vi.fn() });
+    await due();
     await runVisibleLane({ defer: vi.fn() });
 
-    expect(asked).toEqual(["", "page-2", "page-2"]);
+    expect(asked).toEqual(["", "page-2", "page-2", "page-2"]);
     expect((await SlackInventoryService.matches(owner)).rows).toEqual([
       expect.objectContaining({ userId: "user_a", slackHandle: "@ana.m" }),
     ]);

@@ -73,7 +73,9 @@ export const PRIORITY = {
   imported: 10,
   recheck: 0,
   event: 700,
-  slackSync: 150,
+  // Reading Slack after a connect or a Refresh, which a person waits on:
+  // ahead of the logos, as the CRM put joining a Slack channel.
+  slackSync: 950,
 } as const;
 
 /**

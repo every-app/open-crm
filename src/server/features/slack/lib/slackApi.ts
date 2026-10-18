@@ -26,7 +26,11 @@ export class SlackError extends Error {
   }
 }
 
-/** One Slack Web API call: a JSON POST, or a GET with `query`. */
+/**
+ * One Slack Web API call: a JSON POST, or a GET with `query`. With
+ * `retryLimited: false`, a rate-limited call answers `ratelimited` at once
+ * instead of waiting, for a caller that comes back later itself.
+ */
 export async function slackCall(
   token: string,
   method: string,
@@ -35,6 +39,7 @@ export async function slackCall(
     query?: Record<string, string>;
     fetcher?: typeof fetch;
     signal?: AbortSignal;
+    retryLimited?: boolean;
   } = {},
   attempt = 1,
 ): Promise<SlackReply> {
@@ -56,11 +61,11 @@ export async function slackCall(
   });
   const body: unknown = await response.json().catch(() => null);
   const parsed = envelope.parse(body);
-  if (
-    !parsed.ok &&
-    (parsed.error === "ratelimited" || response.status === 429) &&
-    attempt < MAX_ATTEMPTS
-  ) {
+  const limited = parsed.error === "ratelimited" || response.status === 429;
+  if (!parsed.ok && limited && options.retryLimited === false) {
+    return { ok: false, error: "ratelimited", body };
+  }
+  if (!parsed.ok && limited && attempt < MAX_ATTEMPTS) {
     const wait = Number(response.headers.get("retry-after") ?? "1");
     await new Promise((resolve) =>
       setTimeout(resolve, Math.min(Math.max(wait, 1), 10) * 1000),
@@ -85,7 +90,7 @@ export async function slackCallOrThrow(
 /**
  * One page of a cursor-paginated list method (`cursor` empty for the first):
  * the items under `list.key`, and the next page's cursor, empty after the
- * last.
+ * last. Rate limited, it throws `ratelimited` at once: the caller comes back.
  */
 export async function slackPage<Item>(
   token: string,
@@ -95,6 +100,7 @@ export async function slackPage<Item>(
 ): Promise<{ items: Item[]; next: string }> {
   const body = await slackCallOrThrow(token, method, {
     query: { limit: "200", ...list.query, ...(cursor ? { cursor } : {}) },
+    retryLimited: false,
   });
   const record = z.record(z.string(), z.unknown()).catch({}).parse(body);
   const items = z

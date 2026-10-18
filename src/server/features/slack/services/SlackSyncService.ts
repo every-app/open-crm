@@ -39,8 +39,12 @@ const CHANNELS = {
   query: { types: "public_channel,private_channel", exclude_archived: "true" },
 };
 
-/** How long a run reads before it leaves the rest to the next one. */
-const RUN_MS = 20_000;
+/**
+ * How long a run starts pages for before it leaves the rest to the next one:
+ * short enough that a run a request started ends inside the request's
+ * waitUntil (30 seconds), its last page included.
+ */
+const RUN_MS = 10_000;
 /** When the next run goes on: the minute cron's next tick. */
 const RESUME_MS = 30_000;
 
@@ -66,7 +70,7 @@ type SyncRun =
  * One run of a read: from where the last run stopped (`saved`, the task's
  * payload) for up to RUN_MS, keeping its place with `keep` after each page.
  * Done when the read finished, or Slack refused it; otherwise the next run
- * goes on at `resumeAt`. A failure other than Slack's answer is thrown, and
+ * goes on at `resumeAt`. A failure, Slack's or the network's, is thrown, and
  * the task is retried from the last page kept.
  */
 async function runSync(
@@ -107,10 +111,14 @@ async function runSync(
     if (!(error instanceof SlackError)) throw error;
     // Slack wants a pause: the next run goes on from here.
     if (error.code === "ratelimited") return resumeLater();
+    // Slack's own trouble: retried from the last page kept.
+    if (slackTrouble(error.code)) throw error;
     // As in the CRM, the installer's own channels are only ever extra.
     if (progress.step === "installer-channels") {
       return finish(organizationId, connection, progress);
     }
+    const moved = await connectionMoved(organizationId, connection);
+    if (moved) return moved;
     await SlackRepository.markSync(organizationId, {
       syncedAt: new Date().toISOString(),
       syncError: error.message,
@@ -118,6 +126,34 @@ async function runSync(
     return { done: true, outcome: error.message };
   }
   return resumeLater();
+}
+
+/**
+ * Where a run goes when the connection it read with is gone: disconnected,
+ * the read is over; reconnected, what it saw may be another workspace's, so
+ * the next run reads the new one from the start. Null when it is still there.
+ */
+async function connectionMoved(
+  organizationId: string,
+  connection: SlackConnectionRow,
+): Promise<SyncRun | null> {
+  const current = await SlackRepository.getConnection(organizationId);
+  if (!current) return { done: true, outcome: "Slack is not connected." };
+  return current.connectedAt === connection.connectedAt ? null : resumeLater();
+}
+
+/** Slack failed rather than refused: worth trying again. */
+function slackTrouble(code: string): boolean {
+  return (
+    code.startsWith("http_5") ||
+    [
+      "internal_error",
+      "fatal_error",
+      "service_unavailable",
+      "request_timeout",
+      "unreadable_reply",
+    ].includes(code)
+  );
 }
 
 function resumeLater(): SyncRun {
@@ -230,6 +266,8 @@ async function finish(
   connection: SlackConnectionRow,
   progress: Progress,
 ): Promise<SyncRun> {
+  const moved = await connectionMoved(organizationId, connection);
+  if (moved) return moved;
   await SlackRepository.markUnseenUnavailable(
     organizationId,
     progress.startedAt,
