@@ -27,6 +27,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/client/components/ui/tabs";
+import { ModelNotSetUp } from "@/client/features/agent/AgentPaused";
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
 import {
   cancelTeamAgentRun,
@@ -40,7 +41,11 @@ import {
   teamAgentKeys,
   teamAgentRunsQueryOptions,
 } from "./teamAgentQueries";
-import { RUN_STATUS_COPY, TRIGGER_COPY } from "./teamAgentCopy";
+import {
+  RUN_STATUS_COPY,
+  runFailureReason,
+  TRIGGER_COPY,
+} from "./teamAgentCopy";
 
 type Run = Awaited<ReturnType<typeof getTeamAgentRuns>>[number];
 
@@ -259,7 +264,11 @@ function RunCard({
               <span className="mt-1.5 flex items-start gap-2 rounded-md bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
                 <AlertTriangle className="mt-px size-3.5 shrink-0" />
                 <span className="[overflow-wrap:anywhere]">
-                  {run.errorMessage ?? "No reason given."}
+                  {run.errorCode === "MODEL_UNAVAILABLE" ? (
+                    <ModelNotSetUp />
+                  ) : (
+                    runFailureReason(run.errorCode, run.errorMessage)
+                  )}
                 </span>
               </span>
             ) : null}
