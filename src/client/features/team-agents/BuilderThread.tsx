@@ -9,6 +9,7 @@ import { ErrorState } from "@/client/components/ErrorState";
 import { Button } from "@/client/components/ui/button";
 import { QuestionComposer } from "@/client/features/agent/AgentQuestion";
 import { AgentUnavailable } from "@/client/features/agent/AgentThreadParts";
+import { ScrollToLatest } from "@/client/features/agent/ScrollToLatest";
 import { pendingQuestion } from "@/client/features/agent/agentTranscript";
 import { ASK_QUESTION } from "@/shared/agent-question";
 import type { getBuilderChat } from "@/serverFunctions/teamAgents";
@@ -208,85 +209,89 @@ export function BuilderThread({
 
   return (
     <>
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto"
-      >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-5 sm:py-9">
-          {messages.map((message, index) => {
-            if (message.role === "user") {
-              return <UserMessage key={message.id} message={message} />;
-            }
-            const streaming = busy && index === messages.length - 1;
-            // A reply that ended before saying anything has nothing to show.
-            if (!streaming && !messageHasVisibleContent(message)) return null;
-            return (
-              <div key={message.id} className="space-y-1">
-                <AssistantMessage
-                  message={message}
-                  streaming={streaming}
-                  hidden={question?.toolCallId}
-                />
-                {!streaming && hasText(message) ? (
-                  <Feedback
-                    conversationId={conversation.id}
-                    messageId={message.id}
-                    rating={
-                      chat.feedback.find((row) => row.messageId === message.id)
-                        ?.rating ?? null
-                    }
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-5 sm:py-9">
+            {messages.map((message, index) => {
+              if (message.role === "user") {
+                return <UserMessage key={message.id} message={message} />;
+              }
+              const streaming = busy && index === messages.length - 1;
+              // A reply that ended before saying anything has nothing to show.
+              if (!streaming && !messageHasVisibleContent(message)) return null;
+              return (
+                <div key={message.id} className="space-y-1">
+                  <AssistantMessage
+                    message={message}
+                    streaming={streaming}
+                    hidden={question?.toolCallId}
                   />
-                ) : null}
+                  {!streaming && hasText(message) ? (
+                    <Feedback
+                      conversationId={conversation.id}
+                      messageId={message.id}
+                      rating={
+                        chat.feedback.find(
+                          (row) => row.messageId === message.id,
+                        )?.rating ?? null
+                      }
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
+            {showTyping && !building ? (
+              <div className="flex items-center gap-1.5 pt-1 text-muted-foreground">
+                <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-current" />
               </div>
-            );
-          })}
-          {showTyping && !building ? (
-            <div className="flex items-center gap-1.5 pt-1 text-muted-foreground">
-              <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-              <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-              <span className="size-1.5 animate-bounce rounded-full bg-current" />
-            </div>
-          ) : null}
-          {building ? (
-            <BuildingAgentCard
-              {...buildProgress(messages)}
-              onStop={() => {
-                void stop();
-                toast.success("Stop requested.");
-              }}
-            />
-          ) : null}
-          {creatingAgent && chat.files.length > 0 ? (
-            <AgentCodeWorkspace files={chat.files} working={building} />
-          ) : null}
-          {status === "error" ? (
-            <BuilderFailureCard
-              creatingAgent={lastCreates}
-              retrying={busy}
-              onRetry={canChat ? () => void regenerate() : null}
-            />
-          ) : null}
-          {creatingAgent && !busy && review && madeAgent ? (
-            <ReviewAgentCard
-              agentId={madeAgent.id}
-              agentName={madeAgent.name ?? ""}
-              manifest={review.manifest}
-            />
-          ) : null}
-          {creatingAgent && madeAgent?.status === "LIVE" && !review ? (
-            <DeployedAgentCard
-              agentId={madeAgent.id}
-              onFollowUp={(text) => {
-                pinToBottom();
-                void sendMessage({
-                  text: `${CREATE_AGENT_PREFIX}${text}`,
-                  metadata: { resources: [], attachments: [] },
-                });
-              }}
-            />
-          ) : null}
+            ) : null}
+            {building ? (
+              <BuildingAgentCard
+                {...buildProgress(messages)}
+                onStop={() => {
+                  void stop();
+                  toast.success("Stop requested.");
+                }}
+              />
+            ) : null}
+            {creatingAgent && chat.files.length > 0 ? (
+              <AgentCodeWorkspace files={chat.files} working={building} />
+            ) : null}
+            {status === "error" ? (
+              <BuilderFailureCard
+                creatingAgent={lastCreates}
+                retrying={busy}
+                onRetry={canChat ? () => void regenerate() : null}
+              />
+            ) : null}
+            {creatingAgent && !busy && review && madeAgent ? (
+              <ReviewAgentCard
+                agentId={madeAgent.id}
+                agentName={madeAgent.name ?? ""}
+                manifest={review.manifest}
+              />
+            ) : null}
+            {creatingAgent && madeAgent?.status === "LIVE" && !review ? (
+              <DeployedAgentCard
+                agentId={madeAgent.id}
+                onFollowUp={(text) => {
+                  pinToBottom();
+                  void sendMessage({
+                    text: `${CREATE_AGENT_PREFIX}${text}`,
+                    metadata: { resources: [], attachments: [] },
+                  });
+                }}
+              />
+            ) : null}
+          </div>
         </div>
+        <ScrollToLatest scrollRef={scrollRef} onClick={pinToBottom} />
       </div>
       <div className="shrink-0 border-t border-border px-4 py-3 sm:px-5">
         <div className="mx-auto w-full max-w-3xl space-y-2">{footer}</div>

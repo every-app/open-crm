@@ -1,14 +1,16 @@
-import type { ReactNode, Ref, UIEventHandler } from "react";
+import type { ReactNode, RefObject, UIEventHandler } from "react";
 import { Sparkles } from "lucide-react";
 import { EmptyState } from "@/client/components/EmptyState";
 import { Button } from "@/client/components/ui/button";
 import type { RecordKind } from "@/shared/records";
 import { ModelNotSetUp } from "./AgentPaused";
+import { ScrollToLatest } from "./ScrollToLatest";
 import { RECORD_COPY } from "./agentCopy";
 
 /**
  * The Agent tab under its conversation bar: what the agent did on the record
- * and the conversation scroll together; the composer stays at the bottom.
+ * and the conversation scroll together; the composer stays at the bottom. A
+ * conversation scrolled up offers the way back to its latest message.
  */
 export function ThreadFrame({
   header,
@@ -16,22 +18,29 @@ export function ThreadFrame({
   footer,
   scrollRef,
   onScroll,
+  onScrollToLatest,
 }: {
   header: ReactNode;
   children: ReactNode;
   footer: ReactNode;
-  scrollRef?: Ref<HTMLDivElement>;
+  scrollRef?: RefObject<HTMLDivElement | null>;
   onScroll?: UIEventHandler<HTMLDivElement>;
+  onScrollToLatest?: () => void;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto"
-      >
-        {header}
-        <div className="space-y-5 px-5 py-4">{children}</div>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
+          {header}
+          <div className="space-y-5 px-5 py-4">{children}</div>
+        </div>
+        {scrollRef && onScrollToLatest ? (
+          <ScrollToLatest scrollRef={scrollRef} onClick={onScrollToLatest} />
+        ) : null}
       </div>
       <div className="shrink-0 space-y-2 border-t border-border px-5 py-3">
         {footer}

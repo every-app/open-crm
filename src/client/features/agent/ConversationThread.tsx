@@ -241,6 +241,7 @@ export function ConversationThread({
       footer={footer}
       scrollRef={scrollRef}
       onScroll={onScroll}
+      onScrollToLatest={pinToBottom}
     >
       {messages.length === 0 && !busy ? (
         <AgentIdle kind={record.kind} onAsk={canChat ? send : undefined} />
