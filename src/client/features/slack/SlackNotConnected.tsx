@@ -85,9 +85,12 @@ export function SlackNotConnected({
     <SettingsPage
       title="Slack"
       actions={
-        <ConnectionBadge
-          state={status.configured ? "disconnected" : "unconfigured"}
-        />
+        // Level with the title's line.
+        <span className="flex h-8 items-center">
+          <ConnectionBadge
+            state={status.configured ? "disconnected" : "unconfigured"}
+          />
+        </span>
       }
     >
       <SlackConnectAlert error={connectError} />

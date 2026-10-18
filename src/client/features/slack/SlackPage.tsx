@@ -103,12 +103,15 @@ function Connected({
     <SettingsPage
       title="Slack"
       actions={
-        <ConnectionBadge
-          state="connected"
-          label={
-            status.workspace ? `Connected to ${status.workspace}` : undefined
-          }
-        />
+        // Level with the title's line.
+        <span className="flex h-8 items-center">
+          <ConnectionBadge
+            state="connected"
+            label={
+              status.workspace ? `Connected to ${status.workspace}` : undefined
+            }
+          />
+        </span>
       }
     >
       {connectError || withheld.length > 0 || status.syncError ? (
