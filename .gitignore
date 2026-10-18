@@ -27,3 +27,6 @@ dist/
 .claude/*
 !.claude/skills/
 !.claude/CLAUDE.md
+
+# Working notes and reports for the maintainers; not part of the app or its docs
+reports/
