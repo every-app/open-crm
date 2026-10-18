@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { FIELD_ENTITIES, type FieldEntity } from "@/shared/crm-enums";
-import { PRIORITY, taskSubject } from "@/shared/agent-tasks";
+import { DIRECT_KINDS, PRIORITY, taskSubject } from "@/shared/agent-tasks";
 import {
   AgentTaskRepository,
   type NewAgentTask,
@@ -34,7 +34,10 @@ async function enqueue(
         contactId: task.contactId ?? undefined,
         companyId: task.companyId ?? undefined,
       });
-      pokeDispatcher(organizationId);
+      // A logo or a photo is fetched at once; research waits for the cron.
+      if ((DIRECT_KINDS as readonly string[]).includes(task.kind)) {
+        pokeDispatcher(organizationId);
+      }
     }
     return created;
   } catch (error) {
@@ -153,7 +156,12 @@ async function meetingSoon(
   });
 }
 
-/** Queues `kind` for each record that has no open task of that kind. */
+/**
+ * Queues `kind` for each record that has no open task of that kind (the
+ * CRM's backfill, which the enrichment sweep runs), in batched writes. The
+ * minute cron's lanes take it from there: a sweep of twenty organizations
+ * doesn't start a lane for each.
+ */
 async function backfill(
   organizationId: string,
   input: {
@@ -168,22 +176,28 @@ async function backfill(
   const byContact = Boolean(input.contactIds);
   const ids = [...new Set(input.contactIds ?? input.companyIds ?? [])];
   if (ids.length === 0) return { queued: 0, alreadyQueued: 0 };
-  let queued = 0;
-  for (const id of ids) {
-    const created = await AgentTaskRepository.insertIfAbsent({
+  const subjectOf = (id: string) =>
+    taskSubject(byContact ? { contactId: id } : { companyId: id });
+  const open = await AgentTaskRepository.openBySubjects(
+    organizationId,
+    input.kind,
+    ids.map(subjectOf),
+  );
+  const taken = new Set(open.map((task) => task.subject));
+  const fresh = ids.filter((id) => !taken.has(subjectOf(id)));
+  await AgentTaskRepository.upsertMany(
+    fresh.map((id) => ({
       organizationId,
       contactId: byContact ? id : null,
       companyId: byContact ? null : id,
-      subject: taskSubject(byContact ? { contactId: id } : { companyId: id }),
+      subject: subjectOf(id),
       kind: input.kind,
       reason: input.reason,
       priority: input.priority ?? PRIORITY.sweep,
       budget: input.budget ?? 4,
-    });
-    if (created) queued += 1;
-  }
-  if (queued > 0) pokeDispatcher(organizationId);
-  return { queued, alreadyQueued: ids.length - queued };
+    })),
+  );
+  return { queued: fresh.length, alreadyQueued: ids.length - fresh.length };
 }
 
 export const fieldBackfillPayloadSchema = z.object({

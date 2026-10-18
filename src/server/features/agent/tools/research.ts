@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { extractFromPage, type JsonSchema } from "../lib/contextDev";
+import { extractFromSite, type JsonSchema } from "../lib/contextDev";
 import { AgentProfileRepository } from "../repositories/AgentProfileRepository";
 import { AgentRecordRepository } from "../repositories/AgentRecordRepository";
 import { BILLABLE_CALL_UNITS } from "../runtime/budget";
@@ -150,7 +150,7 @@ export const researchTools: ToolGroup = (context) => ({
       const charge = context.spend(BILLABLE_CALL_UNITS);
       if (!charge.ok) return { written: false as const, reason: charge.reason };
       const url = /^https?:\/\//i.test(site) ? site : `https://${site}`;
-      const result = await extractFromPage(
+      const result = await extractFromSite(
         contextFetch,
         url,
         RESEARCH_SCHEMA,
@@ -174,7 +174,7 @@ export const researchTools: ToolGroup = (context) => ({
           body,
           meta: {
             source: "context.dev",
-            endpoint: "web/scrape",
+            endpoint: "web/extract",
             agent: "research",
             sessionId: context.sessionId,
           },

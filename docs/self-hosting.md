@@ -52,7 +52,7 @@ The research agent's keys live on the gateway, never in the CRM. Set each once:
 | `OPENROUTER_API_KEY` | The research agent and the chats on each record, including their web research  | `pnpm everyapp secret set OPENROUTER_API_KEY --for gateway` |
 | `CONTEXT_API_KEY`    | Company logos and brand data, LinkedIn profile lookups, and website extraction | `pnpm everyapp secret set CONTEXT_API_KEY --for gateway`    |
 
-Each command asks for the value at a hidden prompt, so the key never appears in your shell history. The change is live on the gateway at once, with no redeploy of the gateway or the CRM. The CRM notices a newly set model key on its own: work waiting for it starts within about ten minutes, with no restart.
+Each command asks for the value at a hidden prompt, so the key never appears in your shell history. The change is live on the gateway at once, with no redeploy of the gateway or the CRM. The CRM notices a newly set key on its own, with no restart: work waiting for the model key starts within about ten minutes, and logos and photos waiting for the Context.dev key within about five.
 
 The agent runs on GPT-6 Luna through OpenRouter. To use another OpenRouter model, set its id on the CRM (the key stays on the gateway):
 
@@ -93,7 +93,7 @@ The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, n
 
 Without a model key, the research agent pauses. Records it would research say "Waiting for setup", and the agent button on Overview says "Agent paused". Settings → General shows which key is missing and, on your own gateway, the command that sets it; owners and admins also see it as a step in Overview's Get started card. Nothing is lost while it waits: the agent does the work once the key is set.
 
-With a model key but no Context.dev key, the agent still researches. Logos and brand data stay empty.
+With a model key but no Context.dev key, the agent still researches. Each company shows its website's favicon as its logo, and brand data stays empty.
 
 ## Run it locally
 
@@ -112,6 +112,12 @@ OPENROUTER_API_KEY=...
 CONTEXT_API_KEY=...
 ```
 
+## Health checks
+
+`https://<crm host>/health` answers `200 {"status":"ok","database":"up"}` without signing in, or `503` when the database doesn't answer. Point an uptime monitor at it.
+
+`https://<crm host>/health/dispatch` reports the research agent's queue: when each part last ran, its backlog and recent failures. It answers `503` when a part has stopped or work is overdue. Call it with a personal access token for the CRM, made by an owner or admin on the gateway, in an `Authorization: Bearer` header.
+
 ## Upgrading
 
 1. Pull the latest CRM, and update the Every App checkout too. Run `pnpm install` in both.
@@ -126,6 +132,6 @@ The deploy migrates the CRM's database after taking a restore point (a D1 Time T
 
 **Settings → General says "Not checked yet".** The gateway is connected, and the agent finds out whether it holds a model key the first time it runs. It runs within a minute of new work being queued, for example when you add a company.
 
-**No logos.** Logos and brand data come from Context.dev. Set `CONTEXT_API_KEY` on the gateway.
+**No logos.** Logos and brand data come from Context.dev, and without it only a company's favicon. Set `CONTEXT_API_KEY` on the gateway.
 
 **Can't sign in, or the app isn't found.** Run `pnpm everyapp status`. It shows the gateway's address and release, its owner, the apps it lists and whether it binds them, each address's certificate, any deploy in progress, and the command to run when something is off.

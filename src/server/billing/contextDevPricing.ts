@@ -10,12 +10,13 @@ import type { ProviderSpend } from "./spendSink";
 //
 // Source: https://www.context.dev/pricing, "API credit costs", read
 // 2026-10-17. The per-path mapping is ours: /people/enrich is "Enrich
-// Person" (20 per match), /web/scrape with JSON extraction (the CRM always
-// asks for JSON) is "Scrape with JSON extraction" (5 per page).
+// Person" (20 per match). /web/extract, which reads up to eight pages of a
+// site, is listed at 10 a request in its API reference
+// (https://docs.context.dev/api-reference/web-extraction/extract).
 const CONTEXT_DEV_CREDITS: Record<string, number> = {
   "/brand/retrieve": 10,
   "/people/enrich": 20,
-  "/web/scrape": 5,
+  "/web/extract": 10,
 };
 
 // OpenSEO's price for one Context.dev credit (CONTEXT_USD_PER_CREDIT): the

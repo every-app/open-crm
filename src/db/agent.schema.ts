@@ -55,6 +55,10 @@ export const agentTask = sqliteTable(
       table.organizationId,
       table.contactId,
     ),
+    index("agent_task_organization_company_idx").on(
+      table.organizationId,
+      table.companyId,
+    ),
     index("agent_task_organization_deal_idx").on(
       table.organizationId,
       table.dealId,
@@ -64,6 +68,17 @@ export const agentTask = sqliteTable(
       .where(sql`${table.finishedAt} is null`),
   ],
 );
+
+/**
+ * When each lane of the minute cron last ran, for the dispatcher's health
+ * check (src/server/features/health). One row per lane for the whole
+ * deployment: it holds no organization's data.
+ */
+export const dispatcherLane = sqliteTable("dispatcher_lane", {
+  lane: text("lane").primaryKey(),
+  ranAt: timestamp("ran_at").notNull(),
+  failedAt: timestamp("failed_at"),
+});
 
 /** What the agent did, step by step, for the Agent tab and the audit. */
 export const agentEvent = sqliteTable(

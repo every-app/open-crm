@@ -15,6 +15,13 @@
       "when": 1792277246966,
       "tag": "0001_parity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792302252641,
+      "tag": "0002_deep_tiger_shark",
+      "breakpoints": true
     }
   ]
 }

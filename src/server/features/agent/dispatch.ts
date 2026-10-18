@@ -18,7 +18,7 @@ import {
 import { AgentTaskRepository } from "./repositories/AgentTaskRepository";
 import { FREE } from "./runtime/budget";
 import { MODEL_RETRY_MS } from "./services/AgentAvailabilityService";
-import { brandOutcome, runBrand } from "./visible/brand";
+import { brandOutcome, runBrand, storeFavicon } from "./visible/brand";
 import { runPortrait } from "./visible/portrait";
 
 // The research agent's dispatcher, ported from the CRM's lib/dispatch.ts. The
@@ -27,7 +27,8 @@ import { runPortrait } from "./visible/portrait";
 //
 // - The visible lane (brand, portrait) has nothing to decide, so it runs here
 //   with no model: many at once, on a short lease, first. Through a session it
-//   queued behind sixty research runs.
+//   queued behind sixty research runs. A brand that leaves the company without
+//   an icon falls back on the company's own favicon, which is free.
 // - The research lane starts one CrmAgent session per task, on a lease long
 //   enough for the session to finish and report back (CrmAgent).
 //
@@ -130,12 +131,18 @@ async function handleDirect(task: LeasedTask): Promise<void> {
       organizationId,
       companyId: task.companyId,
     });
+    const favicon = await storeFavicon({
+      organizationId,
+      companyId: task.companyId,
+    });
     // A lookup worth retrying is retried when the lease runs out.
     if (result.retryable) return;
     await AgentTaskRepository.complete(
       organizationId,
       task.id,
-      brandOutcome(result),
+      favicon
+        ? `${brandOutcome(result)} Used the site's favicon as its icon.`
+        : brandOutcome(result),
     );
     return;
   }

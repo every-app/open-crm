@@ -1,7 +1,8 @@
-// A GET of a public http(s) URL for the agent's own reads (a page, a logo, a
-// photograph). Redirects are followed by hand, at most three, so each hop is
-// checked again; the Worker's global_fetch_strictly_public flag keeps every
-// hop off private addresses. Null for anything that is not a 2xx answer.
+// A GET (or HEAD) of a public http(s) URL for the agent's own reads (a page,
+// a logo, a photograph). Redirects are followed by hand, at most three, so
+// each hop is checked again; the Worker's global_fetch_strictly_public flag
+// keeps every hop off private addresses. Null for anything that is not a 2xx
+// answer.
 
 const MAX_REDIRECTS = 3;
 const TIMEOUT_MS = 15_000;
@@ -9,6 +10,7 @@ const TIMEOUT_MS = 15_000;
 export async function fetchPublic(
   url: string,
   accept: string,
+  options: { method?: "GET" | "HEAD"; timeoutMs?: number } = {},
 ): Promise<{ response: Response; url: string } | null> {
   let target: URL;
   try {
@@ -21,8 +23,9 @@ export async function fetchPublic(
       return null;
     if (target.username || target.password) return null;
     const response = await fetch(target, {
+      method: options.method ?? "GET",
       redirect: "manual",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
       headers: {
         accept,
         "user-agent": "Mozilla/5.0 (compatible; OpenCRM/1.0)",
