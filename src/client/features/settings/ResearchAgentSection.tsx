@@ -5,27 +5,54 @@ import {
   SettingsSection,
 } from "@/client/components/SettingsSection";
 import { Skeleton } from "@/client/components/ui/skeleton";
-import { GatewayKeyRow } from "@/client/features/settings/GatewayKeyRow";
-import { agentModelQueryOptions } from "@/client/features/settings/settingsQueries";
+import {
+  GatewayKeyRow,
+  SetupCommand,
+} from "@/client/features/settings/GatewayKeyRow";
+import {
+  agentModelQueryOptions,
+  useCanManageWorkspace,
+} from "@/client/features/settings/settingsQueries";
+import { setupChecklistQueryOptions } from "@/client/features/setup/setupQueries";
+
+const MODEL_SETTING = "OPENROUTER_MODEL";
 
 /**
  * Settings → General: the model the research agent thinks with, and whether
- * the gateway holds the key that reaches it. The model isn't picked here: it
- * is Luna, or a self-hosted copy's OPENROUTER_MODEL.
+ * the gateway holds the key that reaches it. The hosted CRM runs Luna for
+ * everyone, so only a self-hosted copy shows its model, and where to change
+ * it: OPENROUTER_MODEL.
  */
 export function ResearchAgentSection() {
-  const model = useQuery(agentModelQueryOptions());
+  const checklist = useQuery(setupChecklistQueryOptions()).data;
+  const canManage = useCanManageWorkspace();
+  const selfHosted = checklist?.tier === "fork";
+  const model = useQuery({ ...agentModelQueryOptions(), enabled: selfHosted });
 
   return (
     <SettingsSection title="Research agent">
       <SettingsCard>
-        <SettingsRow label="Model">
-          {model.data ? (
-            <span className="font-mono text-sm">{model.data.id}</span>
-          ) : model.isError ? null : (
-            <Skeleton className="h-5 w-40" />
-          )}
-        </SettingsRow>
+        {selfHosted ? (
+          <SettingsRow
+            label="Model"
+            description={
+              checklist.local ? (
+                `In local development, put ${MODEL_SETTING} in .dev.vars.`
+              ) : canManage ? (
+                <SetupCommand
+                  command={`pnpm everyapp secret set ${MODEL_SETTING}`}
+                  label="the model"
+                />
+              ) : undefined
+            }
+          >
+            {model.data ? (
+              <span className="font-mono text-sm">{model.data.id}</span>
+            ) : model.isError ? null : (
+              <Skeleton className="h-5 w-40" />
+            )}
+          </SettingsRow>
+        ) : null}
         <GatewayKeyRow id="model" label="Model key" />
       </SettingsCard>
     </SettingsSection>

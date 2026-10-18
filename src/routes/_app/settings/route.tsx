@@ -9,8 +9,8 @@ export const Route = createFileRoute("/_app/settings")({
   component: SettingsLayout,
 });
 
-// The original CRM's settings, in its order, then Billing where usage is
-// billed (hosted).
+// The original CRM's settings, in its order (SSO left out for now), then
+// Billing where usage is billed (hosted).
 const sections = [
   { to: "/settings", label: "General", exact: true },
   { to: "/settings/tracking", label: "Tracking & Analytics", exact: false },
@@ -18,7 +18,6 @@ const sections = [
   { to: "/settings/currencies", label: "Currencies", exact: false },
   { to: "/settings/members", label: "Members", exact: false },
   { to: "/settings/api-keys", label: "API Keys", exact: false },
-  { to: "/settings/sso", label: "SSO", exact: false },
 ] as const;
 
 const billingSection = {

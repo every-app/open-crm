@@ -55,18 +55,7 @@ export function GatewayKeyRow({
             {item.note ? <p>{item.note}</p> : null}
             {fallback ? <p>{fallback}</p> : null}
             {item.command ? (
-              <div className="flex max-w-full items-center gap-2">
-                <code className="min-w-0 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground">
-                  {item.command}
-                </code>
-                <CopyButton
-                  value={item.command}
-                  successMessage="Command copied"
-                  label={`Copy the command that sets up ${label}`}
-                  size="icon-xs"
-                  variant="ghost"
-                />
-              </div>
+              <SetupCommand command={item.command} label={label} />
             ) : null}
           </div>
         ) : undefined
@@ -74,5 +63,29 @@ export function GatewayKeyRow({
     >
       <Badge variant={status.variant}>{status.label}</Badge>
     </SettingsRow>
+  );
+}
+
+/** A command that sets something up, with a button that copies it. */
+export function SetupCommand({
+  command,
+  label,
+}: {
+  command: string;
+  label: string;
+}) {
+  return (
+    <div className="flex max-w-full items-center gap-2">
+      <code className="min-w-0 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground">
+        {command}
+      </code>
+      <CopyButton
+        value={command}
+        successMessage="Command copied"
+        label={`Copy the command that sets up ${label}`}
+        size="icon-xs"
+        variant="ghost"
+      />
+    </div>
   );
 }

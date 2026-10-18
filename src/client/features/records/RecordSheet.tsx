@@ -118,8 +118,8 @@ export function RecordSheetFrame({
           </Button>
         ) : null}
         {header ? header.media : <Skeleton className="size-10 rounded-md" />}
-        <div className="min-w-0 flex-1 space-y-1">
-          <SheetTitle className="text-lg leading-snug font-semibold [overflow-wrap:anywhere]">
+        <div className="min-w-0 flex-1 space-y-0.5 pt-0.5">
+          <SheetTitle className="text-lg leading-tight font-semibold [overflow-wrap:anywhere]">
             {header ? (
               header.title
             ) : (
@@ -131,7 +131,9 @@ export function RecordSheetFrame({
           {header ? (
             <>
               {header.description ? (
-                <SheetDescription className="[overflow-wrap:anywhere]">
+                // One line: what it would wrap (a location, an industry) is in
+                // Details too.
+                <SheetDescription className="truncate">
                   {header.description}
                 </SheetDescription>
               ) : null}

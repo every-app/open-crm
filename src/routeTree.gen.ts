@@ -25,7 +25,6 @@ import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/a
 import { Route as AppSettingsBillingRouteImport } from './routes/_app/settings/billing'
 import { Route as AppSettingsCurrenciesRouteImport } from './routes/_app/settings/currencies'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
-import { Route as AppSettingsSsoRouteImport } from './routes/_app/settings/sso'
 import { Route as AppSettingsTrackingRouteImport } from './routes/_app/settings/tracking'
 import { Route as IntegrationsGoogleCallbackRouteImport } from './routes/integrations/google/callback'
 import { Route as IntegrationsMicrosoftCallbackRouteImport } from './routes/integrations/microsoft/callback'
@@ -117,11 +116,6 @@ const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
-const AppSettingsSsoRoute = AppSettingsSsoRouteImport.update({
-  id: '/sso',
-  path: '/sso',
-  getParentRoute: () => AppSettingsRouteRoute,
-} as any)
 const AppSettingsTrackingRoute = AppSettingsTrackingRouteImport.update({
   id: '/tracking',
   path: '/tracking',
@@ -204,7 +198,6 @@ export interface FileRoutesByFullPath {
   '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/members': typeof AppSettingsMembersRoute
-  '/settings/sso': typeof AppSettingsSsoRoute
   '/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
@@ -232,7 +225,6 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof AppSettingsBillingRoute
   '/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/settings/members': typeof AppSettingsMembersRoute
-  '/settings/sso': typeof AppSettingsSsoRoute
   '/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
@@ -264,7 +256,6 @@ export interface FileRoutesById {
   '/_app/settings/billing': typeof AppSettingsBillingRoute
   '/_app/settings/currencies': typeof AppSettingsCurrenciesRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
-  '/_app/settings/sso': typeof AppSettingsSsoRoute
   '/_app/settings/tracking': typeof AppSettingsTrackingRoute
   '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
   '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
@@ -295,7 +286,6 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/currencies'
     | '/settings/members'
-    | '/settings/sso'
     | '/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
@@ -323,7 +313,6 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/currencies'
     | '/settings/members'
-    | '/settings/sso'
     | '/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
@@ -354,7 +343,6 @@ export interface FileRouteTypes {
     | '/_app/settings/billing'
     | '/_app/settings/currencies'
     | '/_app/settings/members'
-    | '/_app/settings/sso'
     | '/_app/settings/tracking'
     | '/integrations/google/callback'
     | '/integrations/microsoft/callback'
@@ -491,13 +479,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
-    '/_app/settings/sso': {
-      id: '/_app/settings/sso'
-      path: '/sso'
-      fullPath: '/settings/sso'
-      preLoaderRoute: typeof AppSettingsSsoRouteImport
-      parentRoute: typeof AppSettingsRouteRoute
-    }
     '/_app/settings/tracking': {
       id: '/_app/settings/tracking'
       path: '/tracking'
@@ -590,7 +571,6 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsBillingRoute: typeof AppSettingsBillingRoute
   AppSettingsCurrenciesRoute: typeof AppSettingsCurrenciesRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
-  AppSettingsSsoRoute: typeof AppSettingsSsoRoute
   AppSettingsTrackingRoute: typeof AppSettingsTrackingRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
   AppSettingsConnectionsGoogleRoute: typeof AppSettingsConnectionsGoogleRoute
@@ -605,7 +585,6 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsBillingRoute: AppSettingsBillingRoute,
   AppSettingsCurrenciesRoute: AppSettingsCurrenciesRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
-  AppSettingsSsoRoute: AppSettingsSsoRoute,
   AppSettingsTrackingRoute: AppSettingsTrackingRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
   AppSettingsConnectionsGoogleRoute: AppSettingsConnectionsGoogleRoute,
