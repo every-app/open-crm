@@ -111,6 +111,33 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await runs()).toBe(1);
     });
 
+    it("names a builder chat after the agent its first save makes", async () => {
+      const chat = await BuilderRepository.createConversation({
+        organizationId: "org_a",
+        userId: "user_a",
+        sessionId: "chat.test.named",
+      });
+      await database.exec(
+        `UPDATE agent_conversation SET title = 'Watch my deals' WHERE id = '${chat.id}';`,
+      );
+      await BuilderToolService.saveDraft(
+        {
+          organizationId: "org_a",
+          userId: "user_a",
+          conversationId: chat.id,
+          tagged: [],
+          taggedIntegrations: [],
+        },
+        draft(),
+      );
+      const row = await BuilderRepository.findConversation(
+        "org_a",
+        "user_a",
+        chat.id,
+      );
+      expect(row?.title).toBe("Stage watcher");
+    });
+
     it("saves a selected scope only from records tagged in the chat", async () => {
       const chat = await BuilderRepository.createConversation({
         organizationId: "org_a",

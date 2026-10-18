@@ -4,6 +4,7 @@ import { runBatch } from "@/db/runBatch";
 import {
   agentAuditEvent,
   agentBuilderArtifact,
+  agentConversation,
   agentDefinition,
   agentTrigger,
   agentVersion,
@@ -86,7 +87,8 @@ type NewVersion = {
 /**
  * Writes a new version with its triggers, file snapshots and audit lines in
  * one batch, so a version never exists without the triggers it declares.
- * `agent` creates the agent first (the chat's first save).
+ * `agent` creates the agent first (the chat's first save), and names the chat
+ * it came from after it.
  */
 async function saveVersion(input: {
   agent?: NewAgent;
@@ -98,9 +100,22 @@ async function saveVersion(input: {
   claimedArtifactIds: string[];
   audit: NewAudit[];
 }): Promise<void> {
-  const { version } = input;
+  const { version, agent } = input;
   await runBatch((tx) => [
-    ...(input.agent ? [tx.insert(agentDefinition).values(input.agent)] : []),
+    ...(agent ? [tx.insert(agentDefinition).values(agent)] : []),
+    ...(agent?.conversationId
+      ? [
+          tx
+            .update(agentConversation)
+            .set({ title: agent.name, updatedAt: new Date().toISOString() })
+            .where(
+              and(
+                eq(agentConversation.organizationId, agent.organizationId),
+                eq(agentConversation.id, agent.conversationId),
+              ),
+            ),
+        ]
+      : []),
     ...(input.renameDraft
       ? [
           tx
