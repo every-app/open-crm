@@ -13,7 +13,6 @@ import {
 import {
   bulkIdsSchema,
   bulkOwnerSchema,
-  filterOptionsSchema,
   recordIdSchema,
 } from "@/types/schemas/records";
 
@@ -26,13 +25,6 @@ export const listContacts = createServerFn({ method: "GET" })
   .validator(contactListSchema)
   .handler(({ data, context }) =>
     ContactService.listContacts(context.organizationId, data),
-  );
-
-export const contactFilterOptions = createServerFn({ method: "GET" })
-  .middleware(requireAuthenticatedContext)
-  .validator(filterOptionsSchema)
-  .handler(({ data, context }) =>
-    ContactService.filterOptions(context.organizationId, data.archived),
   );
 
 export const getContact = createServerFn({ method: "GET" })

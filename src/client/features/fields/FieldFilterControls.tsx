@@ -16,6 +16,7 @@ import {
 import {
   FilterChip,
   FilterChipShell,
+  countsFor,
 } from "@/client/components/table/FilterChip";
 import { Input } from "@/client/components/ui/input";
 import { useDebouncedDraft } from "@/client/hooks/useDebouncedDraft";
@@ -24,11 +25,13 @@ import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import type { Field } from "@/server/features/fields/services/fieldShape";
 import type { FieldEntity, FieldType } from "@/shared/crm-enums";
 import type { FieldFilter, FieldFilters } from "@/types/schemas/fields";
+import type { FacetCounts } from "@/types/schemas/records";
 
 // A list's custom field filters, as chips after its own: one per field
 // offered as a filter. Text fields match what they contain, numbers and
 // dates a range, checkboxes yes or no, selects and users any of those
-// picked. The value is what the list keeps in its URL (`fieldFiltersSchema`)
+// picked (offering those the list's search finds records for, with how
+// many). The value is what the list keeps in its URL (`fieldFiltersSchema`)
 // and hands to FieldValuesService.filterConditions.
 
 const TYPE_ICONS: Record<FieldType, LucideIcon> = {
@@ -48,6 +51,8 @@ type ChipProps = {
   field: Field;
   filter: FieldFilter | undefined;
   onChange: (filter: FieldFilter | null) => void;
+  /** Records per option or member, for selects and user fields. */
+  counts: Record<string, number> | undefined;
 };
 
 /**
@@ -66,10 +71,13 @@ function useFilterableFields(entity: FieldEntity, value: FieldFilters) {
 /** One chip per custom field the list filters by, after its own filters. */
 export function FieldFilterChips({
   entity,
+  facetCounts,
   value,
   onChange,
 }: {
   entity: FieldEntity;
+  /** The list's counts of its filters' values; undefined while it loads. */
+  facetCounts: FacetCounts | undefined;
   value: FieldFilters;
   onChange: (filters: FieldFilters) => void;
 }) {
@@ -94,6 +102,7 @@ export function FieldFilterChips({
       field,
       filter: value[field.key],
       onChange: (filter) => set(field.key, filter),
+      counts: countsFor(facetCounts, `field:${field.key}`),
     };
     switch (field.type) {
       case "SELECT":
@@ -115,6 +124,7 @@ function AnyOfChip({
   field,
   filter,
   onChange,
+  counts,
   options,
 }: ChipProps & { options: { value: string; label: string }[] }) {
   return (
@@ -123,6 +133,7 @@ function AnyOfChip({
       icon={TYPE_ICONS[field.type]}
       options={options}
       value={filter?.op === "anyOf" ? filter.values : []}
+      counts={counts}
       max={20}
       onChange={(values) =>
         onChange(values.length > 0 ? { op: "anyOf", values } : null)

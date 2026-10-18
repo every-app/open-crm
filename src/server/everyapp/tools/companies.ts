@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
+  FACET_COUNTS_NOTE,
+  toolFacetCounts,
+} from "@/server/everyapp/tools/facetCounts";
+import {
   fieldFiltersInput,
   resolveFieldFilters,
 } from "@/server/everyapp/tools/fieldFilters";
@@ -118,8 +122,7 @@ const companyId = z
 
 export const companyTools = {
   list_companies: crmTool({
-    description:
-      "Search and list the CRM's companies (accounts): domain, industry, location, owner, how many contacts and open deals each has, and when anything last happened. `query` matches part of the name or domain; `fields` filters by custom fields, and each company comes with the values of the fields shown as table columns (a select as its label). 25 a page, newest first unless sorted.",
+    description: `Search and list the CRM's companies (accounts): domain, industry, location, owner, how many contacts and open deals each has, and when anything last happened. \`query\` matches part of the name or domain; \`fields\` filters by custom fields, and each company comes with the values of the fields shown as table columns (a select as its label). ${FACET_COUNTS_NOTE} 25 a page, newest first unless sorted.`,
     risk: "read",
     input: z
       .object({
@@ -186,7 +189,7 @@ export const companyTools = {
         dir: input.direction,
         page: input.page,
       });
-      const { rows, total } = await CompanyService.listCompanies(
+      const { rows, total, facetCounts } = await CompanyService.listCompanies(
         context.organizationId,
         list,
       );
@@ -195,6 +198,11 @@ export const companyTools = {
         page: list.page,
         pageSize: list.pageSize,
         companies: rows.map(summary),
+        facetCounts: await toolFacetCounts(
+          context.organizationId,
+          "COMPANY",
+          facetCounts,
+        ),
       };
     },
   }),

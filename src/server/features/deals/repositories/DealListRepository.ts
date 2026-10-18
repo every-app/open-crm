@@ -11,6 +11,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import { sum } from "remeda";
 import { db } from "@/db";
 import { company, deal, user } from "@/db/schema";
 import { countedIn } from "@/server/features/currency/repositories/DealConversionRepository";
@@ -21,6 +22,8 @@ import {
 } from "@/server/features/deals/repositories/DealRepository";
 import {
   archivedCondition,
+  countWhere,
+  countsByValue,
   ownerCondition,
   pageWindow,
   searchCondition,
@@ -33,11 +36,13 @@ import {
   DEAL_STAGE_ORDER,
   OPEN_DEAL_STAGES,
 } from "@/shared/deal-stages";
-import type {
-  ClosingWindow,
-  DealListInput,
-  DealSort,
+import {
+  CLOSING_WINDOWS,
+  type ClosingWindow,
+  type DealListInput,
+  type DealSort,
 } from "@/types/schemas/deals";
+import type { FacetCounts } from "@/types/schemas/records";
 
 // The deals list: its search, filters, order and page, and what the open
 // deals in its view are worth. The filters name only the deal's own columns,
@@ -133,10 +138,20 @@ function searchWhere(organizationId: string, q: string): SQL | undefined {
   );
 }
 
+/** The list's scope: the live (or archived) deals its search finds. */
+function scopeWhere(organizationId: string, input: DealListInput) {
+  return and(
+    eq(deal.organizationId, organizationId),
+    archivedCondition(deal.archivedAt, input.archived),
+    searchWhere(organizationId, input.q),
+  );
+}
+
 /**
- * The list's view: everything but its page and order, `fieldConditions`
- * being its custom field filters' conditions on `deal`. It names only the
- * deal's own columns, so totals over the view need no join.
+ * The scope narrowed by the list's filters: everything but its page and
+ * order, `fieldConditions` being its custom field filters' conditions on
+ * `deal`. It names only the deal's own columns, so totals over it need no
+ * join.
  */
 function listWhere(
   organizationId: string,
@@ -146,9 +161,7 @@ function listWhere(
   const now = new Date();
   const statusStages = STATUS_STAGES[input.status];
   return and(
-    eq(deal.organizationId, organizationId),
-    archivedCondition(deal.archivedAt, input.archived),
-    searchWhere(organizationId, input.q),
+    scopeWhere(organizationId, input),
     ownerCondition(deal.ownerId, input.owner),
     statusStages ? inArray(deal.stage, statusStages) : undefined,
     input.stage.length > 0 ? inArray(deal.stage, input.stage) : undefined,
@@ -228,8 +241,65 @@ async function openValue(
   return row?.value == null ? null : roundMoney(Number(row.value), base);
 }
 
+/**
+ * How many deals in the list's scope have each value of its filters: open
+ * and closed, each owner, each stage and each closing window.
+ */
+async function facetCounts(
+  organizationId: string,
+  input: DealListInput,
+): Promise<FacetCounts> {
+  const where = scopeWhere(organizationId, input);
+  const now = new Date();
+  const [owners, stages, [closing]] = await Promise.all([
+    db
+      .select({ value: deal.ownerId, count: count() })
+      .from(deal)
+      .where(where)
+      .groupBy(deal.ownerId),
+    db
+      .select({ value: deal.stage, count: count() })
+      .from(deal)
+      .where(where)
+      .groupBy(deal.stage),
+    db
+      .select(
+        Object.fromEntries(
+          CLOSING_WINDOWS.map((window) => [
+            window,
+            countWhere(closingCondition(window, now)),
+          ]),
+        ),
+      )
+      .from(deal)
+      .where(where),
+  ]);
+  const stage = countsByValue(stages);
+  const inStages = (among: readonly string[]) =>
+    sum(among.map((value) => stage[value] ?? 0));
+  return {
+    status: {
+      open: inStages(OPEN_DEAL_STAGES),
+      closed: inStages(CLOSED_DEAL_STAGES),
+    },
+    owner: countsByValue(owners),
+    stage,
+    closing: closing ?? {},
+  };
+}
+
+/** The ids of the deals in the list's scope, as a subquery. */
+function idsInScope(organizationId: string, input: DealListInput) {
+  return db
+    .select({ id: deal.id })
+    .from(deal)
+    .where(scopeWhere(organizationId, input));
+}
+
 export const DealListRepository = {
   list,
+  facetCounts,
+  idsInScope,
   openInView,
   openValue,
 };

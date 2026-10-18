@@ -4,6 +4,7 @@ import {
   DataTableTabs,
   DataTableToolbar,
 } from "@/client/components/table/DataTableToolbar";
+import { countsFor } from "@/client/components/table/FilterChip";
 import {
   InputGroup,
   InputGroupAddon,
@@ -15,11 +16,14 @@ import { FieldFilterChips } from "@/client/features/fields/FieldFilterControls";
 import type { RecordListSearch } from "@/client/features/records/listSearch";
 import { OwnerFilter } from "@/client/features/records/owners";
 import type { FieldEntity } from "@/shared/crm-enums";
+import type { FacetCounts } from "@/types/schemas/records";
 
 // Above a record list's rows: the live/archived view switch, then the
 // search and the filters (the owner, the list's own, then its custom
 // fields'), with the list's actions on the right. Every change goes to the
-// URL and takes the list back to its first page.
+// URL and takes the list back to its first page. The filters offer the
+// values the list's search finds records for, with how many
+// (`facetCounts`).
 
 const trim = (value: string) => value.trim();
 
@@ -56,6 +60,7 @@ export function RecordListToolbar({
   search,
   onSearchChange,
   placeholder,
+  facetCounts,
   filters,
   actions,
 }: {
@@ -64,9 +69,11 @@ export function RecordListToolbar({
   search: RecordListSearch;
   onSearchChange: (update: Partial<RecordListSearch>) => void;
   placeholder: string;
+  /** The list's counts of its filters' values; undefined while it loads. */
+  facetCounts: FacetCounts | undefined;
   /** After the owner filter: the list's own filters. */
   filters?: ReactNode;
-  /** On the right: export, saved views, columns and fields. */
+  /** On the right: export, saved views, sort, columns and fields. */
   actions?: ReactNode;
 }) {
   return (
@@ -99,10 +106,12 @@ export function RecordListToolbar({
               page: undefined,
             })
           }
+          counts={countsFor(facetCounts, "owner")}
         />
         {filters}
         <FieldFilterChips
           entity={entity}
+          facetCounts={facetCounts}
           value={search.fields ?? {}}
           onChange={(fields) =>
             onSearchChange({

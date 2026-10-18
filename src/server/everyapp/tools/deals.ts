@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
+  FACET_COUNTS_NOTE,
+  toolFacetCounts,
+} from "@/server/everyapp/tools/facetCounts";
+import {
   fieldFiltersInput,
   resolveFieldFilters,
 } from "@/server/everyapp/tools/fieldFilters";
@@ -128,7 +132,7 @@ const dealFields = {
 
 export const dealTools = {
   list_deals: crmTool({
-    description: `Search and list the CRM's deals: company, stage, amount and currency, owner and expected close date. \`query\` matches part of the deal's or its company's name; \`fields\` filters by custom fields, and each deal comes with the values of the fields shown as table columns (a select as its label). With the page comes the open pipeline's value in the reporting currency, and how many open deals it leaves out because no exchange rate converts their currency. ${STAGES_NOTE} 25 a page, newest first unless sorted.`,
+    description: `Search and list the CRM's deals: company, stage, amount and currency, owner and expected close date. \`query\` matches part of the deal's or its company's name; \`fields\` filters by custom fields, and each deal comes with the values of the fields shown as table columns (a select as its label). With the page comes the open pipeline's value in the reporting currency, and how many open deals it leaves out because no exchange rate converts their currency. ${FACET_COUNTS_NOTE} ${STAGES_NOTE} 25 a page, newest first unless sorted.`,
     risk: "read",
     input: z
       .object({
@@ -197,6 +201,11 @@ export const dealTools = {
           notCounted: result.unconverted,
         },
         deals: result.rows.map((row) => summary(row, result.reportingCurrency)),
+        facetCounts: await toolFacetCounts(
+          context.organizationId,
+          "DEAL",
+          result.facetCounts,
+        ),
       };
     },
   }),

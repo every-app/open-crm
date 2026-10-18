@@ -59,9 +59,11 @@ export function OwnerField({
 export function OwnerFilter({
   value,
   onChange,
+  counts,
 }: {
   value: string[];
   onChange: (owners: string[]) => void;
+  counts: Record<string, number> | undefined;
 }) {
   return (
     <FilterChip
@@ -70,6 +72,7 @@ export function OwnerFilter({
       options={useOwnerOptions()}
       value={value}
       onChange={onChange}
+      counts={counts}
       max={OWNER_FILTER_MAX}
     />
   );

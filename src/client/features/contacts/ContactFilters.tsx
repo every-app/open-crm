@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { Briefcase, Building2, Layers, Shapes } from "lucide-react";
-import { FilterChip } from "@/client/components/table/FilterChip";
+import { FilterChip, countsFor } from "@/client/components/table/FilterChip";
 import {
   companyOptionsQueryOptions,
   companyQueryOptions,
 } from "@/client/features/companies/companyQueries";
-import { contactFilterOptionsQueryOptions } from "@/client/features/contacts/contactQueries";
 import type { ContactListSearch } from "@/client/features/contacts/contactSearch";
 import {
   ActivityFilter,
@@ -14,7 +13,7 @@ import {
   valueOptions,
 } from "@/client/features/records/ListFilters";
 import { NO_COMPANY } from "@/types/schemas/contacts";
-import { FACET_FILTER_MAX } from "@/types/schemas/records";
+import { FACET_FILTER_MAX, type FacetCounts } from "@/types/schemas/records";
 
 const SEARCH_DELAY_MS = 250;
 
@@ -25,17 +24,20 @@ const SEARCH_DELAY_MS = 250;
 export function ContactFilters({
   search,
   onSearchChange,
+  facetCounts,
 }: {
   search: ContactListSearch;
   onSearchChange: (update: Partial<ContactListSearch>) => void;
+  facetCounts: FacetCounts | undefined;
 }) {
-  const options = useQuery(
-    contactFilterOptionsQueryOptions(search.archived ?? false),
-  );
+  const titles = countsFor(facetCounts, "title");
+  const seniorities = countsFor(facetCounts, "seniority");
+  const personas = countsFor(facetCounts, "persona");
   return (
     <>
       <CompanyFilter
         value={search.company ?? []}
+        counts={countsFor(facetCounts, "company")}
         onChange={(company) =>
           onSearchChange({ company: chosen(company), page: undefined })
         }
@@ -43,7 +45,8 @@ export function ContactFilters({
       <FilterChip
         label="Title"
         icon={Briefcase}
-        options={valueOptions(options.data?.titles)}
+        options={valueOptions(titles)}
+        counts={titles}
         value={search.title ?? []}
         max={FACET_FILTER_MAX}
         onChange={(title) =>
@@ -53,7 +56,8 @@ export function ContactFilters({
       <FilterChip
         label="Seniority"
         icon={Layers}
-        options={valueOptions(options.data?.seniorities)}
+        options={valueOptions(seniorities)}
+        counts={seniorities}
         value={search.seniority ?? []}
         max={FACET_FILTER_MAX}
         onChange={(seniority) =>
@@ -63,7 +67,8 @@ export function ContactFilters({
       <FilterChip
         label="Persona"
         icon={Shapes}
-        options={valueOptions(options.data?.personas)}
+        options={valueOptions(personas)}
+        counts={personas}
         value={search.persona ?? []}
         max={FACET_FILTER_MAX}
         onChange={(persona) =>
@@ -72,6 +77,7 @@ export function ContactFilters({
       />
       <ActivityFilter
         value={search.activity}
+        counts={countsFor(facetCounts, "activity")}
         onChange={(activity) => onSearchChange({ activity, page: undefined })}
       />
     </>
@@ -81,13 +87,15 @@ export function ContactFilters({
 /**
  * Contacts at any of the chosen companies, or at none: the companies are
  * searched on the server as you type, the chosen ones named by their own
- * records.
+ * records. Of those, it offers the ones the list's search finds contacts at.
  */
 function CompanyFilter({
   value,
+  counts,
   onChange,
 }: {
   value: string[];
+  counts: Record<string, number> | undefined;
   onChange: (next: string[]) => void;
 }) {
   const [input, setInput] = useState("");
@@ -127,6 +135,7 @@ function CompanyFilter({
       label="Company"
       icon={Building2}
       options={options}
+      counts={counts}
       value={value}
       max={FACET_FILTER_MAX}
       onChange={onChange}

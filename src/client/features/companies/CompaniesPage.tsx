@@ -181,8 +181,13 @@ export function CompaniesPage() {
               search={search}
               onSearchChange={setSearch}
               placeholder="Search companies by name or domain…"
+              facetCounts={query.data?.facetCounts}
               filters={
-                <CompanyFilters search={search} onSearchChange={setSearch} />
+                <CompanyFilters
+                  search={search}
+                  onSearchChange={setSearch}
+                  facetCounts={query.data?.facetCounts}
+                />
               }
               actions={
                 <>

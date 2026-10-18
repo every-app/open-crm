@@ -63,18 +63,24 @@ async function requireLiveCompany(organizationId: string, companyId: string) {
 
 /**
  * A page of the list, its custom field filters applied in the same query as
- * the rest, each row with its values for the fields shown as columns.
+ * the rest, each row with its values for the fields shown as columns; and
+ * how many contacts its search finds have each value of its filters.
  */
 async function listContacts(organizationId: string, input: ContactListInput) {
-  const { rows, total } = await ContactRepository.list(
+  const fieldConditions = await FieldValuesService.filterConditions(
     organizationId,
-    input,
-    await FieldValuesService.filterConditions(
+    "CONTACT",
+    input.fields,
+  );
+  const [{ rows, total }, facetCounts, fieldFacetCounts] = await Promise.all([
+    ContactRepository.list(organizationId, input, fieldConditions),
+    ContactRepository.facetCounts(organizationId, input),
+    FieldValuesService.facetCounts(
       organizationId,
       "CONTACT",
-      input.fields,
+      ContactRepository.idsInScope(organizationId, input),
     ),
-  );
+  ]);
   const ids = rows.map((row) => row.id);
   const [agent, fields] = await Promise.all([
     recordAgentStates(organizationId, "contact", ids),
@@ -88,20 +94,13 @@ async function listContacts(organizationId: string, input: ContactListInput) {
       fields: fields[row.id] ?? {},
     })),
     total,
+    facetCounts: { ...facetCounts, ...fieldFacetCounts },
   };
 }
 
 export type ContactListRow = Awaited<
   ReturnType<typeof listContacts>
 >["rows"][number];
-
-/**
- * What the list's Title, Seniority and Persona filters offer, in its live or
- * Archived view.
- */
-async function filterOptions(organizationId: string, archived: boolean) {
-  return ContactRepository.filterValues(organizationId, archived);
-}
 
 /**
  * A contact with what its sheet shows: owner, company, the agent's brief
@@ -409,7 +408,6 @@ function bulkPurge(organizationId: string, ids: string[]) {
 
 export const ContactService = {
   listContacts,
-  filterOptions,
   getContact,
   createContact,
   updateContact,

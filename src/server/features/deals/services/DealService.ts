@@ -63,7 +63,13 @@ async function listDeals(organizationId: string, input: DealListInput) {
     ConversionService.reportingCurrency(organizationId),
     FieldValuesService.filterConditions(organizationId, "DEAL", input.fields),
   ]);
-  const [{ rows, total }, openValue, unconverted] = await Promise.all([
+  const [
+    { rows, total },
+    openValue,
+    unconverted,
+    facetCounts,
+    fieldFacetCounts,
+  ] = await Promise.all([
     DealListRepository.list(organizationId, input, fieldConditions),
     DealListRepository.openValue(
       organizationId,
@@ -75,6 +81,12 @@ async function listDeals(organizationId: string, input: DealListInput) {
       organizationId,
       DealListRepository.openInView(organizationId, input, fieldConditions),
     ),
+    DealListRepository.facetCounts(organizationId, input),
+    FieldValuesService.facetCounts(
+      organizationId,
+      "DEAL",
+      DealListRepository.idsInScope(organizationId, input),
+    ),
   ]);
   const fields = await FieldValuesService.tableValues(
     organizationId,
@@ -84,6 +96,7 @@ async function listDeals(organizationId: string, input: DealListInput) {
   return {
     rows: rows.map((row) => ({ ...row, fields: fields[row.id] ?? {} })),
     total,
+    facetCounts: { ...facetCounts, ...fieldFacetCounts },
     openValue,
     reportingCurrency,
     unconverted,

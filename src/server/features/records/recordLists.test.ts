@@ -121,7 +121,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toMatchObject([{ id: "acme_b", fields: {} }]);
     });
 
-    it("narrows the companies list by industry, research state and recent activity, and offers the organization's industries", async () => {
+    it("narrows the companies list by industry, research state and recent activity", async () => {
       await database.exec(`
         UPDATE company SET industry = 'Software', enrichment_status = 'COMPLETE', last_activity_at = '${daysAgo(3)}' WHERE id = 'acme';
         UPDATE company SET industry = 'Software', last_activity_at = '${daysAgo(40)}' WHERE id = 'acme_labs';
@@ -146,13 +146,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         "globex",
       ]);
       expect(await ids({ activity: "30" })).toEqual(["acme"]);
-      // The commonest first, and none of the other organization's.
-      expect(await CompanyService.filterOptions("org_a", false)).toEqual({
-        industries: ["Software", "Fintech"],
-      });
     });
 
-    it("narrows the contacts list by company (or none), title, seniority, persona and recent activity, and offers the organization's values", async () => {
+    it("narrows the contacts list by company (or none), title, seniority, persona and recent activity", async () => {
       await database.exec(`
         INSERT INTO contact (id, organization_id, first_name, company_id, title, seniority, "function", last_activity_at) VALUES
           ('ana', 'org_a', 'Ana', 'acme', 'CEO', 'Founder', 'Executive', '${daysAgo(2)}'),
@@ -175,11 +171,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await ids({ persona: ["Executive"], activity: "7" })).toEqual([
         "ana",
       ]);
-      expect(await ContactService.filterOptions("org_a", false)).toEqual({
-        titles: ["CEO", "CTO"],
-        seniorities: ["Founder", "C-level"],
-        personas: ["Executive", "Engineering"],
-      });
     });
 
     it("sorts by owner with nobody's last either way, and companies by their people and open deals", async () => {

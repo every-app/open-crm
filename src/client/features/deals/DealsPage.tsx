@@ -182,8 +182,13 @@ export function DealsPage() {
               search={search}
               onSearchChange={setSearch}
               placeholder="Search deals by name or company…"
+              facetCounts={query.data?.facetCounts}
               filters={
-                <DealFilters search={search} onSearchChange={setSearch} />
+                <DealFilters
+                  search={search}
+                  onSearchChange={setSearch}
+                  facetCounts={query.data?.facetCounts}
+                />
               }
               actions={
                 <>

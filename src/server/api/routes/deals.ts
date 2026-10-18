@@ -26,7 +26,7 @@ export const dealRoutes = [
     path: "/deals/search",
     tag,
     summary:
-      "List deals: search, owner, status, stage, closing window, archived and custom field filters, sorting and paging, as the Deals list takes them.",
+      "List deals: search, owner, status, stage, closing window, archived and custom field filters, sorting and paging, as the Deals list takes them. `facetCounts` counts the deals the search finds by each filter's values.",
     input: dealListSchema,
     handler: (data, context) =>
       DealService.listDeals(context.organizationId, data),

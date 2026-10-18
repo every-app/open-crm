@@ -12,7 +12,6 @@ import {
 import {
   bulkIdsSchema,
   bulkOwnerSchema,
-  filterOptionsSchema,
   recordIdSchema,
 } from "@/types/schemas/records";
 
@@ -24,13 +23,6 @@ export const listCompanies = createServerFn({ method: "GET" })
   .validator(companyListSchema)
   .handler(({ data, context }) =>
     CompanyService.listCompanies(context.organizationId, data),
-  );
-
-export const companyFilterOptions = createServerFn({ method: "GET" })
-  .middleware(requireAuthenticatedContext)
-  .validator(filterOptionsSchema)
-  .handler(({ data, context }) =>
-    CompanyService.filterOptions(context.organizationId, data.archived),
   );
 
 export const getCompany = createServerFn({ method: "GET" })
