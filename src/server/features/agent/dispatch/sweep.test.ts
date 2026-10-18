@@ -5,7 +5,7 @@ import { z } from "zod";
 // The enrichment sweep's selection is new SQL (correlated NOT EXISTS, a left
 // join, the claim's conditional update): both backends must pick the same
 // records.
-const { databases, current } = await vi.hoisted(async () => {
+const { databases, current, r2 } = await vi.hoisted(async () => {
   const { createPgTestDb, createSqliteTestDb } =
     await import("@/server/testing/testDb");
   return {
@@ -14,6 +14,7 @@ const { databases, current } = await vi.hoisted(async () => {
       postgres: await createPgTestDb(),
     },
     current: { dialect: "sqlite" as "sqlite" | "postgres" },
+    r2: { put: vi.fn<(key: string, value: unknown) => Promise<void>>() },
   };
 });
 vi.mock("cloudflare:workers", () => ({
@@ -21,6 +22,7 @@ vi.mock("cloudflare:workers", () => ({
     get DATABASE_PROVIDER() {
       return current.dialect === "postgres" ? "postgres" : "d1";
     },
+    R2: r2,
   },
 }));
 vi.mock("@/db", () => ({
@@ -46,12 +48,32 @@ const taskRows = z.array(z.object({ kind: z.string(), subject: z.string() }));
 const ready = async () => true;
 const noKey = async () => false;
 
+/** Only *.icon.test sites (their /favicon.ico) and cdn.test serve images. */
+const sites = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(input instanceof Request ? input.url : input.toString());
+  const image =
+    url.hostname === "cdn.test" ||
+    (url.hostname.endsWith(".icon.test") && url.pathname === "/favicon.ico");
+  if (!image) return new Response(null, { status: 404 });
+  return new Response(
+    init?.method === "HEAD" ? null : new Uint8Array([0, 0, 1, 0]),
+    { headers: { "content-type": "image/x-icon" } },
+  );
+});
+
+/** The path of the organization's copy of `name` (an icon) in R2. */
+const copyOf = (name: string): unknown =>
+  expect.stringMatching(
+    new RegExp(`^/api/images/org_a/companies/${name}-\\w+\\.ico$`),
+  );
+
 for (const dialect of ["sqlite", "postgres"] as const) {
   describe(`the enrichment sweep (${dialect})`, () => {
     const database = databases[dialect];
 
     beforeEach(async () => {
       current.dialect = dialect;
+      vi.stubGlobal("fetch", sites);
       await database.exec(
         `DELETE FROM agent_task; DELETE FROM workspace_profile; DELETE FROM workspace; DELETE FROM contact; DELETE FROM company;
          DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
@@ -181,6 +203,45 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         `UPDATE workspace SET enrichment_swept_at = '${ago(6 * 60_000)}' WHERE organization_id = 'org_b'`,
       );
       expect(await runEnrichmentSweep({ contextReady: ready })).toBe(1);
+    });
+
+    it("fetches the favicon of each company with a domain and no icon, out of credits too, and tries it once a day", async () => {
+      await database.exec(
+        `INSERT INTO company (id, organization_id, name, domain, icon_url) VALUES
+           ('found', 'org_a', 'Found', 'found.icon.test', NULL),
+           ('tried', 'org_a', 'Tried', 'tried.icon.test', NULL),
+           ('iconed', 'org_a', 'Iconed', 'iconed.icon.test', '/api/images/org_a/i.png');`,
+      );
+      await finished("favicon", "company_id", "tried", ago(HOUR));
+      const icons = async () =>
+        database.rows(`SELECT id, icon_url FROM company ORDER BY id`);
+
+      await runEnrichmentSweep({
+        contextReady: ready,
+        credits: async () => false,
+      });
+      expect(await icons()).toEqual([
+        { id: "found", icon_url: copyOf("found/icon") },
+        { id: "iconed", icon_url: "/api/images/org_a/i.png" },
+        { id: "tried", icon_url: null },
+      ]);
+    });
+
+    it("copies the logos and icons still at their source URL, and leaves our copies", async () => {
+      await database.exec(
+        `INSERT INTO company (id, organization_id, name, domain, logo_url, icon_url) VALUES
+           ('linked', 'org_a', 'Linked', NULL, 'https://cdn.test/logo.png', '/api/images/org_a/companies/linked/icon-1.png');`,
+      );
+      await runEnrichmentSweep({ contextReady: ready });
+      expect(
+        await database.rows(`SELECT logo_url, icon_url FROM company`),
+      ).toEqual([
+        {
+          logo_url: copyOf("linked/logoUrl"),
+          icon_url: "/api/images/org_a/companies/linked/icon-1.png",
+        },
+      ]);
+      expect(r2.put).toHaveBeenCalledTimes(1);
     });
   });
 }

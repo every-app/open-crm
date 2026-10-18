@@ -41,6 +41,11 @@ export const DISPATCH = {
     // every sweep, which ran when someone signed in; the minute cron would
     // retry it every five minutes.
     failedRetryMs: DAY_MS,
+    // The free passes the sweep does itself: favicons, and copies of
+    // pictures still at their source. The CRM's 25 of each a run, a few at a
+    // time, and a company tried at most once a day, where the CRM tried the
+    // same 25 on every sweep.
+    pictures: { perRun: 25, concurrency: 5, retryMs: DAY_MS },
   },
 
   sweep: {

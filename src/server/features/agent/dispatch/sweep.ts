@@ -1,12 +1,15 @@
 import type { CreditCheck } from "@/server/billing/credits";
+import { imageStorageReady } from "@/server/lib/images";
 import { PRIORITY } from "@/shared/agent-tasks";
 import { AgentSweepRepository } from "../repositories/AgentSweepRepository";
 import { AgentTaskService } from "../services/AgentTaskService";
+import { copyCompanyImages, storeFavicon } from "../visible/brand";
 import { DISPATCH } from "./config";
+import { runLimited } from "./pool";
 
 // The enrichment sweep, ported from the CRM's automatic backfill
-// (BackfillService.auto). It queues work, never does it: the lanes do, from
-// the same tick on. For each organization it finds
+// (BackfillService.auto). It queues work, and the lanes do it, from the same
+// tick on. For each organization it finds
 //
 // - the workspace's own website with no profile yet (a week between tries);
 // - companies never successfully looked up: their brand and their profile,
@@ -17,29 +20,42 @@ import { DISPATCH } from "./config";
 //   month between tries);
 // - contacts never successfully researched: identify (a day apart).
 //
+// Two passes cost nothing, so the sweep does them itself, as the CRM's
+// backfill did, whatever the organization's credits: the favicon of each
+// company with a domain and no icon (BackfillService.sweepFavicons), and a
+// copy in R2 of each logo or icon still at its source URL because its copy
+// failed (ImageMirrorService). The CRM's 25 of each a run; a company is tried
+// at most once a day.
+//
 // Where the CRM saved a Context.dev key and queued the companies waiting on
 // it, the port reads the gateway's answer on every sweep: work that needs the
 // key waits for it, and goes on the first sweep that finds it.
 //
 // The CRM swept when someone signed in, at most every five minutes. The port
 // has no sign-in of its own, so the minute cron takes a few organizations a
-// tick, each at most every five minutes. It is scheduled research: held with
-// it (FIRST_PARTY_SCHEDULED_RESEARCH), and an organization out of credits is
-// skipped.
+// tick, each at most every five minutes. What it queues is scheduled
+// research: held with it (FIRST_PARTY_SCHEDULED_RESEARCH, `askedForOnly`),
+// and an organization out of credits gets none.
 
 /** Sweeps the organizations due one; how many it swept. */
 export async function runEnrichmentSweep(options: {
   contextReady: () => Promise<boolean>;
+  /** Scheduled research is held: only the free passes run. */
+  askedForOnly?: boolean;
   credits?: CreditCheck;
   signal?: AbortSignal;
 }): Promise<number> {
   const { everyMs, organizations } = DISPATCH.enrichment;
   const due = await AgentSweepRepository.claimDue(organizations, everyMs);
   if (due.length === 0) return 0;
-  const contextReady = await options.contextReady();
+  const contextReady = options.askedForOnly
+    ? false
+    : await options.contextReady();
   for (const organizationId of due) {
     if (options.signal?.aborted) break;
     try {
+      await fetchPictures(organizationId, options.signal);
+      if (options.askedForOnly) continue;
       await sweepOrganization(organizationId, contextReady, options.credits);
     } catch (error) {
       console.error(
@@ -50,6 +66,63 @@ export async function runEnrichmentSweep(options: {
     }
   }
   return due.length;
+}
+
+type Done = { companyId: string; outcome: string };
+
+/**
+ * The free passes over one organization: favicons for companies with a
+ * domain and no icon, then copies of the pictures still at their source.
+ */
+async function fetchPictures(
+  organizationId: string,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  const { perRun, concurrency, retryMs } = DISPATCH.enrichment.pictures;
+  const since = new Date(Date.now() - retryMs).toISOString();
+  const withoutIcon = await AgentSweepRepository.companiesWithoutIcon(
+    organizationId,
+    since,
+    perRun,
+  );
+  const favicons: Done[] = [];
+  await runLimited(
+    concurrency,
+    withoutIcon,
+    async (companyId) => {
+      const stored = await storeFavicon({ organizationId, companyId });
+      favicons.push({
+        companyId,
+        outcome: stored ? "Used the site's favicon." : "No favicon stored.",
+      });
+    },
+    signal,
+  );
+  await AgentSweepRepository.noteDone(organizationId, "favicon", favicons);
+  // Without picture storage there is nowhere to copy to.
+  if (!imageStorageReady()) return;
+  const uncopied = await AgentSweepRepository.companiesWithUncopiedImages(
+    organizationId,
+    since,
+    perRun,
+  );
+  const copies: Done[] = [];
+  await runLimited(
+    concurrency,
+    uncopied,
+    async (pictures) => {
+      const copied = await copyCompanyImages(organizationId, pictures);
+      copies.push({
+        companyId: pictures.id,
+        outcome:
+          copied > 0
+            ? `Copied ${copied} image(s) in-house.`
+            : "Nothing could be copied.",
+      });
+    },
+    signal,
+  );
+  await AgentSweepRepository.noteDone(organizationId, "image-copy", copies);
 }
 
 async function sweepOrganization(

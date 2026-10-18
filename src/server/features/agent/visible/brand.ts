@@ -1,4 +1,4 @@
-import { storeImage } from "@/server/lib/images";
+import { IMAGE_ROUTE_PREFIX, storeImage } from "@/server/lib/images";
 import {
   getContextFetch,
   hasContextAccess,
@@ -19,13 +19,16 @@ import {
   stillFillable,
   type BrandField,
   type BrandUpdate,
+  type CompanyImageField,
 } from "./brandMapping";
 
 // A company's brand from Context.dev (logo, colors, industry, location,
 // socials), ported from the CRM's lib/brand.ts. It runs in the visible lane
 // for every new company, and as the agent's enrich_company tool. Where it
 // leaves the company without an icon, the visible lane falls back on the
-// company's own favicon (storeFavicon), as the CRM did.
+// company's own favicon (storeFavicon), which the CRM also fetched for a
+// company a person added and on its backfill; the backfill also copied the
+// pictures whose copy had failed (copyCompanyImages).
 
 type BrandResult = {
   enriched: boolean;
@@ -155,6 +158,38 @@ async function mirrorBrandImages(
     }),
   );
   return mirrored;
+}
+
+/**
+ * Copies a company's pictures still at their source URLs (a copy that
+ * failed) into R2, and puts the copies on the record if no picture changed
+ * meanwhile, as the CRM's image mirror did. How many it copied.
+ */
+export async function copyCompanyImages(
+  organizationId: string,
+  pictures: { id: string } & Record<CompanyImageField, string | null>,
+): Promise<number> {
+  const { id, ...sources } = pictures;
+  const copies: Partial<Record<CompanyImageField, string>> = {};
+  for (const slot of COMPANY_IMAGE_FIELDS) {
+    const source = sources[slot];
+    if (!source || source.startsWith(IMAGE_ROUTE_PREFIX)) continue;
+    const stored = await storeImage(
+      organizationId,
+      `companies/${id}/${slot}`,
+      source,
+    );
+    if (stored) copies[slot] = stored;
+  }
+  const copied = Object.keys(copies).length;
+  if (copied === 0) return 0;
+  const written = await AgentEnrichmentRepository.replaceCompanyImages(
+    organizationId,
+    id,
+    sources,
+    copies,
+  );
+  return written ? copied : 0;
 }
 
 /**

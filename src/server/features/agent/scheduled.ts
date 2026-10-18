@@ -68,17 +68,17 @@ export async function runScheduledWork(
       }),
     },
   ];
-  // The enrichment sweep queues scheduled research: held with it.
-  if (!askedForOnly) {
-    lanes.push({
-      lane: "sweep",
-      run: runEnrichmentSweep({
-        signal,
-        credits,
-        contextReady: hasContextAccess,
-      }),
-    });
-  }
+  // The enrichment sweep: its free passes always, and the research it queues
+  // held with the scheduled research.
+  lanes.push({
+    lane: "sweep",
+    run: runEnrichmentSweep({
+      signal,
+      askedForOnly,
+      credits,
+      contextReady: hasContextAccess,
+    }),
+  });
   const passes = await Promise.all(
     lanes.map(async ({ lane, run }) => {
       try {

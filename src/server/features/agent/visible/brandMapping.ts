@@ -45,6 +45,8 @@ export const COMPANY_IMAGE_FIELDS = [
   "iconDarkUrl",
 ] as const satisfies readonly BrandField[];
 
+export type CompanyImageField = (typeof COMPANY_IMAGE_FIELDS)[number];
+
 type Logo = Brand["logos"][number];
 type LogoMode = "light" | "dark" | "has_opaque_background";
 
