@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getAgentByName } from "agents";
+import type { UIMessage } from "ai";
 import type { CrmAgent } from "./CrmAgent";
 
 // A conversation's messages live in its CrmAgent Durable Object (Think's own
@@ -10,6 +11,15 @@ import type { CrmAgent } from "./CrmAgent";
 export async function forgetTranscript(sessionId: string): Promise<void> {
   const agent = await getAgentByName(crmAgentNamespace(), sessionId);
   await agent.clearMessages();
+}
+
+/**
+ * A conversation's messages, for a reader who can't open its socket (a
+ * shared builder chat's, features/sharing).
+ */
+export async function readTranscript(sessionId: string): Promise<UIMessage[]> {
+  const agent = await getAgentByName(crmAgentNamespace(), sessionId);
+  return agent.getMessages();
 }
 
 /** The CRM_AGENT binding with its class, as in scheduled.ts. */
