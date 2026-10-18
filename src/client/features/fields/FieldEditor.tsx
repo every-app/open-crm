@@ -28,23 +28,21 @@ import {
   AGENT_LABEL,
   ALL_FILLED,
   ARCHIVE,
-  BRIEF_HELP,
   BRIEF_LABEL,
   CREATE_FIELD,
   FILL,
+  FILTER_PLACEMENT,
   KEY_HELP,
   KEY_LABEL,
   LABEL_LABEL,
   NEW_FIELD,
   OPTIONS_LABEL,
   SAVE,
+  SHEET_PLACEMENT,
   SHEET_TITLE,
-  TYPE_HINTS,
+  TABLE_PLACEMENT,
   TYPE_LABEL,
   TYPE_LOCKED,
-  filterPlacement,
-  sheetPlacement,
-  tablePlacement,
 } from "@/client/features/fields/fieldsCopy";
 import {
   getErrorCode,
@@ -63,6 +61,7 @@ import {
   ENTITY_NOUNS,
   FIELD_BRIEF_MAX,
   FIELD_LABEL_MAX,
+  FIELD_TYPE_LABELS,
   fieldKeyFromLabel,
 } from "@/shared/fields";
 
@@ -270,7 +269,6 @@ export function FieldEditor({
                 {(input) => (
                   <input.TextareaField
                     label={BRIEF_LABEL}
-                    description={BRIEF_HELP}
                     maxLength={FIELD_BRIEF_MAX}
                     rows={3}
                   />
@@ -287,7 +285,7 @@ export function FieldEditor({
                     disabled={typeLocked}
                     items={FIELD_TYPES.map((type) => ({
                       value: type,
-                      label: TYPE_HINTS[type],
+                      label: FIELD_TYPE_LABELS[type],
                     }))}
                   />
                 )}
@@ -314,19 +312,13 @@ export function FieldEditor({
 
             <div className="space-y-2.5">
               <form.AppField name="showOnSheet">
-                {(input) => (
-                  <input.CheckboxField label={sheetPlacement(entity)} />
-                )}
+                {(input) => <input.CheckboxField label={SHEET_PLACEMENT} />}
               </form.AppField>
               <form.AppField name="showOnTable">
-                {(input) => (
-                  <input.CheckboxField label={tablePlacement(entity)} />
-                )}
+                {(input) => <input.CheckboxField label={TABLE_PLACEMENT} />}
               </form.AppField>
               <form.AppField name="showOnFilter">
-                {(input) => (
-                  <input.CheckboxField label={filterPlacement(entity)} />
-                )}
+                {(input) => <input.CheckboxField label={FILTER_PLACEMENT} />}
               </form.AppField>
             </div>
 
@@ -360,8 +352,8 @@ export function FieldEditor({
           onClose={() => setArchiving(false)}
         >
           {coverage.data
-            ? `Hidden everywhere. Its ${coverage.data.values} ${coverage.data.values === 1 ? "value is" : "values are"} kept.`
-            : "Hidden everywhere. Its values are kept."}
+            ? `Its ${coverage.data.values} ${coverage.data.values === 1 ? "value is" : "values are"} kept.`
+            : "Its values are kept."}
         </ConfirmDialog>
       ) : null}
     </>

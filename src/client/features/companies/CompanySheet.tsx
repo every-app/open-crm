@@ -5,6 +5,10 @@ import { QueryError } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import { CompanyOverview } from "@/client/features/companies/CompanyOverview";
+import {
+  CompanyContacts,
+  CompanyDeals,
+} from "@/client/features/companies/CompanySections";
 import { companyQueryOptions } from "@/client/features/companies/companyQueries";
 import {
   formatMoney,
@@ -79,7 +83,6 @@ export function CompanySheet({ companyId }: { companyId: string }) {
                     <span className="max-sm:sr-only">Re-enrich</span>
                   </Button>
                   <RecordActionsMenu
-                    noun="company"
                     name={company.name}
                     archived={company.archivedAt !== null}
                     canPurge={canPurge}
@@ -113,6 +116,24 @@ export function CompanySheet({ companyId }: { companyId: string }) {
         company ? (
           <CompanyOverview company={company} mutations={mutations} />
         ) : null
+      }
+      lists={
+        company
+          ? [
+              {
+                value: "contacts",
+                count: company.contacts.length,
+                content: (
+                  <CompanyContacts company={company} mutations={mutations} />
+                ),
+              },
+              {
+                value: "deals",
+                count: company.deals.length,
+                content: <CompanyDeals company={company} />,
+              },
+            ]
+          : undefined
       }
     />
   );
@@ -216,14 +237,7 @@ function CompanyStats({ company }: { company: Company }) {
 /** What deleting a company forever takes with it, for the confirmation. */
 function purgeConsequence(company: Company): string {
   const deals = company.deals.length;
-  const contacts = company.contacts.length;
-  const gone =
-    deals > 0
-      ? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything filed against the account go too.`
-      : "Everything filed against the account goes too.";
-  const kept =
-    contacts > 0
-      ? ` ${contacts === 1 ? "The one person" : `The ${contacts} people`} who work there stay in the CRM, without a company.`
-      : "";
-  return gone + kept;
+  return deals > 0
+    ? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything filed against the account go too.`
+    : "Everything filed against the account goes too.";
 }

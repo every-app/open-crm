@@ -38,7 +38,7 @@ const formSchema = z.object({
   name: z.string().trim().min(1, "A deal needs a name.").max(DEAL_NAME_MAX),
   company: z
     .custom<CompanyOption | null>()
-    .refine((company) => Boolean(company), "A deal belongs to a company."),
+    .refine((company) => Boolean(company), "Choose a company."),
   owner: z.string().min(1, "A deal needs an owner."),
   stage: z.enum(DEAL_STAGES),
   amount: z
@@ -180,14 +180,10 @@ function CreateDealForm({
         }
       >
         <form.Form id={FORM_ID} className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            Every deal belongs to a company and has someone's name against it.
-          </p>
           <form.AppField name="name">
             {(field) => (
               <field.TextField
                 label="Name"
-                placeholder="Stripe, annual plan"
                 maxLength={DEAL_NAME_MAX}
                 autoComplete="off"
                 autoFocus
@@ -215,13 +211,7 @@ function CreateDealForm({
             {(field) => <field.SelectField label="Owner" items={owners} />}
           </form.AppField>
           <form.AppField name="stage">
-            {(field) => (
-              <field.SelectField
-                label="Stage"
-                items={STAGE_ITEMS}
-                description="A new deal is an open deal — close it from the pipeline once there is an outcome to record."
-              />
-            )}
+            {(field) => <field.SelectField label="Stage" items={STAGE_ITEMS} />}
           </form.AppField>
           <div className="grid grid-cols-[minmax(0,1fr)_7rem] items-start gap-3">
             <form.AppField name="amount">
@@ -241,9 +231,7 @@ function CreateDealForm({
             </form.AppField>
           </div>
           <form.AppField name="expectedCloseDate">
-            {(field) => (
-              <field.TextField label="Expected close date" type="date" />
-            )}
+            {(field) => <field.TextField label="Close date" type="date" />}
           </form.AppField>
         </form.Form>
       </FormDialog>

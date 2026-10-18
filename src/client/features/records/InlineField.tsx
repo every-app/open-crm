@@ -5,6 +5,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { cn } from "cn";
 import { Button } from "@/client/components/ui/button";
 import { Input } from "@/client/components/ui/input";
 import {
@@ -22,27 +23,43 @@ import { Textarea } from "@/client/components/ui/textarea";
 // clears it). A placeholder shows only in the editor, so an example value is
 // never mistaken for a saved one.
 
-const ROW = "grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-2";
-const LABEL = "truncate text-xs text-muted-foreground";
-const CONTROL =
-  "h-8 w-full justify-start border border-transparent px-2 font-normal hover:border-input hover:bg-transparent";
+/** The column every property on a sheet lines up on, custom fields too. */
+export const PROPERTY_ROW = "grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2";
+export const PROPERTY_LABEL = "truncate text-xs text-muted-foreground";
+/** A value that edits on click, looking like text until it's hovered. */
+export const PROPERTY_CONTROL =
+  "h-8 w-full justify-start border border-transparent px-2 text-sm font-normal hover:border-input hover:bg-transparent";
 
-/** A property row: its label, then the value or its editor. */
-function PropertyRow({
+/**
+ * A property row: its label, then the value or its editor, and under it
+ * what the agent suggests for it.
+ */
+export function PropertyRow({
   label,
   htmlFor,
+  suggestion,
   children,
 }: {
   label: string;
   htmlFor?: string;
+  suggestion?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <div className={ROW}>
-      <label htmlFor={htmlFor} className={LABEL}>
+    <div
+      className={cn(PROPERTY_ROW, suggestion ? "items-start" : "items-center")}
+    >
+      <label
+        htmlFor={htmlFor}
+        className={cn(PROPERTY_LABEL, suggestion && "leading-8")}
+      >
         {label}
       </label>
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0">
+        {children}
+        {/* Under the value's text, its buttons on the section's edge. */}
+        {suggestion ? <div className="pl-2">{suggestion}</div> : null}
+      </div>
     </div>
   );
 }
@@ -87,6 +104,7 @@ export function InlineField({
   type = "text",
   trailing,
   format,
+  suggestion,
 }: {
   label: string;
   value: string | null;
@@ -94,10 +112,12 @@ export function InlineField({
   saving?: boolean;
   placeholder?: string;
   type?: "text" | "url" | "email" | "tel" | "date";
-  /** Beside a saved value: a link that opens it, for example. */
+  /** Beside a saved value: where the agent found it, for example. */
   trailing?: (value: string) => ReactNode;
   /** How a value reads when it isn't being edited: an amount in its currency. */
   format?: (value: string) => ReactNode;
+  /** Under the row: a value the agent suggests for it. */
+  suggestion?: ReactNode;
 }) {
   const id = useId();
   const field = useInlineDraft(value, onSave);
@@ -105,7 +125,7 @@ export function InlineField({
   const shown = saving ? field.draft.trim() : (value ?? "");
 
   return (
-    <PropertyRow label={label} htmlFor={id}>
+    <PropertyRow label={label} htmlFor={id} suggestion={suggestion}>
       {field.editing ? (
         <Input
           id={id}
@@ -130,7 +150,8 @@ export function InlineField({
             id={id}
             variant="ghost"
             size="sm"
-            className={CONTROL}
+            // It gives way to what sits beside it rather than overflow.
+            className={cn(PROPERTY_CONTROL, "min-w-0 shrink")}
             pending={saving}
             onClick={field.edit}
           >

@@ -29,7 +29,10 @@ import { getFieldError } from "@/client/lib/forms";
 
 type Mutations = ReturnType<typeof useDealMutations>;
 
-/** The people from the deal's company who are on it, and their roles. */
+/**
+ * A deal's Contacts tab: the people from its company who are on it, and
+ * their roles. The tab names the list and counts it.
+ */
 export function DealContacts({
   deal,
   mutations,
@@ -42,7 +45,6 @@ export function DealContacts({
 
   return (
     <SheetSection
-      title={`Contacts (${deal.contacts.length})`}
       action={
         adding || deal.contacts.length === 0 ? null : (
           <Button variant="ghost" size="xs" onClick={() => setAdding(true)}>
@@ -62,8 +64,7 @@ export function DealContacts({
       {deal.contacts.length === 0 ? (
         adding ? null : (
           <SheetEmpty
-            title="No contacts on this deal"
-            description={`Nobody from ${deal.company.name} is attached yet. Bring the people you are selling to onto the deal and it says who to chase.`}
+            title="No contacts yet"
             action={
               <Button
                 variant="outline"
@@ -101,9 +102,8 @@ export function DealContacts({
                     </p>
                   ) : null}
                   <InlineField
-                    label="Role on deal"
+                    label="Role"
                     value={contact.role}
-                    placeholder="Champion"
                     saving={
                       setContactRole.isPending &&
                       setContactRole.variables?.contactId === contact.id
@@ -120,7 +120,6 @@ export function DealContacts({
                   variant="ghost"
                   size="icon-xs"
                   aria-label={`Take ${name} off this deal`}
-                  title="Take off this deal"
                   disabled={detachContact.isPending}
                   onClick={() => detachContact.mutate(contact.id)}
                 >
@@ -136,7 +135,7 @@ export function DealContacts({
 }
 
 const addSchema = z.object({
-  contactId: z.string().min(1, "Choose somebody to bring onto the deal."),
+  contactId: z.string().min(1, "Choose somebody."),
   role: z.string().trim().max(80, "That role is too long."),
 });
 
@@ -227,12 +226,7 @@ function AddDealContact({
         </form.AppField>
         <form.AppField name="role">
           {(field) => (
-            <field.TextField
-              label="Role"
-              placeholder="Champion"
-              autoComplete="off"
-              maxLength={80}
-            />
+            <field.TextField label="Role" autoComplete="off" maxLength={80} />
           )}
         </form.AppField>
         <div className="flex justify-end gap-2">

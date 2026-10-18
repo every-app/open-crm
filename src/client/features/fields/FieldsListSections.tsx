@@ -11,10 +11,8 @@ import {
 } from "@/client/components/ui/collapsible";
 import { fieldCoverageQueryOptions } from "@/client/features/fields/fieldQueries";
 import {
-  ARCHIVED_NOTE,
   ARCHIVED_ROW,
   SUGGESTED_FIELDS,
-  SUGGESTED_NOTE,
   SUGGESTED_ROW,
 } from "@/client/features/fields/fieldsCopy";
 import type { Field } from "@/server/features/fields/services/fieldShape";
@@ -79,10 +77,7 @@ export function SuggestedFields({
   if (suggestions.length === 0) return null;
 
   return (
-    <DisclosureRow
-      title={SUGGESTED_ROW}
-      note={`${suggestions.length} · ${SUGGESTED_NOTE}`}
-    >
+    <DisclosureRow title={SUGGESTED_ROW} note={String(suggestions.length)}>
       <ul className="border-b bg-muted/40 py-1">
         {suggestions.map((template) => (
           <li
@@ -132,10 +127,7 @@ export function ArchivedFields({
 
   return (
     <>
-      <DisclosureRow
-        title={ARCHIVED_ROW}
-        note={`${fields.length} · ${ARCHIVED_NOTE}`}
-      >
+      <DisclosureRow title={ARCHIVED_ROW} note={String(fields.length)}>
         <ul className="border-b">
           {fields.map((field) => (
             <li key={field.id} className="flex items-center gap-2 px-4 py-2">
@@ -209,9 +201,8 @@ function DeleteFieldDialog({
       onClose={onClose}
     >
       {values === undefined
-        ? "Every value it holds is deleted with it."
-        : `Its ${values} ${values === 1 ? "value is" : "values are"} deleted with it.`}{" "}
-      This can't be undone.
+        ? "Every value it holds goes too."
+        : `Its ${values} ${values === 1 ? "value goes" : "values go"} too.`}
     </ConfirmDialog>
   );
 }

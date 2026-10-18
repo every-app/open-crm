@@ -114,9 +114,7 @@ export function useContactMutations(
     mutationFn: () => enrichContact({ data: { id: contactId } }),
     onSuccess: async (result) => {
       toast.success(
-        result.queued
-          ? "Taking another look — this page will update when it finishes."
-          : "Already running.",
+        result.queued ? "Taking another look." : "Already running.",
       );
       await invalidate();
     },

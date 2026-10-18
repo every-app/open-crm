@@ -88,11 +88,7 @@ export function useCompanyMutations(
   const enrich = useMutation({
     mutationFn: () => enrichCompany({ data: { id: companyId } }),
     onSuccess: async (result) => {
-      toast.success(
-        result.queued
-          ? "Looking it up — this page will update when it finishes."
-          : "Already running.",
-      );
+      toast.success(result.queued ? "Looking it up." : "Already running.");
       await invalidate();
     },
   });

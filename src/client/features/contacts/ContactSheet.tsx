@@ -5,6 +5,7 @@ import { QueryError } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import { fullName } from "@/client/features/companies/companyFormat";
+import { ContactDeals } from "@/client/features/contacts/ContactDeals";
 import { ContactOverview } from "@/client/features/contacts/ContactOverview";
 import type { Contact } from "@/client/features/contacts/contactFormat";
 import { contactQueryOptions } from "@/client/features/contacts/contactQueries";
@@ -81,6 +82,17 @@ export function ContactSheet({ contactId }: { contactId: string }) {
           <ContactOverview contact={contact} mutations={mutations} />
         ) : null
       }
+      lists={
+        contact
+          ? [
+              {
+                value: "deals",
+                count: contact.deals.length,
+                content: <ContactDeals contact={contact} />,
+              },
+            ]
+          : undefined
+      }
     />
   );
 }
@@ -134,7 +146,6 @@ function ContactActions({
         </Button>
       ) : null}
       <RecordActionsMenu
-        noun="contact"
         name={fullName(contact)}
         archived={archived}
         canPurge={canPurge}
@@ -242,8 +253,8 @@ function ContactStats({ contact }: { contact: Contact }) {
 /** What deleting a contact forever takes with it, for the confirmation. */
 function purgeConsequence(contact: Contact): string {
   const gone =
-    "Their notes, agent conversations and everything the agent found go too; emails and meetings stay filed against the company.";
+    "Their notes, agent conversations and everything the agent found go too";
   return contact.email
-    ? `${gone} The sync will not bring ${contact.email} back — only adding them yourself will.`
-    : gone;
+    ? `${gone}, and the sync won't bring ${contact.email} back.`
+    : `${gone}.`;
 }
