@@ -37,21 +37,14 @@ function OnboardingPage() {
         <CardContent>
           {workspace ? (
             hasOrgPermission(workspace.role, { workspace: ["manage"] }) ? (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Two things, once. The name is what the CRM calls you; the
-                  website is how the agent learns what you sell.
-                </p>
-                <WorkspaceForm
-                  initial={{ name: "", website: null }}
-                  submitLabel="Continue"
-                  onSaved={() => void navigate({ to: "/" })}
-                />
-              </div>
+              <WorkspaceForm
+                initial={{ name: "", website: null }}
+                submitLabel="Continue"
+                onSaved={() => void navigate({ to: "/" })}
+              />
             ) : (
               <p className="text-sm text-muted-foreground">
-                An owner or an admin of your organization sets up the CRM the
-                first time it opens. Ask one of them to open it, then come back.
+                Ask an owner or an admin to set up the CRM first.
               </p>
             )
           ) : workspaceQuery.isError ? (

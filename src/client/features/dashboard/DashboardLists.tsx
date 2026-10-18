@@ -3,7 +3,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/client/components/ui/card";
@@ -19,7 +18,6 @@ import {
 import {
   AboutRecord,
   TaskCheckbox,
-  TaskDue,
 } from "@/client/features/activities/TaskParts";
 import {
   ACTIVITY_PRESENTATION,
@@ -27,7 +25,6 @@ import {
   activityHeadline,
 } from "@/client/features/activities/activityFormat";
 import {
-  formatCount,
   formatMoneyCompact,
   type DashboardSummary,
 } from "@/client/features/dashboard/dashboardFormat";
@@ -66,10 +63,8 @@ export function DealsInProgress({ summary }: { summary: DashboardSummary }) {
     <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Deals in progress</CardTitle>
-        <CardDescription>
-          The largest open deals, and how long each has sat in its stage
-        </CardDescription>
-        <CardAction>
+        {/* One row, centered on the title: the header is a title's height. */}
+        <CardAction className="row-span-1 -my-0.75">
           <Button
             variant="outline"
             size="sm"
@@ -82,7 +77,7 @@ export function DealsInProgress({ summary }: { summary: DashboardSummary }) {
       </CardHeader>
       <CardContent>
         {deals.length === 0 ? (
-          <Empty>Nothing open. Time to fill the pipeline.</Empty>
+          <Empty>Nothing open</Empty>
         ) : (
           <ul className="divide-y divide-border">
             {deals.map((deal) => (
@@ -133,15 +128,10 @@ export function OverdueTasks({ summary }: { summary: DashboardSummary }) {
     <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Overdue tasks</CardTitle>
-        <CardDescription>
-          {tasks.length === 0
-            ? "Every task you have logged is either done or still to come"
-            : `${formatCount(tasks.length, "task")} past due`}
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (
-          <Empty>Nothing overdue. Good.</Empty>
+          <Empty>Nothing overdue</Empty>
         ) : (
           <ul className="divide-y divide-border">
             {tasks.map((task) => (
@@ -158,7 +148,16 @@ export function OverdueTasks({ summary }: { summary: DashboardSummary }) {
                     <AboutRecord entry={task} />
                   </span>
                 </span>
-                {task.dueAt ? <TaskDue dueAt={task.dueAt} /> : null}
+                {/* Every one is overdue: the card's title says so. */}
+                {task.dueAt ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs whitespace-nowrap text-destructive">
+                    <span
+                      aria-hidden
+                      className="size-1.5 shrink-0 rounded-full bg-destructive"
+                    />
+                    <RelativeTime date={task.dueAt} />
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -169,20 +168,12 @@ export function OverdueTasks({ summary }: { summary: DashboardSummary }) {
 }
 
 export function RecentActivity({ summary }: { summary: DashboardSummary }) {
-  const mine = summary.scope === "me";
   const entries = summary.recentActivity;
   return (
     <Card className="min-w-0">
       <CardHeader>
-        <CardTitle>
-          {mine ? "Your recent activity" : "Recent activity"}
-        </CardTitle>
-        <CardDescription>
-          {mine
-            ? "Every note, task and stage change you have logged"
-            : "Every note, task and stage change across the workspace"}
-        </CardDescription>
-        <CardAction>
+        <CardTitle>Recent activity</CardTitle>
+        <CardAction className="row-span-1 -my-0.75">
           <Button
             variant="outline"
             size="sm"
@@ -195,7 +186,7 @@ export function RecentActivity({ summary }: { summary: DashboardSummary }) {
       </CardHeader>
       {entries.length === 0 ? (
         <CardContent>
-          <Empty>Nothing has happened yet.</Empty>
+          <Empty>Nothing yet</Empty>
         </CardContent>
       ) : (
         <Table className="table-fixed">

@@ -13,15 +13,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/client/components/ui/collapsible";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/client/components/ui/tooltip";
 import { formatMoney } from "@/client/features/companies/companyFormat";
 import {
   STAGE_FILL,
-  formatCount,
   formatMoneyCompact,
   monthLabel,
   type DashboardSummary,
@@ -30,7 +24,7 @@ import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
 
 // Home's two charts: where the money moved over six months, and where the
 // open pipeline sits now. Each keeps its numbers readable without hovering:
-// the trend behind "Show the numbers", the stages in the list under the bar.
+// the trend behind "Show numbers", the stages in the list under the bar.
 
 const TREND_SERIES = [
   { key: "won", label: "Closed won" },
@@ -127,7 +121,7 @@ export function TrendChart({
       </ChartContainer>
       <Collapsible>
         <CollapsibleTrigger className="group inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          Show the numbers
+          Show numbers
           <ChevronDown className="size-3.5 transition-transform group-data-[panel-open]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -162,45 +156,31 @@ export function TrendChart({
   );
 }
 
+/** The stages holding open value: a bar of their shares, then the list. */
 export function StageBreakdown({
-  pipeline,
+  stages,
   currency,
 }: {
-  pipeline: DashboardSummary["pipeline"];
+  stages: DashboardSummary["pipeline"]["stages"];
   currency: string;
 }) {
-  const slices = pipeline.stages.filter((stage) => stage.value > 0);
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {slices.length > 0 ? (
-        <div className="flex h-3 gap-0.5">
-          {slices.map((slice) => {
-            const label = `${DEAL_STAGE_LABELS[slice.stage]}: ${formatMoney(slice.value, currency)}, ${formatCount(slice.count, "deal")}`;
-            return (
-              <Tooltip key={slice.stage}>
-                <TooltipTrigger
-                  render={
-                    <div
-                      tabIndex={0}
-                      aria-label={label}
-                      className={cn(
-                        "h-full min-w-1 basis-0 outline-none first:rounded-l-[4px] last:rounded-r-[4px] hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring",
-                        STAGE_FILL[slice.stage],
-                      )}
-                      style={{ flexGrow: slice.value }}
-                    />
-                  }
-                />
-                <TooltipContent>{label}</TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">Nothing open.</p>
-      )}
+      {/* The list below says what each share is. */}
+      <div aria-hidden className="flex h-3 gap-0.5">
+        {stages.map((slice) => (
+          <div
+            key={slice.stage}
+            className={cn(
+              "h-full min-w-1 basis-0 first:rounded-l-[4px] last:rounded-r-[4px]",
+              STAGE_FILL[slice.stage],
+            )}
+            style={{ flexGrow: slice.value }}
+          />
+        ))}
+      </div>
       <ul className="flex flex-col text-xs">
-        {pipeline.stages.map((stage) => (
+        {stages.map((stage) => (
           <li
             key={stage.stage}
             className="border-t border-border first:border-t-0"

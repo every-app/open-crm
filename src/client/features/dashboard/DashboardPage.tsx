@@ -16,10 +16,7 @@ import {
 import { SalesSummary } from "@/client/features/dashboard/SalesSummary";
 import { GetStartedCard } from "@/client/features/setup/GetStartedCard";
 import { dashboardSummaryQueryOptions } from "@/client/features/dashboard/dashboardQueries";
-import {
-  DASHBOARD_SCOPES,
-  type DashboardScope,
-} from "@/types/schemas/dashboard";
+import { DASHBOARD_SCOPES } from "@/types/schemas/dashboard";
 
 /** /: whose numbers Home shows, in the URL so a link brings it back. */
 export const dashboardSearchSchema = z.object({
@@ -32,12 +29,6 @@ const SCOPES = [
   { value: "me" as const, label: "Me", icon: <UserRound /> },
   { value: "everyone" as const, label: "Everyone", icon: <Users /> },
 ];
-
-const DESCRIPTIONS: Record<DashboardScope, string> = {
-  me: "What you have closed, what is still in play, and what needs you today.",
-  everyone:
-    "What the team has closed, what is still in play, and what needs you today.",
-};
 
 /** Home: the viewer's (or the team's) sales at a glance. */
 export function DashboardPage() {
@@ -52,21 +43,18 @@ export function DashboardPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader
           title="Welcome back"
-          description={DESCRIPTIONS[scope]}
           actions={
-            <>
-              <SegmentedToggle
-                items={SCOPES}
-                value={scope}
-                onChange={(next) =>
-                  void navigate({
-                    search: { scope: next === "me" ? undefined : next },
-                    replace: true,
-                  })
-                }
-                showLabels
-              />
-            </>
+            <SegmentedToggle
+              items={SCOPES}
+              value={scope}
+              onChange={(next) =>
+                void navigate({
+                  search: { scope: next === "me" ? undefined : next },
+                  replace: true,
+                })
+              }
+              showLabels
+            />
           }
         />
 

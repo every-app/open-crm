@@ -15,50 +15,20 @@ import { STEP_ILLUSTRATIONS } from "./StepIllustrations";
 
 type StepId = keyof typeof STEP_ILLUSTRATIONS;
 
-const STEPS: Record<
-  StepId,
-  { title: string; description: string; link: LinkOptions | "gateway" }
-> = {
-  model: {
-    title: "Connect the agent's model",
-    description: "The model the research agent thinks with.",
-    link: { to: "/settings" },
-  },
-  context: {
-    title: "Turn on company research",
-    description: "So the agents can research every company in the CRM.",
-    link: { to: "/settings" },
-  },
-  companies: {
-    title: "Add your companies",
-    description: "Import a CSV, or add the first one by hand.",
-    link: { to: "/companies" },
-  },
-  inbox: {
-    title: "Connect your inbox",
-    description: "Emails, meetings and the people on them.",
-    link: { to: "/settings/connections" },
-  },
-  agent: {
-    title: "Build a team agent",
-    description: "Describe a task to automate in Chat.",
-    link: { to: "/chat" },
-  },
-  tracking: {
-    title: "Track your website",
-    description: "See visitors, and add contacts when a form is submitted.",
-    link: { to: "/settings/tracking" },
-  },
+type Step = { title: string; link: LinkOptions | "gateway" };
+
+const STEPS: Record<StepId, Step> = {
+  model: { title: "Connect the agent's model", link: { to: "/settings" } },
+  context: { title: "Turn on company research", link: { to: "/settings" } },
+  companies: { title: "Add your companies", link: { to: "/companies" } },
+  inbox: { title: "Connect your inbox", link: { to: "/settings/connections" } },
+  agent: { title: "Build a team agent", link: { to: "/chat" } },
+  tracking: { title: "Track your website", link: { to: "/settings/tracking" } },
   slack: {
     title: "Connect Slack",
-    description: "Messages to approved channels and people.",
     link: { to: "/settings/connections/slack" },
   },
-  team: {
-    title: "Invite your team",
-    description: "Teammates join through Every App.",
-    link: "gateway",
-  },
+  team: { title: "Invite your team", link: "gateway" },
 };
 
 // Folded away in this browser: the header and its progress stay.
@@ -101,7 +71,7 @@ export function GetStartedCard() {
         <div className="flex items-center gap-3">
           <ProgressRing done={done.length} total={steps.length} />
           <span className="text-sm whitespace-nowrap">
-            {done.length} of {steps.length} completed
+            {done.length} of {steps.length}
           </span>
           <Button
             variant="ghost"
@@ -170,13 +140,8 @@ function StepCard({ id, number }: { id: StepId; number: number }) {
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-card text-sm font-medium shadow-xs">
             {number}
           </span>
-          <span className="min-w-0 space-y-1 pt-1">
-            <span className="block leading-tight font-semibold">
-              {step.title}
-            </span>
-            <span className="block text-sm text-muted-foreground">
-              {step.description}
-            </span>
+          <span className="min-w-0 pt-1.5 leading-tight font-semibold">
+            {step.title}
           </span>
         </span>
         <span className="hidden md:contents">

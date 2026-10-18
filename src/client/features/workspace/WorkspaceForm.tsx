@@ -20,7 +20,7 @@ import {
 // The server sends only the error code, so the field message lives here.
 const SERVER_FIELD_ERRORS: Record<string, Record<string, string>> = {
   VALIDATION_ERROR: {
-    website: "That is not a website. Enter the domain, like acme.com.",
+    website: "Enter a domain, like acme.com.",
   },
 };
 
@@ -80,7 +80,7 @@ export function WorkspaceForm({
 
   return (
     <form.AppForm>
-      <form.Form className="flex max-w-md flex-col gap-4">
+      <form.Form className="flex flex-col gap-4">
         <form.AppField name="name">
           {(field) => (
             <field.TextField
@@ -93,12 +93,7 @@ export function WorkspaceForm({
         </form.AppField>
         <form.AppField name="website">
           {(field) => (
-            <field.TextField
-              label="Website"
-              description="Read once, so every answer afterwards knows what you sell."
-              placeholder="acme.com"
-              required
-            />
+            <field.TextField label="Website" placeholder="acme.com" required />
           )}
         </form.AppField>
         <div>
@@ -129,7 +124,6 @@ export function WorkspaceSettingsCard({
             {(field) => (
               <field.RowTextField
                 label="Name"
-                description="Shown wherever the CRM refers to your own company."
                 placeholder="Acme Inc."
                 autoComplete="organization"
                 maxLength={WORKSPACE_NAME_MAX}
@@ -142,7 +136,6 @@ export function WorkspaceSettingsCard({
             {(field) => (
               <field.RowTextField
                 label="Website"
-                description="Your own company's website."
                 prefix="https://"
                 placeholder="acme.com"
                 autoComplete="off"
