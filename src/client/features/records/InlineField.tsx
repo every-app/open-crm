@@ -57,7 +57,8 @@ export function PropertyRow({
       </label>
       <div className="min-w-0">
         {children}
-        {suggestion ? <div className="px-2">{suggestion}</div> : null}
+        {/* Under the value's text, its buttons on the section's edge. */}
+        {suggestion ? <div className="pl-2">{suggestion}</div> : null}
       </div>
     </div>
   );
