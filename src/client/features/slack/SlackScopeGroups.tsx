@@ -25,7 +25,7 @@ export function ScopeGroups({
   return (
     <SettingsSection
       title={title}
-      description="Broad means the whole workspace, not one channel. Open a group to see the details."
+      description="Broad means the whole workspace, not one channel."
     >
       <SettingsCard>
         {SLACK_SCOPE_GROUPS.map((group) => {
@@ -78,7 +78,6 @@ export function ScopeGroups({
                 {entry.grant}
               </span>
             }
-            description="Slack held this one back, so it is off."
           >
             <Badge variant="secondary">Not granted</Badge>
           </SettingsRow>
