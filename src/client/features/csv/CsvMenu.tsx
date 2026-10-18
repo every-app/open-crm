@@ -124,10 +124,7 @@ export function CsvMenu<
           <Upload />
           Import CSV
         </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={pending}
-          onClick={() => void exportList()}
-        >
+        <DropdownMenuItem disabled={pending} onClick={() => void exportList()}>
           <Download />
           Export CSV
         </DropdownMenuItem>
