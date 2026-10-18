@@ -24,7 +24,9 @@ import {
   dealContact,
   emailMessage,
   emailThread,
+  user,
 } from "@/db/schema";
+import { ownerColumns } from "@/server/features/records/listQuery";
 import { idChunks } from "@/server/features/records/recordRules";
 import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 
@@ -112,7 +114,10 @@ async function setCompany(
   return moved;
 }
 
-/** The live deals the contact is on, open ones first, soonest close first. */
+/**
+ * The live deals the contact is on, with their role and each deal's owner,
+ * open ones first, soonest close first.
+ */
 async function listDeals(organizationId: string, contactId: string) {
   const open = inArray(deal.stage, OPEN_DEAL_STAGES);
   const rows = await db
@@ -124,6 +129,7 @@ async function listDeals(organizationId: string, contactId: string) {
       currency: deal.currency,
       expectedCloseDate: deal.expectedCloseDate,
       role: dealContact.role,
+      owner: ownerColumns,
     })
     .from(dealContact)
     .innerJoin(
@@ -133,6 +139,7 @@ async function listDeals(organizationId: string, contactId: string) {
         eq(deal.organizationId, dealContact.organizationId),
       ),
     )
+    .leftJoin(user, eq(user.id, deal.ownerId))
     .where(
       and(
         eq(dealContact.organizationId, organizationId),

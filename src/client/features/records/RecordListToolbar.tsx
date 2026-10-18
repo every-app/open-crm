@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Table } from "@tanstack/react-table";
 import { Search } from "lucide-react";
 import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
@@ -19,7 +19,7 @@ import {
 import { TabsTrigger } from "@/client/components/ui/tabs";
 import { useDebouncedDraft } from "@/client/hooks/useDebouncedDraft";
 import { useFieldFilters } from "@/client/features/fields/FieldFilterControls";
-import { FieldsSheet } from "@/client/features/fields/FieldsSheetButton";
+import { useOpenFieldsSheet } from "@/client/features/fields/FieldsSheetButton";
 import {
   clearedFilters,
   savedViewOf,
@@ -99,7 +99,7 @@ export function RecordListToolbar<TData>({
   /** The selected rows: how many, the list's Actions menu, and Clear. */
   selection: { count: number; actions: ReactNode; onClear: () => void };
 }) {
-  const [editingFields, setEditingFields] = useState(false);
+  const openFieldsSheet = useOpenFieldsSheet();
   const owner = useOwnerFilter(
     search.owner ?? [],
     (next) =>
@@ -161,7 +161,7 @@ export function RecordListToolbar<TData>({
               <SortMenu table={table} />
               <ColumnsMenu
                 table={table}
-                onEditFields={() => setEditingFields(true)}
+                onEditFields={() => openFieldsSheet(entity)}
               />
             </div>
           </div>
@@ -184,11 +184,6 @@ export function RecordListToolbar<TData>({
           </div>
         ) : null}
       </div>
-      <FieldsSheet
-        entity={entity}
-        open={editingFields}
-        onOpenChange={setEditingFields}
-      />
     </>
   );
 }

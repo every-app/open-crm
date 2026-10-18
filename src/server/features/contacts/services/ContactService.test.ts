@@ -25,8 +25,10 @@ vi.mock("@/server/billing/autumn", () => ({
   AUTUMN_TRACK_RETRY_OPTIONS: {},
 }));
 
+import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { withBalance } from "@/server/billing/autumnTestSupport";
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
+import { toClientError } from "@/server/lib/errors";
 import {
   contactListSchema,
   type CreateContactInput,
@@ -87,9 +89,14 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         { kind: "identify", contact_id: ana.id },
       ]);
 
-      await expect(
-        create(A, { firstName: "Other", email: "ANA@acme.com" }),
-      ).rejects.toMatchObject({ code: "CONFLICT" });
+      // The browser is told who has the email.
+      const taken = await create(A, {
+        firstName: "Other",
+        email: "ANA@acme.com",
+      }).catch((error: unknown) => error);
+      expect(getStandardErrorMessage(toClientError(taken))).toBe(
+        "Ana Zed already uses ana@acme.com.",
+      );
       await expect(
         create(A, { firstName: "Typo", email: "ana@" }),
       ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
@@ -262,7 +269,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
       const contact = await ContactService.getContact(A, ana.id);
       expect(contact.deals).toMatchObject([
-        { id: "d2", open: true, role: null },
+        { id: "d2", open: true, role: null, owner: { name: "Ana" } },
         { id: "d1", open: false, role: "Champion" },
       ]);
       expect(contact.relationship).toEqual({

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { revalidateLogic } from "@tanstack/react-form";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +14,10 @@ import {
   DropdownMenuTrigger,
 } from "@/client/components/ui/dropdown-menu";
 import { useSetDealStage } from "@/client/features/deals/useDealMutations";
+import {
+  useAppSearch,
+  useSetAppSearch,
+} from "@/client/features/records/recordStack";
 import type { DealStage } from "@/shared/crm-enums";
 import {
   DEAL_STAGE_LABELS,
@@ -25,7 +28,8 @@ import {
 } from "@/shared/deal-stages";
 
 // A deal's stage: how it reads, the menu that changes it, the reason a lost
-// or unqualified deal asks for first, and the sheet's pipeline stepper.
+// or unqualified deal asks for first (in the URL while it's asked:
+// `closeDeal` and `closeStage`), and the sheet's pipeline stepper.
 
 type Tone = "neutral" | "info" | "warning" | "success" | "error";
 
@@ -124,9 +128,39 @@ export function CloseReasonDialog({
 }
 
 /**
+ * The reason a deal closing as lost or unqualified asks for, while the URL
+ * names the deal and the stage. RecordSheetHost renders it.
+ */
+export function CloseReasonHost() {
+  const { closeDeal, closeStage } = useAppSearch();
+  const setSearch = useSetAppSearch();
+  const setStage = useSetDealStage();
+  if (!closeDeal || !closeStage) return null;
+  const close = () =>
+    setSearch({ closeDeal: undefined, closeStage: undefined });
+  return (
+    <CloseReasonDialog
+      key={`${closeDeal}:${closeStage}`}
+      stage={closeStage}
+      onClose={close}
+      onSave={async (closedReason) => {
+        await setStage.mutateAsync({
+          id: closeDeal,
+          stage: closeStage,
+          closedReason,
+        });
+        toast.success("Deal closed.");
+        close();
+      }}
+    />
+  );
+}
+
+/**
  * Changes a deal's stage from a menu of every stage; a lost or unqualified
- * deal asks why first. `control` is the sheet's button; `inline` sits in a
- * list row, whose click (it opens the deal) it keeps to itself.
+ * deal asks why first (CloseReasonHost). `control` is the sheet's button;
+ * `inline` sits in a list row, whose click (it opens the deal) it keeps to
+ * itself.
  */
 export function DealStageMenu({
   dealId,
@@ -137,13 +171,12 @@ export function DealStageMenu({
   stage: DealStage;
   variant?: "inline" | "control";
 }) {
-  const [closing, setClosing] = useState<DealStage | null>(null);
+  const setSearch = useSetAppSearch();
   const setStage = useSetDealStage();
   const control = variant === "control";
 
   return (
-    // Clicks in the menu and the dialog (portals) still bubble through React
-    // to the row.
+    // Clicks in the menu (a portal) still bubble through React to the row.
     <span className="contents" onClick={(event) => event.stopPropagation()}>
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -173,7 +206,7 @@ export function DealStageMenu({
               const chosen = DEAL_STAGE_ORDER.find((option) => option === next);
               if (!chosen || chosen === stage) return;
               if (isLosingStage(chosen)) {
-                setClosing(chosen);
+                setSearch({ closeDeal: dealId, closeStage: chosen });
                 return;
               }
               setStage.mutate({ id: dealId, stage: chosen });
@@ -188,21 +221,6 @@ export function DealStageMenu({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      {closing ? (
-        <CloseReasonDialog
-          stage={closing}
-          onClose={() => setClosing(null)}
-          onSave={async (closedReason) => {
-            await setStage.mutateAsync({
-              id: dealId,
-              stage: closing,
-              closedReason,
-            });
-            toast.success("Deal closed.");
-            setClosing(null);
-          }}
-        />
-      ) : null}
     </span>
   );
 }

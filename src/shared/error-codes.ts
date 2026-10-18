@@ -48,6 +48,22 @@ const NON_REPORTABLE_ERROR_CODES = new Set<ErrorCode>([
   "UPSTREAM_UNAVAILABLE",
 ]);
 
+/**
+ * A server error as the browser receives it when the server wrote its words
+ * for people (server/lib/errors.ts's UserFacingError): the code as its
+ * message, like every error the browser gets, plus those words. start.ts
+ * carries it over whole; Start sends any other error as its message alone.
+ */
+export class UserMessageError extends Error {
+  constructor(
+    public readonly code: ErrorCode,
+    public readonly userMessage: string,
+  ) {
+    super(code);
+    this.name = "UserMessageError";
+  }
+}
+
 export function isErrorCode(value: string): value is ErrorCode {
   return errorCodeSchema.safeParse(value).success;
 }

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -28,15 +27,19 @@ import {
   timelineCountsQueryOptions,
   timelineQueryOptions,
 } from "@/client/features/activities/activityQueries";
+import {
+  TIMELINE_VIEWS,
+  useAppSearch,
+  useSetAppSearch,
+  type TimelineView,
+} from "@/client/features/records/recordStack";
 import type { RecordRef } from "@/shared/records";
 
 // A record's Activity tab: the composer, the views, and the timeline. The
-// All view pins the open tasks above everything else that happened.
+// All view pins the open tasks above everything else that happened. The
+// view is in the URL (`timeline`).
 
-const TABS = ["all", "notes", "email", "meetings", "upcoming", "done"] as const;
-type TimelineTab = (typeof TABS)[number];
-
-const TAB_LABELS: Record<TimelineTab, string> = {
+const TAB_LABELS: Record<TimelineView, string> = {
   all: "All",
   notes: "Notes",
   email: "Email",
@@ -45,7 +48,7 @@ const TAB_LABELS: Record<TimelineTab, string> = {
   done: "Done",
 };
 
-const EMPTY: Record<TimelineTab, { icon: LucideIcon; title: string }> = {
+const EMPTY: Record<TimelineView, { icon: LucideIcon; title: string }> = {
   all: { icon: Clock, title: "No activity yet" },
   notes: { icon: MessageSquare, title: "No notes" },
   email: { icon: Mail, title: "No email" },
@@ -54,8 +57,8 @@ const EMPTY: Record<TimelineTab, { icon: LucideIcon; title: string }> = {
   done: { icon: CircleCheck, title: "Nothing finished yet" },
 };
 
-function isTab(value: unknown): value is TimelineTab {
-  return TABS.some((tab) => tab === value);
+function isView(value: unknown): value is TimelineView {
+  return TIMELINE_VIEWS.some((view) => view === value);
 }
 
 /**
@@ -63,7 +66,14 @@ function isTab(value: unknown): value is TimelineTab {
  * and what the agent found) with its composer.
  */
 export function RecordTimeline({ record }: { record: RecordRef }) {
-  const [tab, setTab] = useState<TimelineTab>("all");
+  const { timeline: tab = "all" } = useAppSearch();
+  const setSearch = useSetAppSearch();
+  // Another view closes the email thread open on this one.
+  const setTab = (next: TimelineView) =>
+    setSearch({
+      timeline: next === "all" ? undefined : next,
+      emailThread: undefined,
+    });
   const counts = useQuery(timelineCountsQueryOptions(record));
   const pinned = useQuery({
     ...outstandingQueryOptions(record),
@@ -85,12 +95,12 @@ export function RecordTimeline({ record }: { record: RecordRef }) {
           value={[tab]}
           onValueChange={(next) => {
             const [picked] = next;
-            if (isTab(picked)) setTab(picked);
+            if (isView(picked)) setTab(picked);
           }}
           aria-label="Which activities to show"
           className="flex-wrap"
         >
-          {TABS.map((option) => (
+          {TIMELINE_VIEWS.map((option) => (
             <ToggleGroupItem
               key={option}
               value={option}

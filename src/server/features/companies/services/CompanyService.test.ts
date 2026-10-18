@@ -49,7 +49,9 @@ vi.mock("@/db/runBatch", () => ({
     databases[current.dialect].runBatch(build),
 }));
 
+import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { withBalance } from "@/server/billing/autumnTestSupport";
+import { toClientError } from "@/server/lib/errors";
 import { companyListSchema } from "@/types/schemas/companies";
 import { CompanyService } from "./CompanyService";
 
@@ -98,9 +100,13 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         { kind: "company-profile" },
       ]);
 
-      await expect(create(A, "Acme again", "acme.com")).rejects.toMatchObject({
-        code: "CONFLICT",
-      });
+      // The browser is told which company has the domain.
+      const taken = await create(A, "Acme again", "acme.com").catch(
+        (error: unknown) => error,
+      );
+      expect(getStandardErrorMessage(toClientError(taken))).toBe(
+        "Acme already uses the domain acme.com.",
+      );
       expect(await CompanyService.companyForEmail(A, "ana@acme.com")).toBe(
         acme.id,
       );
@@ -165,7 +171,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(total).toBe(2);
     });
 
-    it("shows a company's live contacts and deals, open deals first", async () => {
+    it("shows a company's live contacts and deals with their owners, open deals first", async () => {
       const acme = await create(A, "Acme", "acme.com");
       await database.exec(`
         INSERT INTO contact (id, organization_id, first_name, last_name, company_id) VALUES ('p1', 'org_a', 'Ana', 'Zed', '${acme.id}');
@@ -182,9 +188,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(rows[0]).toMatchObject({ contactCount: 1, openDealCount: 1 });
 
       const company = await CompanyService.getCompany(A, acme.id);
-      expect(company.contacts.map((contact) => contact.id)).toEqual(["p1"]);
+      expect(company.contacts).toMatchObject([{ id: "p1", owner: null }]);
       expect(company.deals).toMatchObject([
-        { id: "d2", open: true },
+        { id: "d2", open: true, owner: { id: "user_a", name: "Ana" } },
         { id: "d1", open: false },
       ]);
     });

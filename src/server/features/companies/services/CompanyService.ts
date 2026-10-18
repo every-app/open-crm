@@ -16,7 +16,7 @@ import {
 import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { requireCredits } from "@/server/billing/credits";
-import { AppError } from "@/server/lib/errors";
+import { AppError, UserFacingError } from "@/server/lib/errors";
 import type { RecordSource } from "@/shared/crm-enums";
 import { domainFromEmail, normalizeDomain } from "@/shared/domain";
 import type {
@@ -157,7 +157,7 @@ async function createCompany(
         ? await CompanyDirectoryRepository.findLive(organizationId, domain)
         : null;
     if (!taken) throw error;
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       `${taken.name} already uses the domain ${domain}.`,
     );
@@ -220,7 +220,7 @@ async function updateCompany(
     updated = await CompanyRepository.update(organizationId, id, patch);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new AppError(
+      throw new UserFacingError(
         "CONFLICT",
         "Another company already uses that domain.",
       );
@@ -251,9 +251,9 @@ async function restoreCompany(organizationId: string, id: string) {
     restored = await CompanyRepository.restore(organizationId, id);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new AppError(
+      throw new UserFacingError(
         "CONFLICT",
-        "A live company already uses this company's domain.",
+        "A live company already uses this company's domain. Change or archive that one first.",
       );
     }
     throw error;

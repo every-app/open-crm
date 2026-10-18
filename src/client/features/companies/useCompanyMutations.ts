@@ -17,18 +17,12 @@ import type { UpdateCompanyInput } from "@/types/schemas/companies";
 
 type CompanyPatch = Omit<UpdateCompanyInput, "id">;
 
-/** Copy for a failed company write: the server sends only the code. */
-export function companyErrorMessage(
-  error: unknown,
-  about?: "domain" | "restore",
-): string {
-  const code = getErrorCode(error);
-  if (code === "CONFLICT") {
-    return about === "restore"
-      ? "A live company already uses this company's domain. Change or archive that one first."
-      : "Another company already uses that domain.";
-  }
-  if (code === "VALIDATION_ERROR" && about === "domain") {
+/**
+ * Copy for a failed company write. A taken domain's comes from the server,
+ * which names the company that has it.
+ */
+export function companyErrorMessage(error: unknown, about?: "domain"): string {
+  if (getErrorCode(error) === "VALIDATION_ERROR" && about === "domain") {
     return "That is not a domain. Enter one like acme.com.";
   }
   return getStandardErrorMessage(error);
@@ -67,7 +61,6 @@ export function useCompanyMutations(
       toast.success(`${company.name} was restored.`);
       await invalidate();
     },
-    onError: (error) => toast.error(companyErrorMessage(error, "restore")),
   });
 
   const purge = useMutation({

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { cn } from "cn";
@@ -19,6 +18,10 @@ import {
 } from "@/client/features/activities/activityQueries";
 import type { ActivityEntry } from "@/client/features/activities/activityFormat";
 import { PersonAvatar } from "@/client/features/records/cells";
+import {
+  useAppSearch,
+  useSetAppSearch,
+} from "@/client/features/records/recordStack";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { safeHttpUrl } from "@/shared/safe-url";
 
@@ -47,22 +50,24 @@ const RESPONSES: Record<string, string> = {
   needsAction: "No reply",
 };
 
-/** An email entry's messages, behind "3 messages". */
+/** An email entry's messages, behind "3 messages"; the open one is in the URL. */
 export function EmailThreadMessages({
   thread,
 }: {
   thread: NonNullable<ActivityEntry["emailThread"]>;
 }) {
-  const [opened, setOpened] = useState(false);
+  const open = useAppSearch().emailThread === thread.id;
+  const setSearch = useSetAppSearch();
   const query = useQuery({
     ...emailThreadQueryOptions(thread.id),
-    enabled: opened,
+    enabled: open,
   });
   return (
     <Collapsible
-      onOpenChange={(open) => {
-        if (open) setOpened(true);
-      }}
+      open={open}
+      onOpenChange={(next) =>
+        setSearch({ emailThread: next ? thread.id : undefined })
+      }
     >
       <CollapsibleTrigger className="group inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
         {thread.messageCount === 1

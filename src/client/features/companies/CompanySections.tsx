@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Plus, Star } from "lucide-react";
 import { Button } from "@/client/components/ui/button";
 import {
@@ -18,10 +17,16 @@ import {
   SheetEmpty,
   SheetSection,
 } from "@/client/features/records/RecordSheet";
-import { EmptyValue, PersonAvatar } from "@/client/features/records/cells";
+import { useQuickAdd } from "@/client/features/records/recordStack";
+import {
+  EmptyValue,
+  PersonAvatar,
+  SubListOwner,
+} from "@/client/features/records/cells";
 
 // A company's Contacts and Deals tabs, each with a form that adds one
-// without leaving the sheet. The tab names the list and counts it.
+// without leaving the sheet (open in the URL's `add`). The tab names the
+// list and counts it.
 
 type Mutations = ReturnType<typeof useCompanyMutations>;
 
@@ -63,7 +68,9 @@ export function CompanyContacts({
   mutations: Mutations;
 }) {
   const { setPrimary } = mutations;
-  const [adding, setAdding] = useState(false);
+  const [add, setAdd] = useQuickAdd();
+  const adding = add === "contact";
+  const setAdding = (open: boolean) => setAdd(open ? "contact" : undefined);
   const empty = company.contacts.length === 0;
   return (
     <SheetSection
@@ -118,6 +125,7 @@ export function CompanyContacts({
                     {[contact.title, contact.email].filter(Boolean).join(" · ")}
                   </p>
                 </div>
+                <SubListOwner owner={contact.owner} />
                 <Button
                   variant="ghost"
                   size="icon-xs"
@@ -146,7 +154,9 @@ export function CompanyContacts({
 }
 
 export function CompanyDeals({ company }: { company: Company }) {
-  const [adding, setAdding] = useState(false);
+  const [add, setAdd] = useQuickAdd();
+  const adding = add === "deal";
+  const setAdding = (open: boolean) => setAdd(open ? "deal" : undefined);
   const empty = company.deals.length === 0;
   return (
     <SheetSection
@@ -208,6 +218,7 @@ export function CompanyDeals({ company }: { company: Company }) {
                   )}
                 </span>
                 <DealStageMenu dealId={deal.id} stage={deal.stage} />
+                <SubListOwner owner={deal.owner} />
               </div>
             </li>
           ))}

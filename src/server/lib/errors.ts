@@ -1,4 +1,8 @@
-import { isErrorCode, type ErrorCode } from "@/shared/error-codes";
+import {
+  UserMessageError,
+  isErrorCode,
+  type ErrorCode,
+} from "@/shared/error-codes";
 
 export class AppError extends Error {
   constructor(
@@ -11,6 +15,13 @@ export class AppError extends Error {
   }
 }
 
+/**
+ * An AppError whose message is written for the person who asked, such as
+ * "Stripe already uses the domain stripe.com.": the browser shows it in place
+ * of its code's copy. Nothing internal goes in one.
+ */
+export class UserFacingError extends AppError {}
+
 export function asAppError(error: unknown): AppError | null {
   if (error instanceof AppError) return error;
   if (error instanceof Error && isErrorCode(error.message)) {
@@ -19,9 +30,13 @@ export function asAppError(error: unknown): AppError | null {
   return null;
 }
 
-// The client only ever receives the bare code. Server messages can carry
-// internal detail, so the client maps each code to its own copy and the full
-// message stays in the server logs.
+// The client receives the code, and a UserFacingError's message with it.
+// Any other message can carry internal detail, so the client maps its code
+// to its own copy and the full message stays in the server logs.
 export function toClientError(error: unknown): Error {
-  return new Error(asAppError(error)?.code ?? "INTERNAL_ERROR");
+  const appError = asAppError(error);
+  if (appError instanceof UserFacingError) {
+    return new UserMessageError(appError.code, appError.message);
+  }
+  return new Error(appError?.code ?? "INTERNAL_ERROR");
 }

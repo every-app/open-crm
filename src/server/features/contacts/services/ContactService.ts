@@ -16,7 +16,7 @@ import {
 } from "@/server/features/records/recordRules";
 import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import { requireCredits } from "@/server/billing/credits";
-import { AppError } from "@/server/lib/errors";
+import { AppError, UserFacingError } from "@/server/lib/errors";
 import { normalizeEmail } from "@/shared/domain";
 import type {
   ContactListInput,
@@ -163,7 +163,7 @@ async function createContact(
       email,
     );
     if (existing) {
-      throw new AppError(
+      throw new UserFacingError(
         "CONFLICT",
         `${nameOf(existing)} already uses ${email}.`,
       );
@@ -200,7 +200,7 @@ async function createContact(
     );
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new AppError(
+      throw new UserFacingError(
         "CONFLICT",
         "Another contact already uses that email address.",
       );
@@ -262,7 +262,7 @@ async function updateContact(
     );
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new AppError(
+      throw new UserFacingError(
         "CONFLICT",
         "Another contact already uses that email address.",
       );
@@ -284,9 +284,9 @@ async function restoreContact(organizationId: string, id: string) {
     restored = await ContactRepository.restore(organizationId, id);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new AppError(
+      throw new UserFacingError(
         "CONFLICT",
-        "A live contact already uses this contact's email address.",
+        "A live contact already uses this contact's email address. Change or archive that one first.",
       );
     }
     throw error;

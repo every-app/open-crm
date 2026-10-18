@@ -11,7 +11,10 @@ import {
   useDataTable,
   useSelectionAnchor,
 } from "@/client/components/table/DataTable";
-import { TablePagination } from "@/client/components/table/TablePagination";
+import {
+  PageLink,
+  TablePagination,
+} from "@/client/components/table/TablePagination";
 import { Button } from "@/client/components/ui/button";
 import { CompanyBulkActions } from "@/client/features/companies/CompanyBulkActions";
 import { companyFilters } from "@/client/features/companies/CompanyFilters";
@@ -213,6 +216,9 @@ export function CompaniesPage() {
               pageSize={input.pageSize}
               totalCount={query.data?.total ?? null}
               isLoading={query.isPlaceholderData}
+              // Prev and next are links, each page a step the browser's
+              // Back returns to; a page put back in range replaces its own.
+              renderPageButton={PageLink}
               onPageChange={(page) =>
                 setSearch({ page: page > 1 ? page : undefined })
               }

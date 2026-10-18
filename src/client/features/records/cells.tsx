@@ -167,6 +167,18 @@ export function OwnerCell({ owner }: { owner: Owner | null }) {
   );
 }
 
+/**
+ * The owner on a sheet's list of records (a company's contacts and deals, a
+ * contact's deals): one width on every row, so they line up as a column.
+ */
+export function SubListOwner({ owner }: { owner: Owner | null }) {
+  return (
+    <span className="hidden w-28 shrink-0 text-sm sm:block">
+      <OwnerCell owner={owner} />
+    </span>
+  );
+}
+
 /** A record's picture and name, as the first cell of its row. */
 export function NameCell({ media, name }: { media: ReactNode; name: string }) {
   return (

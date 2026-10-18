@@ -4,8 +4,12 @@ import type {
   RowSelectionState,
   VisibilityState,
 } from "@tanstack/react-table";
+import { omit, pick } from "remeda";
 import { z } from "zod";
-import type { RecordTab } from "@/client/features/records/recordStack";
+import {
+  APP_SEARCH_KEYS,
+  type AppSearch,
+} from "@/client/features/records/recordStack";
 import { fieldFiltersSchema, type FieldFilters } from "@/types/schemas/fields";
 import {
   ACTIVITY_WINDOWS,
@@ -25,8 +29,9 @@ import {
 //     sort: z.enum(COMPANY_SORTS).optional().catch(undefined),
 //   })
 //
-// A saved view is that state without the page and the open sheets
-// (`savedViewOf`), parsed back with the same schema when it's applied.
+// A saved view is that state without the page and the sheets and panels
+// open over the list (`savedViewOf`), parsed back with the same schema when
+// it's applied.
 
 // The router reads `?q=42` (or an id of digits) as a number: keep it text.
 const textParam = z
@@ -147,18 +152,15 @@ export function clearedFilters<TKey extends string>(
   return cleared;
 }
 
-/** The sheets open over the list (RecordSheetHost's params). */
-type SheetSearch = { record?: string; tab?: RecordTab };
-
 /**
  * What a saved view keeps of a list's URL: its search, filters, sort and
- * columns, not the page or the sheets open over it.
+ * columns, not the page or the sheets and panels open over it (the app's
+ * params, recordStack.ts).
  */
 export function savedViewOf<TSearch extends RecordListSearch>(
-  search: TSearch & SheetSearch,
-): Omit<TSearch, "page" | "record" | "tab"> {
-  const { page: _page, record: _record, tab: _tab, ...view } = search;
-  return view;
+  search: TSearch & AppSearch,
+) {
+  return omit(search, ["page", ...APP_SEARCH_KEYS]);
 }
 
 /**
@@ -169,13 +171,12 @@ export function savedViewOf<TSearch extends RecordListSearch>(
 export function searchFromSavedView<TSearch extends RecordListSearch>(
   schema: { parse: (filters: unknown) => TSearch },
   filters: Record<string, unknown>,
-  current: SheetSearch,
-): TSearch & SheetSearch {
+  current: AppSearch,
+): TSearch & AppSearch {
   return {
     ...schema.parse(filters),
     page: undefined,
-    record: current.record,
-    tab: current.tab,
+    ...pick(current, APP_SEARCH_KEYS),
   };
 }
 
