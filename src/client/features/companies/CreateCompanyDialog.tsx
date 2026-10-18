@@ -93,15 +93,10 @@ export function CreateCompanyDialog({
         }
       >
         <form.Form id={FORM_ID} className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            Give it a name and a domain. The agent fills in the logo,
-            description, industry, address and socials.
-          </p>
           <form.AppField name="name">
             {(field) => (
               <field.TextField
                 label="Name"
-                placeholder="Stripe"
                 maxLength={COMPANY_NAME_MAX}
                 autoComplete="off"
                 autoFocus
@@ -116,7 +111,6 @@ export function CreateCompanyDialog({
                 placeholder="stripe.com"
                 inputMode="url"
                 autoComplete="off"
-                description="A full URL is fine — it is reduced to the bare host, which has to be unique."
               />
             )}
           </form.AppField>

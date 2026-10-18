@@ -112,8 +112,7 @@ export function CreateContactDialog({
           formApi.setErrorMap({
             onSubmit: {
               fields: {
-                company:
-                  "That company was archived or deleted. Pick another one.",
+                company: "That company is gone. Pick another.",
               },
             },
           });
@@ -166,7 +165,6 @@ export function CreateContactDialog({
               <field.TextField
                 label="Email"
                 type="email"
-                placeholder="ana@acme.com"
                 maxLength={CONTACT_EMAIL_MAX}
                 autoComplete="off"
               />
@@ -176,7 +174,6 @@ export function CreateContactDialog({
             {(field) => (
               <field.TextField
                 label="Title"
-                placeholder="Head of Security"
                 maxLength={CONTACT_TITLE_MAX}
                 autoComplete="off"
               />
