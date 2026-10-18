@@ -128,8 +128,8 @@ function NotConnected({ status }: { status: ProviderStatus }) {
       }
       description={
         ready || setup
-          ? copy.offer
-          : `${copy.name} isn't set up on this Every App gateway yet.`
+          ? "Only conversations with companies in the CRM are stored."
+          : undefined
       }
       action={
         ready ? (

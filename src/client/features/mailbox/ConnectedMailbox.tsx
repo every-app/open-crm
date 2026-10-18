@@ -187,7 +187,6 @@ export function ConnectedMailbox({
             {copy.name}
           </TitleWithStatus>
         }
-        description={copy.connected}
         action={
           connection.needsReconnect ? (
             <Button
@@ -258,7 +257,7 @@ export function ConnectedMailbox({
                     Last checked <RelativeTime date={lastSyncedAt} />
                   </>
                 ) : (
-                  "Waiting for the first check"
+                  "Not checked yet"
                 )
               ) : undefined
             }
@@ -335,8 +334,7 @@ export function ConnectedMailbox({
           onConfirm={() => purge.mutate()}
           onClose={() => setConfirming(null)}
         >
-          {copy.purged} The next check starts from now, so nothing deleted here
-          comes back.
+          Nothing deleted here comes back.
         </ConfirmDialog>
       ) : null}
       {confirming === "revoke" ? (
