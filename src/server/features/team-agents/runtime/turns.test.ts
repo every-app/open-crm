@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 // A builder chat's turn: a message that asks for an agent, in words as much
-// as with the command, gets the build tools; a question gets the research
+// as with the command, gets the build tools, within the CRM builder's limits
+// on tool calls and saves; a question gets the research
 // agent's people and company research and the CRM chat's web tools instead,
 // and never the build tools. What the person tagged and attached reaches the
 // model as the CRM's builder delivers a submission: the tags' labels on a line
@@ -34,6 +35,7 @@ import { FREE } from "@/server/features/agent/runtime/budget";
 import type { ChatSession } from "@/server/features/agent/runtime/session";
 import { openRouterCostUsd } from "@/server/lib/chatAgent";
 import { buildAgentModel } from "@/server/lib/openrouter";
+import { draft } from "../services/teamAgentTestSupport";
 import { prepareBuilderTurn } from "./turns";
 
 const session: ChatSession = {
@@ -152,6 +154,27 @@ describe("a builder chat's turn", () => {
       ]),
     );
     expect(question).not.toContain("save_agent_draft");
+  });
+
+  it("caps a build at twelve tool calls and two draft saves", async () => {
+    const { tools } = turn([said("m1", "/Create agent Flag deals gone quiet")]);
+    const call = (name: string, input: unknown) =>
+      tools[name]?.execute?.(input, { toolCallId: name, messages: [] });
+    // A draft that doesn't hold: saving it is an attempt all the same.
+    const unsafe = draft({ recordScope: "SELECTED" });
+    expect(await call("save_agent_draft", unsafe)).toMatchObject({
+      saved: false,
+    });
+    await call("save_agent_draft", unsafe);
+    expect(await call("save_agent_draft", unsafe)).toEqual({
+      error: "The agent builder exceeded its draft-save budget.",
+    });
+    for (let index = 0; index < 9; index += 1) {
+      await call("read_attachment", { id: "none" });
+    }
+    expect(await call("read_attachment", { id: "none" })).toEqual({
+      error: "The agent builder exceeded its tool-call budget.",
+    });
   });
 
   it("puts the labels a message tagged on a line before its text", async () => {

@@ -1,6 +1,7 @@
 import { BuilderToolService } from "@/server/features/team-agents/services/BuilderToolService";
 import { openrouter } from "@openrouter/ai-sdk-provider";
-import { tool, type ToolSet } from "ai";
+import { tool, type ToolExecutionOptions, type ToolSet } from "ai";
+import { mapValues } from "remeda";
 import { z } from "zod";
 import type { AgentToolContext } from "@/server/features/agent/tools/context";
 import { conversationTools } from "@/server/features/agent/tools/conversation";
@@ -20,7 +21,8 @@ import { webFetch } from "./webFetch";
 // gets the research agent's people and company research (the CRM's chat could
 // research people and companies on the web), paid from the turn's budget, and
 // the CRM chat's own web tools. Writing files and saving a draft exist only in
-// a turn that asks for an agent, and close once a draft is saved.
+// a turn that asks for an agent, and close once a draft is saved; such a
+// build has the CRM builder's 12 tool calls and 2 saves.
 // ask_question is the chat client's tool
 // (src/client/features/team-agents/builderQuestion.ts).
 
@@ -53,6 +55,40 @@ function chatResearch(context: AgentToolContext): ToolSet {
   };
 }
 
+/**
+ * A build's tool calls and draft saves, as the CRM's builder capped them
+ * (agent_builder/lib/execution-state.ts): past either, every call refuses.
+ */
+const BUILD_LIMITS = { toolCalls: 12, saves: 2 } as const;
+
+/** `tools`, each call counted against a build's limits before it runs. */
+function withinBuildLimits(tools: ToolSet): ToolSet {
+  let calls = 0;
+  let saves = 0;
+  return mapValues(tools, (definition, name) => {
+    const execute = definition.execute;
+    if (!execute) return definition;
+    return {
+      ...definition,
+      execute: (input: unknown, options: ToolExecutionOptions) => {
+        calls += 1;
+        if (calls > BUILD_LIMITS.toolCalls) {
+          throw new Error("The agent builder exceeded its tool-call budget.");
+        }
+        if (name === "save_agent_draft") {
+          saves += 1;
+          if (saves > BUILD_LIMITS.saves) {
+            throw new Error(
+              "The agent builder exceeded its draft-save budget.",
+            );
+          }
+        }
+        return execute(input, options);
+      },
+    };
+  });
+}
+
 export function builderTools(
   context: BuilderToolContext & {
     creating: boolean;
@@ -74,7 +110,7 @@ export function builderTools(
     ...conversationTools(context.agentContext),
     list_fields: fieldTools(context.agentContext).list_fields,
   };
-  return {
+  const tools: ToolSet = {
     ...reads,
     inspect_context: tool({
       description:
@@ -119,4 +155,5 @@ export function builderTools(
         }
       : chatResearch(context.agentContext)),
   };
+  return context.creating ? withinBuildLimits(tools) : tools;
 }
