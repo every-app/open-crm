@@ -17,7 +17,7 @@ The hosted CRM bills each organization's usage exactly as OpenSEO bills it, on t
 
 **After it ran.** Nothing is reserved: spend is billed after the fact.
 
-- A session's model steps, compaction summaries and Sonar searches (`meter.ts`): added to the session's running total and billed in $0.05 chunks on one serialized chain, the rest when the turn ends (`onChatResponse`, `onChatError`, kept alive with `waitUntil`). Chats bill without overdraft (Autumn stops at zero); research sessions and team agent runs bill with OpenSEO's background overdraft and never throw (`researchSpend.ts`).
+- A session's model steps, compaction summaries and Sonar searches (`meter.ts`): added to the session's running total and billed in $0.05 chunks on one serialized chain, the rest when the turn ends (`onChatResponse`, `onChatError`, kept alive with `waitUntil`). Chats bill without overdraft (Autumn stops at zero); research sessions and team agent runs bill with OpenSEO's background overdraft and never throw (`researchSpend.ts`). A step's cost is what OpenRouter charged for the call, so it already holds a builder chat's image and PDF input, OpenRouter's parsing of a PDF for a model that can't read one, and its web searches.
 - Sonar and Context.dev report each call from inside the tool that made it (`spendSink.ts`): the agent's tools run inside their session's sink (`tools/registry.ts`), the cron's lookups inside the lane's.
 - Context.dev: what it reports in `key_metadata.credits_consumed`, at $0.0025 a credit, else its list price (`contextDevPricing.ts`), as `company_data`, with overdraft.
 

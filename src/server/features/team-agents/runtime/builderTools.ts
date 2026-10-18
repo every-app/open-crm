@@ -1,4 +1,5 @@
 import { BuilderToolService } from "@/server/features/team-agents/services/BuilderToolService";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { AgentToolContext } from "@/server/features/agent/tools/context";
@@ -11,26 +12,44 @@ import { researchTools } from "@/server/features/agent/tools/research";
 import { socialTools } from "@/server/features/agent/tools/socials";
 import type { BuilderToolContext } from "../services/BuilderToolService";
 import { BUILDER_FILE_PATHS, draftInputSchema } from "../services/draft";
+import { webFetch } from "./webFetch";
 
 // The agent builder's tools, ported from the CRM's chat and agent_builder
 // tools. Every turn reads the CRM with the research agent's free read tools
 // and its custom fields, and inspects what it may build with. A question also
 // gets the research agent's people and company research (the CRM's chat could
-// research people and companies on the web), paid from the turn's budget.
-// Writing files and saving a draft exist only in a turn that asks for an
-// agent, and close once a draft is saved. ask_question is the chat client's
-// tool (src/client/features/team-agents/builderQuestion.ts).
+// research people and companies on the web), paid from the turn's budget, and
+// the CRM chat's own web tools. Writing files and saving a draft exist only in
+// a turn that asks for an agent, and close once a draft is saved.
+// ask_question is the chat client's tool
+// (src/client/features/team-agents/builderQuestion.ts).
+
+/**
+ * The CRM chat's web_search: eve's built-in, which the model's provider runs.
+ * The CRM's models go through Vercel's AI Gateway, where it is the gateway's
+ * Parallel search; here it is OpenRouter's web search server tool on the same
+ * engine and Parallel's ten results: OpenRouter searches inside the model
+ * call, whose cost (usage accounting) includes the search, so the session's
+ * meter bills it with the call.
+ */
+const webSearch = openrouter.tools.webSearch({
+  engine: "parallel",
+  maxResults: 10,
+});
 
 /**
  * The research a question may use, as the research agent has it: LinkedIn
  * lookups and open-web research about people, a company's site, and a
  * contact's other profiles. Without Context.dev or web research, each says so.
+ * And the CRM chat's harness tools: reading a page, and searching the web.
  */
 function chatResearch(context: AgentToolContext): ToolSet {
   return {
     ...peopleTools(context),
     research_company: researchTools(context).research_company,
     find_contact_socials: socialTools(context).find_contact_socials,
+    web_fetch: webFetch,
+    web_search: webSearch,
   };
 }
 

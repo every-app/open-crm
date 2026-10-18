@@ -43,7 +43,6 @@ async function run(
   const runId = await runningRun(value);
   const tools = runnerTools({
     organizationId: ORG,
-    sessionId: "s",
     runId,
     manifest: value,
     spend: FREE,

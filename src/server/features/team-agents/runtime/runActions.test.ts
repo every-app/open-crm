@@ -48,7 +48,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       const runId = await runningRun(manifest());
       const tools = runnerTools({
         organizationId: ORG,
-        sessionId: "s",
         runId,
         manifest: manifest(),
         spend: FREE,
