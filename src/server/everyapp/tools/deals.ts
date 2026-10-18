@@ -1,3 +1,4 @@
+import { mapValues } from "remeda";
 import { z } from "zod";
 import {
   crmTool,
@@ -10,6 +11,7 @@ import {
   fieldColumnsOutput,
   fieldFiltersInput,
   resolveFieldFilters,
+  userFieldsByEmail,
 } from "@/server/everyapp/tools/fieldFilters";
 import {
   DealService,
@@ -76,11 +78,13 @@ const summaryOutput = z.object({
 function summary(
   row: DealListRow,
   reportingCurrency: string,
+  shown: Awaited<ReturnType<typeof userFieldsByEmail>>,
 ): z.input<typeof summaryOutput> {
   return {
     ...row,
     inReportingCurrency: reported(row, reportingCurrency),
     expectedCloseDate: day(row.expectedCloseDate),
+    fields: mapValues(row.fields, (value, key) => shown(key, value)),
   };
 }
 
@@ -242,7 +246,10 @@ export const dealTools = {
         dir: input.direction,
         page: input.page,
       });
-      const result = await DealService.listDeals(context.organizationId, list);
+      const [result, shown] = await Promise.all([
+        DealService.listDeals(context.organizationId, list),
+        userFieldsByEmail(context.organizationId, "DEAL"),
+      ]);
       return {
         total: result.total,
         page: list.page,
@@ -252,7 +259,9 @@ export const dealTools = {
           currency: result.reportingCurrency,
           notCounted: result.unconverted,
         },
-        deals: result.rows.map((row) => summary(row, result.reportingCurrency)),
+        deals: result.rows.map((row) =>
+          summary(row, result.reportingCurrency, shown),
+        ),
       };
     },
   }),

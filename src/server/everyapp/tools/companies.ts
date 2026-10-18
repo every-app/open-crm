@@ -1,3 +1,4 @@
+import { mapValues } from "remeda";
 import { z } from "zod";
 import {
   crmTool,
@@ -9,6 +10,7 @@ import {
   fieldColumnsOutput,
   fieldFiltersInput,
   resolveFieldFilters,
+  userFieldsByEmail,
 } from "@/server/everyapp/tools/fieldFilters";
 import {
   CompanyService,
@@ -68,13 +70,19 @@ const summaryOutput = z.object({
   fields: fieldColumnsOutput,
 });
 
-function summary(row: CompanyListRow): z.input<typeof summaryOutput> {
+type Shown = Awaited<ReturnType<typeof userFieldsByEmail>>;
+
+function summary(
+  row: CompanyListRow,
+  shown: Shown,
+): z.input<typeof summaryOutput> {
   return {
     ...row,
     location: location(row),
     contacts: row.contactCount,
     openDeals: row.openDealCount,
     enrichment: row.enrichmentStatus,
+    fields: mapValues(row.fields, (value, key) => shown(key, value)),
   };
 }
 
@@ -228,15 +236,15 @@ export const companyTools = {
         dir: input.direction,
         page: input.page,
       });
-      const { rows, total } = await CompanyService.listCompanies(
-        context.organizationId,
-        list,
-      );
+      const [{ rows, total }, shown] = await Promise.all([
+        CompanyService.listCompanies(context.organizationId, list),
+        userFieldsByEmail(context.organizationId, "COMPANY"),
+      ]);
       return {
         total,
         page: list.page,
         pageSize: list.pageSize,
-        companies: rows.map(summary),
+        companies: rows.map((row) => summary(row, shown)),
       };
     },
   }),

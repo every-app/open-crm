@@ -135,7 +135,7 @@ export const bulkTools = {
 
   bulk_enrich: crmTool({
     description:
-      "Ask the research agent to look up to 100 companies or contacts up again. It costs the organization credits and works in the background (get_enrichment_queue).",
+      "Ask the research agent to research up to 100 companies or contacts again. It costs the organization credits and works in the background (get_enrichment_queue).",
     risk: "write",
     input: z
       .object({

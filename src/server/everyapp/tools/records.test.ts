@@ -180,8 +180,8 @@ describe("record tools", () => {
     });
   });
 
-  it("custom fields: owners and admins define them, anyone sets values, and lists filter by an option's label", async () => {
-    const field = {
+  it("custom fields: owners and admins define them, anyone sets values, selects go by label and people by email", async () => {
+    const segment = {
       entity: "COMPANY",
       label: "Segment",
       type: "SELECT",
@@ -189,23 +189,46 @@ describe("record tools", () => {
       agentFilled: false,
       showOnTable: true,
     };
-    expect(await failure("create_field", field, { as: member })).toBe(
+    expect(await failure("create_field", segment, { as: member })).toBe(
       "Only an owner or an admin can do that.",
     );
-    await call("create_field", field);
+    await call("create_field", segment);
+    await call("create_field", {
+      entity: "COMPANY",
+      label: "Account manager",
+      type: "USER",
+      agentFilled: false,
+      showOnTable: true,
+    });
     const id = await idFrom("create_company", { name: "Hooli" });
-    await call(
-      "set_field_values",
-      { entity: "COMPANY", recordId: id, values: { segment: "Enterprise" } },
-      { as: member },
-    );
+    expect(
+      await call(
+        "set_field_values",
+        {
+          entity: "COMPANY",
+          recordId: id,
+          values: { segment: "Enterprise", account_manager: ana.email },
+        },
+        { as: member },
+      ),
+    ).toMatchObject({
+      fields: [
+        { key: "segment" },
+        { key: "account_manager", value: ana.email },
+      ],
+    });
     expect(
       await call("list_companies", {
         fields: { segment: { op: "anyOf", values: ["enterprise"] } },
       }),
     ).toMatchObject({
       total: 1,
-      companies: [{ id, fields: { segment: "Enterprise" } }],
+      companies: [
+        {
+          id,
+          fields: { segment: "Enterprise", account_manager: ana.email },
+        },
+      ],
     });
   });
 

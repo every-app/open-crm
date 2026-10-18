@@ -5,6 +5,7 @@ import { crmTool, pageInput, pageOf } from "@/server/everyapp/crm-tool";
 import { EnrichmentQueueService } from "@/server/features/agent/services/EnrichmentQueueService";
 import { CurrencyService } from "@/server/features/currency/services/CurrencyService";
 import { WorkspaceService } from "@/server/features/workspace/services/WorkspaceService";
+import { AppError } from "@/server/lib/errors";
 import { CURRENCY_CODES } from "@/shared/currency";
 import { enrichmentQueueSchema } from "@/types/schemas/agent";
 import {
@@ -83,23 +84,36 @@ export const workspaceTools = {
 
   update_workspace: crmTool({
     description:
-      "Rename the workspace or change its website (owners and admins only). A new website sends the research agent to learn the business.",
+      "Rename the workspace or change its website (owners and admins only); only what is given changes. A new website sends the research agent to learn the business.",
     risk: "write",
     input: z
       .object({
-        name: updateWorkspaceSchema.shape.name,
-        website: updateWorkspaceSchema.shape.website.describe(
-          "The domain, like acme.com.",
-        ),
+        name: updateWorkspaceSchema.shape.name.optional(),
+        website: updateWorkspaceSchema.shape.website
+          .optional()
+          .describe("The domain, like acme.com."),
       })
       .strict(),
     output: workspaceOutput,
     handler: async (input, context) => {
       requireOrgPermission(context, manage);
+      const current = await WorkspaceService.getWorkspace(
+        context.organizationId,
+      );
+      const changed = updateWorkspaceSchema.safeParse({
+        name: input.name ?? current.name,
+        website: input.website ?? current.website,
+      });
+      if (!changed.success) {
+        throw new AppError(
+          "VALIDATION_ERROR",
+          "The workspace has no website yet: give one.",
+        );
+      }
       return {
         ...(await WorkspaceService.updateWorkspace(
           context.organizationId,
-          input,
+          changed.data,
         )),
         role: context.role,
       };

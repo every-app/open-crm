@@ -10,6 +10,7 @@ import { mailTools } from "@/server/everyapp/tools/mail";
 import { savedViewTools } from "@/server/everyapp/tools/savedViews";
 import { searchTools } from "@/server/everyapp/tools/search";
 import { slackTools } from "@/server/everyapp/tools/slack";
+import { suggestionTools } from "@/server/everyapp/tools/suggestions";
 import { teamAgentTools } from "@/server/everyapp/tools/teamAgents";
 import { trackingTools } from "@/server/everyapp/tools/tracking";
 import { workspaceTools } from "@/server/everyapp/tools/workspace";
@@ -32,6 +33,7 @@ const tools = {
   ...searchTools,
   ...companyTools,
   ...contactTools,
+  ...suggestionTools,
   ...dealTools,
   ...fieldTools,
   ...activityTools,

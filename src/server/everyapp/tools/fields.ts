@@ -1,10 +1,18 @@
 import { z } from "zod";
 import { requireOrgPermission } from "@/server/auth/org-gate";
 import { crmTool } from "@/server/everyapp/crm-tool";
-import { fieldValueOutput } from "@/server/everyapp/tools/fieldFilters";
+import {
+  fieldValueOutput,
+  userFieldsByEmail,
+  withMemberIds,
+} from "@/server/everyapp/tools/fieldFilters";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
-import { FIELD_ENTITIES, FIELD_TYPES } from "@/shared/crm-enums";
+import {
+  FIELD_ENTITIES,
+  FIELD_TYPES,
+  type FieldEntity,
+} from "@/shared/crm-enums";
 import {
   createFieldSchema,
   fieldEntitySchema,
@@ -55,10 +63,30 @@ const fieldOutput = z.object({
 const recordFieldsOutput = z.object({
   fields: z.array(
     fieldOutput.extend({
-      value: fieldValueOutput.describe("A select's is its option's id."),
+      value: fieldValueOutput.describe(
+        "A select's is its option's id; a user field's the member's email.",
+      ),
     }),
   ),
 });
+
+/** A record's fields, user fields' values by email. */
+async function recordFields(
+  organizationId: string,
+  entity: FieldEntity,
+  recordId: string,
+) {
+  const [fields, shown] = await Promise.all([
+    FieldValuesService.recordFields(organizationId, entity, recordId),
+    userFieldsByEmail(organizationId, entity),
+  ]);
+  return {
+    fields: fields.map((field) => ({
+      ...field,
+      value: shown(field.key, field.value),
+    })),
+  };
+}
 
 const manage = { field: ["manage" as const] };
 
@@ -90,18 +118,13 @@ export const fieldTools = {
     risk: "read",
     input: z.object({ entity: entityInput, recordId: recordIdInput }).strict(),
     output: recordFieldsOutput,
-    handler: async ({ entity, recordId }, context) => ({
-      fields: await FieldValuesService.recordFields(
-        context.organizationId,
-        entity,
-        recordId,
-      ),
-    }),
+    handler: ({ entity, recordId }, context) =>
+      recordFields(context.organizationId, entity, recordId),
   }),
 
   set_field_values: crmTool({
     description:
-      "Set custom field values on one company, contact or deal, by field key (list_fields). A select takes an option's id or label, a date YYYY-MM-DD, a checkbox true or false, a user field a member's user id; null clears. Every value is checked before any is written.",
+      "Set custom field values on one company, contact or deal, by field key (list_fields). A select takes an option's id or label, a date YYYY-MM-DD, a checkbox true or false, a user field a member's email; null clears. Every value is checked before any is written.",
     risk: "write",
     input: z
       .object({
@@ -118,15 +141,9 @@ export const fieldTools = {
         context.organizationId,
         entity,
         recordId,
-        values,
+        await withMemberIds(context.organizationId, entity, values),
       );
-      return {
-        fields: await FieldValuesService.recordFields(
-          context.organizationId,
-          entity,
-          recordId,
-        ),
-      };
+      return recordFields(context.organizationId, entity, recordId);
     },
   }),
 

@@ -1,33 +1,29 @@
+import { mapValues } from "remeda";
 import { z } from "zod";
 import {
   crmTool,
   fullName,
   memberId,
-  pageInput,
   personOutput,
 } from "@/server/everyapp/crm-tool";
+import { suggestionOutput } from "@/server/everyapp/tools/suggestions";
 import {
   fieldColumnsOutput,
   fieldFiltersInput,
   resolveFieldFilters,
+  userFieldsByEmail,
 } from "@/server/everyapp/tools/fieldFilters";
-import { ContactFactService } from "@/server/features/contacts/services/ContactFactService";
 import {
   ContactService,
   type ContactDetail,
   type ContactListRow,
 } from "@/server/features/contacts/services/ContactService";
-import {
-  DEAL_STAGES,
-  ENRICHMENT_STATUSES,
-  FACT_BANDS,
-} from "@/shared/crm-enums";
+import { DEAL_STAGES, ENRICHMENT_STATUSES } from "@/shared/crm-enums";
 import {
   CONTACT_SORTS,
   NO_COMPANY,
   contactListSchema,
   createContactSchema,
-  decideFactSchema,
   updateContactSchema,
 } from "@/types/schemas/contacts";
 import {
@@ -36,8 +32,7 @@ import {
   UNASSIGNED,
 } from "@/types/schemas/records";
 
-// The contacts (people) as an AI client sees them, and the research agent's
-// suggestions about them that wait for a person. Owners are named by email
+// The contacts (people) as an AI client sees them. Owners are named by email
 // here, as a model knows them; the app's own forms use member ids.
 
 const ownerEmail = z
@@ -78,20 +73,19 @@ const summaryOutput = z.object({
   fields: fieldColumnsOutput,
 });
 
-function summary(row: ContactListRow): z.input<typeof summaryOutput> {
-  return { ...row, name: fullName(row), enrichment: row.enrichmentStatus };
-}
+type Shown = Awaited<ReturnType<typeof userFieldsByEmail>>;
 
-const suggestionOutput = z.object({
-  id: z
-    .string()
-    .describe("decide_contact_suggestion takes it to accept or dismiss."),
-  field: z.string(),
-  value: z.string(),
-  band: z.enum(FACT_BANDS).describe("How sure the agent is."),
-  why: z.array(z.string()),
-  sourceUrl: z.string().nullable(),
-});
+function summary(
+  row: ContactListRow,
+  shown: Shown,
+): z.input<typeof summaryOutput> {
+  return {
+    ...row,
+    name: fullName(row),
+    enrichment: row.enrichmentStatus,
+    fields: mapValues(row.fields, (value, key) => shown(key, value)),
+  };
+}
 
 const detailsOutput = z.object({
   id: z.string(),
@@ -182,8 +176,6 @@ const contactRefOutput = z.object({
   companyId: z.string().nullable(),
 });
 
-const SUGGESTIONS_PAGE = 25;
-
 export const contactTools = {
   list_contacts: crmTool({
     description:
@@ -273,15 +265,15 @@ export const contactTools = {
         dir: input.direction,
         page: input.page,
       });
-      const { rows, total } = await ContactService.listContacts(
-        context.organizationId,
-        list,
-      );
+      const [{ rows, total }, shown] = await Promise.all([
+        ContactService.listContacts(context.organizationId, list),
+        userFieldsByEmail(context.organizationId, "CONTACT"),
+      ]);
       return {
         total,
         page: list.page,
         pageSize: list.pageSize,
-        contacts: rows.map(summary),
+        contacts: rows.map((row) => summary(row, shown)),
       };
     },
   }),
@@ -349,73 +341,5 @@ export const contactTools = {
     output: z.object({ id: z.string(), name: z.string() }),
     handler: ({ id }, context) =>
       ContactService.archiveContact(context.organizationId, id),
-  }),
-
-  list_contact_suggestions: crmTool({
-    description:
-      "What the research agent found about contacts that waits for a person: a new title, company or link that would replace what the contact has. Every live contact's, or one's. 25 a page, newest first.",
-    risk: "read",
-    input: z
-      .object({
-        contactId: contactId.optional().describe("Only this contact's."),
-        page: pageInput,
-      })
-      .strict(),
-    output: z.object({
-      total: z.number(),
-      page: z.number(),
-      pageSize: z.number(),
-      suggestions: z.array(
-        suggestionOutput.extend({
-          contact: z.object({
-            id: z.string(),
-            name: z.string(),
-            email: z.string().nullable(),
-          }),
-          observedAt: z.string(),
-        }),
-      ),
-    }),
-    handler: async (input, context) => {
-      const page = input.page ?? 1;
-      const { rows, total } = await ContactFactService.listSuggestions(
-        context.organizationId,
-        { contactId: input.contactId, page, pageSize: SUGGESTIONS_PAGE },
-      );
-      return {
-        total,
-        page,
-        pageSize: SUGGESTIONS_PAGE,
-        suggestions: rows.map((row) => ({
-          ...row,
-          why: row.evidence.map((item) => item.detail),
-          contact: { id: row.contactId, name: fullName(row), email: row.email },
-        })),
-      };
-    },
-  }),
-
-  decide_contact_suggestion: crmTool({
-    description:
-      "Accept a research agent suggestion, which writes its value on the contact, or dismiss it, so it is never offered again.",
-    risk: "write",
-    input: z
-      .object({
-        id: decideFactSchema.shape.factId.describe(
-          "The suggestion's id, from list_contact_suggestions or get_contact.",
-        ),
-        decision: decideFactSchema.shape.decision,
-      })
-      .strict(),
-    output: z.object({
-      contactId: z.string(),
-      field: z.string(),
-      applied: z.boolean().describe("The value is on the contact now."),
-    }),
-    handler: ({ id, decision }, context) =>
-      ContactFactService.decideFact(context.organizationId, context.userId, {
-        factId: id,
-        decision,
-      }),
   }),
 };
