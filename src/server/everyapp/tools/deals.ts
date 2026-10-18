@@ -4,6 +4,7 @@ import {
   crmTool,
   fullName,
   memberId,
+  pageSizeInput,
   personOutput,
   recordRefOutput,
 } from "@/server/everyapp/crm-tool";
@@ -27,6 +28,7 @@ import {
   DEAL_STATUSES,
   attachDealContactSchema,
   createDealSchema,
+  dealContactRoleSchema,
   dealListSchema,
   detachDealContactSchema,
   setDealStageSchema,
@@ -175,7 +177,7 @@ const stageMoveOutput = z.object({
 
 export const dealTools = {
   list_deals: crmTool({
-    description: `Search and list deals with their company, stage, amount, owner and expected close date, and the custom fields shown as table columns. \`query\` matches part of the deal's or its company's name. Each page comes with the open pipeline's value in the reporting currency. ${STAGES_NOTE} 25 a page, newest first unless sorted.`,
+    description: `Search and list deals with their company, stage, amount, owner and expected close date, and the custom fields shown as table columns. \`query\` matches part of the deal's or its company's name. Each page comes with the open pipeline's value in the reporting currency. ${STAGES_NOTE} 25 a page unless pageSize says, newest first unless sorted.`,
     risk: "read",
     input: z
       .object({
@@ -209,6 +211,7 @@ export const dealTools = {
         sort: z.enum(DEAL_SORTS).optional(),
         direction: z.enum(SORT_DIRECTIONS).optional(),
         page: z.number().int().min(1).optional(),
+        pageSize: pageSizeInput,
       })
       .strict(),
     output: z.object({
@@ -243,8 +246,10 @@ export const dealTools = {
         closing: input.closing,
         archived: input.archived,
         sort: input.sort,
-        dir: input.direction,
+        // As the list pages: a chosen sort runs ascending unless said.
+        dir: input.direction ?? (input.sort ? "asc" : undefined),
         page: input.page,
+        pageSize: input.pageSize,
       });
       const [result, shown] = await Promise.all([
         DealService.listDeals(context.organizationId, list),
@@ -338,7 +343,7 @@ export const dealTools = {
 
   add_deal_contact: crmTool({
     description:
-      "Put someone who works at the deal's company on the deal, optionally with their role (Champion, Economic buyer). Someone already on it gets the new role.",
+      "Put someone who works at the deal's company on the deal, optionally with their role (Champion, Economic buyer). Someone already on it gets the new role; set_deal_contact_role clears one.",
     risk: "write",
     input: attachDealContactSchema
       .extend({
@@ -352,6 +357,22 @@ export const dealTools = {
     }),
     handler: (input, context) =>
       DealService.attachContact(context.organizationId, input),
+  }),
+
+  set_deal_contact_role: crmTool({
+    description:
+      "Change the role of someone on a deal (Champion, Economic buyer), or clear it with null.",
+    risk: "write",
+    input: dealContactRoleSchema
+      .extend({ dealId, contactId: contactIdOn("get_deal") })
+      .strict(),
+    output: z.object({
+      dealId: z.string(),
+      contactId: z.string(),
+      role: z.string().nullable(),
+    }),
+    handler: (input, context) =>
+      DealService.setContactRole(context.organizationId, input),
   }),
 
   remove_deal_contact: crmTool({

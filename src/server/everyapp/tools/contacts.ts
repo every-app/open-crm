@@ -4,7 +4,9 @@ import {
   crmTool,
   fullName,
   memberId,
+  pageSizeInput,
   personOutput,
+  sourceOutput,
 } from "@/server/everyapp/crm-tool";
 import { suggestionOutput } from "@/server/everyapp/tools/suggestions";
 import {
@@ -18,7 +20,11 @@ import {
   type ContactDetail,
   type ContactListRow,
 } from "@/server/features/contacts/services/ContactService";
-import { DEAL_STAGES, ENRICHMENT_STATUSES } from "@/shared/crm-enums";
+import {
+  DEAL_STAGES,
+  ENRICHMENT_STATUSES,
+  RECORD_SOURCES,
+} from "@/shared/crm-enums";
 import {
   CONTACT_SORTS,
   NO_COMPANY,
@@ -69,6 +75,7 @@ const summaryOutput = z.object({
   owner: personOutput.nullable(),
   lastActivityAt: z.string().nullable(),
   enrichment,
+  source: sourceOutput,
   archivedAt: z.string().nullable(),
   fields: fieldColumnsOutput,
 });
@@ -179,7 +186,7 @@ const contactRefOutput = z.object({
 export const contactTools = {
   list_contacts: crmTool({
     description:
-      "Search and list contacts (people) with their email, title, company, owner and last activity, and the custom fields shown as table columns. Every word of `query` must match their name, email or company. 25 a page, newest first unless sorted.",
+      "Search and list contacts (people) with their email, title, company, owner and last activity, and the custom fields shown as table columns. Every word of `query` must match their name, email or company. 25 a page unless pageSize says, newest first unless sorted.",
     risk: "read",
     input: z
       .object({
@@ -223,6 +230,11 @@ export const contactTools = {
           .describe(
             "Only contacts with activity in the last 7, 30 or 90 days.",
           ),
+        sources: z
+          .array(z.enum(RECORD_SOURCES))
+          .max(RECORD_SOURCES.length)
+          .optional()
+          .describe("Only contacts who came in these ways."),
         archived: z
           .boolean()
           .optional()
@@ -231,6 +243,7 @@ export const contactTools = {
         sort: z.enum(CONTACT_SORTS).optional(),
         direction: z.enum(SORT_DIRECTIONS).optional(),
         page: z.number().int().min(1).optional(),
+        pageSize: pageSizeInput,
       })
       .strict(),
     output: z.object({
@@ -259,11 +272,14 @@ export const contactTools = {
         title: input.titles,
         seniority: input.seniorities,
         persona: input.personas,
+        source: input.sources,
         activity: input.activeWithinDays?.toString(),
         archived: input.archived,
         sort: input.sort,
-        dir: input.direction,
+        // As the list pages: a chosen sort runs ascending unless said.
+        dir: input.direction ?? (input.sort ? "asc" : undefined),
         page: input.page,
+        pageSize: input.pageSize,
       });
       const [{ rows, total }, shown] = await Promise.all([
         ContactService.listContacts(context.organizationId, list),

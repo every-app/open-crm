@@ -1,3 +1,4 @@
+import { keys } from "remeda";
 import { z } from "zod";
 import { crmTool, memberId } from "@/server/everyapp/crm-tool";
 import {
@@ -5,14 +6,23 @@ import {
   resolveFieldFilters,
 } from "@/server/everyapp/tools/fieldFilters";
 import { SavedViewService } from "@/server/features/saved-views/services/SavedViewService";
+import { AppError } from "@/server/lib/errors";
 import {
   DEAL_STAGES,
+  ENRICHMENT_STATUSES,
   FIELD_ENTITIES,
   type FieldEntity,
 } from "@/shared/crm-enums";
-import { CLOSING_WINDOWS } from "@/types/schemas/deals";
+import { ENTITY_NOUNS } from "@/shared/fields";
+import { COMPANY_SORTS } from "@/types/schemas/companies";
+import { CONTACT_SORTS, NO_COMPANY } from "@/types/schemas/contacts";
+import { CLOSING_WINDOWS, DEAL_SORTS } from "@/types/schemas/deals";
 import { fieldEntitySchema } from "@/types/schemas/fields";
-import { SORT_DIRECTIONS, UNASSIGNED } from "@/types/schemas/records";
+import {
+  SORT_DIRECTIONS,
+  UNASSIGNED,
+  facetFilterSchema,
+} from "@/types/schemas/records";
 import {
   createSavedViewSchema,
   savedViewFiltersSchema,
@@ -30,6 +40,8 @@ const entity = fieldEntitySchema.describe(
   "Which list: COMPANY, CONTACT or DEAL.",
 );
 
+const values = facetFilterSchema.unwrap().optional();
+
 const filtersInput = z
   .object({
     query: z.string().max(200).optional(),
@@ -46,6 +58,21 @@ const filtersInput = z
       .optional()
       .describe("A sort the list tools take for this list."),
     direction: z.enum(SORT_DIRECTIONS).optional(),
+    industries: values.describe("Companies only."),
+    enrichment: z
+      .array(z.enum(ENRICHMENT_STATUSES))
+      .optional()
+      .describe("Companies only: research states."),
+    companyIds: values.describe(
+      `Contacts only: company ids, "${NO_COMPANY}" for contacts at none.`,
+    ),
+    titles: values.describe("Contacts only."),
+    seniorities: values.describe("Contacts only."),
+    personas: values.describe("Contacts only: functions."),
+    activeWithinDays: z
+      .literal([7, 30, 90])
+      .optional()
+      .describe("Companies and contacts only."),
     status: z
       .enum(["open", "closed"])
       .optional()
@@ -58,6 +85,30 @@ const filtersInput = z
   })
   .strict()
   .describe("The list's filters and sort; anything left out isn't filtered.");
+
+type FiltersInput = z.infer<typeof filtersInput>;
+
+/** The filters only some lists have, and those lists. */
+const LIST_FILTERS = {
+  industries: ["COMPANY"],
+  enrichment: ["COMPANY"],
+  companyIds: ["CONTACT"],
+  titles: ["CONTACT"],
+  seniorities: ["CONTACT"],
+  personas: ["CONTACT"],
+  activeWithinDays: ["COMPANY", "CONTACT"],
+  status: ["DEAL"],
+  stages: ["DEAL"],
+  closing: ["DEAL"],
+} as const satisfies Partial<
+  Record<keyof FiltersInput, readonly FieldEntity[]>
+>;
+
+const SORTS: Record<FieldEntity, readonly string[]> = {
+  COMPANY: COMPANY_SORTS,
+  CONTACT: CONTACT_SORTS,
+  DEAL: DEAL_SORTS,
+};
 
 const viewOutput = z.object({
   id: z.string(),
@@ -73,12 +124,28 @@ const viewOutput = z.object({
   updatedAt: z.string(),
 });
 
-/** The filters as the list's URL keeps them, which is what a view saves. */
+/**
+ * The filters as the list's URL keeps them, which is what a view saves. A
+ * filter or sort the list doesn't have is refused: the list would drop it.
+ */
 async function savedFilters(
   organizationId: string,
   list: FieldEntity,
-  input: z.infer<typeof filtersInput>,
+  input: FiltersInput,
 ): Promise<SavedViewFilters> {
+  const nouns = ENTITY_NOUNS[list].many;
+  for (const key of keys(LIST_FILTERS)) {
+    const lists: readonly FieldEntity[] = LIST_FILTERS[key];
+    if (input[key] !== undefined && !lists.includes(list)) {
+      throw new AppError("VALIDATION_ERROR", `${key} doesn't filter ${nouns}.`);
+    }
+  }
+  if (input.sort !== undefined && !SORTS[list].includes(input.sort)) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      `The ${nouns} list sorts by ${SORTS[list].join(", ")}.`,
+    );
+  }
   const owner = input.owners
     ? await Promise.all(
         input.owners.map((value) =>
@@ -96,6 +163,13 @@ async function savedFilters(
     fields,
     sort: input.sort,
     dir: input.direction,
+    industry: input.industries,
+    enrichment: input.enrichment,
+    company: input.companyIds,
+    title: input.titles,
+    seniority: input.seniorities,
+    persona: input.personas,
+    activity: input.activeWithinDays,
     status: input.status,
     stage: input.stages,
     closing: input.closing,

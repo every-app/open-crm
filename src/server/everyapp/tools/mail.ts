@@ -7,9 +7,10 @@ import { suppressDomainSchema } from "@/types/schemas/mailbox";
 
 // Captured mail and calendar for AI clients: a thread's messages and a
 // meeting's attendees behind a timeline's EMAIL and MEETING entries
-// (list_activities finds them), the caller's own connections, and
-// suppressing a domain. Connecting a mailbox is an OAuth flow in the
-// browser, so it stays in Settings → Connections.
+// (list_activities finds them), the caller's own connections (checking them
+// now, and whether each adds people), and suppressing a domain. Connecting a
+// mailbox is an OAuth flow in the browser, so it stays in Settings →
+// Connections; so do deleting synced data and disconnecting.
 
 /** A thread's newest messages, and how much of each body, a call returns. */
 const THREAD_MESSAGES = 20;
@@ -157,6 +158,35 @@ export const mailTools = {
           available: provider.ready,
         })),
       };
+    },
+  }),
+
+  check_mailbox_now: crmTool({
+    description:
+      "Check the caller's Gmail and Google Calendar, or Outlook, within the minute instead of at its next five-minute check. Returns at once; get_mailbox_status says when each last synced.",
+    risk: "write",
+    input: z.object({ provider: z.enum(MAILBOX_PROVIDERS) }).strict(),
+    output: z.object({
+      sources: z.array(z.enum(SYNC_SOURCES)).describe("The sources queued."),
+    }),
+    handler: ({ provider }, context) =>
+      ConnectionService.queueCheck(context, provider),
+  }),
+
+  set_mailbox_auto_create: crmTool({
+    description:
+      "Whether new people from the caller's Gmail, Google Calendar or Outlook become contacts, with their companies. Calendar starts on, Gmail and Outlook off.",
+    risk: "write",
+    input: z
+      .object({ source: z.enum(SYNC_SOURCES), enabled: z.boolean() })
+      .strict(),
+    output: z.object({
+      source: z.enum(SYNC_SOURCES),
+      autoCreate: z.boolean(),
+    }),
+    handler: async ({ source, enabled }, context) => {
+      await ConnectionService.setAutoCreate(context, source, enabled);
+      return { source, autoCreate: enabled };
     },
   }),
 
