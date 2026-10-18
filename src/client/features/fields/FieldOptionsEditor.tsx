@@ -1,6 +1,10 @@
-import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/client/components/ui/button";
 import { Input } from "@/client/components/ui/input";
+import {
+  SortableItem,
+  SortableList,
+} from "@/client/features/fields/SortableList";
 import { ADD_OPTION } from "@/client/features/fields/fieldsCopy";
 import { FIELD_OPTION_LABEL_MAX } from "@/shared/fields";
 
@@ -30,16 +34,9 @@ export function optionsProblem(options: DraftOption[]): string | null {
   return null;
 }
 
-function moved<T>(items: T[], from: number, to: number): T[] {
-  const next = [...items];
-  const [item] = next.splice(from, 1);
-  if (item !== undefined) next.splice(to, 0, item);
-  return next;
-}
-
 /**
- * A select's options: rename in place, reorder, remove, add. Removing a saved
- * option retires it: records that hold it keep showing it.
+ * A select's options: rename in place, drag to reorder, remove, add.
+ * Removing a saved option retires it: records that hold it keep showing it.
  */
 export function FieldOptionsEditor({
   options,
@@ -52,58 +49,52 @@ export function FieldOptionsEditor({
 }) {
   return (
     <div className="space-y-2">
-      <ul className="space-y-1.5">
-        {options.map((option, index) => {
-          const name = option.label.trim() || `option ${index + 1}`;
-          return (
-            <li key={option.key} className="flex items-center gap-1">
-              <Input
-                aria-label={`Option ${index + 1}`}
-                className="h-8"
-                maxLength={FIELD_OPTION_LABEL_MAX}
-                value={option.label}
-                onChange={(event) =>
-                  onChange(
-                    options.map((entry, at) =>
-                      at === index
-                        ? { ...entry, label: event.target.value }
-                        : entry,
-                    ),
-                  )
-                }
-              />
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Move ${name} up`}
-                disabled={index === 0}
-                onClick={() => onChange(moved(options, index, index - 1))}
-              >
-                <ArrowUp />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Move ${name} down`}
-                disabled={index === options.length - 1}
-                onClick={() => onChange(moved(options, index, index + 1))}
-              >
-                <ArrowDown />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Remove ${name}`}
-                onClick={() =>
-                  onChange(options.filter((_, at) => at !== index))
-                }
-              >
-                <X />
-              </Button>
-            </li>
-          );
-        })}
-      </ul>
+      <SortableList
+        ids={options.map((option) => option.key)}
+        onReorder={(keys) =>
+          onChange(
+            keys.flatMap((key) => {
+              const option = options.find((entry) => entry.key === key);
+              return option ? [option] : [];
+            }),
+          )
+        }
+      >
+        <ul className="space-y-1.5">
+          {options.map((option, index) => {
+            const name = option.label.trim() || `option ${index + 1}`;
+            return (
+              <SortableItem key={option.key} id={option.key} label={name}>
+                <Input
+                  aria-label={`Option ${index + 1}`}
+                  className="h-8"
+                  maxLength={FIELD_OPTION_LABEL_MAX}
+                  value={option.label}
+                  onChange={(event) =>
+                    onChange(
+                      options.map((entry, at) =>
+                        at === index
+                          ? { ...entry, label: event.target.value }
+                          : entry,
+                      ),
+                    )
+                  }
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Remove ${name}`}
+                  onClick={() =>
+                    onChange(options.filter((_, at) => at !== index))
+                  }
+                >
+                  <X />
+                </Button>
+              </SortableItem>
+            );
+          })}
+        </ul>
+      </SortableList>
       <Button
         variant="ghost"
         size="sm"

@@ -25,6 +25,10 @@ import {
   SuggestedFields,
 } from "@/client/features/fields/FieldsListSections";
 import {
+  SortableItem,
+  SortableList,
+} from "@/client/features/fields/SortableList";
+import {
   CUSTOM_GROUP,
   EMPTY_TITLE,
   ERROR_BODY,
@@ -41,6 +45,8 @@ import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import type { Field } from "@/server/features/fields/services/fieldShape";
 import { archiveField, reorderFields } from "@/serverFunctions/fields";
 import type { FieldEntity } from "@/shared/crm-enums";
+
+const ROW = "flex items-center gap-2.5 border-b px-4 py-2";
 
 function summaryOf(field: Field): string {
   const parts: string[] = [];
@@ -110,13 +116,30 @@ export function FieldsList({
   const all = query.data ?? [];
   const live = all.filter((field) => !field.archived);
   const archived = all.filter((field) => field.archived);
-  const move = (index: number, by: number) => {
-    const ids = live.map((field) => field.id);
-    const [id] = ids.splice(index, 1);
-    if (id === undefined) return;
-    ids.splice(index + by, 0, id);
-    reorder.mutate(ids);
-  };
+  const rows = live.map((field) => {
+    const content = (
+      <FieldRow
+        field={field}
+        canManage={canManage}
+        onEdit={() => onEdit(field.id)}
+        onArchive={() => archive.mutate(field.id)}
+      />
+    );
+    return canManage ? (
+      <SortableItem
+        key={field.id}
+        id={field.id}
+        label={field.label}
+        className={ROW}
+      >
+        {content}
+      </SortableItem>
+    ) : (
+      <li key={field.id} className={ROW}>
+        {content}
+      </li>
+    );
+  });
 
   return (
     <>
@@ -182,71 +205,16 @@ export function FieldsList({
                 <p className="text-xs text-muted-foreground">{MANAGE_HINT}</p>
               )}
             </div>
-            <ul>
-              {live.map((field, index) => {
-                const summary = summaryOf(field);
-                const text = (
-                  <>
-                    <span className="block truncate text-sm font-medium">
-                      {field.label}
-                    </span>
-                    {summary ? (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {summary}
-                      </span>
-                    ) : null}
-                  </>
-                );
-                return (
-                  <li
-                    key={field.id}
-                    className="flex items-center gap-2.5 border-b px-4 py-2"
-                  >
-                    {canManage ? (
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 text-left"
-                        onClick={() => onEdit(field.id)}
-                      >
-                        {text}
-                      </button>
-                    ) : (
-                      <div className="min-w-0 flex-1">{text}</div>
-                    )}
-                    <Badge variant="outline" className="w-20 shrink-0">
-                      {field.typeLabel}
-                    </Badge>
-                    {canManage ? (
-                      <RowActionsMenu label={`Actions for ${field.label}`}>
-                        <DropdownMenuItem onClick={() => onEdit(field.id)}>
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={index === 0 || reorder.isPending}
-                          onClick={() => move(index, -1)}
-                        >
-                          Move up
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={
-                            index === live.length - 1 || reorder.isPending
-                          }
-                          onClick={() => move(index, 1)}
-                        >
-                          Move down
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => archive.mutate(field.id)}
-                        >
-                          Archive
-                        </DropdownMenuItem>
-                      </RowActionsMenu>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
+            {canManage ? (
+              <SortableList
+                ids={live.map((field) => field.id)}
+                onReorder={(ids) => reorder.mutate(ids)}
+              >
+                <ul>{rows}</ul>
+              </SortableList>
+            ) : (
+              <ul>{rows}</ul>
+            )}
           </section>
         )}
 
@@ -265,6 +233,56 @@ export function FieldsList({
             {NEW_FIELD}
           </Button>
         </div>
+      ) : null}
+    </>
+  );
+}
+
+/** A custom field's row: its label and summary, type, and actions. */
+function FieldRow({
+  field,
+  canManage,
+  onEdit,
+  onArchive,
+}: {
+  field: Field;
+  canManage: boolean;
+  onEdit: () => void;
+  onArchive: () => void;
+}) {
+  const summary = summaryOf(field);
+  const text = (
+    <>
+      <span className="block truncate text-sm font-medium">{field.label}</span>
+      {summary ? (
+        <span className="block truncate text-xs text-muted-foreground">
+          {summary}
+        </span>
+      ) : null}
+    </>
+  );
+  return (
+    <>
+      {canManage ? (
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
+          onClick={onEdit}
+        >
+          {text}
+        </button>
+      ) : (
+        <div className="min-w-0 flex-1">{text}</div>
+      )}
+      <Badge variant="outline" className="w-20 shrink-0">
+        {field.typeLabel}
+      </Badge>
+      {canManage ? (
+        <RowActionsMenu label={`Actions for ${field.label}`}>
+          <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onArchive}>Archive</DropdownMenuItem>
+        </RowActionsMenu>
       ) : null}
     </>
   );
