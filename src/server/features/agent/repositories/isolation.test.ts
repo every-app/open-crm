@@ -24,6 +24,7 @@ import { AgentLookupRepository } from "./AgentLookupRepository";
 import { AgentPeopleRepository } from "./AgentPeopleRepository";
 import { AgentProfileRepository } from "./AgentProfileRepository";
 import { AgentRecordRepository } from "./AgentRecordRepository";
+import { AgentSweepRepository } from "./AgentSweepRepository";
 
 const OWN = "org_a";
 const OTHER = "org_b";
@@ -109,9 +110,25 @@ describe("organization isolation", () => {
         true,
       ),
     ).toBe(false);
+    const noPictures = {
+      logoUrl: null,
+      logoDarkUrl: null,
+      iconUrl: null,
+      iconDarkUrl: null,
+    };
     expect(
-      await rows("SELECT industry, enrichment_status FROM company"),
-    ).toEqual([{ industry: null, enrichment_status: "PENDING" }]);
+      await AgentEnrichmentRepository.replaceCompanyImages(
+        OTHER,
+        "co_a",
+        noPictures,
+        { logoUrl: "/api/images/x" },
+      ),
+    ).toBe(false);
+    expect(
+      await rows("SELECT industry, enrichment_status, logo_url FROM company"),
+    ).toEqual([
+      { industry: null, enrichment_status: "PENDING", logo_url: null },
+    ]);
   });
 
   it("AgentProfileRepository", async () => {
@@ -350,5 +367,37 @@ describe("organization isolation", () => {
     expect(await AgentEventRepository.listForSession(OTHER, "task.x")).toEqual(
       [],
     );
+  });
+});
+
+describe("organization isolation of the sweep's reads", () => {
+  it("AgentSweepRepository", async () => {
+    await database.exec(
+      `UPDATE company SET logo_url = 'https://cdn.test/logo.png' WHERE id = 'co_a'`,
+    );
+    const since = new Date().toISOString();
+    expect(
+      await AgentSweepRepository.companiesWithoutIcon(OWN, since, 25),
+    ).toEqual(["co_a"]);
+    expect(
+      await AgentSweepRepository.companiesWithoutIcon(OTHER, since, 25),
+    ).toEqual([]);
+    expect(
+      await AgentSweepRepository.companiesWithUncopiedImages(OWN, since, 25),
+    ).toHaveLength(1);
+    expect(
+      await AgentSweepRepository.companiesWithUncopiedImages(OTHER, since, 25),
+    ).toEqual([]);
+    await AgentSweepRepository.noteDone(OWN, "favicon", [
+      { companyId: "co_a", outcome: "ours" },
+    ]);
+    await AgentSweepRepository.noteDone(OTHER, "favicon", [
+      { companyId: "co_a", outcome: "theirs" },
+    ]);
+    expect(
+      await rows(
+        "SELECT outcome FROM agent_task WHERE organization_id = 'org_a'",
+      ),
+    ).toEqual([{ outcome: "ours" }]);
   });
 });

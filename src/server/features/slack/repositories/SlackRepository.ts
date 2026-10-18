@@ -182,12 +182,14 @@ type ChannelWrite = {
 };
 
 /**
- * Replaces the inventory with `channels`: each written or refreshed, every
- * channel not among them marked unavailable.
+ * Writes a page of the channels a read of Slack found, each available as of
+ * now. With `unlessSeenSince`, a channel already written since then keeps
+ * what was written: the app's own view of it wins over the installer's.
  */
-async function replaceChannels(
+async function saveChannels(
   organizationId: string,
   channels: ChannelWrite[],
+  unlessSeenSince: string | null,
 ): Promise<void> {
   const now = new Date().toISOString();
   for (const rows of chunk(channels, CHANNEL_CHUNK)) {
@@ -212,18 +214,27 @@ async function replaceChannels(
               classifiedAt: now,
               updatedAt: now,
             },
+            setWhere: unlessSeenSince
+              ? lt(slackChannel.updatedAt, unlessSeenSince)
+              : undefined,
           }),
       ),
     );
   }
-  // Everything this read didn't see was refreshed before it started.
+}
+
+/** Every channel a read that started at `startedAt` didn't see: gone. */
+async function markUnseenUnavailable(
+  organizationId: string,
+  startedAt: string,
+): Promise<void> {
   await db
     .update(slackChannel)
-    .set({ available: false, updatedAt: now })
+    .set({ available: false, updatedAt: new Date().toISOString() })
     .where(
       and(
         eq(slackChannel.organizationId, organizationId),
-        lt(slackChannel.updatedAt, now),
+        lt(slackChannel.updatedAt, startedAt),
       ),
     );
 }
@@ -311,7 +322,14 @@ async function saveMatches(
       rows.map((match) =>
         tx
           .insert(slackMemberMatch)
-          .values({ id: crypto.randomUUID(), organizationId, ...match })
+          .values({
+            id: crypto.randomUUID(),
+            organizationId,
+            ...match,
+            // The read compares it with when it started (SlackSyncService).
+            createdAt: now,
+            updatedAt: now,
+          })
           .onConflictDoUpdate({
             target: [slackMemberMatch.organizationId, slackMemberMatch.userId],
             set: { ...match, updatedAt: now },
@@ -374,7 +392,8 @@ export const SlackRepository = {
   listChannels,
   findChannel,
   findChannelByName,
-  replaceChannels,
+  saveChannels,
+  markUnseenUnavailable,
   upsertChannel,
   updateChannel,
   listMatches,

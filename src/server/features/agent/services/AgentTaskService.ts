@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { FIELD_ENTITIES, type FieldEntity } from "@/shared/crm-enums";
-import { DIRECT_KINDS, PRIORITY, taskSubject } from "@/shared/agent-tasks";
+import {
+  DIRECT_KINDS,
+  PRIORITY,
+  SLACK_SYNC_KIND,
+  taskSubject,
+} from "@/shared/agent-tasks";
 import {
   AgentTaskRepository,
   type NewAgentTask,
@@ -69,6 +74,20 @@ async function companyCreated(
   });
 }
 
+/**
+ * A person added a company, or gave one a new domain: as companyCreated, and
+ * its favicon at once, as the CRM fetched it then (companies.service.ts). The
+ * favicon is free, so it waits for neither the queue nor credits.
+ */
+async function companyAddedByPerson(
+  organizationId: string,
+  companyId: string,
+  reason?: string,
+): Promise<void> {
+  await companyCreated(organizationId, companyId, reason);
+  pokeDispatcher(organizationId, companyId);
+}
+
 /** A person asked to enrich a company now. True when anything was queued. */
 async function companyRequested(
   organizationId: string,
@@ -133,6 +152,26 @@ async function contactCreated(
       reason,
       priority: required ? PRIORITY.requested : PRIORITY.identify,
       budget: 4,
+    },
+    required,
+  );
+}
+
+/**
+ * Read Slack's people and channels again (the CRM's slackPeopleRequested).
+ * True when it was queued; false when a read is already queued or running.
+ */
+async function slackSyncRequested(
+  organizationId: string,
+  required: boolean,
+): Promise<boolean> {
+  return enqueue(
+    organizationId,
+    {
+      kind: SLACK_SYNC_KIND,
+      reason: "Read Slack's people and channels",
+      priority: PRIORITY.slackSync,
+      budget: 0,
     },
     required,
   );
@@ -378,10 +417,12 @@ async function recordsImported(
 
 export const AgentTaskService = {
   companyCreated,
+  companyAddedByPerson,
   companyRequested,
   workspaceChanged,
   contactCreated,
   meetingSoon,
+  slackSyncRequested,
   backfill,
   fieldBackfillRecords,
   recordsImported,

@@ -1,12 +1,26 @@
+import { openrouter } from "@openrouter/ai-sdk-provider";
 import { tool } from "ai";
 import { z } from "zod";
 import { fetchPublic, readCapped } from "../lib/publicFetch";
 import type { ToolGroup } from "./context";
 
-// Reading a public page as text, free: the stand-in for the CRM's harness
-// web_fetch, which its workspace-profile pass reads our own site with. Plain
-// fetch and tag-stripping, as OpenSEO's site reader does; a page that needs a
-// browser to render comes back thin, and the agent says it could not read it.
+// The web as the CRM's agent had it. Reading a public page as text, free: the
+// stand-in for the CRM's harness web_fetch, which its workspace-profile pass
+// reads our own site with. Plain fetch and tag-stripping, as OpenSEO's site
+// reader does; a page that needs a browser to render comes back thin, and the
+// agent says it could not read it. And searching it: the CRM's web_search.
+
+/**
+ * The CRM's web_search, eve's built-in that its model's provider ran (the AI
+ * Gateway's Parallel search). Here it is OpenRouter's web search server tool
+ * on the same engine with Parallel's ten results, as the builder has it: it
+ * searches inside the model call, whose cost includes the search, so the
+ * session's meter bills it with the call.
+ */
+const webSearch = openrouter.tools.webSearch({
+  engine: "parallel",
+  maxResults: 10,
+});
 
 const MAX_PAGE_BYTES = 2_000_000;
 const MAX_TEXT_CHARS = 12_000;
@@ -35,6 +49,7 @@ function decodeEntities(value: string): string {
 }
 
 export const webTools: ToolGroup = () => ({
+  web_search: webSearch,
   web_fetch: tool({
     description:
       "Read a public web page as plain text — a company's own site, its pricing or product page. Free. Never put customer text (a pasted thread, a quote from an email) in the URL.",

@@ -36,7 +36,13 @@ import { capabilityList, readCapabilities } from "./prompt/capabilities";
 import { AgentConversationRepository } from "./repositories/AgentConversationRepository";
 import { lastText, messageText, recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
-import { budgetSpender, type BudgetState, type Spend } from "./runtime/budget";
+import {
+  addTokens,
+  renewBudget,
+  sessionSpender,
+  writeUpStep,
+  type Spend,
+} from "./runtime/budget";
 import {
   buildCrmAgentModel,
   effortFor,
@@ -66,14 +72,7 @@ const CHAT_BUDGET = 4;
 const COMPACT_AFTER_TOKENS = 120_000;
 const MAX_INPUT_TOKENS = 160_000;
 
-const BUDGET_KEY = "crm-agent:budget";
 const ROLE_KEY = "crm-agent:role";
-
-const budgetSchema = z.object({
-  spent: z.number(),
-  budget: z.number(),
-  exhausted: z.boolean(),
-});
 
 const INTERRUPTED_TURN_NOTICE =
   "That reply was cut off before it finished. Everything above is saved. Ask again, or tell me where to pick up.";
@@ -101,9 +100,11 @@ export class CrmAgent extends Think {
     proactive: { maxInputTokens: MAX_INPUT_TOKENS },
   };
 
-  // The session and model, loaded at the start of each turn.
+  // The session and model, loaded at the start of each turn, and a research
+  // turn's system prompt.
   private turnSession: AgentSession | null = null;
   private modelChoice: ModelChoice | null = null;
+  private turnSystem = "";
 
   // Hosted billing: what the session spends (server/billing/meter.ts).
   private readonly meter = new SessionMeter((p) => this.ctx.waitUntil(p));
@@ -275,6 +276,7 @@ export class CrmAgent extends Think {
         role: this.chatRole(),
         sink: this.meter.sink,
       });
+      this.turnSystem = system;
       return { system, tools, maxOutputTokens: maxOutputTokens(session.kind) };
     });
   }
@@ -282,7 +284,7 @@ export class CrmAgent extends Think {
   /** A new turn: a person's message (or the dispatcher's brief) arrived. */
   private async openTurn(session: AgentSession): Promise<void> {
     if (session.kind === "chat") {
-      this.saveBudget({ spent: 0, budget: CHAT_BUDGET, exhausted: false });
+      renewBudget(this.ctx.storage.kv, CHAT_BUDGET);
       await AgentConversationRepository.recordMessage(
         session.organizationId,
         session.conversation.id,
@@ -329,22 +331,21 @@ export class CrmAgent extends Think {
    * attempts in this object's storage; a person's turn gets CHAT_BUDGET.
    */
   private spender(session: AgentSession): Spend {
-    const stored = budgetSchema.safeParse(this.ctx.storage.kv.get(BUDGET_KEY));
-    const state: BudgetState = stored.success
-      ? stored.data
-      : {
-          spent: 0,
-          budget:
-            session.kind === "run"
-              ? RUN_LIMITS.budget
-              : (session.task?.budget ?? CHAT_BUDGET),
-          exhausted: false,
-        };
-    return budgetSpender(state, (next) => this.saveBudget(next));
+    return sessionSpender(
+      this.ctx.storage.kv,
+      session.kind === "run"
+        ? RUN_LIMITS.budget
+        : (session.task?.budget ?? CHAT_BUDGET),
+    );
   }
 
-  private saveBudget(state: BudgetState): void {
-    this.ctx.storage.kv.put(BUDGET_KEY, { ...state });
+  /**
+   * A research session whose tokens are spent writes up what it has, with no
+   * more tools (runtime/budget.ts).
+   */
+  override beforeStep() {
+    if (this.turnSession?.kind !== "research") return undefined;
+    return writeUpStep(this.ctx.storage.kv, this.turnSystem);
   }
 
   /** The chat's person's gateway role, as their socket connected with it. */
@@ -374,6 +375,7 @@ export class CrmAgent extends Think {
     this.meter.record(costUsd);
     const session = this.turnSession;
     if (!session) return;
+    if (session.kind === "research") addTokens(this.ctx.storage.kv, step.usage);
     await withPgClient(async () => {
       await recordEvent(session, "step.completed", {
         stepNumber: step.stepNumber,

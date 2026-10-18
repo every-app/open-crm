@@ -222,11 +222,18 @@ function photoUrl(raw: string | null): string | null {
   }
 }
 
-/** The handle of a personal LinkedIn profile URL, or null. */
+/**
+ * The handle of a personal LinkedIn profile URL, or null. One typed without
+ * its scheme ("linkedin.com/in/jane") is the same profile, as the CRM's
+ * linkedinSlug read it.
+ */
 export function slugFromProfileUrl(raw: string | null): string | null {
-  if (!raw) return null;
+  const typed = raw?.trim();
+  if (!typed) return null;
   try {
-    const url = new URL(raw.trim());
+    const url = new URL(
+      /^[a-z][a-z\d+.-]*:\/\//i.test(typed) ? typed : `https://${typed}`,
+    );
     const host = url.hostname.toLowerCase();
     if (host !== "linkedin.com" && !host.endsWith(".linkedin.com")) return null;
     const [section, slug] = url.pathname.split("/").filter(Boolean);

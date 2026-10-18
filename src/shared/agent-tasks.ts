@@ -24,10 +24,20 @@ export type TaskKind = (typeof TASK_KINDS)[number];
 export const AGENT_EVENT_KIND = "agent-event" satisfies TaskKind;
 
 /**
+ * Reading the connected Slack workspace's people and channels (the CRM's
+ * slack-people-match): about the workspace, not a record, so never shown in
+ * the agent's queue (SlackSyncService).
+ */
+export const SLACK_SYNC_KIND = "slack-sync";
+
+/**
  * Kinds the dispatcher runs without a model (the "visible" lane): they fill
  * in what a person is looking at right now, so they go first and fast.
  */
-export const DIRECT_KINDS = ["brand", "portrait"] as const;
+export const DIRECT_KINDS = ["brand", "portrait", SLACK_SYNC_KIND] as const;
+
+/** Kinds that cost nothing, so they never wait for credits. */
+export const FREE_KINDS = [SLACK_SYNC_KIND] as const;
 
 /** Kinds whose progress is the contact's enrichment status. */
 const CONTACT_STATUS_KINDS = ["identify", "profile", "recheck"] as const;
@@ -63,6 +73,9 @@ export const PRIORITY = {
   imported: 10,
   recheck: 0,
   event: 700,
+  // Reading Slack after a connect or a Refresh, which a person waits on:
+  // ahead of the logos, as the CRM put joining a Slack channel.
+  slackSync: 950,
 } as const;
 
 /**

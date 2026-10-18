@@ -4,12 +4,14 @@ import { runBatch } from "@/db/runBatch";
 import { company, companyEnrichment, contact } from "@/db/schema";
 import {
   BRAND_FIELDS,
+  COMPANY_IMAGE_FIELDS,
   type BrandField,
   type BrandUpdate,
+  type CompanyImageField,
 } from "../visible/brandMapping";
 
-// The visible lane's writes: a company's brand or favicon, and a contact's
-// photograph.
+// The visible lane's writes: a company's brand, favicon or copied pictures,
+// and a contact's photograph.
 // Both fill blanks with conditional SQL rather than read-then-write, so a value
 // a person types while a lookup is in flight is never overwritten.
 
@@ -129,6 +131,35 @@ async function setCompanyIcon(
   return updated.length > 0;
 }
 
+/**
+ * Puts the copies of a company's pictures in place of their sources, if no
+ * picture changed meanwhile (the CRM's image mirror). True when written.
+ */
+async function replaceCompanyImages(
+  organizationId: string,
+  companyId: string,
+  sources: Record<CompanyImageField, string | null>,
+  copies: Partial<Record<CompanyImageField, string>>,
+): Promise<boolean> {
+  const updated = await db
+    .update(company)
+    .set({ ...copies, updatedAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(company.organizationId, organizationId),
+        eq(company.id, companyId),
+        ...COMPANY_IMAGE_FIELDS.map((slot) => {
+          const source = sources[slot];
+          return source === null
+            ? isNull(company[slot])
+            : eq(company[slot], source);
+        }),
+      ),
+    )
+    .returning({ id: company.id });
+  return updated.length > 0;
+}
+
 async function contactForPortrait(organizationId: string, contactId: string) {
   const [row] = await db
     .select({
@@ -187,6 +218,7 @@ export const AgentEnrichmentRepository = {
   companyForBrand,
   fillCompanyBrand,
   setCompanyIcon,
+  replaceCompanyImages,
   contactForPortrait,
   setContactImage,
 };

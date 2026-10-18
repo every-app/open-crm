@@ -279,18 +279,21 @@ async function complete(
 
 /**
  * Hands a leased task back to the queue as if it had never been taken: the
- * attempt it was leased for doesn't count, since it never ran. The task's
- * subject when it was still open.
+ * attempt it was leased for doesn't count, since it never ran (or, for work
+ * done in parts, it ran its part). Due again at `dueAt` when given. The
+ * task's subject when it was still open.
  */
 async function release(
   organizationId: string,
   taskId: string,
+  dueAt?: string,
 ): Promise<TaskSubject | null> {
   const [row] = await db
     .update(agentTask)
     .set({
       leasedUntil: null,
       attempts: sql`case when ${agentTask.attempts} > 0 then ${agentTask.attempts} - 1 else 0 end`,
+      ...(dueAt ? { dueAt } : {}),
     })
     .where(
       and(

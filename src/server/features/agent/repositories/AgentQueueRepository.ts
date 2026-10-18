@@ -16,7 +16,11 @@ import {
 import { chunk, sort } from "remeda";
 import { db } from "@/db";
 import { agentTask, workspace } from "@/db/schema";
-import { MAX_ATTEMPTS, RETIRED_OUTCOME } from "@/shared/agent-tasks";
+import {
+  FREE_KINDS,
+  MAX_ATTEMPTS,
+  RETIRED_OUTCOME,
+} from "@/shared/agent-tasks";
 import { subjectColumns, type TaskSubject } from "./AgentTaskRepository";
 
 // The dispatcher's view of the queue. Leasing, retiring and the stale-task
@@ -84,7 +88,8 @@ const outOfCreditsSince = (since: string) =>
  *
  * `heldSince` leaves the tasks of organizations whose model the gateway
  * refused since then: they wait until the model is set up. `creditsHeldSince`
- * leaves those of organizations out of credits since then.
+ * leaves those of organizations out of credits since then, but for work that
+ * costs nothing (FREE_KINDS).
  */
 async function claimDue(input: {
   limit: number;
@@ -123,7 +128,10 @@ async function claimDue(input: {
           : sql`not ${modelRefusedSince(input.heldSince)}`,
         input.creditsHeldSince === undefined
           ? undefined
-          : sql`not ${outOfCreditsSince(input.creditsHeldSince)}`,
+          : or(
+              inArray(agentTask.kind, [...FREE_KINDS]),
+              sql`not ${outOfCreditsSince(input.creditsHeldSince)}`,
+            ),
       ),
     )
     .orderBy(desc(agentTask.priority), asc(agentTask.dueAt))

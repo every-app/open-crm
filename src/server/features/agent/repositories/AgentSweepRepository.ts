@@ -8,11 +8,13 @@ import {
   isNull,
   lt,
   notExists,
+  notLike,
   or,
   sql,
   type AnyColumn,
 } from "drizzle-orm";
 import { db } from "@/db";
+import { executeInBatches } from "@/db/runBatch";
 import {
   agentTask,
   company,
@@ -20,12 +22,15 @@ import {
   workspace,
   workspaceProfile,
 } from "@/db/schema";
+import { IMAGE_ROUTE_PREFIX } from "@/server/lib/images";
+import { taskSubject } from "@/shared/agent-tasks";
 
 // What the enrichment sweep (dispatch/sweep.ts) finds in one organization's
-// records, ported from the CRM's BackfillService. Every read but `claimDue`
-// is scoped to one organization; `claimDue` picks whose turn it is across
-// them, and hands back only organization ids. Archived records are left
-// alone: nobody is looking at them.
+// records, ported from the CRM's BackfillService, and the notes it keeps of
+// what it did itself. Every read but `claimDue` is scoped to one
+// organization; `claimDue` picks whose turn it is across them, and hands back
+// only organization ids. Archived records are left alone: nobody is looking
+// at them.
 
 /**
  * A task of `kind` about the outer query's record that is open, or (with
@@ -203,6 +208,117 @@ async function companiesWithoutArtwork(
 }
 
 /**
+ * Companies with a domain and no icon whose favicon was not looked for since
+ * `endedSince`, oldest first.
+ */
+async function companiesWithoutIcon(
+  organizationId: string,
+  endedSince: string,
+  limit: number,
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: company.id })
+    .from(company)
+    .where(
+      and(
+        eq(company.organizationId, organizationId),
+        isNull(company.archivedAt),
+        isNotNull(company.domain),
+        isNull(company.iconUrl),
+        notExists(
+          taskAbout(organizationId, "favicon", companyRecord, endedSince),
+        ),
+      ),
+    )
+    .orderBy(asc(company.createdAt))
+    .limit(limit);
+  return rows.map((row) => row.id);
+}
+
+/** A picture column that holds a URL other than our own copy's. */
+const uncopied = (column: AnyColumn) =>
+  and(isNotNull(column), notLike(column, `${IMAGE_ROUTE_PREFIX}%`));
+
+/**
+ * Companies with a logo or icon still at its source URL (its copy into R2
+ * failed), not tried again since `endedSince`, oldest first, with their
+ * pictures.
+ */
+async function companiesWithUncopiedImages(
+  organizationId: string,
+  endedSince: string,
+  limit: number,
+) {
+  return db
+    .select({
+      id: company.id,
+      logoUrl: company.logoUrl,
+      logoDarkUrl: company.logoDarkUrl,
+      iconUrl: company.iconUrl,
+      iconDarkUrl: company.iconDarkUrl,
+    })
+    .from(company)
+    .where(
+      and(
+        eq(company.organizationId, organizationId),
+        isNull(company.archivedAt),
+        or(
+          uncopied(company.logoUrl),
+          uncopied(company.logoDarkUrl),
+          uncopied(company.iconUrl),
+          uncopied(company.iconDarkUrl),
+        ),
+        notExists(
+          taskAbout(organizationId, "image-copy", companyRecord, endedSince),
+        ),
+      ),
+    )
+    .orderBy(asc(company.createdAt))
+    .limit(limit);
+}
+
+/**
+ * Notes work the sweep did itself (`kind`, free and quick, so never queued)
+ * as finished tasks with what came of it: the record of when each company
+ * was last tried. Only a company's latest note of a kind is kept.
+ */
+async function noteDone(
+  organizationId: string,
+  kind: string,
+  done: { companyId: string; outcome: string }[],
+): Promise<void> {
+  if (done.length === 0) return;
+  const now = new Date().toISOString();
+  await db.delete(agentTask).where(
+    and(
+      eq(agentTask.organizationId, organizationId),
+      eq(agentTask.kind, kind),
+      inArray(
+        agentTask.companyId,
+        done.map(({ companyId }) => companyId),
+      ),
+      isNotNull(agentTask.finishedAt),
+    ),
+  );
+  await executeInBatches(done, (tx, { companyId, outcome }) =>
+    tx.insert(agentTask).values({
+      id: crypto.randomUUID(),
+      organizationId,
+      companyId,
+      subject: taskSubject({ companyId }),
+      kind,
+      reason: "Sweep",
+      priority: 0,
+      budget: 0,
+      dueAt: now,
+      startedAt: now,
+      finishedAt: now,
+      outcome,
+    }),
+  );
+}
+
+/**
  * Contacts with no photo and somewhere to look for one, not looked for since
  * `endedSince`. The places are the photo lookup's: a GitHub profile, and
  * where Context.dev can read them (`contextReady`), a LinkedIn profile or the
@@ -281,6 +397,9 @@ export const AgentSweepRepository = {
   websiteWithoutProfile,
   companiesNeverLookedUp,
   companiesWithoutArtwork,
+  companiesWithoutIcon,
+  companiesWithUncopiedImages,
+  noteDone,
   contactsNeedingPhoto,
   contactsNeverResearched,
 };

@@ -1,6 +1,7 @@
 import { waitUntil } from "cloudflare:workers";
+import { runVisibleLane } from "@/server/features/agent/dispatch";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Connecting Slack through the gateway's OAuth client: only an owner or admin,
 // only with a state minted for them, and the tokens stay on the server. Then
@@ -12,6 +13,8 @@ const { database, gateway } = await vi.hoisted(async () => {
     gateway: { exchange: vi.fn<typeof fetch>() },
   };
 });
+// The first-party deployment, which bills, with no way to Autumn here: no
+// organization has credits. Reading Slack costs nothing, so it never waits.
 vi.mock("cloudflare:workers", () => ({
   env: { DATABASE_PROVIDER: "d1" },
   waitUntil: vi.fn(),
@@ -81,9 +84,17 @@ function stubSlack() {
   );
 }
 
-/** Every read started after the response, finished. */
-const backgroundReads = () =>
-  Promise.all(vi.mocked(waitUntil).mock.calls.map(([read]) => read));
+/**
+ * Every read started after the response, finished: the read queued, and the
+ * dispatcher's run of it that queueing started.
+ */
+async function backgroundReads() {
+  for (let done = 0; done < vi.mocked(waitUntil).mock.calls.length; ) {
+    const started = vi.mocked(waitUntil).mock.calls.slice(done);
+    done += started.length;
+    await Promise.all(started.map(([read]) => read));
+  }
+}
 
 /** The state Slack hands back, from a connect the owner started. */
 async function startedState() {
@@ -101,6 +112,13 @@ describe("SlackService", () => {
     await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
     await database.seedTwoOrganizations();
     gateway.exchange.mockResolvedValue(Response.json(granted));
+    stubSlack();
+  });
+
+  // What a test started in the background ends before the next one.
+  afterEach(async () => {
+    await backgroundReads();
+    vi.unstubAllGlobals();
   });
 
   it("connects once per state, for an owner or admin, keeping the tokens server-side", async () => {
@@ -148,9 +166,11 @@ describe("SlackService", () => {
       state,
       error: null,
     });
-    stubSlack();
-    await SlackInventoryService.sync("org_a");
-    vi.unstubAllGlobals();
+    await database.exec(
+      `INSERT INTO slack_channel (id, organization_id, slack_channel_id, name) VALUES ('ch_b', 'org_b', 'CB', 'theirs');`,
+    );
+    await SlackInventoryService.refresh(owner);
+    await backgroundReads();
 
     expect((await SlackInventoryService.matches(owner)).rows).toEqual([
       expect.objectContaining({
@@ -168,6 +188,12 @@ describe("SlackService", () => {
     await expect(
       SlackInventoryService.channels(outsider, { offset: 0 }),
     ).rejects.toThrow("SLACK_UNAVAILABLE");
+    // org_a's read leaves org_b's channels as they were.
+    expect(
+      await database.rows(
+        `SELECT available FROM slack_channel WHERE organization_id = 'org_b'`,
+      ),
+    ).toEqual([{ available: 1 }]);
     expect(
       (await SlackInventoryService.builderInventory("org_b")).channels,
     ).toEqual([]);
@@ -182,7 +208,6 @@ describe("SlackService", () => {
   });
 
   it("matches the members again once someone joins after the last match", async () => {
-    stubSlack();
     const state = await startedState();
     await SlackService.completeConnect(owner, {
       ...web,
@@ -203,10 +228,70 @@ describe("SlackService", () => {
     );
     await SlackService.status(member);
     await backgroundReads();
-    vi.unstubAllGlobals();
     expect((await SlackInventoryService.matches(owner)).rows).toEqual([
       expect.objectContaining({ userId: "user_a", slackHandle: "@ana" }),
       expect.objectContaining({ userId: "user_c", slackHandle: "@cy" }),
+    ]);
+  });
+
+  it("reads Slack a page at a time, and a run that fails or is rate limited goes on from the page it stopped at", async () => {
+    const state = await startedState();
+    await SlackService.completeConnect(owner, {
+      ...web,
+      code: "c",
+      state,
+      error: null,
+    });
+    await backgroundReads();
+    // Ana is on the second page of people, which fails the first time and is
+    // rate limited the second.
+    const asked: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: URL) => {
+        if (!url.pathname.endsWith("/users.list")) {
+          return Response.json({ ok: true, channels: [] });
+        }
+        const cursor = url.searchParams.get("cursor") ?? "";
+        asked.push(cursor);
+        if (!cursor) {
+          return Response.json({
+            ok: true,
+            members: [],
+            response_metadata: { next_cursor: "page-2" },
+          });
+        }
+        if (asked.length === 2) throw new TypeError("fetch failed");
+        if (asked.length === 3) {
+          return Response.json(
+            { ok: false, error: "ratelimited" },
+            { status: 429, headers: { "retry-after": "30" } },
+          );
+        }
+        return Response.json({
+          ok: true,
+          members: [
+            { id: "U1", name: "ana.m", profile: { email: "ana@a.test" } },
+          ],
+        });
+      }),
+    );
+    await SlackInventoryService.refresh(owner);
+    await backgroundReads();
+    // Its lease runs out, and the dispatcher takes it again; then Slack's
+    // pause is over.
+    const due = async () =>
+      database.exec(
+        `UPDATE agent_task SET leased_until = NULL, due_at = '2000-01-01T00:00:00.000Z' WHERE finished_at IS NULL`,
+      );
+    await due();
+    await runVisibleLane({ defer: vi.fn() });
+    await due();
+    await runVisibleLane({ defer: vi.fn() });
+
+    expect(asked).toEqual(["", "page-2", "page-2", "page-2"]);
+    expect((await SlackInventoryService.matches(owner)).rows).toEqual([
+      expect.objectContaining({ userId: "user_a", slackHandle: "@ana.m" }),
     ]);
   });
 });

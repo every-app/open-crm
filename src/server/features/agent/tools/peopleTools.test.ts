@@ -98,6 +98,19 @@ describe("the agent's people research", () => {
     expect(contextFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("reads a LinkedIn URL typed without https:// as the profile on file", async () => {
+    await database.exec(
+      `UPDATE contact SET linkedin_url = 'linkedin.com/in/paulamarchetti/' WHERE id = 'c_a'`,
+    );
+    const chat = toolSession();
+    expect(
+      await chat.call("get_contact_work_history", { contactId: "c_a" }),
+    ).toMatchObject({
+      found: true,
+      sourceUrl: "https://www.linkedin.com/in/paulamarchetti",
+    });
+  });
+
   it("spends nothing on a source this install does not have", async () => {
     vi.mocked(hasContextAccess).mockResolvedValue(false);
     const chat = toolSession();

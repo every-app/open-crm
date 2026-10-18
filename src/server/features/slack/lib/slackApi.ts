@@ -26,7 +26,11 @@ export class SlackError extends Error {
   }
 }
 
-/** One Slack Web API call: a JSON POST, or a GET with `query`. */
+/**
+ * One Slack Web API call: a JSON POST, or a GET with `query`. With
+ * `retryLimited: false`, a rate-limited call answers `ratelimited` at once
+ * instead of waiting, for a caller that comes back later itself.
+ */
 export async function slackCall(
   token: string,
   method: string,
@@ -35,6 +39,7 @@ export async function slackCall(
     query?: Record<string, string>;
     fetcher?: typeof fetch;
     signal?: AbortSignal;
+    retryLimited?: boolean;
   } = {},
   attempt = 1,
 ): Promise<SlackReply> {
@@ -56,11 +61,11 @@ export async function slackCall(
   });
   const body: unknown = await response.json().catch(() => null);
   const parsed = envelope.parse(body);
-  if (
-    !parsed.ok &&
-    (parsed.error === "ratelimited" || response.status === 429) &&
-    attempt < MAX_ATTEMPTS
-  ) {
+  const limited = parsed.error === "ratelimited" || response.status === 429;
+  if (!parsed.ok && limited && options.retryLimited === false) {
+    return { ok: false, error: "ratelimited", body };
+  }
+  if (!parsed.ok && limited && attempt < MAX_ATTEMPTS) {
     const wait = Number(response.headers.get("retry-after") ?? "1");
     await new Promise((resolve) =>
       setTimeout(resolve, Math.min(Math.max(wait, 1), 10) * 1000),
@@ -82,40 +87,36 @@ export async function slackCallOrThrow(
   return reply.body;
 }
 
-/** Every page of a cursor-paginated list method. */
-export async function slackPages<Item>(
+/**
+ * One page of a cursor-paginated list method (`cursor` empty for the first):
+ * the items under `list.key`, and the next page's cursor, empty after the
+ * last. Rate limited, it throws `ratelimited` at once: the caller comes back.
+ */
+export async function slackPage<Item>(
   token: string,
   method: string,
-  key: string,
-  item: z.ZodType<Item>,
-  query: Record<string, string> = {},
-): Promise<Item[]> {
-  const page = z.object({
-    items: z.array(z.unknown()).catch([]),
-    next: z.string().nullish().catch(null),
+  list: { key: string; item: z.ZodType<Item>; query?: Record<string, string> },
+  cursor: string,
+): Promise<{ items: Item[]; next: string }> {
+  const body = await slackCallOrThrow(token, method, {
+    query: { limit: "200", ...list.query, ...(cursor ? { cursor } : {}) },
+    retryLimited: false,
   });
-  const items: Item[] = [];
-  let cursor = "";
-  do {
-    const body = await slackCallOrThrow(token, method, {
-      query: { limit: "200", ...query, ...(cursor ? { cursor } : {}) },
+  const record = z.record(z.string(), z.unknown()).catch({}).parse(body);
+  const items = z
+    .array(z.unknown())
+    .catch([])
+    .parse(record[list.key])
+    .flatMap((entry) => {
+      const one = list.item.safeParse(entry);
+      return one.success ? [one.data] : [];
     });
-    const record = z.record(z.string(), z.unknown()).catch({}).parse(body);
-    const parsed = page.parse({
-      items: record[key],
-      next: z
-        .object({ next_cursor: z.string().nullish() })
-        .nullish()
-        .catch(null)
-        .parse(record.response_metadata)?.next_cursor,
-    });
-    for (const entry of parsed.items) {
-      const one = item.safeParse(entry);
-      if (one.success) items.push(one.data);
-    }
-    cursor = parsed.next ?? "";
-  } while (cursor);
-  return items;
+  const next = z
+    .object({ next_cursor: z.string().nullish() })
+    .nullish()
+    .catch(null)
+    .parse(record.response_metadata)?.next_cursor;
+  return { items, next: next ?? "" };
 }
 
 /** Slack's error code in words a person can act on. */

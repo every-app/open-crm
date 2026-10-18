@@ -164,7 +164,7 @@ async function createCompany(
   }
   console.log("[companies] created", { organizationId, companyId: id, domain });
   pokeEvents(organizationId);
-  await AgentTaskService.companyCreated(organizationId, id);
+  await AgentTaskService.companyAddedByPerson(organizationId, id);
   await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", id);
   return { id, name, domain };
 }
@@ -229,7 +229,7 @@ async function updateCompany(
   }
   if (!updated) notFound(id);
   if (domainChanged) {
-    await AgentTaskService.companyCreated(
+    await AgentTaskService.companyAddedByPerson(
       organizationId,
       id,
       "Domain changed: anything known was about a different company",
