@@ -1,6 +1,5 @@
 import { lazy, Suspense, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { InlineConfirm } from "@/client/components/InlineConfirm";
@@ -15,6 +14,10 @@ import {
   DropdownMenuTrigger,
 } from "@/client/components/ui/dropdown-menu";
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
+import {
+  useAppSearch,
+  useSetAppSearch,
+} from "@/client/features/records/recordStack";
 import { agentStatusQueryOptions } from "@/client/features/settings/settingsQueries";
 import type { RecordRef } from "@/shared/records";
 import {
@@ -75,8 +78,6 @@ function PanelLoading() {
 /** The URL's `thread` for a new conversation, not started yet. */
 const NEW_THREAD = "new";
 
-const appRoute = getRouteApi("/_app");
-
 function LoadedAgentPanel({
   record,
   conversations,
@@ -85,21 +86,17 @@ function LoadedAgentPanel({
   conversations: Conversation[];
 }) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const setSearch = useSetAppSearch();
   // The open conversation is the URL's (`thread`), so a reload or a link
   // opens it again, as the CRM's record stack kept it. Without one, the tab
   // opens on the conversation it landed on, captured once so a list refetch
   // (a new title, a reply elsewhere) never swaps it out from under a live
   // answer.
-  const { thread } = appRoute.useSearch();
+  const { thread } = useAppSearch();
   const [landedOn] = useState(() => conversations[0]?.id ?? NEW_THREAD);
   const openId = thread ?? landedOn;
   const setOpenId = (id: string | null) =>
-    void navigate({
-      to: ".",
-      search: (prev) => ({ ...prev, thread: id ?? NEW_THREAD }),
-      replace: true,
-    });
+    setSearch({ thread: id ?? NEW_THREAD });
   const [firstMessage, setFirstMessage] = useState<{
     conversationId: string;
     text: string;
