@@ -42,27 +42,11 @@ export function DataTableTabs({
   );
 }
 
-/**
- * Filter controls on the left, wrapping as they need; actions such as an
- * export on the right of the first line.
- */
-export function DataTableToolbar({
-  children,
-  actions,
-}: {
-  children?: ReactNode;
-  actions?: ReactNode;
-}) {
+/** Filter controls above the rows, wrapping as they need. */
+export function DataTableToolbar({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-2 border-b border-border px-4 py-2.5 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {children}
-      </div>
-      {actions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {actions}
-        </div>
-      ) : null}
+    <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
+      {children}
     </div>
   );
 }
