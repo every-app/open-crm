@@ -5,7 +5,6 @@ import type { RecordKind } from "@/shared/records";
 
 type RecordCopy = {
   title: string;
-  blurb: string;
   placeholder: string;
   suggestions: string[];
 };
@@ -13,8 +12,6 @@ type RecordCopy = {
 export const RECORD_COPY: Record<RecordKind, RecordCopy> = {
   contact: {
     title: "Ask about this person",
-    blurb:
-      "Every step is shown as it happens — including the leads it throws away.",
     placeholder: "Are they still there?",
     suggestions: [
       "Who is this person?",
@@ -24,8 +21,6 @@ export const RECORD_COPY: Record<RecordKind, RecordCopy> = {
   },
   company: {
     title: "Ask about this company",
-    blurb:
-      "It reads their site and our own history with them, and shows its working.",
     placeholder: "What do they sell?",
     suggestions: [
       "What do they do?",
@@ -35,8 +30,6 @@ export const RECORD_COPY: Record<RecordKind, RecordCopy> = {
   },
   deal: {
     title: "Ask about this deal",
-    blurb:
-      "It can read the thread, the meetings and the people on both sides of it.",
     placeholder: "Where has this stalled?",
     suggestions: [
       "Where does this stand?",

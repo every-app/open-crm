@@ -188,7 +188,7 @@ export function ConversationThread({
       {connectionError ? (
         <ErrorState
           variant="inline"
-          message="Lost the connection to the agent."
+          message="Connection lost."
           action={
             <Button
               variant="outline"
@@ -283,7 +283,7 @@ export function ConversationThread({
       {status === "error" ? (
         <ErrorState
           variant="inline"
-          message="The agent stopped before finishing this reply."
+          message="The reply stopped early."
           onRetry={canChat ? () => void regenerate() : undefined}
           isRetrying={busy}
         />

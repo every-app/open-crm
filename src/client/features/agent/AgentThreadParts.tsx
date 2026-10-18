@@ -56,7 +56,6 @@ export function AgentIdle({
       size="sm"
       icon={Sparkles}
       title={copy.title}
-      description={copy.blurb}
       action={
         onAsk ? (
           <div className="flex flex-wrap justify-center gap-2">

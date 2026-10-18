@@ -45,7 +45,7 @@ const HELD: Record<NonNullable<TaskHold>, { label: string; title?: string }> = {
   credits: { label: "Out of credits" },
   schedule: {
     label: "Held",
-    title: "Background research is off on this deployment. Re-enrich runs it.",
+    title: "Background research is off. Re-enrich runs it.",
   },
 };
 
