@@ -8,13 +8,20 @@ import { ArchivedRecordsSection } from "@/client/features/settings/ArchivedRecor
 import { GatewayKeyRow } from "@/client/features/settings/GatewayKeyRow";
 import { ResearchAgentSection } from "@/client/features/settings/ResearchAgentSection";
 import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
+import { setupChecklistQueryOptions } from "@/client/features/setup/setupQueries";
 import { WorkspaceSettingsCard } from "@/client/features/workspace/WorkspaceForm";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 
-/** Settings → General, as the original CRM groups it. */
+/**
+ * Settings → General, as the original CRM groups it. The research keys and
+ * the model are a self-hosted copy's own: the hosted CRM uses Every App's,
+ * so it shows neither.
+ */
 export function GeneralSettings() {
   const { data: workspace } = useQuery(workspaceQueryOptions());
   const canManage = useCanManageWorkspace();
+  const selfHosted =
+    useQuery(setupChecklistQueryOptions()).data?.tier === "fork";
 
   return (
     <SettingsPage title="General">
@@ -24,14 +31,16 @@ export function GeneralSettings() {
         </SettingsSection>
       ) : null}
 
-      <SettingsSection title="Company research">
-        <SettingsCard>
-          <GatewayKeyRow id="context" label="Context API key" />
-        </SettingsCard>
-      </SettingsSection>
+      {selfHosted ? (
+        <SettingsSection title="Company research">
+          <SettingsCard>
+            <GatewayKeyRow id="context" label="Context API key" />
+          </SettingsCard>
+        </SettingsSection>
+      ) : null}
 
       <ArchivedRecordsSection />
-      <ResearchAgentSection />
+      {selfHosted ? <ResearchAgentSection /> : null}
     </SettingsPage>
   );
 }

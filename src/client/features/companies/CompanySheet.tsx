@@ -12,7 +12,6 @@ import {
 import { companyQueryOptions } from "@/client/features/companies/companyQueries";
 import {
   formatMoney,
-  location,
   type Company,
 } from "@/client/features/companies/companyFormat";
 import { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
@@ -62,10 +61,7 @@ export function CompanySheet({ companyId }: { companyId: string }) {
                 />
               ),
               title: company.name,
-              description: metaLine(domainLink(company), [
-                location(company),
-                company.industry,
-              ]),
+              description: metaLine(domainLink(company), [company.industry]),
               note: companyNote(company),
               actions: (
                 <>

@@ -76,15 +76,18 @@ async function checklist(
     getOptionalEnvValue("EVERYAPP_DEV"),
   ]);
   const local = Boolean(dev);
-  // Locally the keys go in .dev.vars instead (each item's note says so).
-  const showCommands = canManage && availability.tier === "fork" && !local;
+  // Only a fork's own gateway takes keys: the hosted CRM runs on Every App's,
+  // so it shows no setup at all, even in local development. A fork's keys go
+  // in .dev.vars locally (each item's note says so), else by command.
+  const fork = availability.tier === "fork";
+  const showCommands = canManage && fork && !local;
   const items = KEYS.map((spec): SetupItem => {
     const state = spec.check(availability);
     return {
       id: spec.id,
       state,
       note:
-        state === "done"
+        state === "done" || !fork
           ? null
           : (spec.note?.(availability) ??
             (local && state === "missing"
@@ -122,7 +125,7 @@ async function getStarted(
   userId: string,
   canManage: boolean,
 ): Promise<{ steps: { id: GetStartedStep; done: boolean }[] }> {
-  const [done, availability, google, microsoft, slackReady, slack, dev] =
+  const [done, availability, google, microsoft, slackReady, slack] =
     await Promise.all([
       SetupRepository.progress(organizationId, userId),
       AgentAvailabilityService.forOrganization(organizationId),
@@ -130,10 +133,8 @@ async function getStarted(
       clientStatus("microsoft"),
       SlackService.clientReady(),
       SlackService.isConnected(organizationId),
-      getOptionalEnvValue("EVERYAPP_DEV"),
     ]);
-  const ownGateway =
-    canManage && (availability.tier === "fork" || Boolean(dev));
+  const ownGateway = canManage && availability.tier === "fork";
   const steps: ({ id: GetStartedStep; done: boolean } | false)[] = [
     ownGateway && { id: "model", done: !modelBlocked(availability.model) },
     ownGateway && { id: "context", done: availability.context },

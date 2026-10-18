@@ -235,10 +235,11 @@ async function status(member: Member & { role: string }, origin: string) {
   // `everyapp dev` has no gateway: the developer's own client goes in
   // .dev.vars under the gateway's names.
   const local = Boolean((env as { EVERYAPP_DEV?: string }).EVERYAPP_DEV);
+  // Only a fork's own gateway holds clients its people set up; the hosted
+  // CRM's are Every App's.
   const showSetup =
-    local ||
-    (deploymentTierFor(env) === "fork" &&
-      hasOrgPermission(member.role, { workspace: ["manage"] }));
+    deploymentTierFor(env) === "fork" &&
+    (local || hasOrgPermission(member.role, { workspace: ["manage"] }));
 
   const providers = MAILBOX_PROVIDERS.map((provider, index) => {
     const connection = connections.find((row) => row.provider === provider);

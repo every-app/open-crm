@@ -88,7 +88,7 @@ async function status(context: Context) {
     configured: client.ready,
     canManage: manage,
     setup:
-      local || (manage && isForkDeployment(env))
+      isForkDeployment(env) && (local || manage)
         ? {
             command: local
               ? null

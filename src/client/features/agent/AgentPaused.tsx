@@ -42,6 +42,10 @@ export function useAgentPaused(): boolean {
  */
 export function ModelNotSetUp() {
   const canManage = useCanManageWorkspace();
+  // The hosted CRM's model is Every App's: there is nothing to set up here.
+  if (useAgentAvailability()?.tier === "first_party") {
+    return <>The agent is unavailable.</>;
+  }
   return (
     <>
       The agent's model isn't set up.{" "}
