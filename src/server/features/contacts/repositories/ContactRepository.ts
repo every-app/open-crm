@@ -164,6 +164,7 @@ function listWhere(
     anyOfCondition(contact.title, input.title),
     anyOfCondition(contact.seniority, input.seniority),
     anyOfCondition(contact.function, input.persona),
+    anyOfCondition(contact.source, input.source ?? []),
     activityCondition(contact.lastActivityAt, input.activity),
     ...fieldConditions,
   );

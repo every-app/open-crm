@@ -23,6 +23,7 @@ import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   DEAL_STAGES,
   ENRICHMENT_STATUSES,
+  RECORD_SOURCES,
   type FieldEntity,
 } from "@/shared/crm-enums";
 import { companyListSchema } from "@/types/schemas/companies";
@@ -121,12 +122,12 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toMatchObject([{ id: "acme_b", fields: {} }]);
     });
 
-    it("narrows the companies list by industry, research state and recent activity", async () => {
+    it("narrows the companies list by industry, research state, recent activity and source", async () => {
       await database.exec(`
         UPDATE company SET industry = 'Software', enrichment_status = 'COMPLETE', last_activity_at = '${daysAgo(3)}' WHERE id = 'acme';
         UPDATE company SET industry = 'Software', last_activity_at = '${daysAgo(40)}' WHERE id = 'acme_labs';
-        UPDATE company SET industry = 'Fintech', enrichment_status = 'FAILED' WHERE id = 'globex';
-        UPDATE company SET industry = 'Mining' WHERE id = 'acme_b';
+        UPDATE company SET industry = 'Fintech', enrichment_status = 'FAILED', source = 'EMAIL' WHERE id = 'globex';
+        UPDATE company SET industry = 'Mining', source = 'EMAIL' WHERE id = 'acme_b';
       `);
       const ids = async (input: object) =>
         (
@@ -146,15 +147,16 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         "globex",
       ]);
       expect(await ids({ activity: "30" })).toEqual(["acme"]);
+      expect(await ids({ source: ["EMAIL"] })).toEqual(["globex"]);
     });
 
-    it("narrows the contacts list by company (or none), title, seniority, persona and recent activity", async () => {
+    it("narrows the contacts list by company (or none), title, seniority, persona, recent activity and source", async () => {
       await database.exec(`
-        INSERT INTO contact (id, organization_id, first_name, company_id, title, seniority, "function", last_activity_at) VALUES
-          ('ana', 'org_a', 'Ana', 'acme', 'CEO', 'Founder', 'Executive', '${daysAgo(2)}'),
-          ('bo', 'org_a', 'Bo', NULL, 'CTO', 'C-level', 'Engineering', NULL),
-          ('cy', 'org_a', 'Cy', 'globex', 'CEO', 'Founder', 'Executive', '${daysAgo(20)}'),
-          ('di', 'org_b', 'Di', 'acme_b', 'Buyer', 'IC', 'Procurement', NULL);
+        INSERT INTO contact (id, organization_id, first_name, company_id, title, seniority, "function", last_activity_at, source) VALUES
+          ('ana', 'org_a', 'Ana', 'acme', 'CEO', 'Founder', 'Executive', '${daysAgo(2)}', 'TRACKING'),
+          ('bo', 'org_a', 'Bo', NULL, 'CTO', 'C-level', 'Engineering', NULL, 'MANUAL'),
+          ('cy', 'org_a', 'Cy', 'globex', 'CEO', 'Founder', 'Executive', '${daysAgo(20)}', 'MANUAL'),
+          ('di', 'org_b', 'Di', 'acme_b', 'Buyer', 'IC', 'Procurement', NULL, 'TRACKING');
       `);
       const ids = async (input: object) =>
         (
@@ -171,6 +173,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await ids({ persona: ["Executive"], activity: "7" })).toEqual([
         "ana",
       ]);
+      expect(await ids({ source: ["TRACKING"] })).toEqual(["ana"]);
     });
 
     it("sorts by owner with nobody's last either way, and companies by their people and open deals", async () => {
@@ -308,6 +311,7 @@ describe("the fullest list query (sqlite)", () => {
         industry: facet,
         enrichment: ENRICHMENT_STATUSES,
         activity: "90",
+        source: RECORD_SOURCES,
       }),
     );
     await ContactService.listContacts(
@@ -320,6 +324,7 @@ describe("the fullest list query (sqlite)", () => {
         seniority: facet,
         persona: facet,
         activity: "90",
+        source: RECORD_SOURCES,
       }),
     );
     await DealService.listDeals(
@@ -339,7 +344,7 @@ describe("the fullest list query (sqlite)", () => {
       ([statement]) =>
         statementSchema.safeParse(statement).data?.args.length ?? 0,
     );
-    // The deals page binds 93 today, the contacts page 92.
+    // The contacts page binds 97 today, the deals page 93.
     expect(Math.max(...parameters)).toBeGreaterThan(80);
     expect(Math.max(...parameters)).toBeLessThanOrEqual(100);
   });
