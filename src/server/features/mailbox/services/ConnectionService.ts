@@ -3,9 +3,9 @@ import { primaryCalendar } from "@/server/features/mailbox/providers/calendar";
 import { gmailProfile } from "@/server/features/mailbox/providers/gmail";
 import { graphMe } from "@/server/features/mailbox/providers/outlook";
 import {
-  AUTHORIZE_URL,
   CALLBACK_PATH,
   GATEWAY_SECRETS,
+  authorizeUrl,
   clientStatus,
   revokeGoogleToken,
   tokenRequest,
@@ -67,7 +67,7 @@ async function startConnect(
     codeVerifier,
     ttlMs: STATE_TTL_MS,
   });
-  const url = new URL(AUTHORIZE_URL[provider]);
+  const url = new URL(await authorizeUrl(provider));
   const params = url.searchParams;
   params.set("client_id", client.clientId);
   params.set("redirect_uri", redirectUri(origin, provider));

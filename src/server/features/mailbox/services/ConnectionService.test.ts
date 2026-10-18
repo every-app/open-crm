@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { vi } from "vitest";
 
 // Connecting a mailbox on both backends: the single-use state is a
@@ -261,6 +261,34 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toEqual([
         { source: "outlook", auto_create: dialect === "sqlite" ? 0 : false },
       ]);
+    });
+
+    it("signs in and exchanges the code on the CRM's Microsoft tenant", async () => {
+      vi.stubEnv("MICROSOFT_TENANT_ID", "contoso.onmicrosoft.com");
+      onTestFinished(() => {
+        vi.unstubAllEnvs();
+      });
+      stubProviders({
+        "graph.microsoft.com/v1.0/me": () => ({ mail: "bo@contoso.com" }),
+      });
+      const { url } = await ConnectionService.startConnect(
+        BO,
+        "microsoft",
+        ORIGIN,
+      );
+      expect(
+        url.startsWith(
+          "https://login.microsoftonline.com/contoso.onmicrosoft.com/oauth2/v2.0/authorize?",
+        ),
+      ).toBe(true);
+
+      const state = new URL(url).searchParams.get("state") ?? "";
+      expect(await connect(BO, "microsoft", { state, code: "c" })).toEqual({
+        ok: true,
+      });
+      expect(gateway.tokenCalls[0]?.path).toBe(
+        "/api/integrations/microsoft-365/login.microsoftonline.com/contoso.onmicrosoft.com/oauth2/v2.0/token",
+      );
     });
 
     it("withdraws Google's grant before forgetting it, and keeps what was captured", async () => {
