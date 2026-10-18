@@ -378,6 +378,7 @@ async function matches(context: Context) {
       userId: row.userId,
       name: row.name,
       email: row.email,
+      slackUserId: row.slackUserId,
       slackHandle: row.slackHandle,
       reviewed: row.reviewedAt !== null,
     })),
