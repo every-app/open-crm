@@ -213,8 +213,15 @@ export function ContactsPage() {
               pageSize={input.pageSize}
               totalCount={query.data?.total ?? null}
               isLoading={query.isPlaceholderData}
+              // Each page is a step the browser's Back returns to; the
+              // search, filters and sort replace theirs.
               onPageChange={(page) =>
-                setSearch({ page: page > 1 ? page : undefined })
+                void navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    page: page > 1 ? page : undefined,
+                  }),
+                })
               }
             />
           }
