@@ -7,11 +7,13 @@ import {
   EllipsisVertical,
   Plus,
   RefreshCw,
+  Share2,
   Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
+import { ShareChatDialog } from "@/client/features/sharing/ShareChatDialog";
 import {
   SectionNavGroup,
   SectionNavLink,
@@ -237,7 +239,8 @@ function ChatState({ state }: { state: Chat["state"] }) {
 /**
  * Deletes one of the person's chats once they confirm (the CRM's
  * DeleteChatAction): a close button in Chat's column, a menu in the chat's
- * header. Deleting the open chat returns to Chat's home.
+ * header, which also shares the chat. Deleting the open chat returns to
+ * Chat's home.
  */
 export function DeleteChatAction({
   conversationId,
@@ -251,6 +254,7 @@ export function DeleteChatAction({
   className?: string;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const current = useParams({ strict: false, select: (p) => p.chatId });
@@ -293,6 +297,10 @@ export function DeleteChatAction({
             <EllipsisVertical />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-auto min-w-40">
+            <DropdownMenuItem onClick={() => setSharing(true)}>
+              <Share2 />
+              Share chat
+            </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"
               onClick={() => setConfirming(true)}
@@ -303,6 +311,12 @@ export function DeleteChatAction({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      {sharing ? (
+        <ShareChatDialog
+          conversationId={conversationId}
+          onClose={() => setSharing(false)}
+        />
+      ) : null}
       {confirming ? (
         <ConfirmDialog
           title={`Delete ${title}?`}

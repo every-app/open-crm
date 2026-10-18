@@ -9,12 +9,14 @@ import * as sqliteCrm from "./crm.schema";
 import * as sqliteAgent from "./agent.schema";
 import * as sqliteTeamAgent from "./team-agent.schema";
 import * as sqliteSlack from "./slack.schema";
+import * as sqliteSharing from "./sharing.schema";
 import * as sqliteAuth from "./auth.schema";
 import * as sqliteTracking from "./tracking.schema";
 import * as pgCrm from "./pg/crm.schema";
 import * as pgAgent from "./pg/agent.schema";
 import * as pgTeamAgent from "./pg/team-agent.schema";
 import * as pgSlack from "./pg/slack.schema";
+import * as pgSharing from "./pg/sharing.schema";
 import * as pgAuth from "./pg/auth.schema";
 import * as pgTracking from "./pg/tracking.schema";
 
@@ -144,6 +146,7 @@ const sqliteAppTables = tablesFrom(
   sqliteTracking,
   sqliteTeamAgent,
   sqliteSlack,
+  sqliteSharing,
 );
 const pgAppTables = tablesFrom(
   pgCrm,
@@ -151,6 +154,7 @@ const pgAppTables = tablesFrom(
   pgTracking,
   pgTeamAgent,
   pgSlack,
+  pgSharing,
 );
 const sqliteAuthTables = tablesFrom(sqliteAuth);
 const pgAuthTables = tablesFrom(pgAuth);

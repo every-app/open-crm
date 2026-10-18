@@ -35,6 +35,7 @@ import { Route as AppChatChatChatIdRouteImport } from './routes/_app/_chat/chat/
 import { Route as AppSettingsConnectionsIndexRouteImport } from './routes/_app/settings/connections/index'
 import { Route as AppSettingsConnectionsGoogleRouteImport } from './routes/_app/settings/connections/google'
 import { Route as AppSettingsConnectionsMicrosoftRouteImport } from './routes/_app/settings/connections/microsoft'
+import { Route as AppChatChatSharedTokenRouteImport } from './routes/_app/_chat/chat/shared.$token'
 import { Route as AppSettingsConnectionsSlackIndexRouteImport } from './routes/_app/settings/connections/slack/index'
 import { Route as AppSettingsConnectionsSlackPeopleRouteImport } from './routes/_app/settings/connections/slack/people'
 
@@ -171,6 +172,11 @@ const AppSettingsConnectionsMicrosoftRoute =
     path: '/connections/microsoft',
     getParentRoute: () => AppSettingsRouteRoute,
   } as any)
+const AppChatChatSharedTokenRoute = AppChatChatSharedTokenRouteImport.update({
+  id: '/chat/shared/$token',
+  path: '/chat/shared/$token',
+  getParentRoute: () => AppChatRoute,
+} as any)
 const AppSettingsConnectionsSlackIndexRoute =
   AppSettingsConnectionsSlackIndexRouteImport.update({
     id: '/connections/slack/',
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/agents/': typeof AppChatAgentsIndexRoute
   '/chat/': typeof AppChatChatIndexRoute
   '/settings/connections/': typeof AppSettingsConnectionsIndexRoute
+  '/chat/shared/$token': typeof AppChatChatSharedTokenRoute
   '/settings/connections/slack/people': typeof AppSettingsConnectionsSlackPeopleRoute
   '/settings/connections/slack/': typeof AppSettingsConnectionsSlackIndexRoute
 }
@@ -236,6 +243,7 @@ export interface FileRoutesByTo {
   '/agents': typeof AppChatAgentsIndexRoute
   '/chat': typeof AppChatChatIndexRoute
   '/settings/connections': typeof AppSettingsConnectionsIndexRoute
+  '/chat/shared/$token': typeof AppChatChatSharedTokenRoute
   '/settings/connections/slack/people': typeof AppSettingsConnectionsSlackPeopleRoute
   '/settings/connections/slack': typeof AppSettingsConnectionsSlackIndexRoute
 }
@@ -267,6 +275,7 @@ export interface FileRoutesById {
   '/_app/_chat/agents/': typeof AppChatAgentsIndexRoute
   '/_app/_chat/chat/': typeof AppChatChatIndexRoute
   '/_app/settings/connections/': typeof AppSettingsConnectionsIndexRoute
+  '/_app/_chat/chat/shared/$token': typeof AppChatChatSharedTokenRoute
   '/_app/settings/connections/slack/people': typeof AppSettingsConnectionsSlackPeopleRoute
   '/_app/settings/connections/slack/': typeof AppSettingsConnectionsSlackIndexRoute
 }
@@ -297,6 +306,7 @@ export interface FileRouteTypes {
     | '/agents/'
     | '/chat/'
     | '/settings/connections/'
+    | '/chat/shared/$token'
     | '/settings/connections/slack/people'
     | '/settings/connections/slack/'
   fileRoutesByTo: FileRoutesByTo
@@ -324,6 +334,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/chat'
     | '/settings/connections'
+    | '/chat/shared/$token'
     | '/settings/connections/slack/people'
     | '/settings/connections/slack'
   id:
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/_app/_chat/agents/'
     | '/_app/_chat/chat/'
     | '/_app/settings/connections/'
+    | '/_app/_chat/chat/shared/$token'
     | '/_app/settings/connections/slack/people'
     | '/_app/settings/connections/slack/'
   fileRoutesById: FileRoutesById
@@ -549,6 +561,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsConnectionsMicrosoftRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/_chat/chat/shared/$token': {
+      id: '/_app/_chat/chat/shared/$token'
+      path: '/chat/shared/$token'
+      fullPath: '/chat/shared/$token'
+      preLoaderRoute: typeof AppChatChatSharedTokenRouteImport
+      parentRoute: typeof AppChatRoute
+    }
     '/_app/settings/connections/slack/': {
       id: '/_app/settings/connections/slack/'
       path: '/connections/slack'
@@ -603,6 +622,7 @@ interface AppChatRouteChildren {
   AppChatChatChatIdRoute: typeof AppChatChatChatIdRoute
   AppChatAgentsIndexRoute: typeof AppChatAgentsIndexRoute
   AppChatChatIndexRoute: typeof AppChatChatIndexRoute
+  AppChatChatSharedTokenRoute: typeof AppChatChatSharedTokenRoute
 }
 
 const AppChatRouteChildren: AppChatRouteChildren = {
@@ -610,6 +630,7 @@ const AppChatRouteChildren: AppChatRouteChildren = {
   AppChatChatChatIdRoute: AppChatChatChatIdRoute,
   AppChatAgentsIndexRoute: AppChatAgentsIndexRoute,
   AppChatChatIndexRoute: AppChatChatIndexRoute,
+  AppChatChatSharedTokenRoute: AppChatChatSharedTokenRoute,
 }
 
 const AppChatRouteWithChildren =

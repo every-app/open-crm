@@ -7,3 +7,4 @@ export * from "../agent.schema";
 export * from "../tracking.schema";
 export * from "../team-agent.schema";
 export * from "../slack.schema";
+export * from "../sharing.schema";
