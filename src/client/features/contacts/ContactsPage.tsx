@@ -128,7 +128,6 @@ export function ContactsPage() {
       <div className="mx-auto max-w-7xl space-y-4">
         <PageHeader
           title="Contacts"
-          description="Everyone in the pipeline."
           actions={
             <>
               <CsvMenu
@@ -148,12 +147,12 @@ export function ContactsPage() {
           isLoading={query.isPending}
           isFiltered={isListFiltered(search, CONTACT_FILTER_KEYS)}
           onClearFilters={() => setSearch(clearedFilters(CONTACT_FILTER_KEYS))}
-          filteredTitle="No contacts match this view"
+          filteredTitle="No matches"
           error={
             query.isError ? (
               <QueryError
                 error={query.error}
-                fallback="The contacts could not be loaded."
+                fallback="Couldn't load contacts."
                 onRetry={() => void query.refetch()}
                 isRetrying={query.isFetching}
               />
@@ -169,7 +168,7 @@ export function ContactsPage() {
               : {
                   icon: Users,
                   media: "rows",
-                  title: "No contacts yet",
+                  title: "No contacts",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">
                       {newContact}
@@ -190,7 +189,7 @@ export function ContactsPage() {
                     searchFromSavedView(contactListSearchSchema, view, prev),
                 })
               }
-              placeholder="Search by name, email or company…"
+              placeholder="Search contacts…"
               facetCounts={query.data?.facetCounts}
               filters={filters}
               filterKeys={CONTACT_FILTER_KEYS}

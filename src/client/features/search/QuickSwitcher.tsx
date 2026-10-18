@@ -139,7 +139,7 @@ export function QuickSwitcher() {
                 // Typing straight after ⌘K lands here, not before the dialog
                 // has moved focus.
                 autoFocus
-                placeholder="Search companies, contacts and deals…"
+                placeholder="Search…"
                 className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>

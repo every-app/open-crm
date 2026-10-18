@@ -63,10 +63,7 @@ export function ContactBulkActions({
   const enrich = useMutation({
     mutationFn: (selected: string[]) =>
       bulkEnrichContacts({ data: { ids: selected } }),
-    ...settled(
-      (count) =>
-        `The agent is looking up ${count}. The list updates as it goes.`,
-    ),
+    ...settled((count) => `Looking up ${count}.`),
   });
   const archive = useMutation({
     mutationFn: (selected: string[]) =>
@@ -100,7 +97,7 @@ export function ContactBulkActions({
       onArchive={() => archive.mutate(ids)}
       onRestore={() => restore.mutate(ids)}
       onPurge={() => purge.mutate(ids)}
-      purgeWarning="Their email addresses are suppressed, so the inbox sync will not file them again. This cannot be undone."
+      purgeWarning="This cannot be undone, and the inbox sync will not file them again."
     >
       <BulkSubmenu
         icon={Building2}

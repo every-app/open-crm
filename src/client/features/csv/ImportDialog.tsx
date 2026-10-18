@@ -101,14 +101,14 @@ export function ImportDialog({
     if (csv.rows.length === 0) {
       setStep({
         name: "pick",
-        error: "That file has no rows under its header row.",
+        error: "No rows under the header row.",
       });
       return;
     }
     if (csv.rows.length > IMPORT_MAX_ROWS) {
       setStep({
         name: "pick",
-        error: `That file has ${csv.rows.length.toLocaleString()} rows. Import at most ${IMPORT_MAX_ROWS.toLocaleString()} at a time: split it into smaller files.`,
+        error: `That file has ${csv.rows.length.toLocaleString()} rows. Import at most ${IMPORT_MAX_ROWS.toLocaleString()} at a time.`,
       });
       return;
     }
@@ -211,11 +211,11 @@ export function ImportDialog({
         showCloseButton={!busy}
       >
         <DialogHeader>
-          <DialogTitle>Import {noun.many} from a CSV</DialogTitle>
+          <DialogTitle>Import {noun.many}</DialogTitle>
           <DialogDescription>
             {file
               ? `${file.name}: ${file.csv.rows.length.toLocaleString()} ${file.csv.rows.length === 1 ? "row" : "rows"}`
-              : "A spreadsheet's CSV export, with a header row."}
+              : "A CSV with a header row."}
           </DialogDescription>
         </DialogHeader>
 
@@ -275,7 +275,7 @@ export function ImportDialog({
             <Progress value={(step.done / rows.length) * 100} />
             <p className="text-sm text-muted-foreground">
               {step.done.toLocaleString()} of {rows.length.toLocaleString()}{" "}
-              rows imported…
+              rows
             </p>
           </div>
         ) : null}
@@ -290,67 +290,70 @@ export function ImportDialog({
           />
         ) : null}
 
-        <DialogFooter>
-          {step.name === "map" ? (
-            <>
+        {/* Choosing a file has no buttons of its own. */}
+        {step.name === "pick" ? null : (
+          <DialogFooter>
+            {step.name === "map" ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFile(null);
+                    setStep({ name: "pick", error: null });
+                  }}
+                >
+                  Change file
+                </Button>
+                <Button
+                  disabled={missing.length > 0}
+                  onClick={() => void preview()}
+                >
+                  Preview
+                </Button>
+              </>
+            ) : null}
+            {step.name === "preview" ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep({ name: "map" })}
+                >
+                  Back
+                </Button>
+                <Button
+                  disabled={step.results === null && step.error === null}
+                  onClick={() => void run()}
+                >
+                  Import {rows.length.toLocaleString()}{" "}
+                  {rows.length === 1 ? "row" : "rows"}
+                </Button>
+              </>
+            ) : null}
+            {step.name === "importing" ? (
               <Button
                 variant="outline"
                 onClick={() => {
-                  setFile(null);
-                  setStep({ name: "pick", error: null });
+                  stopRef.current = true;
                 }}
               >
-                Choose another file
+                Stop
               </Button>
-              <Button
-                disabled={missing.length > 0}
-                onClick={() => void preview()}
-              >
-                Check the first rows
-              </Button>
-            </>
-          ) : null}
-          {step.name === "preview" ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setStep({ name: "map" })}
-              >
-                Back
-              </Button>
-              <Button
-                disabled={step.results === null && step.error === null}
-                onClick={() => void run()}
-              >
-                Import {rows.length.toLocaleString()}{" "}
-                {rows.length === 1 ? "row" : "rows"}
-              </Button>
-            </>
-          ) : null}
-          {step.name === "importing" ? (
-            <Button
-              variant="outline"
-              onClick={() => {
-                stopRef.current = true;
-              }}
-            >
-              Stop
-            </Button>
-          ) : null}
-          {step.name === "done" ? (
-            <>
-              {step.failed.length > 0 ? (
-                <Button
-                  variant="outline"
-                  onClick={() => downloadFailed(step.failed)}
-                >
-                  Download failed rows
-                </Button>
-              ) : null}
-              <Button onClick={onClose}>Done</Button>
-            </>
-          ) : null}
-        </DialogFooter>
+            ) : null}
+            {step.name === "done" ? (
+              <>
+                {step.failed.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => downloadFailed(step.failed)}
+                  >
+                    Download failed rows
+                  </Button>
+                ) : null}
+                <Button onClick={onClose}>Done</Button>
+              </>
+            ) : null}
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

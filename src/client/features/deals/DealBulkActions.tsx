@@ -98,7 +98,7 @@ export function DealBulkActions({
         onArchive={() => archive.mutate(ids)}
         onRestore={() => restore.mutate(ids)}
         onPurge={() => purge.mutate(ids)}
-        purgeWarning="Everything filed against them — activity, notes, the amounts in your pipeline — goes too. This cannot be undone."
+        purgeWarning="This cannot be undone."
       >
         <BulkSubmenu icon={Milestone} label="Change stage" className="min-w-48">
           {DEAL_STAGE_ORDER.map((stage) => (

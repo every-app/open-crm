@@ -128,7 +128,6 @@ export function CompaniesPage() {
       <div className="mx-auto max-w-7xl space-y-4">
         <PageHeader
           title="Companies"
-          description="Every account in the pipeline."
           actions={
             <>
               <CsvMenu
@@ -148,12 +147,12 @@ export function CompaniesPage() {
           isLoading={query.isPending}
           isFiltered={isListFiltered(search, COMPANY_FILTER_KEYS)}
           onClearFilters={() => setSearch(clearedFilters(COMPANY_FILTER_KEYS))}
-          filteredTitle="No companies match this view"
+          filteredTitle="No matches"
           error={
             query.isError ? (
               <QueryError
                 error={query.error}
-                fallback="The companies could not be loaded."
+                fallback="Couldn't load companies."
                 onRetry={() => void query.refetch()}
                 isRetrying={query.isFetching}
               />
@@ -169,7 +168,7 @@ export function CompaniesPage() {
               : {
                   icon: Building2,
                   media: "rows",
-                  title: "No companies yet",
+                  title: "No companies",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">
                       {newCompany}
@@ -190,7 +189,7 @@ export function CompaniesPage() {
                     searchFromSavedView(companyListSearchSchema, view, prev),
                 })
               }
-              placeholder="Search companies by name or domain…"
+              placeholder="Search companies…"
               facetCounts={query.data?.facetCounts}
               filters={filters}
               filterKeys={COMPANY_FILTER_KEYS}

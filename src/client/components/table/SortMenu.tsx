@@ -5,8 +5,6 @@ import { Button } from "@/client/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -35,19 +33,16 @@ export function SortMenu<TData>({ table }: { table: Table<TData> }) {
         <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={current.id}
-            onValueChange={(id: string) => sortBy(id, current.desc)}
-          >
-            {columns.map((column) => (
-              <DropdownMenuRadioItem key={column.id} value={column.id}>
-                {columnLabel(column)}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
+        <DropdownMenuRadioGroup
+          value={current.id}
+          onValueChange={(id: string) => sortBy(id, current.desc)}
+        >
+          {columns.map((column) => (
+            <DropdownMenuRadioItem key={column.id} value={column.id}>
+              {columnLabel(column)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
           value={current.desc ? "desc" : "asc"}

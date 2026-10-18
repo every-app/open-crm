@@ -30,10 +30,9 @@ import type { Target } from "./importMapping";
 const SKIP = "__skip__";
 
 const DUPLICATE_RULES: Record<FieldEntity, string> = {
-  COMPANY: "A company with the same domain (or, with none, the same name)",
-  CONTACT:
-    "A contact with the same email (or, with none, the same name at the same company)",
-  DEAL: "A deal with the same name at the same company",
+  COMPANY: "Same domain, or same name when there's no domain.",
+  CONTACT: "Same email, or same name and company when there's no email.",
+  DEAL: "Same name and company.",
 };
 
 const OUTCOME_LABELS: Record<ImportOutcome, string> = {
@@ -161,9 +160,8 @@ export function ImportReport({
       {stoppedAt !== null ? (
         <p className="text-sm text-muted-foreground">
           {error ? `${error} ` : null}
-          The import stopped after {stoppedAt.toLocaleString()} of{" "}
-          {total.toLocaleString()} rows. Run it again with the same file: rows
-          already imported are recognized, so nothing is added twice.
+          Stopped after {stoppedAt.toLocaleString()} of {total.toLocaleString()}{" "}
+          rows. Run it again with the same file; nothing is added twice.
         </p>
       ) : null}
     </div>
@@ -234,11 +232,9 @@ export function ImportOptions({
   return (
     <div className="grid gap-5 sm:grid-cols-2">
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">
-          When a row is already in the CRM
-        </legend>
+        <legend className="text-sm font-medium">Duplicates</legend>
         <p className="text-xs text-muted-foreground">
-          {DUPLICATE_RULES[entity]} is the same record.
+          {DUPLICATE_RULES[entity]}
         </p>
         <RadioGroup
           value={duplicates}
@@ -248,18 +244,18 @@ export function ImportOptions({
         >
           <Label className="flex items-center gap-2 text-sm font-normal">
             <RadioGroupItem value="skip" />
-            Skip it
+            Skip
           </Label>
           <Label className="flex items-center gap-2 text-sm font-normal">
             <RadioGroupItem value="update" />
-            Update it with the row's values (blank cells change nothing)
+            Update (blank cells change nothing)
           </Label>
         </RadioGroup>
       </fieldset>
       <div className="space-y-2">
         <Label className="flex items-center gap-2 text-sm font-medium">
           <Switch checked={research} onCheckedChange={onResearchChange} />
-          Research new records with the agent
+          Research new records
         </Label>
       </div>
     </div>
@@ -284,9 +280,7 @@ export function PreviewTable({
   return (
     <div className="space-y-2">
       {error || !results ? (
-        <p className="text-sm text-muted-foreground">
-          {error ?? "Checking the first rows…"}
-        </p>
+        <p className="text-sm text-muted-foreground">{error ?? "Checking…"}</p>
       ) : null}
       <div className="max-h-[45vh] overflow-auto rounded-lg border border-border">
         <Table>

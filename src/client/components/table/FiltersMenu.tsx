@@ -181,7 +181,7 @@ export function FiltersMenu({
         ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={active === 0} onClick={onClear}>
-          Clear filters
+          Clear
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

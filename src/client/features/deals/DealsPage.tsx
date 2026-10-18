@@ -129,7 +129,6 @@ export function DealsPage() {
       <div className="mx-auto max-w-7xl space-y-4">
         <PageHeader
           title="Deals"
-          description="The pipeline, and everything that has already closed."
           actions={
             <>
               <CsvMenu
@@ -149,12 +148,12 @@ export function DealsPage() {
           isLoading={query.isPending}
           isFiltered={isListFiltered(search, DEAL_FILTER_KEYS)}
           onClearFilters={() => setSearch(clearedFilters(DEAL_FILTER_KEYS))}
-          filteredTitle="No deals match this view"
+          filteredTitle="No matches"
           error={
             query.isError ? (
               <QueryError
                 error={query.error}
-                fallback="The deals could not be loaded."
+                fallback="Couldn't load deals."
                 onRetry={() => void query.refetch()}
                 isRetrying={query.isFetching}
               />
@@ -170,7 +169,7 @@ export function DealsPage() {
               : {
                   icon: CircleDollarSign,
                   media: "rows",
-                  title: "No deals yet",
+                  title: "No deals",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">
                       {newDeal}
@@ -191,7 +190,7 @@ export function DealsPage() {
                     searchFromSavedView(dealListSearchSchema, view, prev),
                 })
               }
-              placeholder="Search deals by name or company…"
+              placeholder="Search deals…"
               facetCounts={query.data?.facetCounts}
               filters={filters}
               filterKeys={DEAL_FILTER_KEYS}
