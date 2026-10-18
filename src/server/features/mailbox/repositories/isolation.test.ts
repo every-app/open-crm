@@ -206,6 +206,16 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       });
       // Settled, it is due in five minutes, and "Check now" may take it.
       expect((await due()).map((row) => row.id)).not.toContain(first?.id);
+      // An AI client's "Check now" makes it due for the next sweep instead,
+      // in its own organization only.
+      const source = first?.source ?? "gmail";
+      expect(
+        await SyncStateRepository.markDue("org_b", "user_a", [source]),
+      ).toEqual([]);
+      expect(
+        await SyncStateRepository.markDue("org_a", "user_a", [source]),
+      ).toEqual([source]);
+      expect((await due()).map((row) => row.id)).toContain(first?.id);
       expect(
         (
           await SyncStateRepository.claim({

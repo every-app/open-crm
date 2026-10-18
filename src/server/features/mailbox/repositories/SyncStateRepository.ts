@@ -249,6 +249,32 @@ async function needReconnect(
     );
 }
 
+/**
+ * Makes the member's `sources` due now, for the minute cron's next sweep:
+ * an AI client's "Check now", which can't wait out a check. One waiting for
+ * a reconnect stays waiting. The sources made due.
+ */
+async function markDue(
+  organizationId: string,
+  userId: string,
+  sources: readonly SyncSource[],
+): Promise<SyncSource[]> {
+  const now = new Date().toISOString();
+  const rows = await db
+    .update(mailboxSync)
+    .set({ nextSyncAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(mailboxSync.organizationId, organizationId),
+        eq(mailboxSync.userId, userId),
+        inArray(mailboxSync.source, [...sources]),
+        sql`${mailboxSync.status} <> 'NEEDS_RECONNECT'`,
+      ),
+    )
+    .returning({ source: mailboxSync.source });
+  return rows.map((row) => row.source);
+}
+
 /** False when the member doesn't sync `source`. */
 async function setAutoCreate(input: {
   organizationId: string;
@@ -278,5 +304,6 @@ export const SyncStateRepository = {
   claim,
   settle,
   needReconnect,
+  markDue,
   setAutoCreate,
 };
