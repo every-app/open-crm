@@ -135,10 +135,14 @@ describe("a research session", () => {
     });
     expect(started).toBe(1);
 
-    // The model was briefed on our own business, by this organization's data.
+    // The model was briefed on our own business, by this organization's data,
+    // and could search the web as the CRM's agent could.
     const [firstCall] = stub.doGenerateCalls;
     expect(JSON.stringify(firstCall?.prompt)).toContain(
       "You are writing the profile of **the company you work for** — Acme (acme.test)",
+    );
+    expect(firstCall?.tools).toContainEqual(
+      expect.objectContaining({ type: "provider", name: "web_search" }),
     );
 
     const [task] = await database.rows("SELECT * FROM agent_task");
