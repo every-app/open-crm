@@ -36,8 +36,6 @@ export function closeDay(value: string | null): string | null {
   return value ? value.slice(0, 10) : null;
 }
 
-/** What deleting a deal forever takes with it, and what it leaves. */
-export function purgeConsequence(deal: Deal): string {
-  const people = deal.contacts.length === 1 ? "person" : "people";
-  return `Its stage history, notes and agent conversations go too. ${deal.company.name} and the ${people} on it stay in the CRM.`;
-}
+/** What deleting a deal forever takes with it, for the confirmation. */
+export const PURGE_CONSEQUENCE =
+  "Its stage history, notes and agent conversations go too.";

@@ -83,7 +83,6 @@ export function CompanySheet({ companyId }: { companyId: string }) {
                     <span className="max-sm:sr-only">Re-enrich</span>
                   </Button>
                   <RecordActionsMenu
-                    noun="company"
                     name={company.name}
                     archived={company.archivedAt !== null}
                     canPurge={canPurge}
@@ -238,14 +237,7 @@ function CompanyStats({ company }: { company: Company }) {
 /** What deleting a company forever takes with it, for the confirmation. */
 function purgeConsequence(company: Company): string {
   const deals = company.deals.length;
-  const contacts = company.contacts.length;
-  const gone =
-    deals > 0
-      ? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything filed against the account go too.`
-      : "Everything filed against the account goes too.";
-  const kept =
-    contacts > 0
-      ? ` ${contacts === 1 ? "The one person" : `The ${contacts} people`} who work there stay in the CRM, without a company.`
-      : "";
-  return gone + kept;
+  return deals > 0
+    ? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything filed against the account go too.`
+    : "Everything filed against the account goes too.";
 }

@@ -87,7 +87,6 @@ export function CompanyContacts({
         adding ? null : (
           <SheetEmpty
             title="No contacts yet"
-            description={`Everyone you talk to at ${company.name} lives here — add the first person and their calls, emails and notes hang off them.`}
             action={
               <AddButton
                 label="Add contact"
@@ -128,7 +127,6 @@ export function CompanyContacts({
                       ? `${name} is the primary contact`
                       : `Make ${name} primary`
                   }
-                  title={primary ? "Primary contact" : "Make primary"}
                   disabled={setPrimary.isPending}
                   onClick={() => setPrimary.mutate(primary ? null : contact.id)}
                 >
@@ -172,7 +170,6 @@ export function CompanyDeals({ company }: { company: Company }) {
         adding ? null : (
           <SheetEmpty
             title="No deals yet"
-            description={`Nothing is being sold to ${company.name} right now. Open one and it joins the pipeline and the forecast.`}
             action={
               <AddButton
                 label="New deal"
@@ -196,15 +193,11 @@ export function CompanyDeals({ company }: { company: Company }) {
                 >
                   {deal.name}
                 </RecordLink>
-                <p className="text-xs text-muted-foreground">
-                  {deal.expectedCloseDate ? (
-                    <>
-                      Closes <LocalDay date={deal.expectedCloseDate} />
-                    </>
-                  ) : (
-                    "No close date"
-                  )}
-                </p>
+                {deal.expectedCloseDate ? (
+                  <p className="text-xs text-muted-foreground">
+                    Closes <LocalDay date={deal.expectedCloseDate} />
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-right tabular-nums">

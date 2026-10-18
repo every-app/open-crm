@@ -112,25 +112,9 @@ export function CloseReasonDialog({
         }
       >
         <form.Form id={FORM_ID} className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            {count > 1
-              ? "The same reason goes on every one of them, so keep it to what they have in common."
-              : lost
-                ? "What did we lose it to? This is the only place that answer gets recorded."
-                : "Why is this not a fit? It goes on the timeline so nobody re-runs the same deal."}
-          </p>
           <form.AppField name="reason">
             {(field) => (
-              <field.TextareaField
-                label="Reason"
-                placeholder={
-                  count > 1
-                    ? "Budget pulled for the quarter"
-                    : "Went with an incumbent vendor"
-                }
-                rows={3}
-                autoFocus
-              />
+              <field.TextareaField label="Reason" rows={3} autoFocus />
             )}
           </form.AppField>
         </form.Form>

@@ -47,7 +47,6 @@ export function CompanyOverview({
           <InlineTextArea
             label="Description"
             value={company.description}
-            placeholder="What the company does"
             {...field("description")}
           />
         </SheetSection>
@@ -124,7 +123,10 @@ export function CompanyOverview({
   );
 }
 
-/** What the agent hasn't found yet, and whether it's looking. */
+/**
+ * What the agent hasn't found yet; the dot is lit while it looks (the
+ * header says it's researching).
+ */
 function AgentPending({ company }: { company: Company }) {
   const missing = [
     company.industry ? null : "industry",
@@ -145,9 +147,7 @@ function AgentPending({ company }: { company: Company }) {
             running ? "bg-primary" : "bg-muted-foreground",
           )}
         />
-        <span className="text-xs font-medium">
-          {running ? "Agent is researching" : "Not known yet"}
-        </span>
+        <span className="text-xs font-medium">Not known yet</span>
       </div>
       <p className="text-xs/5 text-muted-foreground">{missing.join(", ")}</p>
     </div>

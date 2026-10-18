@@ -94,7 +94,6 @@ export function ContactOverview({
           <InlineField
             label="Title"
             value={contact.title}
-            placeholder="Head of Security"
             trailing={found("title")}
             suggestion={suggestion("title")}
             {...field("title")}
@@ -103,7 +102,6 @@ export function ContactOverview({
             label="Email"
             type="email"
             value={contact.email}
-            placeholder="ana@acme.com"
             {...field("email")}
           />
           <InlineField
@@ -197,7 +195,7 @@ function WeKnowThem({ contact }: { contact: Contact }) {
                   last reply <RelativeTime date={lastReplyAt} />
                 </>
               ) : (
-                `${contact.firstName} has never replied`
+                "never replied"
               )}
             </span>
           </Property>

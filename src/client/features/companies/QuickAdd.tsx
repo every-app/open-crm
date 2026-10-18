@@ -12,7 +12,6 @@ import {
 } from "@/client/features/contacts/useContactMutations";
 import { parseAmount } from "@/client/features/deals/dealFormat";
 import { useInvalidateDeals } from "@/client/features/deals/useDealMutations";
-import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
@@ -165,7 +164,6 @@ export function QuickAddContact({
             {(field) => (
               <field.TextField
                 label="Title"
-                placeholder="Head of Security"
                 autoComplete="off"
                 maxLength={CONTACT_TITLE_MAX}
               />
@@ -200,7 +198,6 @@ export function QuickAddDeal({
   onDone: () => void;
 }) {
   const account = useQuery(everyAppAccountQueryOptions());
-  const workspace = useQuery(workspaceQueryOptions());
   const invalidate = useInvalidateDeals();
   const owner = company.ownerId ?? account.data?.userId ?? null;
   const create = useMutation({
@@ -239,18 +236,13 @@ export function QuickAddDeal({
       <form.Form>
         <QuickAddFrame
           onCancel={onDone}
-          submit={<form.SubmitButton size="sm">Create deal</form.SubmitButton>}
+          submit={<form.SubmitButton size="sm">Add deal</form.SubmitButton>}
         >
           <form.AppField name="name">
             {(field) => (
               <div className="sm:col-span-2">
                 <field.TextField
                   label="Name"
-                  placeholder={
-                    workspace.data
-                      ? `${company.name} — ${workspace.data.name}`
-                      : undefined
-                  }
                   autoComplete="off"
                   autoFocus
                   maxLength={DEAL_NAME_MAX}
@@ -269,7 +261,7 @@ export function QuickAddDeal({
             )}
           </form.AppField>
           <form.AppField name="expectedCloseDate">
-            {(field) => <field.TextField label="Expected close" type="date" />}
+            {(field) => <field.TextField label="Close date" type="date" />}
           </form.AppField>
         </QuickAddFrame>
       </form.Form>

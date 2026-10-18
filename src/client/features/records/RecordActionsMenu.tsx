@@ -15,7 +15,6 @@ import {
  * says what goes with it.
  */
 export function RecordActionsMenu({
-  noun,
   name,
   archived,
   canPurge,
@@ -25,8 +24,6 @@ export function RecordActionsMenu({
   onRestore,
   onPurge,
 }: {
-  /** "company", "contact" or "deal". */
-  noun: string;
   name: string;
   archived: boolean;
   canPurge: boolean;
@@ -59,7 +56,7 @@ export function RecordActionsMenu({
             <>
               <DropdownMenuItem onClick={onRestore}>
                 <Undo2 />
-                Restore {noun}
+                Restore
               </DropdownMenuItem>
               {canPurge ? (
                 <DropdownMenuItem
@@ -67,14 +64,14 @@ export function RecordActionsMenu({
                   onClick={() => setConfirming(true)}
                 >
                   <Trash2 />
-                  Delete {noun} forever
+                  Delete forever
                 </DropdownMenuItem>
               ) : null}
             </>
           ) : (
             <DropdownMenuItem onClick={onArchive}>
               <Archive />
-              Archive {noun}
+              Archive
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

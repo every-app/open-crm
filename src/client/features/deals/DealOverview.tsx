@@ -159,7 +159,6 @@ export function DealOverview({
         <InlineTextArea
           label="Description"
           value={deal.description}
-          placeholder={`What ${deal.company.name} is buying, why now, and what stands in the way.`}
           saving={saving.includes("description")}
           onSave={(description) => save({ description })}
         />

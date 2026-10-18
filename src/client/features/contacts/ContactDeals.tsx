@@ -1,7 +1,4 @@
-import {
-  formatMoney,
-  fullName,
-} from "@/client/features/companies/companyFormat";
+import { formatMoney } from "@/client/features/companies/companyFormat";
 import type { Contact } from "@/client/features/contacts/contactFormat";
 import { DealStageMenu } from "@/client/features/deals/DealStage";
 import { LocalDay } from "@/client/features/records/LocalDateTime";
@@ -20,10 +17,7 @@ export function ContactDeals({ contact }: { contact: Contact }) {
   return (
     <SheetSection>
       {contact.deals.length === 0 ? (
-        <SheetEmpty
-          title="Not on any deals"
-          description={`${fullName(contact)} is not attached to anything being sold yet. Deals are opened on the company, then people are added to them.`}
-        />
+        <SheetEmpty title="Not on any deals" />
       ) : (
         <ul className="-mx-2 divide-y divide-border">
           {contact.deals.map((deal) => (
@@ -38,16 +32,17 @@ export function ContactDeals({ contact }: { contact: Contact }) {
                 >
                   {deal.name}
                 </RecordLink>
-                <p className="truncate text-xs text-muted-foreground">
-                  {deal.role ? `${deal.role} · ` : null}
-                  {deal.expectedCloseDate ? (
-                    <>
-                      Closes <LocalDay date={deal.expectedCloseDate} />
-                    </>
-                  ) : (
-                    "No close date"
-                  )}
-                </p>
+                {deal.role || deal.expectedCloseDate ? (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {deal.role}
+                    {deal.role && deal.expectedCloseDate ? " · " : null}
+                    {deal.expectedCloseDate ? (
+                      <>
+                        Closes <LocalDay date={deal.expectedCloseDate} />
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-right tabular-nums">

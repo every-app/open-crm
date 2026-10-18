@@ -146,7 +146,6 @@ function ContactActions({
         </Button>
       ) : null}
       <RecordActionsMenu
-        noun="contact"
         name={fullName(contact)}
         archived={archived}
         canPurge={canPurge}
@@ -254,8 +253,8 @@ function ContactStats({ contact }: { contact: Contact }) {
 /** What deleting a contact forever takes with it, for the confirmation. */
 function purgeConsequence(contact: Contact): string {
   const gone =
-    "Their notes, agent conversations and everything the agent found go too; emails and meetings stay filed against the company.";
+    "Their notes, agent conversations and everything the agent found go too";
   return contact.email
-    ? `${gone} The sync will not bring ${contact.email} back — only adding them yourself will.`
-    : gone;
+    ? `${gone}, and the sync won't bring ${contact.email} back.`
+    : `${gone}.`;
 }

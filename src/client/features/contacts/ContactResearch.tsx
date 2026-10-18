@@ -104,8 +104,8 @@ function FactValue({ value }: { value: string }) {
 }
 
 /**
- * Beside a value the agent put on the record: what it found, why it was
- * sure, when, and from where.
+ * Beside a value the agent put on the record: why it was sure, when, and
+ * from where.
  */
 export function AgentFound({ fact }: { fact: ContactFact }) {
   const source = safeHostname(fact.sourceUrl);
@@ -119,7 +119,6 @@ export function AgentFound({ fact }: { fact: ContactFact }) {
         <Sparkles className="size-3.5" />
       </TooltipTrigger>
       <TooltipContent className="max-w-sm flex-col items-start gap-1 py-2 text-left">
-        <span className="font-medium">Found by the agent</span>
         {fact.evidence.map((item) => (
           <span key={`${item.kind}-${item.detail}`} className="opacity-80">
             {item.detail}
