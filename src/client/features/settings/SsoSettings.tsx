@@ -4,7 +4,6 @@ import {
   SettingsCard,
   SettingsPage,
   SettingsRow,
-  SettingsSection,
 } from "@/client/components/SettingsSection";
 import { everyAppAccountQueryOptions } from "@/client/components/Sidebar";
 import { Button } from "@/client/components/ui/button";
@@ -22,35 +21,28 @@ export function SsoSettings() {
   const gatewayUrl = account.data?.gatewayUrl;
 
   return (
-    <SettingsPage
-      title="SSO"
-      description="Let your people sign in through your own identity provider."
-    >
-      <SettingsSection title="Sign-in">
-        <SettingsCard>
-          <SettingsRow
-            label="Single sign-on"
-            description={
-              hosted
-                ? "Your Every App gateway signs people in. Single sign-on isn't available on the hosted gateway yet."
-                : "Your Every App gateway signs people in. It can sign them in through Cloudflare Access, which connects Okta, Microsoft Entra ID, Google Workspace and any SAML or OIDC provider."
-            }
-          >
-            {gatewayUrl ? (
-              <Button
-                variant="outline"
-                nativeButton={false}
-                render={
-                  <a href={gatewayUrl} target="_blank" rel="noreferrer" />
-                }
-              >
-                Open Every App
-                <ExternalLink data-icon="inline-end" aria-hidden />
-              </Button>
-            ) : null}
-          </SettingsRow>
-        </SettingsCard>
-      </SettingsSection>
+    <SettingsPage title="SSO">
+      <SettingsCard>
+        <SettingsRow
+          label="Single sign-on"
+          description={
+            hosted
+              ? "Not available on the hosted gateway yet."
+              : "Your Every App gateway can sign people in through Cloudflare Access, with any SAML or OIDC provider."
+          }
+        >
+          {gatewayUrl ? (
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<a href={gatewayUrl} target="_blank" rel="noreferrer" />}
+            >
+              Open Every App
+              <ExternalLink data-icon="inline-end" aria-hidden />
+            </Button>
+          ) : null}
+        </SettingsRow>
+      </SettingsCard>
     </SettingsPage>
   );
 }
