@@ -111,7 +111,7 @@ export function CompanyPicker({
   );
 }
 
-/** The list's first item when a record may have no company: picking it clears the company. */
+/** First in the list when a record may have none: picking it clears it. */
 const NO_COMPANY: CompanyOption = {
   id: "",
   name: "No company",
