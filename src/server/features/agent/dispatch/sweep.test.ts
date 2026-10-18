@@ -205,7 +205,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await runEnrichmentSweep({ contextReady: ready })).toBe(1);
     });
 
-    it("fetches the favicon of each company with a domain and no icon, out of credits too, and tries it once a day", async () => {
+    it("fetches the favicon of each company with a domain and no icon, out of credits or with research held, and tries it once a day", async () => {
       await database.exec(
         `INSERT INTO company (id, organization_id, name, domain, icon_url) VALUES
            ('found', 'org_a', 'Found', 'found.icon.test', NULL),
@@ -225,6 +225,16 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         { id: "iconed", icon_url: "/api/images/org_a/i.png" },
         { id: "tried", icon_url: null },
       ]);
+
+      await database.exec(
+        `INSERT INTO company (id, organization_id, name, domain) VALUES ('held', 'org_a', 'Held', 'held.icon.test');
+         UPDATE workspace SET enrichment_swept_at = NULL;`,
+      );
+      await runEnrichmentSweep({ contextReady: ready, askedForOnly: true });
+      expect(
+        await database.rows(`SELECT icon_url FROM company WHERE id = 'held'`),
+      ).toEqual([{ icon_url: copyOf("held/icon") }]);
+      expect(await queued()).toEqual([]);
     });
 
     it("copies the logos and icons still at their source URL, and leaves our copies", async () => {

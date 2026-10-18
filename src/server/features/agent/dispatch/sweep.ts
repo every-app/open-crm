@@ -24,8 +24,9 @@ import { runLimited } from "./pool";
 // backfill did, whatever the organization's credits: the favicon of each
 // company with a domain and no icon (BackfillService.sweepFavicons), and a
 // copy in R2 of each logo or icon still at its source URL because its copy
-// failed (ImageMirrorService). The CRM's 25 of each a run; a company is tried
-// at most once a day.
+// failed (ImageMirrorService). The CRM's 25 of each a run, after the research
+// is queued and within a tick's share of fetches; a company is tried at most
+// once a day.
 //
 // Where the CRM saved a Context.dev key and queued the companies waiting on
 // it, the port reads the gateway's answer on every sweep: work that needs the
@@ -45,24 +46,33 @@ export async function runEnrichmentSweep(options: {
   credits?: CreditCheck;
   signal?: AbortSignal;
 }): Promise<number> {
-  const { everyMs, organizations } = DISPATCH.enrichment;
+  const { everyMs, organizations, pictures } = DISPATCH.enrichment;
   const due = await AgentSweepRepository.claimDue(organizations, everyMs);
   if (due.length === 0) return 0;
-  const contextReady = options.askedForOnly
-    ? false
-    : await options.contextReady();
+  if (!options.askedForOnly) {
+    const contextReady = await options.contextReady();
+    for (const organizationId of due) {
+      if (options.signal?.aborted) break;
+      try {
+        await sweepOrganization(organizationId, contextReady, options.credits);
+      } catch (error) {
+        console.error(
+          "[agent] enrichment sweep failed",
+          { organizationId },
+          error,
+        );
+      }
+    }
+  }
+  // The free passes go after: their fetches can't hold up the queueing, and
+  // the tick's share of them keeps it within the Worker's subrequests.
+  let room = pictures.perTick;
   for (const organizationId of due) {
-    if (options.signal?.aborted) break;
+    if (options.signal?.aborted || room <= 0) break;
     try {
-      await fetchPictures(organizationId, options.signal);
-      if (options.askedForOnly) continue;
-      await sweepOrganization(organizationId, contextReady, options.credits);
+      room -= await fetchPictures(organizationId, room, options.signal);
     } catch (error) {
-      console.error(
-        "[agent] enrichment sweep failed",
-        { organizationId },
-        error,
-      );
+      console.error("[agent] picture sweep failed", { organizationId }, error);
     }
   }
   return due.length;
@@ -72,18 +82,20 @@ type Done = { companyId: string; outcome: string };
 
 /**
  * The free passes over one organization: favicons for companies with a
- * domain and no icon, then copies of the pictures still at their source.
+ * domain and no icon, then copies of the pictures still at their source, at
+ * most `room` companies in all. How many companies it took.
  */
 async function fetchPictures(
   organizationId: string,
+  room: number,
   signal: AbortSignal | undefined,
-): Promise<void> {
+): Promise<number> {
   const { perRun, concurrency, retryMs } = DISPATCH.enrichment.pictures;
   const since = new Date(Date.now() - retryMs).toISOString();
   const withoutIcon = await AgentSweepRepository.companiesWithoutIcon(
     organizationId,
     since,
-    perRun,
+    Math.min(perRun, room),
   );
   const favicons: Done[] = [];
   await runLimited(
@@ -99,12 +111,13 @@ async function fetchPictures(
     signal,
   );
   await AgentSweepRepository.noteDone(organizationId, "favicon", favicons);
+  const left = room - withoutIcon.length;
   // Without picture storage there is nowhere to copy to.
-  if (!imageStorageReady()) return;
+  if (left <= 0 || !imageStorageReady()) return withoutIcon.length;
   const uncopied = await AgentSweepRepository.companiesWithUncopiedImages(
     organizationId,
     since,
-    perRun,
+    Math.min(perRun, left),
   );
   const copies: Done[] = [];
   await runLimited(
@@ -123,6 +136,7 @@ async function fetchPictures(
     signal,
   );
   await AgentSweepRepository.noteDone(organizationId, "image-copy", copies);
+  return withoutIcon.length + uncopied.length;
 }
 
 async function sweepOrganization(

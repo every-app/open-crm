@@ -43,9 +43,11 @@ export const DISPATCH = {
     failedRetryMs: DAY_MS,
     // The free passes the sweep does itself: favicons, and copies of
     // pictures still at their source. The CRM's 25 of each a run, a few at a
-    // time, and a company tried at most once a day, where the CRM tried the
-    // same 25 on every sweep.
-    pictures: { perRun: 25, concurrency: 5, retryMs: DAY_MS },
+    // time, at most `perTick` companies a tick across organizations (each a
+    // handful of fetches, so a tick stays within the Worker's subrequests),
+    // and a company tried at most once a day, where the CRM tried the same
+    // 25 on every sweep.
+    pictures: { perRun: 25, perTick: 50, concurrency: 5, retryMs: DAY_MS },
   },
 
   sweep: {
