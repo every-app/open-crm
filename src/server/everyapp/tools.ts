@@ -11,6 +11,7 @@ import { savedViewTools } from "@/server/everyapp/tools/savedViews";
 import { searchTools } from "@/server/everyapp/tools/search";
 import { slackTools } from "@/server/everyapp/tools/slack";
 import { suggestionTools } from "@/server/everyapp/tools/suggestions";
+import { teamAgentRunTools } from "@/server/everyapp/tools/teamAgentRuns";
 import { teamAgentTools } from "@/server/everyapp/tools/teamAgents";
 import { trackingTools } from "@/server/everyapp/tools/tracking";
 import { workspaceTools } from "@/server/everyapp/tools/workspace";
@@ -43,6 +44,7 @@ const tools = {
   ...bulkTools,
   ...savedViewTools,
   ...teamAgentTools,
+  ...teamAgentRunTools,
   ...slackTools,
 };
 

@@ -1,107 +1,21 @@
-import { env, waitUntil } from "cloudflare:workers";
 import { z } from "zod";
 import { crmTool, pageInput, pageOf } from "@/server/everyapp/crm-tool";
-import { pokeRuns } from "@/server/features/team-agents/runtime/poke";
-import { AgentRunService } from "@/server/features/team-agents/services/AgentRunService";
 import { TeamAgentService } from "@/server/features/team-agents/services/TeamAgentService";
-import {
-  RUN_STATUSES,
-  TEAM_AGENT_STATUSES,
-  TRIGGER_TYPES,
-} from "@/shared/team-agents";
+import { AppError } from "@/server/lib/errors";
+import { TEAM_AGENT_STATUSES, TRIGGER_TYPES } from "@/shared/team-agents";
 import { agentTransitionSchema } from "@/types/schemas/team-agents";
 
-// Team agents for AI clients: see them, their versions and runs; run, retry
-// and stop runs; pause, resume, archive, restore and delete them. Building
-// and deploying a version stays with people in the CRM: deploying is where a
-// person approves what a version may read and do.
+// Team agents for AI clients: see them, their versions, files and audit log;
+// rename, pause, resume, archive, restore and delete them (their runs are in
+// teamAgentRuns.ts). Building and deploying a version stays with people in the
+// CRM: deploying is where a person approves what a version may read and do.
 
-const agentId = z
+export const agentId = z
   .string()
   .min(1)
   .describe("The agent's id, from list_team_agents.");
 
-const runId = z
-  .string()
-  .min(1)
-  .describe("The run's id, from get_team_agent_runs.");
-
 const AGENTS_PAGE = 50;
-
-const errorOutput = z
-  .object({ code: z.string().nullable(), message: z.string().nullable() })
-  .nullable()
-  .describe("Why it failed or was stopped.");
-
-type RunDetail = Awaited<ReturnType<typeof AgentRunService.runDetail>>;
-
-function runSummary(run: RunDetail) {
-  return {
-    ...run,
-    trigger: run.triggerType,
-    version: run.versionNumber,
-    error:
-      run.errorCode || run.errorMessage
-        ? { code: run.errorCode, message: run.errorMessage }
-        : null,
-  };
-}
-
-const runOutput = z.object({
-  id: z.string(),
-  status: z.enum(RUN_STATUSES),
-  trigger: z.enum(TRIGGER_TYPES),
-  version: z.number(),
-  summary: z.string().nullable(),
-  noActionNeeded: z
-    .string()
-    .nullable()
-    .describe("Why none of its actions applied, when it said so."),
-  error: errorOutput,
-  initiatedBy: z.string().nullable().describe("Who ran it by hand."),
-  createdAt: z.string(),
-  startedAt: z.string().nullable(),
-  finishedAt: z.string().nullable(),
-  inputTokens: z.number().nullable(),
-  outputTokens: z.number().nullable(),
-  costUsd: z.number().nullable(),
-});
-
-const actionOutput = z.object({
-  type: z.string(),
-  summary: z.string(),
-  status: z.string(),
-  target: z
-    .object({
-      type: z.string().nullable(),
-      id: z.string().nullable(),
-      label: z.string().nullable(),
-    })
-    .describe("The record or channel it acted on."),
-  error: errorOutput,
-  completedAt: z.string().nullable(),
-});
-
-function action(row: RunDetail["actions"][number]) {
-  return {
-    ...row,
-    target: { type: row.targetType, id: row.targetId, label: row.targetLabel },
-    error:
-      row.errorCode || row.errorMessage
-        ? { code: row.errorCode, message: row.errorMessage }
-        : null,
-  };
-}
-
-const stepData = z
-  .object({ summary: z.string().optional(), toolName: z.string().optional() })
-  .catch({});
-
-/** What a step of a run says, as the run's drawer words it. */
-function stepText(data: unknown): string | null {
-  const { summary, toolName } = stepData.parse(data);
-  return summary?.trim() ? summary : (toolName ?? null);
-}
 
 const triggerOutput = z.object({
   type: z.enum(TRIGGER_TYPES),
@@ -135,7 +49,24 @@ const versionOutput = z
       .nullable()
       .describe("The records and captured sources it may read."),
     actions: z
-      .array(z.object({ type: z.string(), summary: z.string() }))
+      .array(
+        z.object({
+          type: z.string(),
+          summary: z.string(),
+          destination: z
+            .object({
+              kind: z.enum(["channel", "user"]),
+              id: z.string(),
+              label: z.string(),
+            })
+            .optional()
+            .describe("The one Slack channel or person it may post to."),
+          activityTypes: z
+            .array(z.enum(["NOTE", "TASK"]))
+            .optional()
+            .describe("What it may write on a record."),
+        }),
+      )
       .describe("What it may do."),
     access: z.array(z.string()),
   })
@@ -154,6 +85,19 @@ function version(summary: VersionSummary | null) {
     actions: manifest?.actions ?? [],
     access: manifest?.access ?? [],
   };
+}
+
+/** The version get_team_agent shows: the deployed one, else the one in review. */
+async function shownVersionId(
+  context: Parameters<typeof TeamAgentService.get>[0],
+  id: string,
+): Promise<string> {
+  const agent = await TeamAgentService.get(context, id);
+  const shown = agent.currentVersion ?? agent.reviewVersion;
+  if (!shown) {
+    throw new AppError("NOT_FOUND", "This agent has no saved version yet.");
+  }
+  return shown.id;
 }
 
 const statusOutput = z.object({
@@ -230,127 +174,87 @@ export const teamAgentTools = {
     },
   }),
 
-  get_team_agent_runs: crmTool({
+  list_team_agent_activity: crmTool({
     description:
-      "A team agent's latest runs: status, trigger, summary or failure, tokens and cost, and the actions each took. get_team_agent_run gives one run's steps.",
+      "A team agent's audit log, newest first: who deployed, paused, renamed or ran it and when, with what changed. 20 unless `limit` says (at most 100).",
     risk: "read",
     input: z
       .object({
         agentId,
-        limit: z.number().int().min(1).max(20).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
       })
       .strict(),
     output: z.object({
-      runs: z.array(
-        runOutput.extend({
-          actions: z.array(
-            z.object({
-              type: z.string(),
-              summary: z.string(),
-              status: z.string(),
-            }),
-          ),
+      events: z.array(
+        z.object({
+          type: z.string(),
+          summary: z.string(),
+          actor: z.object({
+            type: z.string().describe("USER, AGENT or SYSTEM."),
+            name: z.string().nullable(),
+          }),
+          version: z.number().nullable(),
+          before: z.unknown(),
+          after: z.unknown(),
+          at: z.string(),
         }),
       ),
     }),
     handler: async ({ agentId: id, limit }, context) => ({
-      runs: (await AgentRunService.history(context, id, limit ?? 10)).map(
-        runSummary,
-      ),
-    }),
-  }),
-
-  get_team_agent_run: crmTool({
-    description:
-      "One run of a team agent in full: its steps in order (the first 200), the actions it took or tried, and how it ended.",
-    risk: "read",
-    input: z.object({ agentId, runId }).strict(),
-    output: runOutput.extend({
-      steps: z.array(
-        z.object({
-          type: z.string(),
-          text: z.string().nullable(),
-          at: z.string(),
+      events: (await TeamAgentService.activity(context, id, limit ?? 20)).map(
+        (event) => ({
+          ...event,
+          actor: { type: event.actorType, name: event.actorName },
+          version: event.versionNumber,
+          at: event.emittedAt,
         }),
       ),
-      totalSteps: z.number(),
-      actions: z.array(actionOutput),
     }),
-    handler: async ({ agentId: id, runId: run }, context) => {
-      const detail = await AgentRunService.runDetail(context, id, run);
-      return {
-        ...runSummary(detail),
-        steps: detail.events.map((event) => ({
-          type: event.type,
-          text: stepText(event.data),
-          at: event.emittedAt,
-        })),
-        totalSteps: detail.totalEvents,
-        actions: detail.actions.map(action),
-      };
-    },
   }),
 
-  run_team_agent: crmTool({
+  get_team_agent_files: crmTool({
     description:
-      "Run a live team agent now, as Run now does: its deployed version, with what that version was approved to do. It costs the organization credits. Returns the run's id.",
-    risk: "write",
-    input: z.object({ agentId }).strict(),
-    output: z.object({ id: z.string() }),
-    handler: async ({ agentId: id }, context) => {
-      const run = await AgentRunService.runNow(context, {
-        agentId: id,
-        clientRequestId: crypto.randomUUID(),
-      });
-      pokeRuns(context.organizationId);
-      return run;
-    },
-  }),
-
-  retry_team_agent_run: crmTool({
-    description:
-      "Run an ended run again: the same version, trigger and input. The agent must be live and idle. It costs the organization credits. Returns the new run's id.",
-    risk: "write",
-    input: z.object({ agentId, runId }).strict(),
-    output: z.object({ id: z.string() }),
-    handler: async (input, context) => {
-      const run = await AgentRunService.retryRun(context, {
-        ...input,
-        clientRequestId: crypto.randomUUID(),
-      });
-      pokeRuns(context.organizationId);
-      return run;
-    },
-  }),
-
-  cancel_team_agent_run: crmTool({
-    description:
-      "Stop a queued or running run. What it already did stays done. The person who started it, the agent's creator, an owner or an admin may.",
-    risk: "write",
-    input: z.object({ agentId, runId }).strict(),
+      "A team agent version's files, exactly as saved: README.md, instructions.md (what it is told to do) and manifest.json (what it may read and do). The deployed version unless versionId names another, such as get_team_agent's reviewVersion.",
+    risk: "read",
+    input: z
+      .object({
+        agentId,
+        versionId: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("A version's id, from get_team_agent."),
+      })
+      .strict(),
     output: z.object({
-      cancelled: z.boolean().describe("False when it had already ended."),
+      versionId: z.string(),
+      files: z.array(z.object({ path: z.string(), content: z.string() })),
     }),
-    handler: async (input, context) => {
-      const result = await AgentRunService.cancelRun(context, input);
-      // The row stopped it; this only stops it spending. The Agents SDK that
-      // reaches its session loads only for this.
-      if (result.cancelled && result.sessionId) {
-        waitUntil(
-          import("@/server/features/team-agents/runtime/dispatch")
-            .then(({ stopRunSession }) =>
-              stopRunSession(env, context.organizationId, input.runId),
-            )
-            .catch((error: unknown) => {
-              console.warn(
-                "[team-agents] could not reach a stopped run",
-                error,
-              );
-            }),
-        );
-      }
-      return result;
+    handler: async ({ agentId: id, versionId }, context) => {
+      const shown = versionId ?? (await shownVersionId(context, id));
+      return TeamAgentService.files(context, id, shown);
     },
+  }),
+
+  rename_team_agent: crmTool({
+    description:
+      "Rename a team agent, or change its description (null clears it). Its creator, an owner or an admin may. Deploying a version later takes that version's name.",
+    risk: "write",
+    input: z
+      .object({
+        agentId,
+        name: z.string().trim().min(1).max(100),
+        description: z.string().trim().max(320).nullable().optional(),
+      })
+      .strict(),
+    output: z.object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string().nullable(),
+      status: z.enum(TEAM_AGENT_STATUSES),
+    }),
+    handler: ({ agentId: id, ...input }, context) =>
+      TeamAgentService.rename(context, id, input),
   }),
 
   change_team_agent_status: crmTool({
