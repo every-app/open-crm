@@ -5,12 +5,7 @@
 /** The tab's title on a page without a name of its own. */
 export const PRODUCT_NAME = "CRM";
 
-/** "Companies · CRM": a page's, or an open record's, title in the tab. */
-export function pageTitle(name: string): string {
-  return `${name} · ${PRODUCT_NAME}`;
-}
-
-/** A route's `head`: its page's title in the tab. */
+/** A route's `head`: its page's title in the tab, as "Companies · CRM". */
 export function pageHead(name: string) {
-  return { meta: [{ title: pageTitle(name) }] };
+  return { meta: [{ title: `${name} · ${PRODUCT_NAME}` }] };
 }

@@ -25,7 +25,6 @@ import {
   useRecordTab,
   type RecordTab,
 } from "@/client/features/records/recordStack";
-import { pageTitle } from "@/client/lib/page-title";
 import type { RecordRef } from "@/shared/records";
 
 // A record opens in a sheet over the page it was opened from
@@ -97,9 +96,6 @@ export function RecordSheetFrame({
   const [tab, setTab] = useRecordTab();
   return (
     <>
-      {/* While the sheet is open, the tab is titled after its record: React
-          puts this title ahead of the page's, and takes it out with the sheet. */}
-      {header ? <title>{pageTitle(header.title)}</title> : null}
       <div className="flex shrink-0 items-start gap-3 border-b border-border px-5 py-3">
         {stack.length > 1 ? (
           <Button
