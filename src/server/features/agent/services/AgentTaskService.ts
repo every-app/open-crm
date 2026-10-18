@@ -69,6 +69,20 @@ async function companyCreated(
   });
 }
 
+/**
+ * A person added a company, or gave one a new domain: as companyCreated, and
+ * its favicon at once, as the CRM fetched it then (companies.service.ts). The
+ * favicon is free, so it waits for neither the queue nor credits.
+ */
+async function companyAddedByPerson(
+  organizationId: string,
+  companyId: string,
+  reason?: string,
+): Promise<void> {
+  await companyCreated(organizationId, companyId, reason);
+  pokeDispatcher(organizationId, companyId);
+}
+
 /** A person asked to enrich a company now. True when anything was queued. */
 async function companyRequested(
   organizationId: string,
@@ -378,6 +392,7 @@ async function recordsImported(
 
 export const AgentTaskService = {
   companyCreated,
+  companyAddedByPerson,
   companyRequested,
   workspaceChanged,
   contactCreated,
