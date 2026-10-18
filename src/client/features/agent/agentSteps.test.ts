@@ -16,8 +16,7 @@ describe("describeStep", () => {
         },
       }),
     ).toEqual({
-      label:
-        "Checked a profile against the account itself — the profile lists another address",
+      label: "Checked a profile — the profile lists another address",
       tone: "warning",
       sources: [
         {

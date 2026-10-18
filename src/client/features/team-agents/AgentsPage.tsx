@@ -17,10 +17,7 @@ export function AgentsPage() {
   return (
     <div className="px-4 pt-6 pb-24 md:px-8 md:pt-8 md:pb-12">
       <div className="mx-auto max-w-5xl space-y-6">
-        <PageHeader
-          title="Team agents"
-          description="Durable automations created from private agent-builder chats."
-        />
+        <PageHeader title="Team agents" />
         <QueryState
           query={agents}
           errorFallback="The agents could not be loaded."
@@ -33,7 +30,6 @@ export function AgentsPage() {
                 variant="card"
                 size="lg"
                 title="No team agents yet"
-                description="Create one from a private chat, then review its access before deploying it."
                 action={
                   <Button
                     nativeButton={false}
@@ -65,9 +61,11 @@ export function AgentsPage() {
                           {STATUS_COPY[agent.status].label}
                         </Badge>
                       </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {agent.description ?? "No description"}
-                      </span>
+                      {agent.description ? (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {agent.description}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="hidden shrink-0 text-right text-xs text-muted-foreground sm:block">
                       {agent.trigger?.nextRunAt ? (
@@ -78,7 +76,7 @@ export function AgentsPage() {
                         (agent.trigger?.name ?? "Manual only")
                       )}
                       <span className="block font-mono">
-                        {agent.runCount} runs
+                        {agent.runCount} {agent.runCount === 1 ? "run" : "runs"}
                       </span>
                     </span>
                     <ArrowRight className="size-4 shrink-0 text-muted-foreground" />

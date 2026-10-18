@@ -19,16 +19,16 @@ export type Source = {
 export type Step = { label: string; tone: Tone; sources: Source[] };
 
 const VERBS: Record<string, string> = {
-  read_crm_history: "Read our emails and meetings with them",
-  read_company_history: "Read everything we have on the company",
-  read_deal_history: "Read the deal and where it has been",
-  search_crm: "Looked the record up in the CRM",
+  read_crm_history: "Read our emails and meetings",
+  read_company_history: "Read the company's history",
+  read_deal_history: "Read the deal's history",
+  search_crm: "Searched the CRM",
   resolve_linkedin_profile: "Searched for their LinkedIn profile",
   get_linkedin_profile: "Read a LinkedIn profile",
   get_contact_work_history: "Read their work history",
   fetch_contact_photo: "Fetched their profile picture",
   find_contact_socials: "Searched for their other profiles",
-  set_contact_socials: "Checked a profile against the account itself",
+  set_contact_socials: "Checked a profile",
   identify_contact: "Put a name to the address",
   record_fact: "Recorded what it found",
   write_brief: "Wrote the background",

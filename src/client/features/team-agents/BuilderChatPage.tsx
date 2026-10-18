@@ -65,9 +65,7 @@ export function BuilderChatPage({
           {working ? (
             <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
               <RefreshCw className="size-3.5 animate-spin text-primary" />
-              <span className="sr-only sm:not-sr-only">
-                Working in background
-              </span>
+              <span className="sr-only sm:not-sr-only">Working</span>
             </span>
           ) : null}
         </div>

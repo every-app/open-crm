@@ -16,13 +16,9 @@ import {
 import {
   CAPTURE_GRANTS,
   CAPTURE_KINDS,
-  captureGrants,
-  recordResources,
-  type AgentManifest,
   type CaptureKind,
   type RecordResource,
 } from "@/shared/team-agents";
-import { SaveFooter, useRevise } from "./agentEditing";
 import { builderResourcesQueryOptions } from "./teamAgentQueries";
 
 const KIND_LABELS = {
@@ -36,44 +32,32 @@ const CAPTURED_LABELS: Record<CaptureKind, string> = {
   calendar: "Captured meetings",
 };
 
-const recordKey = (record: { kind: string; id: string }) =>
+export const recordKey = (record: { kind: string; id: string }) =>
   `${record.kind}:${record.id}`;
 
 /**
  * What the deployed version reads (the CRM's "What it can see"): its records
- * and the captured email and meetings. Taking one away goes live at once;
- * adding one makes a version to review and deploy.
+ * and the captured email and meetings, as the page's unsaved changes have
+ * them.
  */
 export function AgentScope({
-  agentId,
-  manifest,
+  workspace,
+  records,
+  sources,
   canManage,
+  disabled,
+  onRecords,
+  onSources,
 }: {
-  agentId: string;
-  manifest: AgentManifest;
+  /** It reads every record in the workspace. */
+  workspace: boolean;
+  records: RecordResource[];
+  sources: CaptureKind[];
   canManage: boolean;
+  disabled: boolean;
+  onRecords: (records: RecordResource[]) => void;
+  onSources: (sources: CaptureKind[]) => void;
 }) {
-  const scope = recordResources(manifest.dataScope.resources);
-  const granted = captureGrants(manifest.dataScope.resources);
-  const [records, setRecords] = useState<RecordResource[] | null>(null);
-  const [sources, setSources] = useState<CaptureKind[] | null>(null);
-  const shownRecords = records ?? scope;
-  const shownSources = sources ?? CAPTURE_KINDS.filter((kind) => granted[kind]);
-  const reset = () => {
-    setRecords(null);
-    setSources(null);
-  };
-  const revise = useRevise(agentId, reset);
-  const workspace = manifest.dataScope.mode === "WORKSPACE";
-  const dirty = records !== null || sources !== null;
-  const had = new Set(scope.map(recordKey));
-  const widens =
-    shownRecords.some((record) => !had.has(recordKey(record))) ||
-    shownSources.some((kind) => !granted[kind]);
-  const blocked =
-    records !== null && !workspace && records.length === 0
-      ? "Add one record. An empty list opens every record in the workspace."
-      : null;
   const remove = (label: string, onClick: () => void) =>
     canManage ? (
       <Button
@@ -81,7 +65,7 @@ export function AgentScope({
         size="icon-sm"
         className="text-muted-foreground"
         aria-label={`Remove ${label}`}
-        disabled={revise.isPending}
+        disabled={disabled}
         onClick={onClick}
       >
         <X />
@@ -91,21 +75,20 @@ export function AgentScope({
   return (
     <SettingsSection
       title="What it can see"
-      description="What it reads to do its job."
       action={
         canManage ? (
           <RecordTypePicker
             workspace={workspace}
             taken={
               new Set([
-                ...shownRecords.map(recordKey),
-                ...shownSources.map(
+                ...records.map(recordKey),
+                ...sources.map(
                   (kind) => `integration:${CAPTURE_GRANTS[kind].resource.id}`,
                 ),
               ])
             }
-            onRecord={(record) => setRecords([...shownRecords, record])}
-            onSource={(kind) => setSources([...shownSources, kind])}
+            onRecord={(record) => onRecords([...records, record])}
+            onSource={(kind) => onSources([...sources, kind])}
           />
         ) : null
       }
@@ -114,59 +97,37 @@ export function AgentScope({
         {workspace ? (
           <SettingsRow label="Every record in the workspace" />
         ) : null}
-        {shownRecords.map((record) => (
+        {records.map((record) => (
           <SettingsRow
             key={recordKey(record)}
             label={record.label}
             description={KIND_LABELS[record.kind]}
           >
             {remove(record.label, () =>
-              setRecords(shownRecords.filter((entry) => entry !== record)),
+              onRecords(records.filter((entry) => entry !== record)),
             )}
           </SettingsRow>
         ))}
-        {shownSources.map((kind) => (
+        {sources.map((kind) => (
           <SettingsRow
             key={kind}
             label={CAPTURED_LABELS[kind]}
-            description={CAPTURE_GRANTS[kind].access}
+            description="On the records it can see"
           >
             {remove(CAPTURED_LABELS[kind], () =>
-              setSources(shownSources.filter((entry) => entry !== kind)),
+              onSources(sources.filter((entry) => entry !== kind)),
             )}
           </SettingsRow>
         ))}
-        {canManage ? (
-          <SaveFooter
-            note={
-              blocked ??
-              (widens
-                ? "Added access waits for review before it runs."
-                : dirty
-                  ? "The old version stays in the history."
-                  : null)
-            }
-            dirty={dirty}
-            blocked={blocked !== null}
-            pending={revise.isPending}
-            onDiscard={reset}
-            onSave={() =>
-              revise.mutate({
-                resources: records ?? undefined,
-                sources: sources ?? undefined,
-              })
-            }
-          />
-        ) : null}
       </SettingsCard>
     </SettingsSection>
   );
 }
 
 /**
- * The records it could read too, and the captured email and meetings (the
- * CRM's "Add a record type"). A workspace-wide agent already reads every
- * record.
+ * The records it could read too, and the captured email and meetings once
+ * someone has connected a mailbox or calendar (the CRM's "Add a record
+ * type"). A workspace-wide agent already reads every record.
  */
 function RecordTypePicker({
   workspace,
@@ -228,20 +189,18 @@ function RecordTypePicker({
                 key={recordKey(resource)}
                 variant="ghost"
                 className="h-auto flex-col items-start rounded-none px-3 py-2 text-left font-normal whitespace-normal"
-                disabled={resource.unavailable !== null}
                 onClick={() => pick(resource)}
               >
                 <span className="text-sm">
                   {kind ? CAPTURED_LABELS[kind] : resource.label}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {resource.unavailable ??
-                    (resource.kind === "integration"
-                      ? resource.detail
-                      : [KIND_LABELS[resource.kind], resource.detail]
-                          .filter(Boolean)
-                          .join(" · "))}
-                </span>
+                {resource.kind === "integration" ? null : (
+                  <span className="text-xs text-muted-foreground">
+                    {[KIND_LABELS[resource.kind], resource.detail]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                )}
               </Button>
             );
           })}

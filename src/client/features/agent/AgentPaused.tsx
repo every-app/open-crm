@@ -19,12 +19,14 @@ import { SETTINGS_BILLING_ROUTE } from "@/shared/billing";
 // What every screen showing the agent's progress says when the agent can't
 // run: the records it would research wait for its model to be set up on the
 // gateway, or for the workspace's credits, and nothing pretends to be
-// working on them.
+// working on them. Each says so in one line, with where it is fixed.
 
 const OUT_OF_CREDITS = "The workspace is out of credits.";
 
+const LINK = "whitespace-nowrap text-foreground underline underline-offset-4";
+
 /** What the agent has to work with; undefined until it has loaded. */
-export function useAgentAvailability(): AgentAvailability | undefined {
+function useAgentAvailability(): AgentAvailability | undefined {
   return useQuery(agentStatusQueryOptions()).data;
 }
 
@@ -34,37 +36,34 @@ export function useAgentPaused(): boolean {
   return availability ? modelBlocked(availability.model) : false;
 }
 
-/** Why the agent can't run, in a sentence. */
-export function agentPausedReason(availability: AgentAvailability): string {
-  if (availability.outOfCredits) return OUT_OF_CREDITS;
-  if (availability.model === "missing") {
-    return "This deployment has no way to reach a model: it isn't connected to an Every App gateway (in local development, set OPENROUTER_API_KEY in .dev.vars).";
-  }
-  return "Your Every App gateway holds no key for the agent's model (OPENROUTER_API_KEY).";
+/**
+ * The agent's model isn't set up, and who sets it up: Settings → General for
+ * an owner or admin, an owner or admin for everyone else.
+ */
+export function ModelNotSetUp() {
+  const canManage = useCanManageWorkspace();
+  return (
+    <>
+      The agent's model isn't set up.{" "}
+      {canManage ? (
+        <Link to="/settings" className={LINK}>
+          Set it up in Settings → General
+        </Link>
+      ) : (
+        "An owner or admin can set it up."
+      )}
+    </>
+  );
 }
 
-/**
- * Where the pause is lifted: Billing, when the workspace is out of credits;
- * else where an owner or admin sets the agent up, and nothing for anyone else.
- */
-export function AgentSetupLink({ className }: { className?: string }) {
-  const canManage = useCanManageWorkspace();
+/** Why the agent is paused, in one line: the credits, or its model. */
+export function PausedReason() {
   const outOfCredits = useAgentAvailability()?.outOfCredits;
-  if (outOfCredits) return <BillingLink className={className} />;
-  if (!canManage) {
-    return (
-      <span className={className}>
-        An owner or admin of the workspace can set it up.
-      </span>
-    );
-  }
+  if (!outOfCredits) return <ModelNotSetUp />;
   return (
-    <Link
-      to="/settings"
-      className={className ?? "text-foreground underline underline-offset-4"}
-    >
-      Set it up in Settings → General
-    </Link>
+    <>
+      {OUT_OF_CREDITS} <BillingLink />
+    </>
   );
 }
 
@@ -73,7 +72,6 @@ export function AgentSetupLink({ className }: { className?: string }) {
  * reason on hover or tap. Clicks stay here, so a list row doesn't open.
  */
 export function WaitingForSetup() {
-  const availability = useAgentAvailability();
   return (
     <Popover>
       <PopoverTrigger
@@ -95,11 +93,8 @@ export function WaitingForSetup() {
       >
         <PopoverTitle className="text-xs">The agent is paused</PopoverTitle>
         <p className="text-muted-foreground">
-          {availability
-            ? agentPausedReason(availability)
-            : "The agent's model isn't set up."}
+          <ModelNotSetUp />
         </p>
-        <AgentSetupLink className="text-foreground underline underline-offset-4" />
       </PopoverContent>
     </Popover>
   );
@@ -109,18 +104,14 @@ export function WaitingForSetup() {
 export function OutOfCredits() {
   return (
     <p className="text-xs text-muted-foreground">
-      {OUT_OF_CREDITS}{" "}
-      <BillingLink className="text-foreground underline underline-offset-4" />
+      {OUT_OF_CREDITS} <BillingLink />
     </p>
   );
 }
 
-function BillingLink({ className }: { className?: string }) {
+function BillingLink() {
   return (
-    <Link
-      to={SETTINGS_BILLING_ROUTE}
-      className={className ?? "text-foreground underline underline-offset-4"}
-    >
+    <Link to={SETTINGS_BILLING_ROUTE} className={LINK}>
       Go to Billing
     </Link>
   );

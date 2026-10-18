@@ -1,13 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { SettingsCardFooter } from "@/client/components/SettingsSection";
 import { Button } from "@/client/components/ui/button";
-import { reviseTeamAgent } from "@/serverFunctions/teamAgents";
-import type { CaptureKind, RecordResource } from "@/shared/team-agents";
-import { REVIEW_SAVED } from "./teamAgentCopy";
 import { teamAgentKeys } from "./teamAgentQueries";
 
-// What the agent page's cards share to save a change to the agent.
+// What the agent page shares to change the agent.
 
 /** A mutation on the agent that refreshes it, its list and the chats. */
 export function useAgentMutation<Input>(
@@ -29,63 +25,43 @@ export function useAgentMutation<Input>(
   });
 }
 
-type Change = {
-  actions?: string[];
-  channel?: { id: string; name: string };
-  resources?: RecordResource[];
-  sources?: CaptureKind[];
-};
-
-/** Saves one change to the deployed version's permissions. */
-export function useRevise(agentId: string, onSaved: () => void) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (change: Change) =>
-      reviseTeamAgent({
-        data: { agentId, clientRequestId: crypto.randomUUID(), ...change },
-      }),
-    onSuccess: async (result) => {
-      if (!result.saved) {
-        toast.error(result.issues.join(" "));
-        return;
-      }
-      onSaved();
-      toast.success(
-        result.review ? REVIEW_SAVED : "Saved. A new version is live.",
-      );
-      await queryClient.invalidateQueries({
-        queryKey: teamAgentKeys.agent(agentId),
-      });
-    },
-  });
-}
-
-/** A card's Save, disabled until something changes, and Discard. */
-export function SaveFooter({
+/**
+ * The page's one save bar (the CRM's SaveBar), shown once something changed:
+ * Discard and Save, and a note when the change has a consequence. It rides
+ * at the foot of the page while the page scrolls.
+ */
+export function SaveBar({
   note,
-  dirty,
-  blocked = false,
+  blocked,
   pending,
   onDiscard,
   onSave,
 }: {
   note: string | null;
-  dirty: boolean;
-  blocked?: boolean;
+  /** The change can't be saved as it stands; the note says why. */
+  blocked: boolean;
   pending: boolean;
   onDiscard: () => void;
   onSave: () => void;
 }) {
   return (
-    <SettingsCardFooter note={note}>
-      {dirty ? (
-        <Button variant="outline" disabled={pending} onClick={onDiscard}>
+    <div className="sticky bottom-4 z-10 mt-auto flex max-w-2xl animate-in items-center gap-4 self-center rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg duration-200 fade-in-0 slide-in-from-bottom-4">
+      {note ? (
+        <p className="min-w-0 pl-2 text-sm text-muted-foreground">{note}</p>
+      ) : null}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          onClick={onDiscard}
+        >
           Discard
         </Button>
-      ) : null}
-      <Button disabled={!dirty || blocked} pending={pending} onClick={onSave}>
-        Save
-      </Button>
-    </SettingsCardFooter>
+        <Button size="sm" disabled={blocked} pending={pending} onClick={onSave}>
+          Save
+        </Button>
+      </div>
+    </div>
   );
 }

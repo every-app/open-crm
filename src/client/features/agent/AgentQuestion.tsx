@@ -33,16 +33,9 @@ export function QuestionComposer({
 
   return (
     <form className={FRAME} onSubmit={submit}>
-      <div className="space-y-1">
-        <Markdown className="text-sm font-medium [overflow-wrap:anywhere]">
-          {question.prompt}
-        </Markdown>
-        <p className="text-xs text-muted-foreground">
-          {question.options.length > 0
-            ? "Choose an answer, then submit."
-            : "Add the detail the agent needs to continue."}
-        </p>
-      </div>
+      <Markdown className="text-sm font-medium [overflow-wrap:anywhere]">
+        {question.prompt}
+      </Markdown>
       {question.options.length > 0 ? (
         <RadioGroup
           value={choice}
@@ -80,7 +73,9 @@ export function QuestionComposer({
           setText(event.target.value);
           if (event.target.value) setChoice(null);
         }}
-        placeholder="Add the detail the agent needs"
+        placeholder={
+          question.options.length > 0 ? "Another answer" : "Your answer"
+        }
         aria-label={
           question.options.length > 0 ? "Another answer" : "Your answer"
         }
@@ -88,7 +83,7 @@ export function QuestionComposer({
       />
       <div className="flex justify-end">
         <Button type="submit" size="sm" pending={pending} disabled={!answer}>
-          Submit answer
+          Submit
         </Button>
       </div>
     </form>

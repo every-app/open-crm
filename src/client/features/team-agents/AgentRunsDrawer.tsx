@@ -18,7 +18,6 @@ import { Button } from "@/client/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/client/components/ui/sheet";
@@ -71,11 +70,8 @@ export function AgentRunsDrawer({
         side="right"
         className="flex flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"
       >
-        <SheetHeader className="gap-1 border-b border-border px-5 py-4">
+        <SheetHeader className="border-b border-border px-5 py-4">
           <SheetTitle>History</SheetTitle>
-          <SheetDescription>
-            Every run and every change, newest first.
-          </SheetDescription>
         </SheetHeader>
         {open ? <HistoryTabs agentId={agentId} /> : null}
       </SheetContent>
@@ -185,7 +181,7 @@ function Runs({ agentId }: { agentId: string }) {
                 icon={Play}
                 media={outcome ? "icon" : "rows"}
                 variant="plain"
-                title="No runs match this outcome."
+                title="No runs"
               />
             ) : null}
             {stopping ? (
@@ -197,9 +193,7 @@ function Runs({ agentId }: { agentId: string }) {
                 onConfirm={() => cancel.mutate(stopping)}
                 onClose={() => setStopping(null)}
               >
-                The agent stops where it is and the run is recorded as
-                cancelled. Anything it has already done — a note, a task, a
-                Slack message — stays done.
+                Anything it has already done stays done.
               </ConfirmDialog>
             ) : null}
           </div>
@@ -265,7 +259,7 @@ function RunCard({
               <span className="mt-1.5 flex items-start gap-2 rounded-md bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
                 <AlertTriangle className="mt-px size-3.5 shrink-0" />
                 <span className="[overflow-wrap:anywhere]">
-                  {run.errorMessage ?? "This run failed without saying why."}
+                  {run.errorMessage ?? "No reason given."}
                 </span>
               </span>
             ) : null}
@@ -398,8 +392,7 @@ function RunDetail({ run }: { run: Run }) {
       </ol>
       {run.totalEvents > run.events.length ? (
         <p className="border-t border-border px-4 py-2 text-xs text-warning">
-          Showing the first {run.events.length} of {run.totalEvents} steps. This
-          run is too long to display in full.
+          Showing the first {run.events.length} of {run.totalEvents} steps.
         </p>
       ) : null}
     </div>

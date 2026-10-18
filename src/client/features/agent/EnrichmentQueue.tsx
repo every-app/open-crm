@@ -19,11 +19,7 @@ import { RecordLink } from "@/client/features/records/RecordLink";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
 import type { getEnrichmentQueue } from "@/serverFunctions/agent";
 import { ENRICHMENT_PAGE, ENRICHMENT_PAGE_MAX } from "@/types/schemas/agent";
-import {
-  AgentSetupLink,
-  agentPausedReason,
-  useAgentAvailability,
-} from "./AgentPaused";
+import { PausedReason } from "./AgentPaused";
 import { enrichmentQueueQueryOptions } from "./agentQueries";
 import {
   dueLabel,
@@ -64,7 +60,6 @@ export function EnrichmentQueue() {
   const [limit, setLimit] = useState(ENRICHMENT_PAGE);
   const queue = useQuery(enrichmentQueueQueryOptions(limit));
 
-  const availability = useAgentAvailability();
   const rows = queue.data?.rows ?? [];
   const total = queue.data?.total ?? 0;
   const paused = queue.data?.paused ?? false;
@@ -126,14 +121,9 @@ export function EnrichmentQueue() {
           </span>
         </div>
         {paused ? (
-          <div className="space-y-1.5 border-b border-border px-4 py-3 text-xs">
-            <p className="text-muted-foreground">
-              {availability
-                ? agentPausedReason(availability)
-                : "The agent's model isn't set up."}
-            </p>
-            <AgentSetupLink className="text-foreground underline underline-offset-4" />
-          </div>
+          <p className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
+            <PausedReason />
+          </p>
         ) : null}
 
         {queue.isError && !queue.data ? (
@@ -147,15 +137,9 @@ export function EnrichmentQueue() {
             />
           </div>
         ) : visible.length === 0 ? (
-          <div className="flex flex-col gap-1 px-6 py-8 text-center">
-            <span className="text-sm font-medium">Nothing right now</span>
-            {paused ? null : (
-              <span className="text-xs text-muted-foreground">
-                New companies and contacts show up here while your agents look
-                them up.
-              </span>
-            )}
-          </div>
+          <p className="px-6 py-8 text-center text-sm font-medium">
+            Nothing right now
+          </p>
         ) : (
           // A row opens its record's sheet over the page: the queue closes.
           <ul
@@ -271,9 +255,7 @@ function Booked({
     <Collapsible className="border-t border-border">
       <CollapsibleTrigger className="group flex w-full cursor-pointer items-center justify-between px-4 py-3 text-xs outline-none hover:bg-muted focus-visible:bg-muted">
         <span className="text-muted-foreground">
-          {total === 1
-            ? "1 record is booked for a later look"
-            : `${total} records are booked for a later look`}
+          {total} booked for a later look
         </span>
         <span className="text-primary group-data-panel-open:hidden">Show</span>
         <span className="hidden text-primary group-data-panel-open:inline">
@@ -304,7 +286,7 @@ function Booked({
         </ul>
         {total > rows.length ? (
           <p className="px-4 py-3 text-xs text-muted-foreground">
-            {total - rows.length} more are booked but not listed here
+            {total - rows.length} more not listed
           </p>
         ) : null}
       </CollapsibleContent>

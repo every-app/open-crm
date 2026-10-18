@@ -192,7 +192,7 @@ export function DealListTable({ list }: { list: DealList }) {
                   colSpan={7}
                   className="h-24 text-center whitespace-normal text-muted-foreground"
                 >
-                  No deals met these pipeline filters.
+                  No matching deals
                 </TableCell>
               </TableRow>
             ) : (

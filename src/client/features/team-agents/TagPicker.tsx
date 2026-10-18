@@ -7,7 +7,6 @@ import {
   Mail,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "cn";
 import { Input } from "@/client/components/ui/input";
 import { InputGroupButton } from "@/client/components/ui/input-group";
 import {
@@ -65,9 +64,8 @@ function ResourcePicture({ resource }: { resource: Resource }) {
 }
 
 /**
- * Tag a record or integration: before anything is typed, the most recently
- * active records. Email and Calendar say why they can't be granted until
- * someone connects one.
+ * Tag a record or integration: the connected integrations, and before
+ * anything is typed, the most recently active records.
  */
 export function TagPicker({
   onPick,
@@ -118,7 +116,6 @@ export function TagPicker({
             <button
               key={`${resource.kind}:${resource.id}`}
               type="button"
-              disabled={resource.unavailable !== null}
               onClick={() => {
                 onPick({
                   kind: resource.kind,
@@ -128,19 +125,14 @@ export function TagPicker({
                 setOpen(false);
                 setQuery("");
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-60"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none hover:bg-muted focus-visible:bg-muted"
             >
               <ResourcePicture resource={resource} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm">{resource.label}</span>
-                {(resource.unavailable ?? resource.detail) ? (
-                  <span
-                    className={cn(
-                      "block text-xs text-muted-foreground",
-                      resource.kind !== "integration" && "truncate",
-                    )}
-                  >
-                    {resource.unavailable ?? resource.detail}
+                {resource.detail ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {resource.detail}
                   </span>
                 ) : null}
               </span>

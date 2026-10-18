@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // A person's builder chats as Chat's column lists them, and the records the
 // composer offers to tag, on both backends. A chat is working only while its
 // own agent says a turn is answering, whatever its timestamps suggest; the
-// tag picker starts from the most recently active records, and never shows
-// another organization's.
+// tag picker starts from the most recently active records, offers captured
+// email and meetings only once someone here has connected them, and never
+// shows another organization's.
 const { testDb, answering, asked } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -31,6 +32,7 @@ vi.mock("agents", () => ({
   }),
 }));
 
+import { SCOPE_FOR_SOURCE } from "@/shared/mailbox";
 import { BuilderService } from "./BuilderService";
 
 const owner = { organizationId: "org_a", userId: "user_a", role: "owner" };
@@ -82,6 +84,24 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
       expect(await records("")).toEqual(["Cobalt", "Acme", "Bolt"]);
       expect(await records("ac")).toEqual(["Acme"]);
+    });
+
+    it("offers Email and Calendar only once someone here has connected them", async () => {
+      const integrations = async () =>
+        (await BuilderService.searchResources(owner, ""))
+          .filter((resource) => resource.kind === "integration")
+          .map((resource) => resource.label);
+      await database.exec(`
+        INSERT INTO mailbox_connection (id, organization_id, user_id, provider, account_email, scopes) VALUES
+          ('theirs', 'org_b', 'user_b', 'google', 'b@example.com', '${SCOPE_FOR_SOURCE.gmail} ${SCOPE_FOR_SOURCE.calendar}');
+      `);
+      expect(await integrations()).toEqual([]);
+
+      await database.exec(`
+        INSERT INTO mailbox_connection (id, organization_id, user_id, provider, account_email, scopes) VALUES
+          ('ours', 'org_a', 'user_a', 'google', 'a@example.com', '${SCOPE_FOR_SOURCE.gmail}');
+      `);
+      expect(await integrations()).toEqual(["Email"]);
     });
   });
 }

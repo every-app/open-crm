@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { Archive, ArchiveRestore, MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsSection,
-} from "@/client/components/SettingsSection";
 import { Button } from "@/client/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/client/components/ui/dropdown-menu";
 import {
   changeTeamAgentStatus,
   deleteTeamAgent,
@@ -19,11 +22,11 @@ import { teamAgentKeys } from "./teamAgentQueries";
 
 type Agent = Awaited<ReturnType<typeof getTeamAgent>>;
 
-const DESTRUCTIVE_OUTLINE =
-  "text-destructive hover:bg-destructive/10 hover:text-destructive";
-
-/** Archiving, restoring and deleting the agent. */
-export function AgentDangerZone({ agent }: { agent: Agent }) {
+/**
+ * The agent's ⋯ menu (the CRM's "More agent actions"): archive it, restore an
+ * archived one, or delete it once confirmed.
+ */
+export function AgentActionsMenu({ agent }: { agent: Agent }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState(false);
@@ -42,51 +45,45 @@ export function AgentDangerZone({ agent }: { agent: Agent }) {
     },
   });
   const deployed = agent.status === "LIVE" || agent.status === "PAUSED";
+  const archived = agent.status === "ARCHIVED";
   return (
-    <SettingsSection title="Danger zone">
-      <SettingsCard>
-        {deployed ? (
-          <SettingsRow
-            label="Archive agent"
-            description="Its triggers don't run until it is restored."
-          >
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
             <Button
               variant="outline"
-              className={DESTRUCTIVE_OUTLINE}
+              size="icon"
+              aria-label="More agent actions"
               pending={transition.isPending}
-              onClick={() => transition.mutate("archive")}
-            >
-              Archive
-            </Button>
-          </SettingsRow>
-        ) : null}
-        {agent.status === "ARCHIVED" ? (
-          <SettingsRow
-            label="Restore agent"
-            description="Its triggers don't run. Restore it to pause it, then resume it to run again."
-          >
-            <Button
-              variant="outline"
-              pending={transition.isPending}
-              onClick={() => transition.mutate("restore")}
-            >
-              Restore
-            </Button>
-          </SettingsRow>
-        ) : null}
-        <SettingsRow
-          label="Delete agent"
-          description="Its run and action history stays in the audit log."
+            />
+          }
         >
-          <Button
-            variant="outline"
-            className={DESTRUCTIVE_OUTLINE}
+          {transition.isPending ? null : <MoreHorizontal />}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-44">
+          {deployed ? (
+            <DropdownMenuItem onClick={() => transition.mutate("archive")}>
+              <Archive />
+              Archive agent
+            </DropdownMenuItem>
+          ) : null}
+          {archived ? (
+            <DropdownMenuItem onClick={() => transition.mutate("restore")}>
+              <ArchiveRestore />
+              Restore agent
+            </DropdownMenuItem>
+          ) : null}
+          {deployed || archived ? <DropdownMenuSeparator /> : null}
+          <DropdownMenuItem
+            variant="destructive"
             onClick={() => setDeleting(true)}
           >
+            <Trash2 />
             Delete agent
-          </Button>
-        </SettingsRow>
-      </SettingsCard>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {deleting ? (
         <ConfirmDialog
           title={`Delete ${agent.name}?`}
@@ -96,11 +93,9 @@ export function AgentDangerZone({ agent }: { agent: Agent }) {
           onConfirm={() => remove.mutate()}
           onClose={() => setDeleting(false)}
         >
-          This removes it from the team agent list, disables its triggers, and
-          cancels queued runs. Its run and action history stays in the audit
-          log. A run already in progress may finish.
+          This disables its triggers and cancels queued runs.
         </ConfirmDialog>
       ) : null}
-    </SettingsSection>
+    </>
   );
 }

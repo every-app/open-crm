@@ -58,15 +58,9 @@ export function BuilderHome() {
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 pt-14 pb-20 sm:px-6 sm:pt-12 sm:pb-28">
-      <div className="flex w-full max-w-3xl flex-col items-center gap-3 pb-6 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-          What can I help with?
-        </h1>
-        <p className="max-w-xl text-sm text-balance text-muted-foreground">
-          Ask about your CRM, tag a record or integration, or describe an agent
-          to build to automate a task.
-        </p>
-      </div>
+      <h1 className="w-full max-w-3xl pb-6 text-center text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+        What can I help with?
+      </h1>
       <div className="w-full max-w-3xl">
         <BuilderComposer
           key={suggestion ?? ""}
@@ -81,11 +75,7 @@ export function BuilderHome() {
             <AgentUnavailable />
           </div>
         )}
-        <p className="flex min-h-8 items-center py-1 text-xs text-muted-foreground">
-          Chats and agent drafts stay private to you. Deploying an agent makes
-          it available to the whole team.
-        </p>
-        <div className="pt-1">
+        <div className="pt-4">
           <p className="flex h-7 items-center text-xs text-muted-foreground">
             Suggested agents
           </p>

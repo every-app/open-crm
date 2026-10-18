@@ -49,7 +49,7 @@ export function RecordAgentPanel({ record }: { record: RecordRef }) {
       <div className="p-5">
         <QueryError
           error={conversations.error}
-          fallback="Your conversations about this record could not be loaded."
+          fallback="Conversations could not be loaded."
           onRetry={() => void conversations.refetch()}
           isRetrying={conversations.isFetching}
         />
@@ -237,7 +237,7 @@ function ConversationPicker({
         {unread ? (
           <span
             className="size-1.5 shrink-0 rounded-full bg-primary"
-            title="A reply you haven't read"
+            title="Unread"
           />
         ) : null}
         <ChevronDown data-icon="inline-end" />

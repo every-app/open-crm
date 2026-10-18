@@ -187,7 +187,7 @@ export function BuilderThread({
       {connectionError ? (
         <ErrorState
           variant="inline"
-          message="Lost the connection to the builder."
+          message="Connection lost."
           action={
             <Button
               variant="outline"

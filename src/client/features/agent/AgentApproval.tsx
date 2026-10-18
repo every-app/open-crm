@@ -156,7 +156,7 @@ function ArchiveFieldRequest({
   return (
     <Request
       title={`Archive the “${label}” field on ${ENTITY_NOUNS[entity].many}?`}
-      detail="Hidden everywhere. Its values are kept."
+      detail="Its values are kept."
     />
   );
 }
@@ -172,7 +172,7 @@ function ManageFieldRequest({
   const fields = useQuery(fieldsQueryOptions(entity, true));
   const brief = agentBrief?.trim()
     ? `What the agent will look for: ${agentBrief.trim()}`
-    : "The agent will work from the label and type alone.";
+    : undefined;
   if (action === "create") {
     const kind = type ? ` (${type.toLowerCase().replaceAll("_", " ")})` : "";
     return (

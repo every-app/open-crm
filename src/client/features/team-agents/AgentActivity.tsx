@@ -120,12 +120,12 @@ export function AgentActivity({ agentId }: { agentId: string }) {
                 icon={History}
                 media={kind ? "icon" : "rows"}
                 variant="plain"
-                title="No changes match this filter."
+                title="No changes"
               />
             ) : (
               <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
                 <div className="hidden h-9 items-center border-b border-border px-4 text-xs text-muted-foreground sm:flex">
-                  <span className="w-40 shrink-0">Time</span>
+                  <span className="w-44 shrink-0">Time</span>
                   <span className="min-w-0 flex-1">Change</span>
                   <span className="w-28 shrink-0">Actor</span>
                   <span className="w-24 shrink-0 text-right">Request</span>
@@ -148,7 +148,7 @@ function ActivityRow({ event }: { event: AuditEvent }) {
   const detail = changeDetail(event);
   return (
     <li className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:gap-0">
-      <span className="shrink-0 font-mono text-xs text-muted-foreground sm:w-40 sm:pt-0.5">
+      <span className="shrink-0 font-mono text-xs text-muted-foreground sm:w-44 sm:pt-0.5">
         <LocalDateTime date={event.emittedAt} />
       </span>
       <span className="min-w-0 flex-1 sm:pr-3">

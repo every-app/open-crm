@@ -25,9 +25,9 @@ import {
   runTeamAgent,
   type getTeamAgent,
 } from "@/serverFunctions/teamAgents";
+import { AgentActionsMenu } from "./AgentActionsMenu";
 import { AgentCapabilities } from "./AgentCapabilities";
 import { AgentCode } from "./AgentCode";
-import { AgentDangerZone } from "./AgentDangerZone";
 import { AgentRunsDrawer } from "./AgentRunsDrawer";
 import { useAgentMutation } from "./agentEditing";
 import { ManifestReview } from "./ManifestReview";
@@ -41,9 +41,10 @@ const TRIGGER_ORDER = ["SCHEDULE", "EVENT", "MANUAL"] as const;
 
 /**
  * A team agent (the CRM's team agent detail): what triggers it, the version
- * waiting for review with its exact files, the deployed version's
- * permissions and code, which its creator or an admin can change, and a
- * danger zone. Runs and every change are in the history drawer.
+ * waiting for review with its exact files, and the deployed version's
+ * permissions and code, which its creator or an admin can change. Archiving
+ * and deleting are in its ⋯ menu; runs and every change are in the history
+ * drawer.
  */
 export function AgentDetailPage({ agentId }: { agentId: string }) {
   const query = useQuery(teamAgentQueryOptions(agentId));
@@ -67,6 +68,8 @@ export function AgentDetailPage({ agentId }: { agentId: string }) {
 
 function LoadedAgent({ agent }: { agent: Agent }) {
   const [runsOpen, setRunsOpen] = useState(false);
+  // Saving or discarding the page's changes starts its editor afresh.
+  const [resets, setResets] = useState(0);
   const review = agent.reviewVersion;
   const current = agent.currentVersion;
   const isDraft = agent.status === "DRAFT";
@@ -77,11 +80,11 @@ function LoadedAgent({ agent }: { agent: Agent }) {
       runTeamAgent({
         data: { agentId: agent.id, clientRequestId: crypto.randomUUID() },
       }),
-    "Agent run queued.",
+    "Run queued.",
   );
   const transition = useAgentMutation(
     agent.id,
-    (action: "pause" | "resume" | "archive" | "restore") =>
+    (action: "pause" | "resume") =>
       changeTeamAgentStatus({ data: { agentId: agent.id, action } }),
     "Saved.",
   );
@@ -103,8 +106,10 @@ function LoadedAgent({ agent }: { agent: Agent }) {
       enabled.some((trigger) => trigger.type !== "EVENT"));
 
   return (
-    <div className="px-4 pt-6 pb-24 md:px-8 md:pt-8 md:pb-12">
-      <div className="mx-auto max-w-4xl space-y-10">
+    // The page fills the column, so its save bar sits at the foot of a short
+    // page too.
+    <div className="flex min-h-full flex-col px-4 pt-6 pb-24 md:px-8 md:pt-8 md:pb-12">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10">
         <PageHeader
           title={
             <span className="flex flex-wrap items-center gap-2">
@@ -116,9 +121,9 @@ function LoadedAgent({ agent }: { agent: Agent }) {
           }
           description={
             <>
-              <span className="block">
-                {agent.description ?? "A durable team automation."}
-              </span>
+              {agent.description ? (
+                <span className="block">{agent.description}</span>
+              ) : null}
               <span className="mt-1 block text-xs">
                 Created by {agent.createdBy} · Version{" "}
                 {current?.number ?? review?.number ?? "—"}
@@ -181,6 +186,7 @@ function LoadedAgent({ agent }: { agent: Agent }) {
                   Resume
                 </Button>
               ) : null}
+              {agent.canManage ? <AgentActionsMenu agent={agent} /> : null}
             </>
           }
         />
@@ -229,24 +235,14 @@ function LoadedAgent({ agent }: { agent: Agent }) {
         ) : null}
 
         {current?.readable ? (
-          <>
-            <AgentCapabilities
-              key={current.id}
-              agentId={agent.id}
-              manifest={current.manifest}
-              canManage={agent.canManage}
-            />
-            <SettingsSection
-              title="Code"
-              description="What the agent actually runs."
-            >
-              <AgentCode
-                agentId={agent.id}
-                versionId={current.id}
-                editable={agent.canManage}
-              />
-            </SettingsSection>
-          </>
+          <AgentCapabilities
+            key={`${current.id}:${resets}`}
+            agentId={agent.id}
+            versionId={current.id}
+            manifest={current.manifest}
+            canManage={agent.canManage}
+            onReset={() => setResets((count) => count + 1)}
+          />
         ) : current ? (
           <Alert variant="destructive">
             <AlertTitle>This version's manifest cannot be read</AlertTitle>
@@ -254,11 +250,9 @@ function LoadedAgent({ agent }: { agent: Agent }) {
           </Alert>
         ) : !review ? (
           <p className="text-sm text-muted-foreground">
-            This agent has no deployed version yet.
+            No deployed version yet.
           </p>
         ) : null}
-
-        {agent.canManage ? <AgentDangerZone agent={agent} /> : null}
       </div>
 
       <AgentRunsDrawer
@@ -288,16 +282,11 @@ function ReviewSection({
           clientRequestId: crypto.randomUUID(),
         },
       }),
-    "Agent deployed to the team.",
+    "Deployed.",
   );
   return (
     <SettingsSection
-      title={`Version ${review.number} is waiting for review`}
-      description={
-        agent.status === "DRAFT"
-          ? "This is a draft. Deploy it to the team before you change what it can do."
-          : undefined
-      }
+      title={`Version ${review.number} waits for review`}
       action={
         agent.canManage ? (
           <Button
@@ -320,7 +309,7 @@ function ReviewSection({
             <AlertDescription>{review.problem}</AlertDescription>
           </Alert>
         )}
-        <AgentCode agentId={agent.id} versionId={review.id} editable={false} />
+        <AgentCode agentId={agent.id} versionId={review.id} />
       </div>
     </SettingsSection>
   );
