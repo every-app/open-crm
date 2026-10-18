@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { fullName } from "@/client/features/companies/companyFormat";
 import { StageStepper } from "@/client/features/deals/DealStage";
 import {
   closeDay,
@@ -25,7 +26,9 @@ import {
   LocalDateTime,
   LocalDay,
 } from "@/client/features/records/LocalDateTime";
+import { RecordLink } from "@/client/features/records/RecordLink";
 import { SheetSection } from "@/client/features/records/RecordSheet";
+import { EmptyValue } from "@/client/features/records/cells";
 import { useOwnerOptions } from "@/client/features/records/owners";
 import { CURRENCIES, normalizeCurrency } from "@/shared/currency";
 import { UNASSIGNED } from "@/types/schemas/records";
@@ -48,8 +51,8 @@ function currencyItems(currency: string) {
 }
 
 /**
- * A deal's Overview tab: its stage, details and description. The people on
- * it have a tab of their own.
+ * A deal's Overview tab: its stage and who is on it, its details and its
+ * description. The people on it are managed on their own tab.
  */
 export function DealOverview({
   deal,
@@ -83,6 +86,9 @@ export function DealOverview({
               <span className="whitespace-pre-wrap">{deal.closedReason}</span>
             </Property>
           ) : null}
+          <Property label="On it">
+            <OnIt contacts={deal.contacts} />
+          </Property>
         </dl>
       </SheetSection>
 
@@ -161,6 +167,29 @@ export function DealOverview({
         />
       </SheetSection>
     </div>
+  );
+}
+
+/** The people on the deal, each with their role (or else their title). */
+function OnIt({ contacts }: { contacts: Deal["contacts"] }) {
+  if (contacts.length === 0) return <EmptyValue />;
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+      {contacts.map((contact) => {
+        const aside = contact.role ?? contact.title;
+        return (
+          <RecordLink
+            key={contact.id}
+            record={{ kind: "contact", id: contact.id }}
+          >
+            {fullName(contact)}
+            {aside ? (
+              <span className="text-muted-foreground"> ({aside})</span>
+            ) : null}
+          </RecordLink>
+        );
+      })}
+    </span>
   );
 }
 
