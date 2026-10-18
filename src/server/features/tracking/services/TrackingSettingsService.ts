@@ -8,7 +8,6 @@ import {
   gtmSnippet,
   gtmTag,
   hostAllowed,
-  loaderUrl,
   MAX_VERIFY_BYTES,
   mintSiteId,
   normalizeHost,
@@ -54,7 +53,6 @@ async function getSettings(organizationId: string, appOrigin: string) {
   return {
     siteId,
     ready,
-    scriptUrl: loaderUrl(appOrigin),
     snippet: siteId ? trackingSnippet(appOrigin, siteId) : null,
     tagManagerSnippet: siteId ? gtmSnippet(appOrigin, siteId) : null,
     crossDomain: site.crossDomain,

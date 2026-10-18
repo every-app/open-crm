@@ -101,7 +101,7 @@ export function trackingReady(
   return !limitToDomains || domainCount > 0;
 }
 
-export function loaderUrl(appOrigin: string): string {
+function loaderUrl(appOrigin: string): string {
   return `${appOrigin.replace(/\/+$/, "")}/t/crm.js`;
 }
 
