@@ -1,4 +1,13 @@
-import type { StopCondition, ToolSet, UIMessage } from "ai";
+import type {
+  FilePart,
+  ModelMessage,
+  StopCondition,
+  ToolSet,
+  UIMessage,
+  UserModelMessage,
+} from "ai";
+import { env } from "cloudflare:workers";
+import { reverse } from "remeda";
 import { z } from "zod";
 import {
   RUNTIME_INSTRUCTIONS,
@@ -14,6 +23,7 @@ import { scopeTools } from "@/server/features/agent/tools/registry";
 import { builderCommandType } from "@/shared/builder-command";
 import { agentManifest } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
+import { BuilderRepository } from "../repositories/BuilderRepository";
 import { builderTools } from "./builderTools";
 import {
   approvedInstructions,
@@ -121,12 +131,140 @@ function textOf(message: UIMessage): string {
     .join("\n");
 }
 
+// What the person sends reaches the model as the CRM's builder delivers a
+// submission (custom-agent-dispatch.ts, builderDeliveryMessage): the labels
+// of the records and integrations they tagged on a line before their text,
+// and the files they attached as file parts. The files here are the images
+// and PDFs, which the model reads itself (OpenRouter hands a PDF to a model
+// that reads PDFs, and parses it first for one that doesn't); read_attachment
+// reads a text file. Think stores the messages without either, so each turn
+// adds them to the model messages Think assembled: files only from the
+// messages Think replays in full (it hides older media from the model), and
+// at most one message's worth, newest first.
+
+/** The transcript's tail Think replays in full (truncateOlderMessages). */
+const RECENT_MESSAGES = 4;
+/** The most file bytes a turn sends: one message's most, five files of 2 MB. */
+const FILE_BUDGET_BYTES = 5 * 2_000_000;
+const FILE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+]);
+
+/** One of the person's messages: its id, and what it tagged and attached. */
+type PersonMessage = { id: string } & Required<z.infer<typeof messageExtras>>;
+
+/** The file parts of the recent messages' images and PDFs, by message. */
+async function attachedFiles(
+  session: ChatSession,
+  recent: readonly PersonMessage[],
+): Promise<Map<string, FilePart[]>> {
+  const wanted = reverse(recent).flatMap((message) =>
+    message.attachments.map((file) => ({
+      messageId: message.id,
+      id: file.id,
+    })),
+  );
+  const files = new Map<string, FilePart[]>();
+  if (wanted.length === 0) return files;
+  const rows = new Map(
+    (
+      await BuilderRepository.listAttachments(
+        session.organizationId,
+        session.conversation.id,
+      )
+    ).map((row) => [row.id, row]),
+  );
+  let room = FILE_BUDGET_BYTES;
+  const chosen = wanted.flatMap(({ messageId, id }) => {
+    const row = rows.get(id);
+    if (!row || !FILE_TYPES.has(row.mediaType.toLowerCase())) return [];
+    if (row.size > room) return [];
+    room -= row.size;
+    return [{ messageId, row }];
+  });
+  const loaded = await Promise.all(
+    chosen.map(async ({ messageId, row }) => {
+      const object = await env.R2.get(row.storageKey);
+      if (!object) return null;
+      const part: FilePart = {
+        type: "file",
+        data: new Uint8Array(await object.arrayBuffer()),
+        mediaType: row.mediaType,
+        filename: row.name,
+      };
+      return { messageId, part };
+    }),
+  );
+  for (const found of loaded) {
+    if (!found) continue;
+    files.set(found.messageId, [
+      ...(files.get(found.messageId) ?? []),
+      found.part,
+    ]);
+  }
+  return files;
+}
+
+/**
+ * Think's model messages for the turn with the person's tags and files
+ * added. Think turns each of the person's messages into one user message, in
+ * order, so they pair up from the end.
+ */
+async function withTagsAndFiles(
+  session: ChatSession,
+  transcript: readonly UIMessage[],
+  people: readonly PersonMessage[],
+  assembled: ModelMessage[],
+): Promise<ModelMessage[]> {
+  const recentIds = new Set(
+    transcript.slice(-RECENT_MESSAGES).map((message) => message.id),
+  );
+  const files = await attachedFiles(
+    session,
+    people.filter((person) => recentIds.has(person.id)),
+  );
+  let index =
+    people.length -
+    assembled.filter((message) => message.role === "user").length;
+  return assembled.map((message): ModelMessage => {
+    if (message.role !== "user") return message;
+    const person = people[index];
+    index += 1;
+    if (!person) return message;
+    const labels = person.resources
+      .map((resource) => resource.label.trim())
+      .filter(Boolean);
+    const attached = files.get(person.id) ?? [];
+    if (labels.length === 0 && attached.length === 0) return message;
+    const parts: Exclude<UserModelMessage["content"], string> =
+      typeof message.content === "string"
+        ? [{ type: "text", text: message.content }]
+        : message.content;
+    // The CRM's line before the person's text: `Tagged resources: Acme, Slack`.
+    const line = `Tagged resources: ${labels.join(", ")}`;
+    const [first, ...rest] = parts;
+    const tagged =
+      labels.length === 0
+        ? parts
+        : first?.type === "text"
+          ? [{ ...first, text: `${line}\n\n${first.text}` }, ...rest]
+          : [{ type: "text" as const, text: line }, ...parts];
+    return { ...message, content: [...tagged, ...attached] };
+  });
+}
+
 /**
  * A builder chat's turn: a question, or (when the person's latest message
  * asks for an agent, builder-command.ts) a build. The records the person
  * tagged and the files they attached ride on their messages' metadata; the
  * tools re-check every tagged record against the organization before
  * anything is saved. A question's research draws on the turn's budget.
+ * `messages` gives the model what the person tagged and attached, from the
+ * model messages Think assembled for the turn (TurnContext.messages).
  */
 export function prepareBuilderTurn(
   session: ChatSession,
@@ -136,14 +274,21 @@ export function prepareBuilderTurn(
     spend: Spend;
     sink: SpendSink;
   },
-): { system: string; tools: ToolSet } {
+): {
+  system: string;
+  tools: ToolSet;
+  messages: (assembled: ModelMessage[]) => Promise<ModelMessage[]>;
+} {
   const userMessages = input.messages.filter(
     (message) => message.role === "user",
   );
-  const extras = userMessages.map((message) =>
-    messageExtras.parse(message.metadata),
-  );
-  const resources = extras.flatMap((extra) => extra.resources ?? []);
+  const people: PersonMessage[] = userMessages.map((message) => {
+    const { resources = [], attachments = [] } = messageExtras.parse(
+      message.metadata,
+    );
+    return { id: message.id, resources, attachments };
+  });
+  const resources = people.flatMap((person) => person.resources);
   const tagged = resources.flatMap((resource) =>
     resource.kind === "integration"
       ? []
@@ -152,7 +297,7 @@ export function prepareBuilderTurn(
   const taggedIntegrations = resources.flatMap((resource) =>
     resource.kind === "integration" ? [resource.id] : [],
   );
-  const attachments = extras.flatMap((extra) => extra.attachments ?? []);
+  const attachments = people.flatMap((person) => person.attachments);
   const last = userMessages.at(-1);
   const creating = last
     ? builderCommandType(textOf(last)) === "CREATE_AGENT"
@@ -192,5 +337,10 @@ export function prepareBuilderTurn(
     }),
     input.sink,
   );
-  return { system, tools };
+  return {
+    system,
+    tools,
+    messages: (assembled) =>
+      withTagsAndFiles(session, input.messages, people, assembled),
+  };
 }
