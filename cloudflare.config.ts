@@ -21,6 +21,10 @@ const CRM_SECRETS = [
   // use is local: `DEPLOYMENT_TIER=fork` in .dev.vars shows a fork's setup
   // commands, since `everyapp dev` pins no organization.
   "DEPLOYMENT_TIER",
+  // First party only: `off` holds the unattended work every organization's
+  // agent would spend on (the enrichment sweep, scheduled research, team
+  // agents' schedules and events) at once (src/server/lib/deployment-tier.ts).
+  "FIRST_PARTY_SCHEDULED_RESEARCH",
   // First party only: Autumn, which bills the hosted CRM's usage on
   // OpenSEO's account (src/server/billing, docs/maintainers/billing.md).
   // This breaks "keys live in the gateway" on purpose, until the gateway's

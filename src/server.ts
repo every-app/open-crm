@@ -2,7 +2,7 @@ import {
   createStartHandler,
   defaultStreamHandler,
 } from "@tanstack/react-start/server";
-import { everyApp } from "@every-app/sdk/server";
+import { everyApp, type EveryAppUser } from "@every-app/sdk/server";
 import { withPgClient } from "@/db";
 import { runCron } from "@/server/cron";
 import { withoutCookies } from "@/server/everyapp/cookies";
@@ -56,6 +56,7 @@ async function appFetch(request: Request): Promise<Response> {
 function routeAppRequest(
   request: Request,
   env: Env,
+  user: EveryAppUser,
 ): Response | Promise<Response> {
   const pathname = new URL(request.url).pathname;
   // The agent's chats (WebSocket and history) and its Durable Objects. Only
@@ -64,7 +65,7 @@ function routeAppRequest(
     return routeAgentRequests(request, env);
   }
   // The dispatcher's health check, for an owner or admin.
-  if (pathname === DISPATCH_HEALTH_PATH && user) {
+  if (pathname === DISPATCH_HEALTH_PATH) {
     return serveDispatchHealth(user);
   }
   // Logos and photographs the agent copied into R2.
@@ -84,7 +85,8 @@ function routeAppRequest(
 
 // The CRM is private behind an Every App gateway, which signs the person's
 // identity onto every request it forwards, or its public marker onto the
-// website tracking routes. Fail closed on anything else before routing. Gateway calls made while serving the request forward its identity
+// website tracking routes. Fail closed on anything else before routing.
+// Gateway calls made while serving the request forward its identity
 // (gateway-attribution.ts). The gateway's MCP tool calls
 // (`/__everyapp/tools/*`, the CRM's API: docs/maintainers/mcp.md) load the
 // tools on first use only.
@@ -110,7 +112,7 @@ async function handleRequest(
       if (new URL(verified.url).pathname === HEALTH_PATH) return serveHealth();
       if (!user) return new Response("Not found", { status: 404 });
       return serveEveryAppRequest(verified, user, () =>
-        routeAppRequest(verified, env),
+        routeAppRequest(verified, env, user),
       );
     }).fetch(request, env, ctx),
   );
