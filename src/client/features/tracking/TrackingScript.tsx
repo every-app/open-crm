@@ -61,7 +61,6 @@ export function TrackingScript({
           Tracking script
         </TitleWithStatus>
       }
-      description="In the head of every page you measure."
     >
       <SettingsCard>
         <Accordion defaultValue={["html"]}>
