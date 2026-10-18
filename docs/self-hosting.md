@@ -89,7 +89,7 @@ An owner or admin then connects the workspace's Slack from Settings → Connecti
 
 ## What works without keys
 
-The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking & Analytics), and the REST API (Settings → API Keys). Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
+The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking & Analytics), and the MCP tools AI clients use, at `https://<crm host>/mcp` and on your gateway's `/mcp`. Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
 
 Without a model key, the research agent pauses. Records it would research say "Waiting for setup", and the agent button on Overview says "Agent paused". Settings → General shows which key is missing and, on your own gateway, the command that sets it; owners and admins also see it as a step in Overview's Get started card. Nothing is lost while it waits: the agent does the work once the key is set.
 

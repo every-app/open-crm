@@ -7,7 +7,7 @@ The CRM runs only behind an [Every App](https://everyapp.com) gateway. The gatew
 | Sign-in, sign-out, who may open the CRM  | The gateway's users, organizations, roles and per-app access                                                                                |
 | People and the workspace                 | Gateway `sub` → `user` row; the organization and role come from the signed identity on every request                                        |
 | Teams, invitations, roles                | The gateway's; the CRM's Members tab only mirrors who has opened it                                                                         |
-| MCP                                      | The gateway's one MCP connector lists the CRM's tools as `crm_<tool>`; the CRM never speaks MCP itself (`src/server/everyapp/tools.ts`)     |
+| MCP                                      | The gateway's one MCP connector lists the CRM's tools as `crm_<tool>`; the CRM never speaks MCP itself ([mcp.md](mcp.md))                   |
 | The agent's model and its web research   | The gateway's AI proxy holds `OPENROUTER_API_KEY` (`src/server/lib/openrouter.ts`)                                                          |
 | Company brand data, LinkedIn, extraction | The gateway holds `CONTEXT_API_KEY` (the `context` capability, `src/server/lib/provider-access.ts`)                                         |
 | Members' mail and calendar               | The gateway holds the Google and Microsoft OAuth clients; the CRM keeps each member's tokens ([mail-and-calendar.md](mail-and-calendar.md)) |
