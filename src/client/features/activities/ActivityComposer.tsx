@@ -22,11 +22,11 @@ import {
 } from "@/types/schemas/activities";
 
 const PLACEHOLDER: Record<ComposableType, string> = {
-  NOTE: "Log a note, call, email, meeting or task…",
-  CALL: "What came out of the call?",
-  EMAIL: "What was said?",
-  MEETING: "What came out of the meeting?",
-  TASK: "What needs doing?",
+  NOTE: "Log a note…",
+  CALL: "Log a call…",
+  EMAIL: "Log an email…",
+  MEETING: "Log a meeting…",
+  TASK: "Add a task…",
 };
 
 function recordIds(record: RecordRef) {
@@ -121,7 +121,6 @@ export function ActivityComposer({ record }: { record: RecordRef }) {
                         key={option}
                         value={option}
                         aria-label={label}
-                        title={label}
                         className="aria-pressed:bg-primary/15 aria-pressed:text-primary"
                       >
                         <Icon />

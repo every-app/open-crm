@@ -45,45 +45,13 @@ const TAB_LABELS: Record<TimelineTab, string> = {
   done: "Done",
 };
 
-const EMPTY: Record<
-  TimelineTab,
-  { icon: LucideIcon; title: string; description: string }
-> = {
-  all: {
-    icon: Clock,
-    title: "Nothing has happened yet",
-    description:
-      "Calls, notes, emails and meetings all land here. Log the first one above, or wait for Gmail, Outlook and Calendar to sync.",
-  },
-  notes: {
-    icon: MessageSquare,
-    title: "No notes",
-    description:
-      "Notes are what you write down for the next person to read — what they care about, who else is involved, what you promised.",
-  },
-  email: {
-    icon: Mail,
-    title: "No email",
-    description:
-      "Threads appear here as they are synced from Gmail or Outlook. Nothing from before this mailbox was connected is imported.",
-  },
-  meetings: {
-    icon: CalendarDays,
-    title: "No meetings",
-    description:
-      "Calendar events with someone from this record on them show up here, past and upcoming.",
-  },
-  upcoming: {
-    icon: SquareCheck,
-    title: "Nothing outstanding",
-    description:
-      "Tasks you have not finished appear here, and at the top of the All tab until they are done.",
-  },
-  done: {
-    icon: CircleCheck,
-    title: "Nothing finished yet",
-    description: "Tasks move here once you tick them off.",
-  },
+const EMPTY: Record<TimelineTab, { icon: LucideIcon; title: string }> = {
+  all: { icon: Clock, title: "No activity yet" },
+  notes: { icon: MessageSquare, title: "No notes" },
+  email: { icon: Mail, title: "No email" },
+  meetings: { icon: CalendarDays, title: "No meetings" },
+  upcoming: { icon: SquareCheck, title: "Nothing outstanding" },
+  done: { icon: CircleCheck, title: "Nothing finished yet" },
 };
 
 function isTab(value: unknown): value is TimelineTab {
@@ -158,7 +126,6 @@ export function RecordTimeline({ record }: { record: RecordRef }) {
               size="sm"
               icon={EMPTY[tab].icon}
               title={EMPTY[tab].title}
-              description={EMPTY[tab].description}
             />
           </div>
         ) : (
