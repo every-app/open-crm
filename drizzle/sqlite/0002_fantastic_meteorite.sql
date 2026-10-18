@@ -1,7 +1,6 @@
 CREATE TABLE `dispatcher_lane` (
 	`lane` text PRIMARY KEY NOT NULL,
 	`ran_at` text NOT NULL,
-	`handled` integer DEFAULT 0 NOT NULL,
 	`failed_at` text
 );
 --> statement-breakpoint

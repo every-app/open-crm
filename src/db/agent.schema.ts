@@ -77,7 +77,6 @@ export const agentTask = sqliteTable(
 export const dispatcherLane = sqliteTable("dispatcher_lane", {
   lane: text("lane").primaryKey(),
   ranAt: timestamp("ran_at").notNull(),
-  handled: integer("handled").notNull().default(0),
   failedAt: timestamp("failed_at"),
 });
 

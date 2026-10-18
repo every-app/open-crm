@@ -1,5 +1,5 @@
 {
-  "id": "a93b3ad3-25b7-479e-952d-fb1e478acbe2",
+  "id": "3ea213f5-df53-40aa-b7c3-45b7a8f44e4c",
   "prevId": "3b44e9aa-10fb-44fd-9592-51ab9b3b5c46",
   "version": "7",
   "dialect": "postgresql",
@@ -5450,13 +5450,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "handled": {
-          "name": "handled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
         },
         "failed_at": {
           "name": "failed_at",

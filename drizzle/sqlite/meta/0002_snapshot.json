@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a9703209-6b6f-4453-b524-bb07bd307757",
+  "id": "ebed11b3-f17b-4996-849a-08a9379406c1",
   "prevId": "4beac879-9770-41fe-91ff-638dae3c515b",
   "tables": {
     "member": {
@@ -4649,14 +4649,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "handled": {
-          "name": "handled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
         },
         "failed_at": {
           "name": "failed_at",

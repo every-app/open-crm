@@ -96,7 +96,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await DispatchHealthRepository.recordLanes(
         (["visible", "research", "runs"] as const).map((lane) => ({
           lane,
-          handled: 0,
           failed: false,
         })),
       );

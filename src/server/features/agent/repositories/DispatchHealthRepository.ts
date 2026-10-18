@@ -24,9 +24,9 @@ import type { TaskLane } from "./AgentQueueRepository";
 
 export type LaneName = "visible" | "research" | "runs" | "sweep";
 
-/** This tick's pass of each lane: what it handled, and whether it threw. */
+/** This tick's pass of each lane, and whether it threw. */
 async function recordLanes(
-  passes: { lane: LaneName; handled: number; failed: boolean }[],
+  passes: { lane: LaneName; failed: boolean }[],
 ): Promise<void> {
   const now = new Date().toISOString();
   await runBatch((tx) =>
@@ -36,16 +36,11 @@ async function recordLanes(
         .values({
           lane: pass.lane,
           ranAt: now,
-          handled: pass.handled,
           failedAt: pass.failed ? now : null,
         })
         .onConflictDoUpdate({
           target: dispatcherLane.lane,
-          set: {
-            ranAt: now,
-            handled: pass.handled,
-            ...(pass.failed ? { failedAt: now } : {}),
-          },
+          set: { ranAt: now, ...(pass.failed ? { failedAt: now } : {}) },
         }),
     ),
   );

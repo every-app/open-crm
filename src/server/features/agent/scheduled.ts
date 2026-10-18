@@ -89,11 +89,7 @@ export async function runScheduledWork(
     }),
   );
   await DispatchHealthRepository.recordLanes(
-    passes.map(({ lane, handled, failure }) => ({
-      lane,
-      handled,
-      failed: failure !== null,
-    })),
+    passes.map(({ lane, failure }) => ({ lane, failed: failure !== null })),
   ).catch((error: unknown) => {
     console.error("[agent] could not note when the lanes ran", error);
   });
