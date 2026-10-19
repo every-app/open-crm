@@ -24,6 +24,7 @@
     "db:studio:local": "drizzle-kit studio --config drizzle/sqlite.config.ts",
     "deploy:everyapp": "everyapp deploy",
     "deploy:everyapp:first-party": "OPEN_CRM_DATABASE=postgres everyapp deploy --shared",
+    "ops": "node scripts/ops.ts",
     "knip": "knip",
     "test": "vitest run",
     "test:watch": "vitest",
