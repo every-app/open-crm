@@ -204,7 +204,7 @@ type DeployNow = {
  * A change its maker approves: a new deployed version at once, the agent's
  * triggers moved onto it and the old version kept in the history.
  */
-export async function deployNow(
+async function deployNow(
   context: Context,
   input: DeployNow,
 ): Promise<string> {
@@ -254,7 +254,7 @@ export async function deployNow(
  * made to the deployed version, goes live once the checks pass, before this
  * version is saved, so this one stays the newest.
  */
-export async function saveForReview(
+async function saveForReview(
   context: Context,
   input: {
     from: VersionRow;
@@ -392,7 +392,7 @@ export async function saveForReview(
 }
 
 /** A change from the agent's page, made on the version the page shows. */
-export type PageChange = {
+type PageChange = {
   /** The version waiting for review, if any, else the deployed one. */
   base: PageVersion;
   manifest: AgentManifest;

@@ -47,7 +47,7 @@ export type ManifestChange = {
   sources?: CaptureKind[];
 };
 
-export const recordKey = (record: { kind: string; id: string }) =>
+const recordKey = (record: { kind: string; id: string }) =>
   `${record.kind}:${record.id}`;
 
 export const grantedSources = (manifest: AgentManifest) => {
