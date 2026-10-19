@@ -1,3 +1,4 @@
+import { refreshStatistics } from "@/db/maintenance";
 import { runScheduledWork } from "@/server/features/agent/scheduled";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CurrencyService } from "@/server/features/currency/services/CurrencyService";
@@ -13,7 +14,8 @@ import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSy
 //   feed has published since the last fetch and takes each organization
 //   whose rates are a day old;
 // - at 05:00 UTC: the retention purge of records archived longer than their
-//   workspace keeps them, as the CRM ran it;
+//   workspace keeps them, as the CRM ran it, and D1's query statistics
+//   (src/db/maintenance.ts);
 // - at minute 30 of every hour: website tracking's retention (roll up and
 //   delete events past the window, bounded per run, and expired counters).
 //
@@ -38,6 +40,7 @@ export async function runCron(
       ArchiveService.purgeAllExpiredArchives().then((totals) => {
         console.log("[archive] retention purge", totals);
       }),
+      refreshStatistics(),
     );
   }
   if (at.getUTCMinutes() === TRACKING_RETENTION_MINUTE) {
