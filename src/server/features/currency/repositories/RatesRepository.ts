@@ -51,17 +51,20 @@ async function getFetched(
   return row ?? null;
 }
 
-/** When the rates quoted against `base` were last fetched, or null. */
-async function lastFetchedAt(base: string): Promise<string | null> {
+/**
+ * When the rates quoted against `base` are next fetched; null when they
+ * never were, or were before the CRM kept the time.
+ */
+async function nextFetchAt(base: string): Promise<string | null> {
   const [row] = await db
-    .select({ at: max(fxRate.updatedAt) })
+    .select({ at: max(fxRate.nextFetchAt) })
     .from(fxRate)
     .where(eq(fxRate.baseCurrency, base));
   return row?.at ?? null;
 }
 
-// Rows per upsert: six bound parameters each, well under D1's 100.
-const UPSERT_CHUNK = 15;
+// Rows per upsert: seven bound parameters each, well under D1's 100.
+const UPSERT_CHUNK = 12;
 
 /**
  * Stores one fetch of the rates quoted against `base`, then drops fetched
@@ -72,6 +75,7 @@ async function saveFetched(input: {
   base: string;
   rates: { quoteCurrency: string; rate: number }[];
   asOf: string;
+  nextFetchAt: string;
   provider: string;
   supported: readonly string[];
 }): Promise<void> {
@@ -81,6 +85,7 @@ async function saveFetched(input: {
     quoteCurrency,
     rate,
     asOf: input.asOf,
+    nextFetchAt: input.nextFetchAt,
     provider: input.provider,
     updatedAt: fetchedAt,
   }));
@@ -93,6 +98,7 @@ async function saveFetched(input: {
         set: {
           rate: sql`excluded.rate`,
           asOf: sql`excluded.as_of`,
+          nextFetchAt: sql`excluded.next_fetch_at`,
           provider: sql`excluded.provider`,
           updatedAt: sql`excluded.updated_at`,
         },
@@ -193,6 +199,14 @@ async function removeManual(
     );
 }
 
+/** The currencies organizations report in; null for one never chosen. */
+async function reportingCurrencies(): Promise<(string | null)[]> {
+  const rows = await db
+    .selectDistinct({ currency: workspace.reportingCurrency })
+    .from(workspace);
+  return rows.map((row) => row.currency);
+}
+
 /**
  * Organizations whose rates were last refreshed before `before` (or never),
  * longest-waiting first: the daily refresh's work, across organizations.
@@ -214,11 +228,12 @@ async function dueForRefresh(before: string, limit: number) {
 export const RatesRepository = {
   listFetched,
   getFetched,
-  lastFetchedAt,
+  nextFetchAt,
   saveFetched,
   listManual,
   getManual,
   saveManual,
   removeManual,
+  reportingCurrencies,
   dueForRefresh,
 };

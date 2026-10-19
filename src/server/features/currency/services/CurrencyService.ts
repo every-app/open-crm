@@ -12,7 +12,13 @@ import {
 } from "@/server/features/currency/services/RatesService";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { AppError } from "@/server/lib/errors";
-import { currencyName, roundRate, type CurrencyCode } from "@/shared/currency";
+import {
+  DEFAULT_REPORTING_CURRENCY,
+  currencyName,
+  roundRate,
+  toCurrencyCode,
+  type CurrencyCode,
+} from "@/shared/currency";
 
 type RateSource = "FETCHED" | "MANUAL";
 
@@ -170,8 +176,8 @@ async function removeManualRate(
 }
 
 /**
- * Takes the latest fetched rates (fetching them when they are a day old)
- * and converts the deals no rate converted yet.
+ * Takes the feed's latest rates (fetching them when it has published since
+ * they were fetched) and converts the deals no rate converted yet.
  */
 async function refreshRates(organizationId: string): Promise<CurrencySettings> {
   const base = await ConversionService.reportingCurrency(organizationId);
@@ -193,22 +199,27 @@ async function refreshed(organizationId: string) {
 }
 
 /**
- * The daily refresh, across organizations, for the cron: every organization
- * whose rates were last refreshed a day ago (or never) takes the latest
- * fetched rates and converts the deals no rate converted yet. At most
- * `limit` organizations a call, longest-waiting first; a call with nobody
- * due is one query. A feed that can't be reached leaves its organizations
- * due for the next call.
+ * The hourly refresh, across organizations, for the cron. First the rates
+ * against each currency organizations report in are fetched, if the feed
+ * has published since they last were. Then each organization whose rates
+ * were last refreshed a day ago (or never) converts the deals no rate
+ * converted yet: at most `limit` a call, longest-waiting first. A feed that
+ * can't be reached leaves its organizations due for the next call.
  */
 async function refreshDueRates(
   limit = 500,
 ): Promise<{ refreshed: number; failed: number }> {
+  // One fetch per base currency per call.
+  const freshBases = new Map<string, boolean>();
+  for (const code of await RatesRepository.reportingCurrencies()) {
+    const base = toCurrencyCode(code) ?? DEFAULT_REPORTING_CURRENCY;
+    if (freshBases.has(base)) continue;
+    freshBases.set(base, await RatesService.ensureFresh(base));
+  }
   const due = await RatesRepository.dueForRefresh(
     new Date(Date.now() - RATES_REFRESH_INTERVAL_MS).toISOString(),
     limit,
   );
-  // One fetch per base currency per call, whichever organization asks first.
-  const freshBases = new Map<string, boolean>();
   let refreshedCount = 0;
   let failed = 0;
   for (const { organizationId } of due) {

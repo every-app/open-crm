@@ -1,0 +1,1 @@
+ALTER TABLE `fx_rate` ADD `next_fetch_at` text;

@@ -412,6 +412,9 @@ export const fxRate = pgTable(
     rate: doublePrecision("rate").notNull(),
     asOf: timestamp("as_of").notNull(),
     provider: text("provider"),
+    // When the rates against this base are next fetched: when the feed
+    // said it would publish new ones.
+    nextFetchAt: timestamp("next_fetch_at"),
     updatedAt: updatedAt(),
   },
   (table) => [

@@ -311,7 +311,7 @@ export const workspaceTools = {
 
   refresh_exchange_rates: crmTool({
     description:
-      "Fetch today's exchange rates now and convert the deals no rate converted yet (owners and admins only).",
+      "Take the rate feed's latest exchange rates, fetching them if it has published since they were last fetched, and convert the deals no rate converted yet (owners and admins only).",
     risk: "write",
     input: z.object({}).strict(),
     output: currencyOutput,
