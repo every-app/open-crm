@@ -234,7 +234,7 @@ export class CrmAgent extends Think {
         organizationId: session.organizationId,
         effort: effortFor(session.kind),
       };
-      // Out of credits: the meter's reply instead.
+      // Out of credits, or every chat slot taken: the meter's reply instead.
       const refusal = await this.meter.admit(session);
       if (refusal) {
         return { model: staticAssistantModel(refusal), activeTools: [] };

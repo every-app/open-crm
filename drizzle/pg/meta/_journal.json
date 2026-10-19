@@ -36,6 +36,13 @@
       "when": 1792391385386,
       "tag": "0004_flashy_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792423065845,
+      "tag": "0005_condemned_vampiro",
+      "breakpoints": true
     }
   ]
 }

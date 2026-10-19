@@ -5,6 +5,7 @@ import { RunQueueRepository } from "@/server/features/team-agents/repositories/R
 import { getAgentByName } from "agents";
 import type { CreditCheck } from "@/server/billing/credits";
 import { sessionEstimate } from "@/server/billing/estimates";
+import { PaidSessionRepository } from "@/server/billing/paidSessions";
 import { settledWithin } from "@/server/features/agent/dispatch/pool";
 import type { CrmAgent } from "@/server/features/agent/CrmAgent";
 import { sessionName } from "@/server/features/agent/sessionName";
@@ -25,7 +26,7 @@ import { RUN_LIMITS } from "./turns";
 // record write's events queued, poke it for their organization at once. A
 // run that can't run (no model on the gateway, Slack not connected, the
 // workspace out of credits) fails with the reason instead of waiting; one
-// the workspace's credits can cover only later waits. The
+// the workspace's credits or run slots can take only later waits. The
 // per-minute scans are a few indexed queries whatever the number of
 // organizations.
 
@@ -166,19 +167,37 @@ async function start(
     );
     return false;
   }
+  const sessionId = sessionName("run", run.organizationId, run.id);
   // Where usage is billed, a run waits in the queue while what the
-  // organization's balance has left this tick can't cover it.
-  if (credits && !(await credits(run.organizationId, RUN_ESTIMATE))) {
+  // organization's balance has left this tick can't cover it, or while its
+  // run slots are taken (billing/paidSessions.ts).
+  if (
+    credits &&
+    !(
+      (await credits(run.organizationId, RUN_ESTIMATE)) &&
+      (await PaidSessionRepository.claim({
+        organizationId: run.organizationId,
+        kind: "run",
+        sessionId,
+        leaseMs: RUNS.executionTimeoutMs,
+      }))
+    )
+  ) {
     return false;
   }
+  // A slot for a run that never starts is freed at once.
+  const freeSlot = () =>
+    PaidSessionRepository.release(run.organizationId, sessionId);
   // The run records the model it ran on, for its history.
   const claimed = await AgentRunRepository.claim(
     run.organizationId,
     run.id,
     await agentModelId(),
   );
-  if (!claimed) return false;
-  const sessionId = sessionName("run", run.organizationId, run.id);
+  if (!claimed) {
+    await freeSlot();
+    return false;
+  }
   await RunEventRepository.insertEvent({
     organizationId: run.organizationId,
     sessionId,
@@ -192,13 +211,15 @@ async function start(
     .then(
       () =>
         AgentRunRepository.setSession(run.organizationId, run.id, sessionId),
-      (error: unknown) =>
-        RunSettlement.failRun(
+      async (error: unknown) => {
+        await RunSettlement.failRun(
           run.organizationId,
           run.id,
           "DELIVERY_FAILED",
           error instanceof Error ? error.message : String(error),
-        ),
+        );
+        await freeSlot();
+      },
     );
   const outcome = await settledWithin(handed, RUNS.startTimeoutMs);
   if (!outcome.settled) defer(handed);

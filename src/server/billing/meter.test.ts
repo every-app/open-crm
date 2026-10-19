@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AUTUMN_SEO_DATA_BALANCE_FEATURE_ID,
   OUT_OF_CREDITS_REPLY,
@@ -37,7 +37,16 @@ const chat = (sessionId: string) => ({
   sessionId,
 });
 
+const heldSlots = () => database.rows("SELECT session_id FROM paid_session");
+
 describe("a CrmAgent session's metering", () => {
+  beforeEach(async () => {
+    await database.exec("DELETE FROM paid_session");
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("bills a chat in $0.05 chunks and the rest when its turn ends, past zero too", async () => {
     withBalance(autumn, 200);
     const { meter, settled } = session();
@@ -74,6 +83,8 @@ describe("a CrmAgent session's metering", () => {
       { value: 192, overageBehavior: "overflow" },
       { value: 13, overageBehavior: "overflow" },
     ]);
+    // Its slot is free for the next turn.
+    expect(await heldSlots()).toEqual([]);
   });
 
   it("refuses a chat turn the workspace's credits can't cover", async () => {
@@ -85,6 +96,37 @@ describe("a CrmAgent session's metering", () => {
     meter.flush();
     await settled();
     expect(autumn.track).not.toHaveBeenCalled();
+    expect(await heldSlots()).toEqual([]);
+  });
+
+  it("answers three of a workspace's chats at once, and a fourth waits a minute for one to end", async () => {
+    vi.useFakeTimers();
+    withBalance(autumn, 5_000);
+    const answering = [session(), session(), session()];
+    for (const [index, { meter }] of answering.entries()) {
+      expect(await meter.admit(chat(`c.${index}`))).toBeNull();
+    }
+
+    let waited = true;
+    const fourth = session()
+      .meter.admit(chat("c.3"))
+      .finally(() => {
+        waited = false;
+      });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(waited).toBe(true);
+    // One ends: the fourth takes its slot.
+    answering[0].meter.flush();
+    await answering[0].settled();
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(await fourth).toBeNull();
+
+    // None ends for a minute: the next gives up.
+    const fifth = session().meter.admit(chat("c.4"));
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(await fifth).toBe(
+      "Other chats in this workspace are still answering. Try again in a minute.",
+    );
   });
 
   it("bills background work into debt, and a Context.dev call on its own", async () => {

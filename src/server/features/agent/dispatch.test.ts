@@ -230,8 +230,8 @@ describe("the dispatcher", () => {
     );
   });
 
-  it("admits an organization's research task by task against one reading", async () => {
-    for (const id of ["t1", "t2", "t3"]) {
+  it("admits an organization's research task by task against one reading, three sessions at a time", async () => {
+    for (const id of ["t1", "t2", "t3", "t4"]) {
       await queue(id, {
         kind: "identify",
         priority: PRIORITY.identify,
@@ -258,7 +258,14 @@ describe("the dispatcher", () => {
     withBalance(autumn, 500);
     expect(await tick()).toBe(2);
     expect(autumn.check).toHaveBeenCalledTimes(2);
+    expect(await waiting()).toHaveLength(2);
+
+    // Credits to spare: a third session starts, and the fourth waits for one
+    // of the three to end.
+    withBalance(autumn, 50_000);
+    expect(await tick()).toBe(1);
     expect(await waiting()).toHaveLength(1);
+    expect(await database.rows(`SELECT * FROM paid_session`)).toHaveLength(3);
   });
 
   it("bills a logo lookup's Context.dev call at its reported credits", async () => {

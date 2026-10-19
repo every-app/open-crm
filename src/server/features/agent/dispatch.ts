@@ -1,6 +1,10 @@
 import { creditsHeldSince } from "@/server/billing/creditReading";
 import type { CreditCheck } from "@/server/billing/credits";
 import { taskEstimate } from "@/server/billing/estimates";
+import {
+  PaidSessionRepository,
+  type PaidSessionClaim,
+} from "@/server/billing/paidSessions";
 import { billResearchSpend } from "@/server/billing/researchSpend";
 import { withSpendSink, type ProviderSpend } from "@/server/billing/spendSink";
 import { forOrganization } from "@/server/lib/gateway-attribution";
@@ -22,6 +26,7 @@ import {
 import { AgentTaskRepository } from "./repositories/AgentTaskRepository";
 import { FREE } from "./runtime/budget";
 import { MODEL_RETRY_MS } from "./services/AgentAvailabilityService";
+import { sessionName } from "./sessionName";
 import { brandOutcome, runBrand, storeFavicon } from "./visible/brand";
 import { runPortrait } from "./visible/portrait";
 
@@ -45,8 +50,8 @@ import { runPortrait } from "./visible/portrait";
 // that fails is retried when its lease runs out, up to MAX_ATTEMPTS, then
 // retired by the stale-task sweep. Where usage is billed, both lanes admit
 // paid work task by task against what the organization's balance has left
-// (`credits`, billing/credits.ts); work that costs nothing (FREE_KINDS)
-// always goes.
+// (`credits`, billing/credits.ts), and research only into a free session slot
+// (billing/paidSessions.ts); work that costs nothing (FREE_KINDS) always goes.
 
 /** Work that outlives the call that started it (ctx.waitUntil). */
 export type Defer = (work: Promise<unknown>) => void;
@@ -222,7 +227,7 @@ export async function runResearchLane(options: {
     heldSince: new Date(Date.now() - MODEL_RETRY_MS).toISOString(),
     creditsHeldSince: options.credits ? creditsHeldSince() : undefined,
   });
-  const funded = await withCredits(tasks, options.credits);
+  const funded = await withCredits(tasks, options.credits, researchSession);
   await Promise.all(funded.map((task) => beginResearch(task, options)));
   return funded.length;
 }
@@ -231,24 +236,37 @@ const COSTS_NOTHING = new Set<string>(FREE_KINDS);
 
 /**
  * The leased tasks this tick admits: each paid one against what its
- * organization's balance has left (billing/credits.ts). Work that costs
- * nothing always goes. The others go back to the queue, their attempts
- * uncounted, to wait.
+ * organization's balance has left (billing/credits.ts), and a research
+ * session only into one of the organization's session slots
+ * (billing/paidSessions.ts). Work that costs nothing always goes. The others
+ * go back to the queue, their attempts uncounted, to wait.
  */
 async function withCredits(
   tasks: LeasedTask[],
   credits: CreditCheck | undefined,
+  sessionOf?: (task: LeasedTask) => PaidSessionClaim,
 ): Promise<LeasedTask[]> {
   if (!credits) return tasks;
   const funded: LeasedTask[] = [];
   for (const task of tasks) {
     const admitted =
       COSTS_NOTHING.has(task.kind) ||
-      (await credits(task.organizationId, taskEstimate(task)));
+      ((await credits(task.organizationId, taskEstimate(task))) &&
+        (!sessionOf || (await PaidSessionRepository.claim(sessionOf(task)))));
     if (admitted) funded.push(task);
     else await AgentTaskRepository.release(task.organizationId, task.id);
   }
   return funded;
+}
+
+/** A research task's session, holding its slot for as long as its lease. */
+function researchSession(task: LeasedTask): PaidSessionClaim {
+  return {
+    organizationId: task.organizationId,
+    kind: "research",
+    sessionId: sessionName("task", task.organizationId, task.id),
+    leaseMs: DISPATCH.research.leaseMs,
+  };
 }
 
 type StartOutcome =
@@ -266,6 +284,7 @@ async function beginResearch(
     await markRunning(task);
   } catch (error) {
     await settle(task, "FAILED", reasonOf(error)).catch(() => {});
+    await freeSlot(task);
     return;
   }
   const send: Promise<StartOutcome> = options.start(task).then(
@@ -295,6 +314,15 @@ async function reconcileStart(
     reason: outcome.reason,
   });
   await settle(task, "FAILED", outcome.reason).catch(() => {});
+  await freeSlot(task);
+}
+
+/** A session that never started frees the slot it was given (if any). */
+async function freeSlot(task: LeasedTask): Promise<void> {
+  await PaidSessionRepository.release(
+    task.organizationId,
+    researchSession(task).sessionId,
+  ).catch(() => {});
 }
 
 async function linkSession(task: LeasedTask, sessionId: string): Promise<void> {
