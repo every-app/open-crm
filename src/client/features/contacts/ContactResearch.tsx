@@ -133,13 +133,14 @@ export function AgentFound({ fact }: { fact: ContactFact }) {
   );
 }
 
-// The brief's lines, each with the fact field whose suggestion sits under it.
+// The brief's lines, each with the fact field whose suggestion sits under
+// it: only seniority and function, the lines the record has a column for.
 const BACKGROUND_LINES = [
   { label: "Current role", section: "currentRole", fact: null },
-  { label: "Tenure", section: "tenure", fact: "tenure" },
+  { label: "Tenure", section: "tenure", fact: null },
   { label: "Seniority", section: "seniority", fact: "seniority" },
   { label: "Function", section: "function", fact: "function" },
-  { label: "Based", section: "location", fact: "location" },
+  { label: "Based", section: "location", fact: null },
 ] as const;
 
 /**

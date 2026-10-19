@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
 import { buttonVariants } from "@/client/components/ui/button";
@@ -129,14 +129,11 @@ export function InlineCompanyField({
   saving,
   clearable = false,
   onSave,
-  suggestion,
 }: {
   company: CompanyOption | null;
   saving: boolean;
   clearable?: boolean;
   onSave: (companyId: string | null) => void;
-  /** Under the row: the employer the agent suggests. */
-  suggestion?: ReactNode;
 }) {
   const id = useId();
   const { query, options, setInput } = useCompanySearch();
@@ -148,7 +145,7 @@ export function InlineCompanyField({
   ];
 
   return (
-    <PropertyRow label="Company" htmlFor={id} suggestion={suggestion}>
+    <PropertyRow label="Company" htmlFor={id}>
       <div className="flex min-w-0 items-center gap-1.5">
         <Combobox
           items={items}

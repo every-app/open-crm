@@ -1,10 +1,10 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { companyKeys } from "@/client/features/companies/companyQueries";
+import { useMutation } from "@tanstack/react-query";
 import {
   RecordBulkMenu,
   reportBulk,
   type RecordNoun,
 } from "@/client/features/records/RecordBulkMenu";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   bulkArchiveCompanies,
   bulkAssignCompanyOwner,
@@ -28,12 +28,12 @@ export function CompanyBulkActions({
   canPurge: boolean;
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateRecords();
   const settled = (done: (count: string) => string) => ({
     onSuccess: async (result: BulkResult) => {
       reportBulk(result, NOUN, done);
       onDone();
-      await queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      await invalidate();
     },
   });
 

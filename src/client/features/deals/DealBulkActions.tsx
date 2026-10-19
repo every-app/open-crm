@@ -6,13 +6,13 @@ import {
   CloseReasonDialog,
   DealStageIndicator,
 } from "@/client/features/deals/DealStage";
-import { useInvalidateDeals } from "@/client/features/deals/useDealMutations";
 import {
   BulkSubmenu,
   RecordBulkMenu,
   reportBulk,
   type RecordNoun,
 } from "@/client/features/records/RecordBulkMenu";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   bulkArchiveDeals,
   bulkAssignDealOwner,
@@ -38,7 +38,7 @@ export function DealBulkActions({
   canPurge: boolean;
   onDone: () => void;
 }) {
-  const invalidate = useInvalidateDeals();
+  const invalidate = useInvalidateRecords();
   // The deals being closed, kept from when the stage was picked.
   const [closing, setClosing] = useState<{
     stage: DealStage;

@@ -74,8 +74,9 @@ function reordered(fields: Field[], ids: string[]): Field[] {
 
 /**
  * The fields sheet's list: the entity's standard fields, suggestions, its
- * custom fields in sheet order, and the archived ones. Owners and admins
- * reorder, archive, restore and delete here; everyone else reads.
+ * custom fields in sheet order, and the archived ones. Each field opens.
+ * Owners and admins reorder, archive, restore and delete here; everyone else
+ * reads.
  */
 export function FieldsList({
   entity,
@@ -251,29 +252,22 @@ function FieldRow({
   onArchive: () => void;
 }) {
   const summary = summaryOf(field);
-  const text = (
-    <>
-      <span className="block truncate text-sm font-medium">{field.label}</span>
-      {summary ? (
-        <span className="block truncate text-xs text-muted-foreground">
-          {summary}
-        </span>
-      ) : null}
-    </>
-  );
   return (
     <>
-      {canManage ? (
-        <button
-          type="button"
-          className="min-w-0 flex-1 text-left"
-          onClick={onEdit}
-        >
-          {text}
-        </button>
-      ) : (
-        <div className="min-w-0 flex-1">{text}</div>
-      )}
+      <button
+        type="button"
+        className="min-w-0 flex-1 text-left"
+        onClick={onEdit}
+      >
+        <span className="block truncate text-sm font-medium">
+          {field.label}
+        </span>
+        {summary ? (
+          <span className="block truncate text-xs text-muted-foreground">
+            {summary}
+          </span>
+        ) : null}
+      </button>
       <Badge variant="outline" className="w-20 shrink-0">
         {field.typeLabel}
       </Badge>

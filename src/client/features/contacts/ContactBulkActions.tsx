@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
 import { MenuSearchInput } from "@/client/components/table/FiltersMenu";
 import { ComboboxItem, ComboboxList } from "@/client/components/ui/combobox";
 import { companyOptionsQueryOptions } from "@/client/features/companies/companyQueries";
-import { invalidateContacts } from "@/client/features/contacts/useContactMutations";
 import {
   BulkSubmenu,
   RecordBulkMenu,
   reportBulk,
   type RecordNoun,
 } from "@/client/features/records/RecordBulkMenu";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   bulkArchiveContacts,
   bulkAssignContactOwner,
@@ -39,14 +39,14 @@ export function ContactBulkActions({
   canPurge: boolean;
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateRecords();
   // A pick in Move to company's search closes the whole menu.
   const [menuOpen, setMenuOpen] = useState(false);
   const settled = (done: (count: string) => string) => ({
     onSuccess: async (result: BulkResult) => {
       reportBulk(result, NOUN, done);
       onDone();
-      await invalidateContacts(queryClient);
+      await invalidate();
     },
   });
 

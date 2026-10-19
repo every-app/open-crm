@@ -44,7 +44,11 @@ import {
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
-import { useRecordStack } from "@/client/features/records/recordStack";
+import { usePrefetchRecord } from "@/client/features/records/recordQueries";
+import {
+  useNewForm,
+  useRecordStack,
+} from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listDeals } from "@/serverFunctions/deals";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -65,6 +69,7 @@ export function DealsPage() {
   const openDeal = (id: string) => open({ kind: "deal", id });
 
   const input = dealListInput(search);
+  const prefetchRecord = usePrefetchRecord();
   const query = useQuery(dealListQueryOptions(input));
   const filters = dealFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
@@ -72,7 +77,7 @@ export function DealsPage() {
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useNewForm();
   const [importing, setImporting] = useState(false);
 
   const anchorRef = useSelectionAnchor();
@@ -128,8 +133,9 @@ export function DealsPage() {
   );
 
   return (
-    <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-7xl space-y-4">
+    <div className="flex h-full flex-col overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
+      {/* The rows scroll inside the table's card, under its header. */}
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
           title="Deals"
           actions={
@@ -229,6 +235,10 @@ export function DealsPage() {
             />
           }
           onRowClick={(row) => openDeal(row.original.id)}
+          onRowHover={(row) =>
+            prefetchRecord({ kind: "deal", id: row.original.id })
+          }
+          scrollClassName="min-h-0 flex-1"
           activeRowId={findLast(stack, (ref) => ref.kind === "deal")?.id}
         />
       </div>
@@ -239,10 +249,8 @@ export function DealsPage() {
       {creating ? (
         <CreateDealDialog
           onClose={() => setCreating(false)}
-          onCreated={(deal) => {
-            setCreating(false);
-            openDeal(deal.id);
-          }}
+          // Opening the record it made closes the form, in its place in history.
+          onCreated={(deal) => openDeal(deal.id)}
         />
       ) : null}
     </div>

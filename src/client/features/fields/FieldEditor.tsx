@@ -1,19 +1,12 @@
-import { useAgentPaused } from "@/client/features/agent/AgentPaused";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { revalidateLogic } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
-import { BackButton } from "@/client/components/PageHeader";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
 import { FieldDescription, FieldTitle } from "@/client/components/ui/field";
-import {
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/client/components/ui/sheet";
 import {
   fieldCoverageQueryOptions,
   settleEntityFields,
@@ -23,14 +16,13 @@ import {
   draftOption,
   optionsProblem,
 } from "@/client/features/fields/FieldOptionsEditor";
+import { Coverage, FieldHeader } from "@/client/features/fields/FieldSections";
 import {
   AGENT_HELP,
   AGENT_LABEL,
-  ALL_FILLED,
   ARCHIVE,
   BRIEF_LABEL,
   CREATE_FIELD,
-  FILL,
   FILTER_PLACEMENT,
   KEY_HELP,
   KEY_LABEL,
@@ -39,7 +31,6 @@ import {
   OPTIONS_LABEL,
   SAVE,
   SHEET_PLACEMENT,
-  SHEET_TITLE,
   TABLE_PLACEMENT,
   TYPE_LABEL,
   TYPE_LOCKED,
@@ -53,12 +44,10 @@ import type { Field } from "@/server/features/fields/services/fieldShape";
 import {
   archiveField,
   createField,
-  fillField,
   updateField,
 } from "@/serverFunctions/fields";
 import { FIELD_TYPES, type FieldEntity } from "@/shared/crm-enums";
 import {
-  ENTITY_NOUNS,
   FIELD_BRIEF_MAX,
   FIELD_LABEL_MAX,
   FIELD_TYPE_LABELS,
@@ -212,20 +201,14 @@ export function FieldEditor({
     },
   });
 
-  const noun = ENTITY_NOUNS[entity];
   return (
     <>
-      <SheetHeader className="border-b">
-        <BackButton className="mb-1 self-start" onClick={onDone}>
-          {SHEET_TITLE}
-        </BackButton>
-        <SheetTitle>{field?.label ?? NEW_FIELD}</SheetTitle>
-        <SheetDescription>
-          {coverage.data
-            ? `${noun.title} · ${coverage.data.filled} of ${coverage.data.total} filled`
-            : noun.title}
-        </SheetDescription>
-      </SheetHeader>
+      <FieldHeader
+        entity={entity}
+        title={field?.label ?? NEW_FIELD}
+        coverage={coverage.data}
+        onBack={onDone}
+      />
 
       <form.AppForm>
         <form.Form className="flex min-h-0 flex-1 flex-col">
@@ -323,7 +306,7 @@ export function FieldEditor({
             </div>
 
             {field && coverage.data ? (
-              <Coverage field={field} coverage={coverage.data} />
+              <Coverage field={field} coverage={coverage.data} canFill />
             ) : null}
           </div>
 
@@ -357,56 +340,5 @@ export function FieldEditor({
         </ConfirmDialog>
       ) : null}
     </>
-  );
-}
-
-/** How much of the field is filled, and the way to ask the agent for the rest. */
-function Coverage({
-  field,
-  coverage,
-}: {
-  field: Field;
-  coverage: { filled: number; total: number };
-}) {
-  const noun = ENTITY_NOUNS[field.entity];
-  const left = coverage.total - coverage.filled;
-  const paused = useAgentPaused();
-  const fill = useMutation({
-    mutationFn: () => fillField({ data: { id: field.id } }),
-    onSuccess: ({ queued, merged }) => {
-      const records = queued + merged;
-      const count = `${records} ${records === 1 ? noun.one : noun.many}`;
-      toast.success(
-        records === 0
-          ? "The agent is already working on these."
-          : paused
-            ? `Queued for ${count}. The agent fills it once its model is set up.`
-            : `The agent will fill it on ${count}.`,
-      );
-    },
-  });
-
-  return (
-    <div className="flex items-center gap-3 rounded-lg bg-muted p-3">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">
-          Filled on {coverage.filled} of {coverage.total} {noun.many}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {left > 0 ? `${left} still to go` : ALL_FILLED}
-        </p>
-      </div>
-      {field.agentFilled ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={left === 0}
-          pending={fill.isPending}
-          onClick={() => fill.mutate()}
-        >
-          {FILL}
-        </Button>
-      ) : null}
-    </div>
   );
 }

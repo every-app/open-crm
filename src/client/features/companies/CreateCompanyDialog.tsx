@@ -1,13 +1,13 @@
 import { revalidateLogic } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
 import { FormDialog } from "@/client/components/FormDialog";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
-import { companyKeys } from "@/client/features/companies/companyQueries";
 import { companyErrorMessage } from "@/client/features/companies/useCompanyMutations";
 import { ownerIdOf, useOwnerOptions } from "@/client/features/records/owners";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
@@ -36,7 +36,7 @@ export function CreateCompanyDialog({
   onClose: () => void;
   onCreated: (company: { id: string; name: string }) => void;
 }) {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateRecords();
   const owners = useOwnerOptions();
   const mutation = useMutation({
     mutationFn: (values: z.infer<typeof formSchema>) =>
@@ -51,7 +51,7 @@ export function CreateCompanyDialog({
     meta: { errorToast: false },
     onSuccess: async (company) => {
       toast.success(`${company.name} added.`);
-      await queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      await invalidate();
       onCreated(company);
     },
   });

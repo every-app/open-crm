@@ -30,7 +30,7 @@ const contactId = z
 export const suggestionTools = {
   list_contact_suggestions: crmTool({
     description:
-      "What the research agent found about contacts that waits for a person: a new title, company or link that would replace what the contact has. Every live contact's, or one's. 25 a page, newest first.",
+      "What the research agent found about contacts that waits for a person: a new name, title, seniority, function or profile link that would replace what the contact has. Every live contact's, or one's. 25 a page, newest first.",
     risk: "read",
     input: z
       .object({

@@ -9,8 +9,12 @@ import {
   SheetTitle,
 } from "@/client/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/client/components/ui/tabs";
+import { FieldDetails } from "@/client/features/fields/FieldDetails";
 import { FieldEditor } from "@/client/features/fields/FieldEditor";
-import { fieldsQueryOptions } from "@/client/features/fields/fieldQueries";
+import {
+  ENTITY_OF_KIND,
+  fieldsQueryOptions,
+} from "@/client/features/fields/fieldQueries";
 import { FieldsList } from "@/client/features/fields/FieldsList";
 import { SHEET_TITLE } from "@/client/features/fields/fieldsCopy";
 import {
@@ -21,7 +25,6 @@ import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQuer
 import { FIELD_ENTITIES, type FieldEntity } from "@/shared/crm-enums";
 import { ENTITY_NOUNS } from "@/shared/fields";
 import { hasOrgPermission } from "@/shared/org-permissions";
-import type { RecordKind } from "@/shared/records";
 import { fieldEntitySchema } from "@/types/schemas/fields";
 
 // The sheet that manages a kind of record's custom fields (and, from its
@@ -30,12 +33,6 @@ import { fieldEntitySchema } from "@/types/schemas/fields";
 // `manageField` the field being edited, by key, or "new".
 
 const NEW = "new";
-
-const ENTITY_OF_KIND: Record<RecordKind, FieldEntity> = {
-  company: "COMPANY",
-  contact: "CONTACT",
-  deal: "DEAL",
-};
 
 /** Opens the fields sheet on `entity`'s fields. */
 export function useOpenFieldsSheet() {
@@ -109,6 +106,10 @@ function FieldsSheetBody({ entity }: { entity: FieldEntity }) {
         onDone={() => edit(undefined)}
       />
     );
+  }
+  // Everyone else reads it.
+  if (field) {
+    return <FieldDetails field={field} onDone={() => edit(undefined)} />;
   }
 
   return (

@@ -43,7 +43,11 @@ import {
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
-import { useRecordStack } from "@/client/features/records/recordStack";
+import { usePrefetchRecord } from "@/client/features/records/recordQueries";
+import {
+  useNewForm,
+  useRecordStack,
+} from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listCompanies } from "@/serverFunctions/companies";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -64,6 +68,7 @@ export function CompaniesPage() {
   const openCompany = (id: string) => open({ kind: "company", id });
 
   const input = companyListInput(search);
+  const prefetchRecord = usePrefetchRecord();
   const query = useQuery(companyListQueryOptions(input));
   const filters = companyFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
@@ -71,7 +76,7 @@ export function CompaniesPage() {
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useNewForm();
   const [importing, setImporting] = useState(false);
 
   const anchorRef = useSelectionAnchor();
@@ -127,8 +132,9 @@ export function CompaniesPage() {
   );
 
   return (
-    <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-7xl space-y-4">
+    <div className="flex h-full flex-col overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
+      {/* The rows scroll inside the table's card, under its header. */}
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
           title="Companies"
           actions={
@@ -225,6 +231,10 @@ export function CompaniesPage() {
             />
           }
           onRowClick={(row) => openCompany(row.original.id)}
+          onRowHover={(row) =>
+            prefetchRecord({ kind: "company", id: row.original.id })
+          }
+          scrollClassName="min-h-0 flex-1"
           activeRowId={findLast(stack, (ref) => ref.kind === "company")?.id}
         />
       </div>
@@ -235,10 +245,8 @@ export function CompaniesPage() {
       {creating ? (
         <CreateCompanyDialog
           onClose={() => setCreating(false)}
-          onCreated={(company) => {
-            setCreating(false);
-            openCompany(company.id);
-          }}
+          // Opening the record it made closes the form, in its place in history.
+          onCreated={(company) => openCompany(company.id)}
         />
       ) : null}
     </div>

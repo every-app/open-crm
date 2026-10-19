@@ -10,12 +10,12 @@ import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/client/components/ui/field";
 import { parseAmount } from "@/client/features/deals/dealFormat";
-import { useInvalidateDeals } from "@/client/features/deals/useDealMutations";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import {
   CompanyPicker,
   type CompanyOption,
 } from "@/client/features/records/CompanyPicker";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import { currencySettingsQueryOptions } from "@/client/features/settings/settingsQueries";
 import {
   getErrorCode,
@@ -114,7 +114,7 @@ function CreateDealForm({
   onCreated: (deal: { id: string; name: string }) => void;
 }) {
   const companyId = useId();
-  const invalidate = useInvalidateDeals();
+  const invalidate = useInvalidateRecords();
   const mutation = useMutation({
     mutationFn: (input: CreateDealInput) => createDeal({ data: input }),
     // The form shows a company that's gone on the field itself.
