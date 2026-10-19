@@ -106,8 +106,9 @@ export const recordTools: ToolGroup = (context) => ({
     }),
     execute: async (input) => {
       // Every session's prompt opens with the profile, so in a chat only an
-      // owner or admin may have it rewritten; the workspace-profile task
-      // writes it unattended from the website.
+      // owner or admin may have it rewritten, and unattended only the
+      // workspace-profile task writes it, from our own website: a session
+      // reading what an outsider wrote can't plant it in every later prompt.
       if (
         context.attended &&
         !(
@@ -119,6 +120,13 @@ export const recordTools: ToolGroup = (context) => ({
           written: false as const,
           reason:
             "Only an owner or admin can change the company profile. Tell the rep what you would change and let them ask an admin.",
+        };
+      }
+      if (!context.attended && context.task?.kind !== "workspace-profile") {
+        return {
+          written: false as const,
+          reason:
+            "Only the workspace-profile task writes the company profile. Leave it as it is.",
         };
       }
       const us = await AgentProfileRepository.workspaceIdentity(

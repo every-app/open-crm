@@ -65,6 +65,7 @@ import {
 import { MAX_STEPS, maxOutputTokens, prepareTurn } from "./runtime/turn";
 import { parseSessionName } from "./sessionName";
 import { normalizeTitle } from "./tools/conversation";
+import { sessionEgress } from "./tools/egress";
 import { consumeBuilderCommand } from "@/shared/builder-command";
 
 // A person's turn in a conversation gets this much research budget.
@@ -151,7 +152,7 @@ export class CrmAgent extends Think {
               "low",
             );
             const result = await generateText({ model, prompt });
-            this.meter.record(openRouterCostUsd(result.providerMetadata));
+            this.meter.record(openRouterCostUsd(result));
             return result.text;
           },
         }),
@@ -289,6 +290,7 @@ export class CrmAgent extends Think {
         spend: this.spender(session),
         role: this.chatRole(),
         sink: this.meter.sink,
+        egress: sessionEgress(this.ctx.storage.kv),
       });
       this.turnSystem = system;
       return { system, tools, maxOutputTokens: maxOutputTokens(session.kind) };
@@ -367,7 +369,10 @@ export class CrmAgent extends Think {
     });
   }
 
-  /** The chat's person's gateway role, as their socket connected with it. */
+  /**
+   * The chat's person's gateway role, as their socket connected with it;
+   * each turn lowers it to the member mirror's (runtime/turn.ts).
+   */
   private chatRole(): string | null {
     const stored = z.string().safeParse(this.ctx.storage.kv.get(ROLE_KEY));
     return stored.success ? stored.data : null;
@@ -390,11 +395,17 @@ export class CrmAgent extends Think {
   }
 
   override async onStepFinish(step: StepContext): Promise<void> {
-    const costUsd = openRouterCostUsd(step.providerMetadata);
+    const costUsd = openRouterCostUsd(step);
     this.meter.record(costUsd);
     const session = this.turnSession;
     if (!session) return;
     addTokens(this.ctx.storage.kv, session.kind, step.usage);
+    // The pages web_search cited, which an unattended web_fetch may read.
+    sessionEgress(this.ctx.storage.kv).noteSearched(
+      step.sources.flatMap((source) =>
+        source.sourceType === "url" ? [source.url] : [],
+      ),
+    );
     await withPgClient(() => recordStep(session, step, costUsd));
   }
 
@@ -482,8 +493,8 @@ export class CrmAgent extends Think {
   // close is an alarm, so it outlives hibernation.
   override async onConnect(...args: Parameters<Think["onConnect"]>) {
     // The role the Worker verified for the person connecting (agentRoutes.ts).
-    // A conversation is one person's, so the last connect's role is theirs,
-    // at most one socket lifetime old.
+    // A conversation is one person's, so the last connect's role is theirs;
+    // each turn checks it against the member mirror (runtime/turn.ts).
     const role = args[1].request.headers.get(CHAT_ROLE_HEADER);
     if (role) this.ctx.storage.kv.put(ROLE_KEY, role);
     else this.ctx.storage.kv.delete(ROLE_KEY);

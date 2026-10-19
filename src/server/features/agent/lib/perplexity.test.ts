@@ -8,6 +8,7 @@ import { asker } from "./perplexity";
 
 const sent = z.object({
   model: z.string(),
+  provider: z.record(z.string(), z.unknown()),
   plugins: z
     .array(z.object({ id: z.string(), include_domains: z.array(z.string()) }))
     .optional(),
@@ -72,6 +73,7 @@ describe("asking Sonar", () => {
     });
     expect(body()).toEqual({
       model: "perplexity/sonar",
+      provider: { data_collection: "deny", zdr: true },
       plugins: [{ id: "web", include_domains: ["fernhill.test"] }],
     });
   });

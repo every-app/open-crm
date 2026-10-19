@@ -1,5 +1,7 @@
 import type { ToolSet } from "ai";
+import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import type { SpendSink } from "@/server/billing/spendSink";
+import { MEMBER_ROLES } from "@/types/schemas/members";
 import type { Capability } from "../prompt/capabilities";
 import {
   CHAT_TITLE_INSTRUCTION,
@@ -7,10 +9,11 @@ import {
   RUNTIME_INSTRUCTIONS,
 } from "../prompt/instructions";
 import { sessionPreamble, type Opened } from "../prompt/preamble";
+import type { Egress } from "../tools/egress";
 import { buildAgentTools } from "../tools/registry";
 import type { Spend } from "./budget";
 import { fieldKeysOf } from "./brief";
-import type { AgentSession } from "./session";
+import type { AgentSession, ChatSession } from "./session";
 
 // One turn's system prompt and tools, built fresh from the session each turn
 // (CrmAgent.beforeTurn): the standing instructions, the session's preamble
@@ -29,6 +32,33 @@ export function maxOutputTokens(kind: AgentSession["kind"]): number {
   return kind === "chat" ? 16_000 : 8_000;
 }
 
+/** Owner, admin, member; any other name ranks below a member. */
+function rank(role: string): number {
+  const index = MEMBER_ROLES.findIndex((name) => name === role);
+  return index === -1 ? MEMBER_ROLES.length : index;
+}
+
+/**
+ * A chat's person's role for this turn: `connected`, the role their socket
+ * connected with, lowered to the member mirror's once the gateway has signed
+ * a lower one onto any request of theirs since, and none once the mirror no
+ * longer has them. Read every turn, so a demotion applies from the turn
+ * after the person's next request through the gateway (the app refetches
+ * after every reply), not when the socket next reconnects.
+ */
+async function turnRole(
+  session: ChatSession,
+  connected: string | null,
+): Promise<string | null> {
+  if (!connected) return null;
+  const members = await AuthRepository.listMembers(session.organizationId);
+  const mirrored = members.find(
+    (member) => member.userId === session.conversation.userId,
+  )?.role;
+  if (!mirrored) return null;
+  return rank(mirrored) > rank(connected) ? mirrored : connected;
+}
+
 export async function prepareTurn(
   session: AgentSession,
   input: {
@@ -36,10 +66,19 @@ export async function prepareTurn(
     thinkSystem: string;
     capabilities: readonly Capability[];
     spend: Spend;
-    /** The gateway role of the person in a chat (CrmAgent.onConnect). */
+    /**
+     * The gateway role the chat's person connected with (CrmAgent.onConnect),
+     * checked against the member mirror each turn (turnRole).
+     */
     role: string | null;
     /** Where the tools' paid calls report their cost (CrmAgent's meter). */
     sink: SpendSink;
+    /**
+     * What a research session has read that decides where its web_fetch may
+     * go, from its own storage (tools/egress.ts). Without it, it reads no
+     * pages.
+     */
+    egress?: Egress;
   },
 ): Promise<{ system: string; tools: ToolSet }> {
   const opened: Opened =
@@ -80,8 +119,10 @@ export async function prepareTurn(
         ? { id: session.conversation.id, needsTitle }
         : null,
       attended: session.kind === "chat",
-      role: session.kind === "chat" ? input.role : null,
+      role:
+        session.kind === "chat" ? await turnRole(session, input.role) : null,
       spend: input.spend,
+      egress: input.egress,
     },
     input.sink,
   );

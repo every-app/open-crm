@@ -319,6 +319,6 @@ describe("a builder chat's turn", () => {
       engine: "parallel",
       max_results: 10,
     });
-    expect(openRouterCostUsd(result.providerMetadata)).toBe(0.0123);
+    expect(openRouterCostUsd(result)).toBe(0.0123);
   });
 });

@@ -1,22 +1,35 @@
 import { RunSideEffects } from "@/server/features/team-agents/runtime/runSideEffects";
 import { tool, type ToolSet } from "ai";
+import { once } from "remeda";
 import { z } from "zod";
 import {
   asker,
   webResearchAccess,
 } from "@/server/features/agent/lib/perplexity";
 import type { Spend } from "@/server/features/agent/runtime/budget";
-import { RECORD_KINDS } from "@/shared/records";
-import { AGENT_ACTION_TYPES, type AgentManifest } from "@/shared/team-agents";
-import { RunActions } from "./runActions";
-import { webFetch } from "./webFetch";
+import { pageAddress, recordHosts } from "@/server/features/agent/tools/egress";
+import {
+  labelCaptured,
+  untrusted,
+} from "@/server/features/agent/tools/untrusted";
+import { RECORD_KINDS, type RecordRef } from "@/shared/records";
+import {
+  AGENT_ACTION_TYPES,
+  captureGrants,
+  type AgentManifest,
+} from "@/shared/team-agents";
+import { activeRun, RunActions } from "./runActions";
+import { scopedWebFetch } from "./webFetch";
 
 // A team agent run's tools, ported from the CRM's agent_runner tools. Which
 // tools exist follows the version: create_crm_activity only when it grants
 // an activity type, post_slack_message only when it pins a Slack destination.
 // Every call re-checks the grant itself (runActions.ts), so a tool the model
 // somehow names without the grant still does nothing. No shell, no files, no
-// questions: nobody is there to answer one.
+// questions: nobody is there to answer one. Nobody watches a run either, so
+// web_fetch reads only its records' own sites and the pages its searches
+// returned, and a version that may read captured mail or meetings reads no
+// pages at all (agent/tools/egress.ts).
 
 type RunnerContext = {
   organizationId: string;
@@ -25,8 +38,42 @@ type RunnerContext = {
   spend: Spend;
 };
 
+/** The record a run's event names (TriggerService), when it names one. */
+const eventInput = z.object({
+  record: z.object({ kind: z.enum(RECORD_KINDS), id: z.string().min(1) }),
+});
+
+/**
+ * The hosts a run's web_fetch may read: the sites of the record its event
+ * names and of the records its version selected.
+ */
+async function runHosts(
+  organizationId: string,
+  runId: string,
+): Promise<string[]> {
+  const { run, scope } = await activeRun(organizationId, runId);
+  const event = eventInput.safeParse(run.input);
+  const records: RecordRef[] = [
+    ...(event.success ? [event.data.record] : []),
+    ...scope.records,
+  ];
+  const hosts = await Promise.all(
+    records.map(({ kind, id }) =>
+      recordHosts(organizationId, {
+        contactId: kind === "contact" ? id : null,
+        companyId: kind === "company" ? id : null,
+        dealId: kind === "deal" ? id : null,
+      }),
+    ),
+  );
+  return [...new Set(hosts.flat())];
+}
+
 export function runnerTools(context: RunnerContext): ToolSet {
   const { organizationId, runId, manifest } = context;
+  const grants = captureGrants(manifest.dataScope.resources);
+  /** The pages this run's searches returned, by origin and path. */
+  const searched = new Set<string>();
   const activityTypes = manifest.actions.flatMap((action) =>
     action.type === AGENT_ACTION_TYPES.CRM_ACTIVITY_CREATE
       ? action.activityTypes
@@ -74,7 +121,10 @@ export function runnerTools(context: RunnerContext): ToolSet {
         kind: z.enum(RECORD_KINDS),
         id: z.string().min(1),
       }),
-      execute: (input) => RunActions.readRecord(organizationId, runId, input),
+      execute: async (input) => {
+        const read = await RunActions.readRecord(organizationId, runId, input);
+        return read.found ? labelCaptured(read) : read;
+      },
     }),
 
     ...(firstType
@@ -141,13 +191,28 @@ export function runnerTools(context: RunnerContext): ToolSet {
         const charge = context.spend(1);
         if (!charge.ok) return { ok: false as const, reason: charge.reason };
         const answer = await asker(research)(question);
-        return answer.ok
-          ? { ok: true as const, ...answer.data }
-          : { ok: false as const, reason: answer.reason };
+        if (!answer.ok) return { ok: false as const, reason: answer.reason };
+        for (const url of answer.data.citations) {
+          const page = pageAddress(url);
+          if (page) searched.add(page);
+        }
+        return {
+          ok: true as const,
+          text: untrusted(answer.data.text, "web search"),
+          citations: answer.data.citations,
+        };
       },
     }),
 
-    web_fetch: webFetch,
+    ...(grants.email || grants.calendar
+      ? {}
+      : {
+          web_fetch: scopedWebFetch({
+            hosts: once(() => runHosts(organizationId, runId)),
+            searched: () => searched,
+            open: () => true,
+          }),
+        }),
 
     finish_run: tool({
       description:

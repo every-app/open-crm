@@ -1,4 +1,5 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { getGlobalStartContext } from "@tanstack/react-start";
 import { routeTree } from "./routeTree.gen";
 import { DefaultCatchBoundary } from "./client/components/DefaultCatchBoundary";
 import { NotFound } from "./client/components/NotFound";
@@ -36,6 +37,19 @@ if (typeof window !== "undefined") {
   });
 }
 
+/**
+ * The CSP nonce server.ts made for this request, for the scripts the router
+ * writes into the page; none on the client, which reads it from the page.
+ */
+function requestNonce(): string | undefined {
+  try {
+    const nonce: unknown = Reflect.get(getGlobalStartContext() ?? {}, "nonce");
+    return typeof nonce === "string" ? nonce : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function getRouter() {
   const router = createTanStackRouter({
     routeTree,
@@ -43,6 +57,7 @@ export function getRouter() {
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
     scrollRestoration: true,
+    ssr: { nonce: requestNonce() },
   });
 
   return router;

@@ -243,7 +243,7 @@ describe("the agent's ledger, people and field tools", () => {
     ).toEqual([{ key: "renewal_date" }, { key: "seats" }]);
   });
 
-  it("rewrites the company profile in a chat only for an owner or admin", async () => {
+  it("rewrites the company profile in a chat only for an owner or admin, and unattended only in its own task", async () => {
     await database.exec(
       "INSERT INTO workspace (organization_id, name, website) VALUES ('org_a', 'A', 'a.test');",
     );
@@ -252,12 +252,19 @@ describe("the agent's ledger, people and field tools", () => {
         "Fernhill sells fleet software to logistics companies and charges per vehicle.",
       sells: "Fleet software",
     };
-    expect(
-      await toolSession({ role: "member" }).call(
-        "write_workspace_profile",
-        profile,
-      ),
-    ).toMatchObject({ written: false });
+    for (const refused of [
+      toolSession({ role: "member" }),
+      // Research on a record an outsider may have written.
+      toolSession({
+        attended: false,
+        role: null,
+        task: { id: "t1", kind: "identify" },
+      }),
+    ]) {
+      expect(
+        await refused.call("write_workspace_profile", profile),
+      ).toMatchObject({ written: false });
+    }
     expect(
       await database.rows("SELECT narrative FROM workspace_profile"),
     ).toEqual([]);

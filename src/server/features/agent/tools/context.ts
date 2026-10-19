@@ -1,6 +1,7 @@
 import type { ToolSet } from "ai";
 import type { RecordIds } from "../prompt/preamble";
 import type { Spend } from "../runtime/budget";
+import type { Egress } from "./egress";
 
 /**
  * What every tool knows about the session it runs in. The registry builds a
@@ -27,6 +28,11 @@ export type AgentToolContext = {
   role: string | null;
   /** Draws on the session's research budget, priced in runtime/budget.ts. */
   spend: Spend;
+  /**
+   * What decides where an unattended session's web_fetch may go (egress.ts).
+   * Without it, an unattended session reads no pages.
+   */
+  egress?: Egress;
 };
 
 /** A family of tools, built for one session's turn. */

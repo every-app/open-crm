@@ -89,7 +89,7 @@ export function asker(research: typeof fetch): Ask {
         provider: "openrouter",
         creditFeature: "crm_agent",
         operation: "web_research",
-        costUsd: openRouterCostUsd(result.providerMetadata),
+        costUsd: openRouterCostUsd(result),
       });
       const text = result.text.trim();
       if (!text) return { ok: false, reason: "Empty answer." };

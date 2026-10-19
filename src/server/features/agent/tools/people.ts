@@ -10,6 +10,7 @@ import { BILLABLE_CALL_UNITS } from "../runtime/budget";
 import { contextAccess } from "../visible/brand";
 import { storePortrait } from "../visible/portrait";
 import type { ToolGroup } from "./context";
+import { untrusted } from "./untrusted";
 
 // People research, ported from the CRM's resolve_linkedin_profile,
 // get_linkedin_profile, get_contact_work_history and research_person: a
@@ -189,9 +190,11 @@ export const peopleTools: ToolGroup = (context) => ({
         system: RESEARCH_SYSTEM,
       });
       if (!answer.ok) return { ok: false as const, reason: answer.reason };
+      // Its sources are search results web_fetch may read (egress.ts).
+      context.egress?.noteSearched(answer.data.citations);
       return {
         ok: true as const,
-        answer: answer.data.text,
+        answer: untrusted(answer.data.text, "web search"),
         citations: answer.data.citations,
         note: "Only write claims that have a citation.",
       };

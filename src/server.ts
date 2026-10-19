@@ -28,15 +28,34 @@ import { serveEveryAppRequest } from "@/server/lib/gateway-attribution";
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
-// The app ships no security response headers of its own, so any third-party
-// page could frame an app route and UI-redress a one-click action (archive a
-// company, purge a contact). `frame-ancestors 'self'` on the app's own
-// documents is the whole fix, as in OpenSEO.
+// The app's own documents carry a policy of their own (the gateway adds its
+// floor, base-uri and object-src, to whatever an app sends):
+//
+// - `frame-ancestors 'self'`, so no third-party page can frame an app route
+//   and UI-redress a one-click action (archive a company, purge a contact),
+//   as in OpenSEO;
+// - `img-src`, only what the app shows: its own copies, attachments and
+//   icons, data: and blob: URLs (an attachment previewed before it is sent),
+//   and the hosts Context.dev's pictures come from until they are copied
+//   (agent/lib/people.ts). Nothing on a page can load an image from an
+//   address it chose, and so send data out in its URL;
+// - `script-src`: the app's own scripts, and inline ones only with this
+//   response's nonce, which TanStack Start puts on its hydration scripts
+//   (router.tsx) and __root.tsx on the theme script. An injected inline
+//   script or event handler doesn't run.
 //
 // Only HTML documents, and only ones that carry no policy of their own, so a
 // route that sets its own stricter CSP keeps it.
+const APP_CSP = [
+  "frame-ancestors 'self'",
+  "img-src 'self' data: blob: https://*.brand.dev https://*.context.dev https://*.licdn.com",
+].join("; ");
+
 async function appFetch(request: Request): Promise<Response> {
-  const response = await startHandler(request);
+  const nonce = btoa(
+    String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))),
+  );
+  const response = await startHandler(request, { context: { nonce } });
   const contentType = response.headers.get("content-type") ?? "";
   if (
     !contentType.startsWith("text/html") ||
@@ -45,7 +64,10 @@ async function appFetch(request: Request): Promise<Response> {
     return response;
   }
   const headers = new Headers(response.headers);
-  headers.set("Content-Security-Policy", "frame-ancestors 'self'");
+  headers.set(
+    "Content-Security-Policy",
+    `${APP_CSP}; script-src 'self' 'nonce-${nonce}'`,
+  );
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   createRootRoute,
+  useRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
@@ -85,6 +86,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <html suppressHydrationWarning translate="no">
       <head>
         <script
+          nonce={useRouter().options.ssr?.nonce}
           dangerouslySetInnerHTML={{ __html: themePreferenceInitScript }}
         />
         <HeadContent />
