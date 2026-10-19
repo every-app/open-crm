@@ -8,12 +8,6 @@ declare namespace Cloudflare {
     EVERY_APP_ORG_ID?: string;
     // The gateway's origin, for the account menu's "Sign out on Every App".
     GATEWAY_URL?: string;
-    // The database (everyapp.config.ts): "postgres" with a HYPERDRIVE
-    // binding; D1 otherwise.
-    DATABASE_PROVIDER?: "d1" | "postgres";
-    HYPERDRIVE?: {
-      connectionString: string;
-    };
     // Optional app secret (`everyapp secret set GITHUB_TOKEN`): raises GitHub's
     // rate limit for the agent's profile matching.
     GITHUB_TOKEN?: string;

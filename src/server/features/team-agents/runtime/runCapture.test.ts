@@ -6,18 +6,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // it reads comes back as an outsider's text, and a run, which nobody
 // watches, reads web pages only from its records' own sites and its
 // searches' sources, and none at all when its version may read captured mail.
-const { testDb } = await vi.hoisted(async () => {
-  const { createDualDialectTestDb } =
-    await import("@/server/testing/dualDialectTestDb");
-  return { testDb: await createDualDialectTestDb() };
+const { database } = await vi.hoisted(async () => {
+  const { createSqliteTestDb } = await import("@/server/testing/testDb");
+  return { database: await createSqliteTestDb() };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: testDb.modules.workers.env,
+  env: {},
   waitUntil: vi.fn(),
 }));
-vi.mock("@/db", () => testDb.modules.db);
-vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
-vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("@/db", () => ({ db: database.db }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 vi.mock("@/server/features/agent/lib/perplexity", () => ({
   webResearchAccess: async () => fetch,
   asker: () => async () => ({
@@ -76,15 +74,11 @@ async function run(
   };
 }
 
-for (const dialect of ["sqlite", "postgres"] as const) {
-  describe(`captured mail in runs (${dialect})`, () => {
-    const database = testDb.use(dialect);
-
-    beforeEach(async () => {
-      testDb.use(dialect);
-      await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
-      await database.seedTwoOrganizations();
-      await database.exec(`
+describe("captured mail in runs", () => {
+  beforeEach(async () => {
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
+    await database.seedTwoOrganizations();
+    await database.exec(`
         INSERT INTO company (id, organization_id, name, domain) VALUES ('acme', 'org_a', 'Acme', 'acme.test'), ('globex', 'org_a', 'Globex', 'globex.test');
         INSERT INTO contact (id, organization_id, first_name, email, company_id) VALUES ('paula', 'org_a', 'Paula', 'paula@acme.test', 'acme');
         INSERT INTO deal (id, organization_id, name, company_id, owner_id) VALUES ('renewal', 'org_a', 'Renewal', 'acme', 'user_a');
@@ -97,88 +91,87 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         INSERT INTO calendar_event (id, organization_id, ical_uid, original_start_time, title, starts_at, ends_at, status, company_id, contact_id, synced_by_user_id)
           VALUES ('e_a', 'org_a', 'ical-a', '2026-10-03T15:00:00.000Z', '${MEETING_TITLE}', '2026-10-03T15:00:00.000Z', '2026-10-03T15:30:00.000Z', 'confirmed', 'acme', 'paula', 'user_a');
       `);
-    });
+  });
 
-    it("reads no captured mail or meetings without the grant", async () => {
-      const agent = await run([]);
-      for (const read of [
-        await agent.read("contact", "paula"),
-        await agent.read("company", "acme"),
-        await agent.read("deal", "renewal"),
-      ]) {
-        expect(read).toContain('"found":true');
-        expect(read).not.toContain(MAIL_TEXT);
-        expect(read).not.toContain(MEETING_TITLE);
-      }
-      expect(await agent.inspect()).toContain(
-        '"capturedSources":{"email":false,"calendar":false}',
-      );
-    });
-
-    it("reads only the sources the version grants", async () => {
-      const email = await run([EMAIL]);
-      const mail = await email.read("contact", "paula");
-      expect(mail).toContain(
-        `<untrusted-data source=\\"email\\">\\n${MAIL_TEXT}`,
-      );
-      expect(mail).not.toContain(MEETING_TITLE);
-
-      const calendar = await run([CALENDAR]);
-      const meetings = await calendar.read("company", "acme");
-      expect(meetings).toContain(MEETING_TITLE);
-      expect(meetings).not.toContain(MAIL_TEXT);
-    });
-
-    it("reads captured mail only on records in scope, and only its own organization's", async () => {
-      const agent = await run(
-        [{ kind: "company", id: "acme", label: "Acme" }, EMAIL, CALENDAR],
-        "SELECTED",
-      );
-      const account = await agent.read("company", "acme");
-      expect(account).toContain(MAIL_TEXT);
-      expect(account).toContain(MEETING_TITLE);
-      expect(account).not.toContain(OTHER_ORG_TEXT);
-      await expect(agent.read("contact", "paula")).rejects.toThrow(
-        "outside this agent version's approved scope",
-      );
-      await expect(agent.read("company", "globex")).rejects.toThrow(
-        "outside this agent version's approved scope",
-      );
-    });
-
-    it("reads pages only from its records' sites and its searches' sources, and none when it may read captured mail", async () => {
-      for (const grant of [EMAIL, CALENDAR]) {
-        expect((await run([grant])).tools.web_fetch).toBeUndefined();
-      }
-      const fetchSpy = vi
-        .spyOn(globalThis, "fetch")
-        .mockImplementation(async () => new Response("Pricing"));
-      const agent = await run(
-        [{ kind: "company", id: "acme", label: "Acme" }],
-        "SELECTED",
-      );
-      expect(
-        await agent.call("web_search", { question: "What's new at Acme?" }),
-      ).toContain('<untrusted-data source=\\"web search\\">');
-      for (const url of [
-        "https://www.acme.test/pricing?ref=secret",
-        "https://news.test/acme-series-b?d=secret",
-        "https://globex.test/",
-      ]) {
-        await agent.call("web_fetch", { url });
-      }
-      expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
-        new URL("https://www.acme.test/pricing"),
-        new URL("https://news.test/acme-series-b"),
-      ]);
-    });
-
-    it("can't read a member's synced data once they delete it", async () => {
-      await SyncedDataRepository.purgeSynced(ORG, "user_a", "google");
-      const agent = await run([EMAIL, CALENDAR]);
-      const read = await agent.read("contact", "paula");
+  it("reads no captured mail or meetings without the grant", async () => {
+    const agent = await run([]);
+    for (const read of [
+      await agent.read("contact", "paula"),
+      await agent.read("company", "acme"),
+      await agent.read("deal", "renewal"),
+    ]) {
+      expect(read).toContain('"found":true');
       expect(read).not.toContain(MAIL_TEXT);
       expect(read).not.toContain(MEETING_TITLE);
-    });
+    }
+    expect(await agent.inspect()).toContain(
+      '"capturedSources":{"email":false,"calendar":false}',
+    );
   });
-}
+
+  it("reads only the sources the version grants", async () => {
+    const email = await run([EMAIL]);
+    const mail = await email.read("contact", "paula");
+    expect(mail).toContain(
+      `<untrusted-data source=\\"email\\">\\n${MAIL_TEXT}`,
+    );
+    expect(mail).not.toContain(MEETING_TITLE);
+
+    const calendar = await run([CALENDAR]);
+    const meetings = await calendar.read("company", "acme");
+    expect(meetings).toContain(MEETING_TITLE);
+    expect(meetings).not.toContain(MAIL_TEXT);
+  });
+
+  it("reads captured mail only on records in scope, and only its own organization's", async () => {
+    const agent = await run(
+      [{ kind: "company", id: "acme", label: "Acme" }, EMAIL, CALENDAR],
+      "SELECTED",
+    );
+    const account = await agent.read("company", "acme");
+    expect(account).toContain(MAIL_TEXT);
+    expect(account).toContain(MEETING_TITLE);
+    expect(account).not.toContain(OTHER_ORG_TEXT);
+    await expect(agent.read("contact", "paula")).rejects.toThrow(
+      "outside this agent version's approved scope",
+    );
+    await expect(agent.read("company", "globex")).rejects.toThrow(
+      "outside this agent version's approved scope",
+    );
+  });
+
+  it("reads pages only from its records' sites and its searches' sources, and none when it may read captured mail", async () => {
+    for (const grant of [EMAIL, CALENDAR]) {
+      expect((await run([grant])).tools.web_fetch).toBeUndefined();
+    }
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response("Pricing"));
+    const agent = await run(
+      [{ kind: "company", id: "acme", label: "Acme" }],
+      "SELECTED",
+    );
+    expect(
+      await agent.call("web_search", { question: "What's new at Acme?" }),
+    ).toContain('<untrusted-data source=\\"web search\\">');
+    for (const url of [
+      "https://www.acme.test/pricing?ref=secret",
+      "https://news.test/acme-series-b?d=secret",
+      "https://globex.test/",
+    ]) {
+      await agent.call("web_fetch", { url });
+    }
+    expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+      new URL("https://www.acme.test/pricing"),
+      new URL("https://news.test/acme-series-b"),
+    ]);
+  });
+
+  it("can't read a member's synced data once they delete it", async () => {
+    await SyncedDataRepository.purgeSynced(ORG, "user_a", "google");
+    const agent = await run([EMAIL, CALENDAR]);
+    const read = await agent.read("contact", "paula");
+    expect(read).not.toContain(MAIL_TEXT);
+    expect(read).not.toContain(MEETING_TITLE);
+  });
+});

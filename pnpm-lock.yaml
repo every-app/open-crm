@@ -112,9 +112,6 @@ importers:
       papaparse:
         specifier: ^5.7.0
         version: 5.7.0
-      postgres:
-        specifier: ^3.4.9
-        version: 3.4.9
       react:
         specifier: ^19.0.0
         version: 19.3.0
@@ -152,9 +149,6 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20260702.1
         version: 4.20260702.1
-      '@electric-sql/pglite':
-        specifier: ^0.5.8
-        version: 0.5.8
       '@libsql/client':
         specifier: ^0.15.15
         version: 0.15.15
@@ -5700,7 +5694,8 @@ snapshots:
 
   '@drizzle-team/brocli@0.10.2': {}
 
-  '@electric-sql/pglite@0.5.8': {}
+  '@electric-sql/pglite@0.5.8':
+    optional: true
 
   '@emnapi/core@1.11.2':
     dependencies:
@@ -9077,7 +9072,8 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  postgres@3.4.9: {}
+  postgres@3.4.9:
+    optional: true
 
   powershell-utils@0.2.1: {}
 

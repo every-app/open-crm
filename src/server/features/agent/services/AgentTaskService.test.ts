@@ -11,7 +11,7 @@ const { database, r2, deferred } = await vi.hoisted(async () => {
   };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1", R2: r2 },
+  env: { R2: r2 },
   waitUntil: (work: Promise<unknown>) => deferred.push(work),
 }));
 vi.mock("@/db", () => ({ db: database.db }));

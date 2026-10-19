@@ -25,7 +25,7 @@ import { ascNullsFirst, descNullsLast } from "./order";
 // outstanding. Ported from the CRM's lib/lookup.ts and lib/crm.ts. Archived
 // records stay out; every query is scoped to the organization.
 
-/** Case-insensitive "contains", the same on both dialects. */
+/** Case-insensitive "contains". */
 function contains(column: SQLiteColumn, term: string): SQL {
   return sql`lower(${column}) like ${`%${term.toLowerCase()}%`}`;
 }

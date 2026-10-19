@@ -154,8 +154,7 @@ export function activityCondition(
 export type SortSpec = { by: SQLWrapper; nullsLast?: boolean; ties?: SQL[] };
 
 /**
- * ORDER BY for a sort. The dialects disagree on where NULL sorts, so a
- * nullable column says where its blanks go itself; the id breaks ties so
+ * ORDER BY for a sort. A nullable column says where its blanks go itself; the id breaks ties so
  * pages never overlap.
  */
 export function sortOrder(

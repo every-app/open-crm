@@ -35,8 +35,8 @@ import { isoNow, timestamp } from "./columns";
 //
 // Deleting a record follows its foreign keys into other tables (deleting
 // the rows, or setting the key to null), so each such key also has an
-// index led by the key itself: with only one led by `organization_id`,
-// Postgres scans every organization's rows for each record deleted.
+// index led by the key itself: with only one led by `organization_id`, the
+// database scans every organization's rows for each record deleted.
 
 const organizationId = () =>
   text("organization_id")
@@ -351,8 +351,7 @@ export const deal = sqliteTable(
       .notNull()
       .default("DEMO_BOOKED"),
     stageChangedAt: timestamp("stage_changed_at").notNull().default(isoNow),
-    // Money is a double on both backends, rounded to the currency's minor
-    // unit when written (Postgres `real` would be a 4-byte float).
+    // Money is a double, rounded to the currency's minor unit when written.
     amount: real("amount"),
     currency: text("currency").notNull().default("USD"),
     expectedCloseDate: timestamp("expected_close_date"),

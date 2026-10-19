@@ -3,7 +3,6 @@ import {
   defaultStreamHandler,
 } from "@tanstack/react-start/server";
 import { everyApp, type EveryAppUser } from "@every-app/sdk/server";
-import { withPgClient } from "@/db";
 import { runCron } from "@/server/cron";
 import { withoutCookies } from "@/server/everyapp/cookies";
 import { routeAgentRequests } from "@/server/features/agent/agentRoutes";
@@ -151,9 +150,7 @@ function fetch(
   env: Env,
   ctx: ExecutionContext,
 ): Promise<Response> {
-  // Scope a per-request Postgres client (no-op in D1 mode). The client isn't
-  // closed here — the Workers↔Hyperdrive socket is reclaimed at invocation end.
-  return withPgClient(() => handleRequest(request, env, ctx));
+  return handleRequest(request, env, ctx);
 }
 
 // The research agent's Durable Object class (Agents SDK).
@@ -170,6 +167,6 @@ export default {
     // hourly and daily upkeep. It calls no provider on anyone's behalf
     // without naming the organization the work is for
     // (gateway-attribution.ts).
-    await withPgClient(() => runCron(controller.scheduledTime, env, ctx));
+    await runCron(controller.scheduledTime, env, ctx);
   },
 };

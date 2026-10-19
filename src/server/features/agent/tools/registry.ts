@@ -1,5 +1,4 @@
 import type { Tool, ToolSet } from "ai";
-import { withPgClient } from "@/db";
 import { forOrganization } from "@/server/lib/gateway-attribution";
 import { capToolOutput } from "../runtime/toolOutput";
 import type { AgentToolContext, ToolGroup } from "./context";
@@ -49,10 +48,10 @@ export function scopeTools(
 }
 
 /**
- * Runs a tool as the session's organization: its database client scoped for
- * the call (tool calls run inside Think's loop, outside any request), every
- * gateway call it makes named for the organization, its output capped, and a
- * failure handed to the model to work around rather than ending the turn.
+ * Runs a tool as the session's organization (tool calls run inside Think's
+ * loop, outside any request): every gateway call it makes named for the
+ * organization, its output capped, and a failure handed to the model to work
+ * around rather than ending the turn.
  */
 function scoped(
   context: Pick<AgentToolContext, "organizationId" | "sessionId">,
@@ -64,14 +63,12 @@ function scoped(
     ...definition,
     execute: async (input: unknown, options) => {
       try {
-        const output = await withPgClient(() =>
-          forOrganization(
-            context.organizationId,
-            async (): Promise<unknown> => {
-              const result: unknown = await execute(input, options);
-              return result;
-            },
-          ),
+        const output = await forOrganization(
+          context.organizationId,
+          async (): Promise<unknown> => {
+            const result: unknown = await execute(input, options);
+            return result;
+          },
         );
         return capToolOutput(output);
       } catch (error) {

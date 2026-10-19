@@ -2,27 +2,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Search leans on lower() and LIKE, which the two backends implement
 // differently (SQLite's lower() is ASCII only), so both run every case.
-const { testDb } = await vi.hoisted(async () => {
-  const { createDualDialectTestDb } =
-    await import("@/server/testing/dualDialectTestDb");
-  return { testDb: await createDualDialectTestDb() };
+const { database } = await vi.hoisted(async () => {
+  const { createSqliteTestDb } = await import("@/server/testing/testDb");
+  return { database: await createSqliteTestDb() };
 });
-vi.mock("cloudflare:workers", () => testDb.modules.workers);
-vi.mock("@/db", () => testDb.modules.db);
-vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
-vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("cloudflare:workers", () => ({ env: {} }));
+vi.mock("@/db", () => ({ db: database.db }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 
 import { SearchService } from "./SearchService";
 
-for (const dialect of ["sqlite", "postgres"] as const) {
-  describe(`SearchService (${dialect})`, () => {
-    const database = testDb.use(dialect);
-
-    beforeEach(async () => {
-      testDb.use(dialect);
-      await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
-      await database.seedTwoOrganizations();
-      await database.exec(`
+describe("SearchService", () => {
+  beforeEach(async () => {
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
+    await database.seedTwoOrganizations();
+    await database.exec(`
         INSERT INTO company (id, organization_id, name, domain, archived_at) VALUES
           ('acme', 'org_a', 'Acme', 'acme.com', NULL),
           ('ecole', 'org_a', 'École 42', 'ecole42.fr', NULL),
@@ -34,29 +28,28 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('won', 'org_a', 'Acme renewal', 'acme', 'user_a', 'CLOSED_WON'),
           ('open', 'org_a', 'Acme expansion', 'acme', 'user_a', 'QUALIFIED_TO_BUY');
       `);
-    });
-
-    const hits = async (q: string, organizationId = "org_a") =>
-      (await SearchService.quick(organizationId, q)).hits.map(
-        (hit) => `${hit.kind}:${hit.label}:${hit.detail ?? ""}`,
-      );
-
-    it("finds live records of each kind by part of a name, in any case", async () => {
-      expect(await hits("ACME")).toEqual([
-        "company:Acme:acme.com",
-        "contact:Ana Zed:Acme",
-        "deal:Acme expansion:Acme",
-        "deal:Acme renewal:Acme",
-      ]);
-      expect(await hits("ana zed")).toEqual(["contact:Ana Zed:Acme"]);
-      expect(await hits("gmail")).toEqual(["contact:Bo:bo@gmail.com"]);
-      expect(await hits("École")).toEqual(["company:École 42:ecole42.fr"]);
-      expect(await hits("a")).toEqual([]);
-      expect(await hits("a%")).toEqual([]);
-    });
-
-    it("keeps one organization's records out of another's search", async () => {
-      expect(await hits("acme", "org_b")).toEqual([]);
-    });
   });
-}
+
+  const hits = async (q: string, organizationId = "org_a") =>
+    (await SearchService.quick(organizationId, q)).hits.map(
+      (hit) => `${hit.kind}:${hit.label}:${hit.detail ?? ""}`,
+    );
+
+  it("finds live records of each kind by part of a name, in any case", async () => {
+    expect(await hits("ACME")).toEqual([
+      "company:Acme:acme.com",
+      "contact:Ana Zed:Acme",
+      "deal:Acme expansion:Acme",
+      "deal:Acme renewal:Acme",
+    ]);
+    expect(await hits("ana zed")).toEqual(["contact:Ana Zed:Acme"]);
+    expect(await hits("gmail")).toEqual(["contact:Bo:bo@gmail.com"]);
+    expect(await hits("École")).toEqual(["company:École 42:ecole42.fr"]);
+    expect(await hits("a")).toEqual([]);
+    expect(await hits("a%")).toEqual([]);
+  });
+
+  it("keeps one organization's records out of another's search", async () => {
+    expect(await hits("acme", "org_b")).toEqual([]);
+  });
+});

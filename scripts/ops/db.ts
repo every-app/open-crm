@@ -1,16 +1,10 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import { createInterface } from "node:readline";
-import { parseEnv } from "node:util";
-import postgres from "postgres";
 import { z } from "zod";
 
 // How the operator scripts reach the CRM's database, as OpenSEO's scripts
-// do: a fork's D1 through the CLI (`everyapp db query`, with your Cloudflare
-// login, or the one `pnpm dev` uses with --local), and the first party's
-// Postgres at POSTGRES_DATABASE_URL (--postgres), from the environment or,
-// where the first-party deploy reads it, .everyapp/secrets.env. Every
-// statement is written to run as is on both, one statement a query.
+// do: D1 through the CLI (`everyapp db query`, with your Cloudflare login, or
+// the one `pnpm dev` uses with --local), one statement a query.
 
 export type Row = Record<string, unknown>;
 
@@ -21,49 +15,16 @@ export type Database = {
   close: () => Promise<void>;
 };
 
-/** A string as an SQL literal, the same in SQLite and Postgres. */
+/** A string as an SQL literal. */
 export function literal(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-/** An aggregate as a number on both dialects (Postgres counts are bigints). */
-export function int(expression: string): string {
-  return `cast(${expression} as integer)`;
-}
-
-export function connect(options: {
-  local: boolean;
-  postgres: boolean;
-}): Database {
-  if (options.postgres) return connectPostgres();
+export function connect(options: { local: boolean }): Database {
   return {
     target: options.local ? "D1, pnpm dev's" : "D1, the deployed CRM's",
     query: (sql) => queryD1(sql, options.local),
     close: async () => {},
-  };
-}
-
-const SECRETS_FILE = ".everyapp/secrets.env";
-
-function postgresUrl(): string {
-  const url =
-    process.env.POSTGRES_DATABASE_URL?.trim() ||
-    (existsSync(SECRETS_FILE)
-      ? parseEnv(readFileSync(SECRETS_FILE, "utf8")).POSTGRES_DATABASE_URL
-      : undefined);
-  if (!url) {
-    throw new Error(`Set POSTGRES_DATABASE_URL, or put it in ${SECRETS_FILE}.`);
-  }
-  return url;
-}
-
-function connectPostgres(): Database {
-  const url = postgresUrl();
-  const client = postgres(url, { max: 1 });
-  return {
-    target: `Postgres at ${new URL(url).hostname}`,
-    query: async (sql) => [...(await client.unsafe<Row[]>(sql))],
-    close: () => client.end(),
   };
 }
 

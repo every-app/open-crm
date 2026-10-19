@@ -1,5 +1,5 @@
-// The CRM's enumerated values, shared by both database dialects, the server
-// and the client. The database stores them as text with these values.
+// The CRM's enumerated values, shared by the database, the server and the
+// client. The database stores them as text with these values.
 
 export const DEAL_STAGES = [
   "DEMO_BOOKED",

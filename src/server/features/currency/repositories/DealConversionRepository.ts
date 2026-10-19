@@ -63,8 +63,7 @@ async function convert(
     onlyMissing: boolean;
   },
 ): Promise<number> {
-  // Rounds as SQL does on both backends; the cast makes Postgres's round()
-  // (numeric only) accept the double. `places` is a trusted small integer.
+  // Rounds in SQL. `places` is a trusted small integer.
   const baseAmount = sql<number>`round(cast(${deal.amount} * ${input.rate} as numeric), ${sql.raw(String(Math.trunc(input.places)))})`;
   const rows = await db
     .update(deal)

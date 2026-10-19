@@ -15,7 +15,6 @@ const { database } = await vi.hoisted(async () => {
 });
 vi.mock("cloudflare:workers", () => ({
   env: {
-    DATABASE_PROVIDER: "d1",
     // A stored file's bytes are its key, so a file part shows what was read.
     R2: {
       get: async (key: string) => ({
@@ -27,7 +26,6 @@ vi.mock("cloudflare:workers", () => ({
 }));
 vi.mock("@/db", () => ({
   db: database.db,
-  withPgClient: (fn: () => unknown) => fn(),
 }));
 
 import { agentConversation, agentConversationAttachment } from "@/db/schema";

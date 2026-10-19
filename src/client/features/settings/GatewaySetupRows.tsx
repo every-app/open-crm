@@ -4,7 +4,7 @@ import { CodeBlock } from "@/client/features/settings/CodeBlock";
 /**
  * A provider the Every App gateway holds no OAuth client for: the redirect
  * URI to register, then the command that gives the gateway the client (a
- * fork) or the .dev.vars names to put it under (local development).
+ * deployment) or the .dev.vars names to put it under (local development).
  */
 export function GatewaySetupRows({
   redirectLabel = "Redirect URI",

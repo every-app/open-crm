@@ -12,12 +12,11 @@ const { database } = await vi.hoisted(async () => {
   return { database: await createSqliteTestDb() };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1" },
+  env: {},
   waitUntil: vi.fn(),
 }));
 vi.mock("@/db", () => ({
   db: database.db,
-  withPgClient: (fn: () => unknown) => fn(),
 }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 vi.mock("@/server/lib/provider-access", () => ({

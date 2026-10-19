@@ -1,28 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The runs the minute cron starts next, on both backends: each agent's
+// The runs the minute cron starts next: each agent's
 // oldest, organizations taking turns, none past its share of the tick.
-const { testDb } = await vi.hoisted(async () => {
-  const { createDualDialectTestDb } =
-    await import("@/server/testing/dualDialectTestDb");
-  return { testDb: await createDualDialectTestDb() };
+const { database } = await vi.hoisted(async () => {
+  const { createSqliteTestDb } = await import("@/server/testing/testDb");
+  return { database: await createSqliteTestDb() };
 });
-vi.mock("cloudflare:workers", () => testDb.modules.workers);
-vi.mock("@/db", () => testDb.modules.db);
-vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
-vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("cloudflare:workers", () => ({ env: {} }));
+vi.mock("@/db", () => ({ db: database.db }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 
 import { RunQueueRepository } from "./RunQueueRepository";
 
-for (const dialect of ["sqlite", "postgres"] as const) {
-  describe(`the queued runs (${dialect})`, () => {
-    const database = testDb.use(dialect);
-
-    beforeEach(async () => {
-      testDb.use(dialect);
-      await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
-      await database.seedTwoOrganizations();
-      await database.exec(`
+describe("the queued runs", () => {
+  beforeEach(async () => {
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
+    await database.seedTwoOrganizations();
+    await database.exec(`
         INSERT INTO agent_definition (id, organization_id, name, status, created_by_id) VALUES
           ('a1', 'org_a', 'One', 'LIVE', 'user_a'), ('a2', 'org_a', 'Two', 'LIVE', 'user_a'),
           ('a3', 'org_a', 'Three', 'LIVE', 'user_a'), ('b1', 'org_b', 'Bee', 'LIVE', 'user_b');
@@ -36,18 +30,17 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('a3_first', 'org_a', 'a3', 'v_a3', 'SCHEDULE', 'a3_first', '2026-10-01T09:03:00.000Z'),
           ('b1_first', 'org_b', 'b1', 'v_b1', 'MANUAL', 'b1_first', '2026-10-01T10:00:00.000Z');
       `);
-    });
-
-    it("starts each agent's oldest run, organizations taking turns, none past its share", async () => {
-      const next = await RunQueueRepository.queuedAcrossOrganizations({
-        limit: 10,
-        perOrganization: 2,
-      });
-      expect(next.map((run) => run.id)).toEqual([
-        "a1_first",
-        "b1_first",
-        "a2_first",
-      ]);
-    });
   });
-}
+
+  it("starts each agent's oldest run, organizations taking turns, none past its share", async () => {
+    const next = await RunQueueRepository.queuedAcrossOrganizations({
+      limit: 10,
+      perOrganization: 2,
+    });
+    expect(next.map((run) => run.id)).toEqual([
+      "a1_first",
+      "b1_first",
+      "a2_first",
+    ]);
+  });
+});

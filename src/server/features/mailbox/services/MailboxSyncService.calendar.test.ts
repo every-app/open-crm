@@ -1,29 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Calendar capture at the minute cron's entry point, on both backends, with
+// Calendar capture at the minute cron's entry point, with
 // Google Calendar faked at the network boundary.
-const { testDb, gateway } = await vi.hoisted(async () => {
-  const { createDualDialectTestDb } =
-    await import("@/server/testing/dualDialectTestDb");
+const { database, gateway } = await vi.hoisted(async () => {
+  const { createSqliteTestDb } = await import("@/server/testing/testDb");
   const { createGateway } =
     await import("@/server/features/mailbox/mailboxTestSupport");
   return {
-    testDb: await createDualDialectTestDb(),
+    database: await createSqliteTestDb(),
     gateway: createGateway(),
   };
 });
 vi.mock("cloudflare:workers", () => ({
   env: {
-    get DATABASE_PROVIDER() {
-      return testDb.modules.workers.env.DATABASE_PROVIDER;
-    },
     EVERY_APP_GATEWAY: gateway.binding,
   },
   waitUntil: () => {},
 }));
-vi.mock("@/db", () => testDb.modules.db);
-vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
-vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("@/db", () => ({ db: database.db }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 // The dispatcher's background lane isn't under test.
 vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
@@ -79,213 +74,207 @@ function event(input: {
   };
 }
 
-for (const dialect of ["sqlite", "postgres"] as const) {
-  describe(`Calendar capture (${dialect})`, () => {
-    const database = testDb.use(dialect);
-    beforeEach(async () => {
-      testDb.use(dialect);
-      await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
-      await database.seedTwoOrganizations();
-      await seedMailbox({
-        organizationId: "org_a",
-        userId: "user_a",
-        provider: "google",
-        accountEmail: "ana@acme.com",
-        sources: ["calendar"],
-      });
-    });
-
-    const dueAgain = () =>
-      database.exec(
-        `UPDATE mailbox_sync SET next_sync_at = '2000-01-01T00:00:00.000Z'`,
-      );
-
-    it("files the next 180 days' meetings, the people it adds waiting for a person before the agent researches them", async () => {
-      const fetched = stubProviders({
-        [EVENTS]: () => ({
-          items: [
-            event({
-              id: "soon",
-              guest: "lee@umbrella.com",
-              startsAt: daysFromNow(2),
-            }),
-          ],
-          nextSyncToken: "sync-1",
-        }),
-      });
-
-      await MailboxSyncService.runDue();
-      const query = fetched[0]?.searchParams;
-      expect(query?.get("singleEvents")).toBe("true");
-      expect(query?.get("syncToken")).toBeNull();
-      const windowDays =
-        (Date.parse(query?.get("timeMax") ?? "") -
-          Date.parse(query?.get("timeMin") ?? "")) /
-        86_400_000;
-      expect(Math.round(windowDays)).toBe(180);
-
-      expect(await database.rows(`SELECT domain, source FROM company`)).toEqual(
-        [{ domain: "umbrella.com", source: "CALENDAR" }],
-      );
-      expect(
-        await database.rows(
-          `SELECT title, conference_url, google_event_id FROM calendar_event`,
-        ),
-      ).toEqual([
-        {
-          title: "Call soon",
-          conference_url: "https://meet.google.com/abc-defg-hij",
-          google_event_id: "soon",
-        },
-      ]);
-      // The room is nobody.
-      expect(
-        await database.rows(
-          `SELECT email FROM calendar_attendee ORDER BY email`,
-        ),
-      ).toEqual([{ email: "ana@acme.com" }, { email: "lee@umbrella.com" }]);
-      expect(
-        await database.rows(
-          `SELECT type, subject, body FROM activity WHERE type = 'MEETING'`,
-        ),
-      ).toEqual([
-        { type: "MEETING", subject: "Call soon", body: "Location: Room 4" },
-      ]);
-      // Anyone can send an invite: no identify and no meeting prep until a
-      // person opens the contact, but team agents hear of them.
-      expect(
-        await database.rows(
-          `SELECT t.kind FROM agent_task t JOIN contact c ON c.id = t.contact_id ORDER BY t.kind`,
-        ),
-      ).toEqual([{ kind: "agent-event" }]);
-      expect(
-        await firstValue(
-          database.rows(`SELECT cursor FROM mailbox_sync`),
-          "cursor",
-        ),
-      ).toBe("sync-1");
-    });
-
-    it("removes cancelled meetings and adds no one from a meeting the member declined", async () => {
-      await database.exec(`UPDATE mailbox_sync SET cursor = 'sync-1'`);
-      const gone = event({
-        id: "gone",
-        guest: "kim@wayne.com",
-        startsAt: daysFromNow(31),
-      });
-      stubProviders({
-        [EVENTS]: () => ({
-          items: [
-            event({
-              id: "kept",
-              guest: "kim@wayne.com",
-              startsAt: daysFromNow(30),
-            }),
-            gone,
-          ],
-          nextSyncToken: "sync-2",
-        }),
-      });
-      await MailboxSyncService.runDue();
-      expect(await database.rows(`SELECT id FROM calendar_event`)).toHaveLength(
-        2,
-      );
-
-      stubProviders({
-        [EVENTS]: (url) => {
-          expect(url.searchParams.get("syncToken")).toBe("sync-2");
-          expect(url.searchParams.get("timeMin")).toBeNull();
-          return {
-            items: [
-              { ...gone, status: "cancelled" },
-              // A cancelled occurrence Google sends with its id only.
-              { id: "kept", status: "cancelled" },
-              event({
-                id: "declined",
-                guest: "max@cyberdyne.com",
-                startsAt: daysFromNow(3),
-                anaResponse: "declined",
-              }),
-            ],
-            nextSyncToken: "sync-3",
-          };
-        },
-      });
-      await dueAgain();
-      await MailboxSyncService.runDue();
-      expect(await database.rows(`SELECT id FROM calendar_event`)).toEqual([]);
-      expect(
-        await database.rows(`SELECT type FROM activity WHERE type = 'MEETING'`),
-      ).toEqual([]);
-      expect(await database.rows(`SELECT domain FROM company`)).toEqual([
-        { domain: "wayne.com" },
-      ]);
-    });
-
-    it("adds no one once the organization's new people for the hour are used up", async () => {
-      const window = hourWindow(new Date());
-      await database.exec(
-        `INSERT INTO tracking_counter (organization_id, key, value, expires_at) VALUES ('org_a', 'calendar-contacts:${window.key}', ${CONTACTS_PER_HOUR}, '${window.expiresAt}')`,
-      );
-      stubProviders({
-        [EVENTS]: () => ({
-          items: [
-            event({
-              id: "spam",
-              guest: "kim@initech.com",
-              startsAt: daysFromNow(2),
-            }),
-          ],
-          nextSyncToken: "sync-1",
-        }),
-      });
-      await MailboxSyncService.runDue();
-      expect(await database.rows(`SELECT id FROM company`)).toEqual([]);
-      expect(await database.rows(`SELECT id FROM contact`)).toEqual([]);
-    });
-
-    it("finishes a first read longer than five pages, going on from the page a check stopped at", async () => {
-      let failing = true;
-      const fetched = stubProviders({
-        [EVENTS]: (url) => {
-          const page = Number(url.searchParams.get("pageToken") ?? "1");
-          if (page === 4 && failing) {
-            failing = false;
-            return json({ error: { message: "Backend Error" } }, 503);
-          }
-          return page < 7
-            ? { items: [], nextPageToken: String(page + 1) }
-            : { items: [], nextSyncToken: "sync-1" };
-        },
-      });
-
-      await MailboxSyncService.runDue();
-      const first = fetched[0]?.searchParams;
-      fetched.length = 0;
-      await dueAgain();
-      await MailboxSyncService.runDue();
-      // Pages 4 to 7, of the same window.
-      expect(fetched).toHaveLength(4);
-      const resumed = fetched[0]?.searchParams;
-      expect(resumed?.get("pageToken")).toBe("4");
-      expect(resumed?.get("timeMin")).toBe(first?.get("timeMin"));
-      expect(resumed?.get("timeMax")).toBe(first?.get("timeMax"));
-      expect(
-        await database.rows(`SELECT cursor, status FROM mailbox_sync`),
-      ).toEqual([{ cursor: "sync-1", status: "IDLE" }]);
-    });
-
-    it("re-reads the window when the sync token has expired", async () => {
-      await database.exec(`UPDATE mailbox_sync SET cursor = 'old'`);
-      stubProviders({
-        [EVENTS]: () =>
-          json({ error: { message: "Sync token is no longer valid" } }, 410),
-      });
-
-      await MailboxSyncService.runDue();
-      expect(
-        await database.rows(`SELECT cursor, status FROM mailbox_sync`),
-      ).toEqual([{ cursor: null, status: "IDLE" }]);
+describe("Calendar capture", () => {
+  beforeEach(async () => {
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
+    await database.seedTwoOrganizations();
+    await seedMailbox({
+      organizationId: "org_a",
+      userId: "user_a",
+      provider: "google",
+      accountEmail: "ana@acme.com",
+      sources: ["calendar"],
     });
   });
-}
+
+  const dueAgain = () =>
+    database.exec(
+      `UPDATE mailbox_sync SET next_sync_at = '2000-01-01T00:00:00.000Z'`,
+    );
+
+  it("files the next 180 days' meetings, the people it adds waiting for a person before the agent researches them", async () => {
+    const fetched = stubProviders({
+      [EVENTS]: () => ({
+        items: [
+          event({
+            id: "soon",
+            guest: "lee@umbrella.com",
+            startsAt: daysFromNow(2),
+          }),
+        ],
+        nextSyncToken: "sync-1",
+      }),
+    });
+
+    await MailboxSyncService.runDue();
+    const query = fetched[0]?.searchParams;
+    expect(query?.get("singleEvents")).toBe("true");
+    expect(query?.get("syncToken")).toBeNull();
+    const windowDays =
+      (Date.parse(query?.get("timeMax") ?? "") -
+        Date.parse(query?.get("timeMin") ?? "")) /
+      86_400_000;
+    expect(Math.round(windowDays)).toBe(180);
+
+    expect(await database.rows(`SELECT domain, source FROM company`)).toEqual([
+      { domain: "umbrella.com", source: "CALENDAR" },
+    ]);
+    expect(
+      await database.rows(
+        `SELECT title, conference_url, google_event_id FROM calendar_event`,
+      ),
+    ).toEqual([
+      {
+        title: "Call soon",
+        conference_url: "https://meet.google.com/abc-defg-hij",
+        google_event_id: "soon",
+      },
+    ]);
+    // The room is nobody.
+    expect(
+      await database.rows(`SELECT email FROM calendar_attendee ORDER BY email`),
+    ).toEqual([{ email: "ana@acme.com" }, { email: "lee@umbrella.com" }]);
+    expect(
+      await database.rows(
+        `SELECT type, subject, body FROM activity WHERE type = 'MEETING'`,
+      ),
+    ).toEqual([
+      { type: "MEETING", subject: "Call soon", body: "Location: Room 4" },
+    ]);
+    // Anyone can send an invite: no identify and no meeting prep until a
+    // person opens the contact, but team agents hear of them.
+    expect(
+      await database.rows(
+        `SELECT t.kind FROM agent_task t JOIN contact c ON c.id = t.contact_id ORDER BY t.kind`,
+      ),
+    ).toEqual([{ kind: "agent-event" }]);
+    expect(
+      await firstValue(
+        database.rows(`SELECT cursor FROM mailbox_sync`),
+        "cursor",
+      ),
+    ).toBe("sync-1");
+  });
+
+  it("removes cancelled meetings and adds no one from a meeting the member declined", async () => {
+    await database.exec(`UPDATE mailbox_sync SET cursor = 'sync-1'`);
+    const gone = event({
+      id: "gone",
+      guest: "kim@wayne.com",
+      startsAt: daysFromNow(31),
+    });
+    stubProviders({
+      [EVENTS]: () => ({
+        items: [
+          event({
+            id: "kept",
+            guest: "kim@wayne.com",
+            startsAt: daysFromNow(30),
+          }),
+          gone,
+        ],
+        nextSyncToken: "sync-2",
+      }),
+    });
+    await MailboxSyncService.runDue();
+    expect(await database.rows(`SELECT id FROM calendar_event`)).toHaveLength(
+      2,
+    );
+
+    stubProviders({
+      [EVENTS]: (url) => {
+        expect(url.searchParams.get("syncToken")).toBe("sync-2");
+        expect(url.searchParams.get("timeMin")).toBeNull();
+        return {
+          items: [
+            { ...gone, status: "cancelled" },
+            // A cancelled occurrence Google sends with its id only.
+            { id: "kept", status: "cancelled" },
+            event({
+              id: "declined",
+              guest: "max@cyberdyne.com",
+              startsAt: daysFromNow(3),
+              anaResponse: "declined",
+            }),
+          ],
+          nextSyncToken: "sync-3",
+        };
+      },
+    });
+    await dueAgain();
+    await MailboxSyncService.runDue();
+    expect(await database.rows(`SELECT id FROM calendar_event`)).toEqual([]);
+    expect(
+      await database.rows(`SELECT type FROM activity WHERE type = 'MEETING'`),
+    ).toEqual([]);
+    expect(await database.rows(`SELECT domain FROM company`)).toEqual([
+      { domain: "wayne.com" },
+    ]);
+  });
+
+  it("adds no one once the organization's new people for the hour are used up", async () => {
+    const window = hourWindow(new Date());
+    await database.exec(
+      `INSERT INTO tracking_counter (organization_id, key, value, expires_at) VALUES ('org_a', 'calendar-contacts:${window.key}', ${CONTACTS_PER_HOUR}, '${window.expiresAt}')`,
+    );
+    stubProviders({
+      [EVENTS]: () => ({
+        items: [
+          event({
+            id: "spam",
+            guest: "kim@initech.com",
+            startsAt: daysFromNow(2),
+          }),
+        ],
+        nextSyncToken: "sync-1",
+      }),
+    });
+    await MailboxSyncService.runDue();
+    expect(await database.rows(`SELECT id FROM company`)).toEqual([]);
+    expect(await database.rows(`SELECT id FROM contact`)).toEqual([]);
+  });
+
+  it("finishes a first read longer than five pages, going on from the page a check stopped at", async () => {
+    let failing = true;
+    const fetched = stubProviders({
+      [EVENTS]: (url) => {
+        const page = Number(url.searchParams.get("pageToken") ?? "1");
+        if (page === 4 && failing) {
+          failing = false;
+          return json({ error: { message: "Backend Error" } }, 503);
+        }
+        return page < 7
+          ? { items: [], nextPageToken: String(page + 1) }
+          : { items: [], nextSyncToken: "sync-1" };
+      },
+    });
+
+    await MailboxSyncService.runDue();
+    const first = fetched[0]?.searchParams;
+    fetched.length = 0;
+    await dueAgain();
+    await MailboxSyncService.runDue();
+    // Pages 4 to 7, of the same window.
+    expect(fetched).toHaveLength(4);
+    const resumed = fetched[0]?.searchParams;
+    expect(resumed?.get("pageToken")).toBe("4");
+    expect(resumed?.get("timeMin")).toBe(first?.get("timeMin"));
+    expect(resumed?.get("timeMax")).toBe(first?.get("timeMax"));
+    expect(
+      await database.rows(`SELECT cursor, status FROM mailbox_sync`),
+    ).toEqual([{ cursor: "sync-1", status: "IDLE" }]);
+  });
+
+  it("re-reads the window when the sync token has expired", async () => {
+    await database.exec(`UPDATE mailbox_sync SET cursor = 'old'`);
+    stubProviders({
+      [EVENTS]: () =>
+        json({ error: { message: "Sync token is no longer valid" } }, 410),
+    });
+
+    await MailboxSyncService.runDue();
+    expect(
+      await database.rows(`SELECT cursor, status FROM mailbox_sync`),
+    ).toEqual([{ cursor: null, status: "IDLE" }]);
+  });
+});

@@ -10,11 +10,10 @@ const { database, r2 } = await vi.hoisted(async () => {
   };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1", R2: r2 },
+  env: { R2: r2 },
 }));
 vi.mock("@/db", () => ({
   db: database.db,
-  withPgClient: (fn: () => unknown) => fn(),
 }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 // Logos aren't fetched at once here: the lanes under test take them.

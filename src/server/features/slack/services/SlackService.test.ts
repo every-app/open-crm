@@ -15,7 +15,7 @@ const { database, gateway } = await vi.hoisted(async () => {
   };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1" },
+  env: {},
   waitUntil: vi.fn(),
 }));
 vi.mock("@/db", () => ({ db: database.db }));

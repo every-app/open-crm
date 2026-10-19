@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // A person's builder chats as Chat's column lists them, and the records the
-// composer offers to tag, on both backends. A chat starts with its first
+// composer offers to tag,. A chat starts with its first
 // message and files in one call that leaves nothing behind when it fails and
 // starts no second chat when retried; a chat is working only while its own
 // agent says a turn is answering, whatever its timestamps suggest; the tag
@@ -9,12 +9,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // with our copies of their logos and photos, offers captured email and
 // meetings only once someone here has connected them, and never shows another
 // organization's.
-const { testDb, answering, asked, stored, kept, handed } = await vi.hoisted(
+const { database, answering, asked, stored, kept, handed } = await vi.hoisted(
   async () => {
-    const { createDualDialectTestDb } =
-      await import("@/server/testing/dualDialectTestDb");
+    const { createSqliteTestDb } = await import("@/server/testing/testDb");
     return {
-      testDb: await createDualDialectTestDb(),
+      database: await createSqliteTestDb(),
       answering: new Set<string>(),
       asked: vi.fn<(sessionId: string) => void>(),
       // R2's objects, by key.
@@ -27,9 +26,6 @@ const { testDb, answering, asked, stored, kept, handed } = await vi.hoisted(
 );
 vi.mock("cloudflare:workers", () => ({
   env: {
-    get DATABASE_PROVIDER() {
-      return testDb.modules.workers.env.DATABASE_PROVIDER;
-    },
     R2: {
       put: async (key: string, bytes: Uint8Array) => {
         kept(key);
@@ -42,9 +38,8 @@ vi.mock("cloudflare:workers", () => ({
   },
   waitUntil: vi.fn(),
 }));
-vi.mock("@/db", () => testDb.modules.db);
-vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
-vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("@/db", () => ({ db: database.db }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 // Each chat's CrmAgent, which the list asks whether a turn is answering and
 // a new chat hands its first message.
 vi.mock("agents", () => ({
@@ -78,89 +73,83 @@ const firstMessage = () => ({
   ],
 });
 
-for (const dialect of ["sqlite", "postgres"] as const) {
-  describe(`builder chats (${dialect})`, () => {
-    const database = testDb.use(dialect);
+describe("builder chats", () => {
+  beforeEach(async () => {
+    answering.clear();
+    stored.clear();
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
+    await database.seedTwoOrganizations();
+  });
 
-    beforeEach(async () => {
-      testDb.use(dialect);
-      answering.clear();
-      stored.clear();
-      await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
-      await database.seedTwoOrganizations();
+  it("starts a chat with its first message and file in one call, and a retry starts no other", async () => {
+    const input = firstMessage();
+    const chat = await BuilderService.startConversation(owner, input);
+    expect(await BuilderService.startConversation(owner, input)).toEqual(chat);
+
+    const chats = await BuilderService.listConversations(owner);
+    expect(chats.map((row) => row.id)).toEqual([input.chatId]);
+    const { attachments } = await BuilderService.getConversation(
+      owner,
+      input.chatId,
+    );
+    expect(attachments.map((file) => file.name)).toEqual(["shot.png"]);
+    expect(stored.size).toBe(1);
+    // Handed both times: the agent takes its first message once.
+    expect(handed.mock.calls).toEqual([
+      [chat.sessionId, input.chatId],
+      [chat.sessionId, input.chatId],
+    ]);
+
+    // The same id from another organization starts nothing there and
+    // touches nothing here.
+    await expect(
+      BuilderService.startConversation(outsider, input),
+    ).rejects.toThrow();
+    expect(await BuilderService.listConversations(outsider)).toEqual([]);
+    expect(stored.size).toBe(1);
+  });
+
+  it("leaves no chat behind when a file can't be kept or the message can't be handed over", async () => {
+    kept.mockImplementationOnce(() => {
+      throw new Error("R2 is down");
     });
+    await expect(
+      BuilderService.startConversation(owner, firstMessage()),
+    ).rejects.toThrow("R2 is down");
 
-    it("starts a chat with its first message and file in one call, and a retry starts no other", async () => {
-      const input = firstMessage();
-      const chat = await BuilderService.startConversation(owner, input);
-      expect(await BuilderService.startConversation(owner, input)).toEqual(
-        chat,
-      );
-
-      const chats = await BuilderService.listConversations(owner);
-      expect(chats.map((row) => row.id)).toEqual([input.chatId]);
-      const { attachments } = await BuilderService.getConversation(
-        owner,
-        input.chatId,
-      );
-      expect(attachments.map((file) => file.name)).toEqual(["shot.png"]);
-      expect(stored.size).toBe(1);
-      // Handed both times: the agent takes its first message once.
-      expect(handed.mock.calls).toEqual([
-        [chat.sessionId, input.chatId],
-        [chat.sessionId, input.chatId],
-      ]);
-
-      // The same id from another organization starts nothing there and
-      // touches nothing here.
-      await expect(
-        BuilderService.startConversation(outsider, input),
-      ).rejects.toThrow();
-      expect(await BuilderService.listConversations(outsider)).toEqual([]);
-      expect(stored.size).toBe(1);
+    handed.mockImplementationOnce(() => {
+      throw new Error("The agent is unreachable");
     });
+    await expect(
+      BuilderService.startConversation(owner, firstMessage()),
+    ).rejects.toThrow("The agent is unreachable");
 
-    it("leaves no chat behind when a file can't be kept or the message can't be handed over", async () => {
-      kept.mockImplementationOnce(() => {
-        throw new Error("R2 is down");
-      });
-      await expect(
-        BuilderService.startConversation(owner, firstMessage()),
-      ).rejects.toThrow("R2 is down");
+    expect(await BuilderService.listConversations(owner)).toEqual([]);
+    expect(stored.size).toBe(0);
+  });
 
-      handed.mockImplementationOnce(() => {
-        throw new Error("The agent is unreachable");
-      });
-      await expect(
-        BuilderService.startConversation(owner, firstMessage()),
-      ).rejects.toThrow("The agent is unreachable");
-
-      expect(await BuilderService.listConversations(owner)).toEqual([]);
-      expect(stored.size).toBe(0);
-    });
-
-    it("shows a chat working only while its agent is answering a turn", async () => {
-      const now = new Date().toISOString();
-      const earlier = "2026-10-01T09:00:00.000Z";
-      // Two turns open by their timestamps, and one that has replied.
-      await database.exec(`
+  it("shows a chat working only while its agent is answering a turn", async () => {
+    const now = new Date().toISOString();
+    const earlier = "2026-10-01T09:00:00.000Z";
+    // Two turns open by their timestamps, and one that has replied.
+    await database.exec(`
         INSERT INTO agent_conversation (id, organization_id, kind, user_id, session_id, message_count, last_message_at, last_assistant_at, last_read_at) VALUES
           ('busy', 'org_a', 'BUILDER', 'user_a', 'chat.busy', 1, '${now}', NULL, '${now}'),
           ('failed', 'org_a', 'BUILDER', 'user_a', 'chat.failed', 1, '${now}', NULL, '${now}'),
           ('done', 'org_a', 'BUILDER', 'user_a', 'chat.done', 2, '${earlier}', '${earlier}', '${now}');
       `);
-      answering.add("chat.busy");
+    answering.add("chat.busy");
 
-      const chats = await BuilderService.listConversations(owner);
-      expect(
-        Object.fromEntries(chats.map((chat) => [chat.id, chat.state])),
-      ).toEqual({ busy: "working", failed: "idle", done: "idle" });
-      // A chat whose last turn replied is not woken to ask.
-      expect(asked).not.toHaveBeenCalledWith("chat.done");
-    });
+    const chats = await BuilderService.listConversations(owner);
+    expect(
+      Object.fromEntries(chats.map((chat) => [chat.id, chat.state])),
+    ).toEqual({ busy: "working", failed: "idle", done: "idle" });
+    // A chat whose last turn replied is not woken to ask.
+    expect(asked).not.toHaveBeenCalledWith("chat.done");
+  });
 
-    it("offers the organization's most recently active records before anything is typed", async () => {
-      await database.exec(`
+  it("offers the organization's most recently active records before anything is typed", async () => {
+    await database.exec(`
         INSERT INTO company (id, organization_id, name, last_activity_at, archived_at) VALUES
           ('acme', 'org_a', 'Acme', '2026-10-10T09:00:00.000Z', NULL),
           ('bolt', 'org_a', 'Bolt', NULL, NULL),
@@ -168,40 +157,40 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('gone', 'org_a', 'Gone', '2026-10-16T09:00:00.000Z', '2026-10-16T10:00:00.000Z'),
           ('theirs', 'org_b', 'Acme Two', '2026-10-17T09:00:00.000Z', NULL);
       `);
-      const records = async (q: string) =>
-        (await BuilderResourceService.search(owner, q))
-          .filter((resource) => resource.kind !== "integration")
-          .map((resource) => resource.label);
+    const records = async (q: string) =>
+      (await BuilderResourceService.search(owner, q))
+        .filter((resource) => resource.kind !== "integration")
+        .map((resource) => resource.label);
 
-      expect(await records("")).toEqual(["Cobalt", "Acme", "Bolt"]);
-      expect(await records("ac")).toEqual(["Acme"]);
-    });
+    expect(await records("")).toEqual(["Cobalt", "Acme", "Bolt"]);
+    expect(await records("ac")).toEqual(["Acme"]);
+  });
 
-    it("pictures a tag with our copy of its logo or photo, never one still at the vendor's URL", async () => {
-      await database.exec(`
+  it("pictures a tag with our copy of its logo or photo, never one still at the vendor's URL", async () => {
+    await database.exec(`
         INSERT INTO company (id, organization_id, name, icon_url, icon_dark_url) VALUES
           ('acme', 'org_a', 'Acme', '/api/images/org_a/companies/acme/iconUrl-1.png', 'https://cdn.vendor.test/acme-dark.png'),
           ('bolt', 'org_a', 'Bolt', 'https://cdn.vendor.test/bolt.png', NULL);
         INSERT INTO contact (id, organization_id, first_name, image_url) VALUES
           ('ana', 'org_a', 'Ana', '/api/images/org_a/contacts/ana/photo-1.jpg');
       `);
-      const pictures = Object.fromEntries(
-        (await BuilderResourceService.search(owner, "")).map((resource) => [
-          resource.label,
-          resource.picture.url,
-        ]),
-      );
-      expect(pictures).toEqual({
-        Acme: "/api/images/org_a/companies/acme/iconUrl-1.png",
-        Bolt: null,
-        Ana: "/api/images/org_a/contacts/ana/photo-1.jpg",
-      });
+    const pictures = Object.fromEntries(
+      (await BuilderResourceService.search(owner, "")).map((resource) => [
+        resource.label,
+        resource.picture.url,
+      ]),
+    );
+    expect(pictures).toEqual({
+      Acme: "/api/images/org_a/companies/acme/iconUrl-1.png",
+      Bolt: null,
+      Ana: "/api/images/org_a/contacts/ana/photo-1.jpg",
     });
+  });
 
-    it("offers the Slack channels that match what's typed, and hands the builder the one tagged", async () => {
-      // Read from Slack just now, so nothing reads it again.
-      const synced = new Date().toISOString();
-      await database.exec(`
+  it("offers the Slack channels that match what's typed, and hands the builder the one tagged", async () => {
+    // Read from Slack just now, so nothing reads it again.
+    const synced = new Date().toISOString();
+    await database.exec(`
         INSERT INTO slack_connection (id, organization_id, team_id, bot_token, bot_scopes, synced_at) VALUES
           ('ours', 'org_a', 'T1', 'xoxb-a', 'chat:write', '${synced}'),
           ('theirs', 'org_b', 'T2', 'xoxb-b', 'chat:write', '${synced}');
@@ -210,46 +199,45 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('general', 'org_a', 'C2', 'general'),
           ('their-sales', 'org_b', 'C3', 'sales-team');
       `);
-      const channels = async (q: string) =>
-        (await BuilderResourceService.search(owner, q))
-          .filter((resource) => resource.id.startsWith("slack:channel:"))
-          .map((resource) => [resource.id, resource.label]);
-      expect(await channels("")).toEqual([]);
-      expect(await channels("#sal")).toEqual([["slack:channel:C1", "#sales"]]);
+    const channels = async (q: string) =>
+      (await BuilderResourceService.search(owner, q))
+        .filter((resource) => resource.id.startsWith("slack:channel:"))
+        .map((resource) => [resource.id, resource.label]);
+    expect(await channels("")).toEqual([]);
+    expect(await channels("#sal")).toEqual([["slack:channel:C1", "#sales"]]);
 
-      const chat = await BuilderRepository.createConversation({
-        organizationId: "org_a",
-        userId: "user_a",
-        sessionId: "chat.tagged",
-      });
-      const context = await BuilderToolService.builderContext({
-        organizationId: "org_a",
-        userId: "user_a",
-        conversationId: chat.id,
-        tagged: [],
-        taggedIntegrations: ["slack:channel:C1", "slack:channel:C3"],
-      });
-      expect(context.taggedIntegrations).toEqual([
-        { kind: "integration", id: "slack:channel:C1", label: "#sales" },
-      ]);
+    const chat = await BuilderRepository.createConversation({
+      organizationId: "org_a",
+      userId: "user_a",
+      sessionId: "chat.tagged",
     });
+    const context = await BuilderToolService.builderContext({
+      organizationId: "org_a",
+      userId: "user_a",
+      conversationId: chat.id,
+      tagged: [],
+      taggedIntegrations: ["slack:channel:C1", "slack:channel:C3"],
+    });
+    expect(context.taggedIntegrations).toEqual([
+      { kind: "integration", id: "slack:channel:C1", label: "#sales" },
+    ]);
+  });
 
-    it("offers Email and Calendar only once someone here has connected them", async () => {
-      const integrations = async () =>
-        (await BuilderResourceService.search(owner, ""))
-          .filter((resource) => resource.kind === "integration")
-          .map((resource) => resource.label);
-      await database.exec(`
+  it("offers Email and Calendar only once someone here has connected them", async () => {
+    const integrations = async () =>
+      (await BuilderResourceService.search(owner, ""))
+        .filter((resource) => resource.kind === "integration")
+        .map((resource) => resource.label);
+    await database.exec(`
         INSERT INTO mailbox_connection (id, organization_id, user_id, provider, account_email, scopes) VALUES
           ('theirs', 'org_b', 'user_b', 'google', 'b@example.com', '${SCOPE_FOR_SOURCE.gmail} ${SCOPE_FOR_SOURCE.calendar}');
       `);
-      expect(await integrations()).toEqual([]);
+    expect(await integrations()).toEqual([]);
 
-      await database.exec(`
+    await database.exec(`
         INSERT INTO mailbox_connection (id, organization_id, user_id, provider, account_email, scopes) VALUES
           ('ours', 'org_a', 'user_a', 'google', 'a@example.com', '${SCOPE_FOR_SOURCE.gmail}');
       `);
-      expect(await integrations()).toEqual(["Email"]);
-    });
+    expect(await integrations()).toEqual(["Email"]);
   });
-}
+});

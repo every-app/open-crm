@@ -11,12 +11,11 @@ const { database, contextFetch } = await vi.hoisted(async () => {
   };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1" },
+  env: {},
   waitUntil: vi.fn(),
 }));
 vi.mock("@/db", () => ({
   db: database.db,
-  withPgClient: (fn: () => unknown) => fn(),
 }));
 vi.mock("@/db/runBatch", () => ({ runBatch: database.runBatch }));
 vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));

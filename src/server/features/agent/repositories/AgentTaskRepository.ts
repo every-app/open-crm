@@ -39,7 +39,7 @@ export const subjectColumns = {
 /**
  * Inserts the task unless one of its kind is already open for its subject
  * (the partial unique index agent_task_open_kind_subject_uidx). True when it
- * was inserted. One statement on both backends, so two requests racing to
+ * was inserted. One statement, so two requests racing to
  * queue the same work can't both win, with no lock.
  */
 async function insertIfAbsent(task: NewAgentTask): Promise<boolean> {

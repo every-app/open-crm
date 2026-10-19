@@ -73,8 +73,6 @@ const LIVE: FactStatus[] = ["APPLIED", "PROPOSED"];
 // D1 binds about 100 parameters per statement.
 const IDS_PER_STATEMENT = 90;
 
-// Conditions and columns are built per call: `@/db/schema` hands out
-// whichever dialect's tables are live.
 const ofContact = (organizationId: string, contactId: string) =>
   and(eq(contact.organizationId, organizationId), eq(contact.id, contactId));
 

@@ -49,7 +49,6 @@ export type TaskLane =
   | { only: readonly string[] }
   | { except: readonly string[] };
 
-// Read at call time, so a JSON column maps by the dialect in use.
 const leasedColumns = () => ({
   ...subjectColumns,
   reason: agentTask.reason,
@@ -181,8 +180,8 @@ async function claimDue(input: {
       ),
     )
     .returning(leasedColumns());
-  // In the candidates' order: Postgres does not return an UPDATE's rows in
-  // any particular one.
+  // In the candidates' order: an UPDATE's rows come back in no particular
+  // one.
   const order = new Map(candidates.map((row, index) => [row.id, index]));
   return sort(
     claimed,

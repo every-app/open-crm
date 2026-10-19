@@ -40,8 +40,7 @@ function nextDay(day: string): string {
 /**
  * The condition a list query puts on its record table (`company`, `contact`
  * or `deal`, selected under its own name and filtered by its organization)
- * for one field filter: an EXISTS over the record's value row, the same SQL
- * on SQLite and Postgres. Null when the filter doesn't fit the field's type.
+ * for one field filter: an EXISTS over the record's value row. Null when the filter doesn't fit the field's type.
  */
 function filterCondition(
   entity: FieldEntity,

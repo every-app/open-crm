@@ -71,12 +71,11 @@ export async function fieldWrites(
 /**
  * Whether a write hit a unique index (a live company's domain, a live
  * contact's email, a field's key, a saved view's name). Drizzle wraps the driver's error, so the cause chain is
- * checked: SQLite says so in the message, Postgres with code 23505.
+ * checked: SQLite says so in the message.
  */
 export function isUniqueViolation(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   if (error.message.includes("UNIQUE constraint failed")) return true;
-  if ("code" in error && error.code === "23505") return true;
   return isUniqueViolation(error.cause);
 }
 

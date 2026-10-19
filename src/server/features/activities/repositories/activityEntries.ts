@@ -14,9 +14,6 @@ import {
 
 // How an activity reads everywhere it shows (timelines, My tasks, Home): the
 // row with its author and the records, thread and meeting it is about.
-//
-// Columns are read when a query is built, not when the module loads, so the
-// dual-dialect tests decode JSON and booleans as each dialect does.
 
 /**
  * Where an activity sits on a timeline: when it happened, or when it was
