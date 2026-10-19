@@ -70,6 +70,21 @@ async function latestVersion(organizationId: string, agentId: string) {
   return row ?? null;
 }
 
+/**
+ * The version waiting for review: the agent's newest, while it is READY and
+ * isn't the deployed one (`deployedVersionId`).
+ */
+async function reviewVersion(
+  organizationId: string,
+  agentId: string,
+  deployedVersionId: string | null,
+) {
+  const latest = await latestVersion(organizationId, agentId);
+  return latest?.status === "READY" && latest.id !== deployedVersionId
+    ? latest
+    : null;
+}
+
 type NewVersion = {
   id: string;
   organizationId: string;
@@ -278,6 +293,7 @@ async function replaceCurrentVersion(input: {
 export const AgentVersionRepository = {
   findVersion,
   latestVersion,
+  reviewVersion,
   saveVersion,
   deploy,
   replaceCurrentVersion,
