@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { ExportAllSection } from "@/client/features/csv/ExportAllSection";
 import {
   SettingsCard,
   SettingsPage,
@@ -11,6 +12,7 @@ import { useCanManageWorkspace } from "@/client/features/settings/settingsQuerie
 import { setupChecklistQueryOptions } from "@/client/features/setup/setupQueries";
 import { WorkspaceSettingsCard } from "@/client/features/workspace/WorkspaceForm";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
+import { hasOrgPermission } from "@/shared/org-permissions";
 
 /**
  * Settings → General, as the original CRM groups it. The research keys and
@@ -41,6 +43,10 @@ export function GeneralSettings() {
 
       <ArchivedRecordsSection />
       {selfHosted ? <ResearchAgentSection /> : null}
+      {workspace &&
+      hasOrgPermission(workspace.role, { workspace: ["export"] }) ? (
+        <ExportAllSection />
+      ) : null}
     </SettingsPage>
   );
 }

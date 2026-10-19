@@ -5,8 +5,8 @@
 // can't do; the server enforces it (src/server/auth/org-gate.ts).
 const statement = {
   // Workspace name, website, reporting currency and rates, the agent's model,
-  // archive retention.
-  workspace: ["manage"],
+  // archive retention; exporting everything in it is the owner's alone.
+  workspace: ["manage", "export"],
   // Add, change, reorder, archive and delete custom fields.
   field: ["manage"],
   // Permanently delete archived records.
@@ -37,7 +37,7 @@ const FULL: OrgPermissionRequest = {
 };
 
 const ROLE_PERMISSIONS: Record<string, OrgPermissionRequest> = {
-  owner: { ...FULL, billing: ["manage"] },
+  owner: { ...FULL, workspace: ["manage", "export"], billing: ["manage"] },
   admin: FULL,
   member: {},
 };
