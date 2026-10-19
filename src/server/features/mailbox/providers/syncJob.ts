@@ -54,7 +54,8 @@ export function failureOf(
  */
 export function createFiler(job: SyncJob) {
   let held: { cursor: string | null } | null = null;
-  const reason = `A ${job.row.source === "calendar" ? "meeting" : "message"} could not be stored; the next check retries it.`;
+  const item = job.row.source === "calendar" ? "meeting" : "message";
+  const reason = `A ${item} could not be stored; the next check retries it.`;
   return {
     /** Files one item; `cursor` is where its check resumes while it fails. */
     async file(

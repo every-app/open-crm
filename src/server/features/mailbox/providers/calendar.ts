@@ -104,7 +104,10 @@ export async function primaryCalendar(
   return mailboxGet(BASE, accessToken, calendarSchema, budget);
 }
 
-/** The read a cursor stands for: one under way, changes since a sync token, or a new one. */
+/**
+ * The read a cursor stands for: one under way, the changes since a sync
+ * token, or a new one.
+ */
 function placeOf(cursor: string | null): Place {
   if (cursor && !cursor.startsWith("{")) return { syncToken: cursor };
   const saved = cursor ? placeSchema.safeParse(jsonOf(cursor)) : null;
