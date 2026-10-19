@@ -1,10 +1,10 @@
 import { z } from "zod";
 import {
   decodeBase64Url,
+  messageBody,
   normaliseMessageId,
   rootMessageIdFrom,
   stripHtml,
-  stripQuotedHistory,
 } from "@/server/features/mailbox/lib/messageText";
 import { parseAddress, parseAddressList } from "@/shared/participants";
 import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
@@ -208,15 +208,25 @@ function findPart(part: GmailPart, mimeType: string): GmailPart | null {
   return null;
 }
 
+/** The charset a part's Content-Type declares; Gmail doesn't convert it. */
+function charsetOf(part: GmailPart): string | null {
+  const type = header(part.headers, "content-type");
+  return type?.match(/charset\s*=\s*"?([^";\s]+)/i)?.[1] ?? null;
+}
+
 /** The message's text: its text/plain part, else its HTML as text. */
 function plainTextBody(payload: GmailPart | undefined): string {
   if (!payload) return "";
   const plain = findPart(payload, "text/plain");
-  if (plain?.body?.data) return decodeBase64Url(plain.body.data);
+  if (plain?.body?.data) {
+    return decodeBase64Url(plain.body.data, charsetOf(plain));
+  }
   const html = findPart(payload, "text/html");
-  if (html?.body?.data) return stripHtml(decodeBase64Url(html.body.data));
+  if (html?.body?.data) {
+    return stripHtml(decodeBase64Url(html.body.data, charsetOf(html)));
+  }
   if (payload.body?.data && !payload.filename) {
-    return decodeBase64Url(payload.body.data);
+    return decodeBase64Url(payload.body.data, charsetOf(payload));
   }
   return "";
 }
@@ -260,7 +270,7 @@ function parseGmailMessage(message: GmailMessage): IncomingMessage | null {
     subject: header(headers, "subject"),
     from,
     recipients: [...people("to", "to"), ...people("cc", "cc")],
-    body: stripQuotedHistory(plainTextBody(message.payload)),
+    body: messageBody(plainTextBody(message.payload)),
     sentAt,
     gmailMessageId: message.id ?? null,
   };

@@ -1,9 +1,9 @@
 import { z } from "zod";
 import {
+  messageBody,
   normaliseMessageId,
   rootMessageIdFrom,
   stripHtml,
-  stripQuotedHistory,
 } from "@/server/features/mailbox/lib/messageText";
 import { parseAddress, type Participant } from "@/shared/participants";
 import {
@@ -263,7 +263,7 @@ function parseGraphMessage(message: GraphMessage): IncomingMessage | null {
       ...addressList(message.toRecipients, "to"),
       ...addressList(message.ccRecipients, "cc"),
     ],
-    body: stripQuotedHistory(text),
+    body: messageBody(text),
     sentAt,
     outlookMessageId: message.id ?? null,
     outlookWebLink: message.webLink ?? null,

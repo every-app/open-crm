@@ -1,10 +1,13 @@
 import type { z } from "zod";
+import { withoutNul } from "@/server/features/mailbox/lib/messageText";
 
 // The one place a Gmail, Calendar or Graph answer becomes an outcome, ported
 // from the CRM's mailbox-api.client.ts: a bearer GET with a timeout, its
 // status read as "the cursor expired", "the token was refused", "slow down"
 // or a failure. Calls are made with the member's own access token, straight
-// to the provider; the gateway only ever sees the token endpoint.
+// to the provider; the gateway only ever sees the token endpoint. Every
+// string in an answer arrives without NUL characters, which Postgres can't
+// store: a subject or a body carrying one would stall its mailbox.
 
 export type MailboxResult<T> =
   | { outcome: "ok"; data: T }
@@ -59,7 +62,7 @@ export async function mailboxGet<T>(
   }
 
   if (response.ok) {
-    const parsed = schema.safeParse(await response.json().catch(() => null));
+    const parsed = schema.safeParse(await readJson(response));
     return parsed.success
       ? { outcome: "ok", data: parsed.data }
       : {
@@ -107,9 +110,20 @@ function backoffFrom(response: Response): number {
   return Math.min(Math.max(suggested, MIN_BACKOFF_MS), MAX_BACKOFF_MS);
 }
 
+/** The answer's JSON, its strings without NULs; null when it isn't JSON. */
+async function readJson(response: Response): Promise<unknown> {
+  try {
+    return JSON.parse(await response.text(), (_key, value: unknown) =>
+      typeof value === "string" ? withoutNul(value) : value,
+    );
+  } catch {
+    return null;
+  }
+}
+
 /** Google's and Graph's `{ error: { message } }`, or the status. */
 async function reasonOf(response: Response): Promise<string> {
-  const body: unknown = await response.json().catch(() => null);
+  const body = await readJson(response);
   if (body && typeof body === "object" && "error" in body) {
     const error: unknown = body.error;
     if (error && typeof error === "object") {
