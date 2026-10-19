@@ -109,12 +109,13 @@ minute, per hour and per day, and each event costs them a full HTTP request.
 ## Retention
 
 The hourly cron tick at minute 30 runs retention for every organization at
-once (`TrackingRetentionService`):
+once (`TrackingRetentionService`), in batches of 5,000 for up to 20 seconds:
 
-1. Page views older than 90 days, cut at a UTC midnight, are rolled into
-   `tracked_page_daily`.
-2. Those events are deleted in passes of up to 5,000. A run that hits the
-   pass limit logs a warning and the next hour continues. A day that gets
-   rolled twice keeps the larger count.
-3. Visitors whose contact is gone and who have no events left are deleted.
-4. Expired rate counters are deleted.
+1. A batch is the oldest events older than 90 days, cut at a UTC midnight.
+   Its page views are rolled into `tracked_page_daily` and its events are
+   deleted in one atomic batch, so an event is counted once, by the batch
+   that deletes it. Visitors are added up per batch: one whose views of a
+   page fall in two batches of a day counts twice. A run that runs out of
+   time logs a warning and the next hour continues.
+2. Visitors whose contact is gone and who have no events left are deleted.
+3. Expired rate counters are deleted.
