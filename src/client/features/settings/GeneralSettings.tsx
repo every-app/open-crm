@@ -15,7 +15,7 @@ import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQuer
 /**
  * Settings → General, as the original CRM groups it. The research keys and
  * the model are a self-hosted copy's own: the hosted CRM uses Every App's,
- * so it shows neither.
+ * so it shows neither, only whether the agent researches on its own.
  */
 export function GeneralSettings() {
   const { data: workspace } = useQuery(workspaceQueryOptions());
@@ -40,7 +40,7 @@ export function GeneralSettings() {
       ) : null}
 
       <ArchivedRecordsSection />
-      {selfHosted ? <ResearchAgentSection /> : null}
+      <ResearchAgentSection selfHosted={selfHosted} />
     </SettingsPage>
   );
 }
