@@ -35,8 +35,9 @@ export async function ensureUserRecord(userId: string, userEmail: string) {
           .set({ email: userEmail, name: deriveUserName(userEmail) })
           .where(eq(user.id, userId))
       : // Concurrent first-load requests can all see "no row" and race to
-        // insert the same id; onConflictDoNothing on the PK makes the losers
-        // no-ops instead of failing.
+        // insert the same row. Every unique index is an arbiter, so the
+        // losers are no-ops on either one: with only the id's, Postgres
+        // can still fail a loser on the email's.
         tx
           .insert(user)
           .values({
@@ -45,7 +46,7 @@ export async function ensureUserRecord(userId: string, userEmail: string) {
             email: userEmail,
             emailVerified: true,
           })
-          .onConflictDoNothing({ target: user.id }),
+          .onConflictDoNothing(),
   ]);
   return userEmail;
 }

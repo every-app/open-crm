@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// A member the gateway removed and invited again comes back under a new id
-// with the same email, which `user.email` keeps unique.
+// A member's first page load sends several requests at once, each of which
+// may create their row; and a member the gateway removed and invited again
+// comes back under a new id with the same email, which `user.email` keeps
+// unique. (The index-level race between first requests shows only on a real
+// Postgres, where it was checked; here they interleave at each statement.)
 const { testDb } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -23,8 +26,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await database.seedTwoOrganizations();
     });
 
-    it("lets a re-invited member in under their new id; the old row keeps its membership and gives the email up", async () => {
-      await ensureUserRecord("user_a2", "ana@a.test");
+    it("lets a re-invited member in under their new id however many first requests race; the old row keeps its membership and gives the email up", async () => {
+      await Promise.all(
+        [1, 2, 3].map(() => ensureUserRecord("user_a2", "ana@a.test")),
+      );
 
       expect(
         await database.rows(
