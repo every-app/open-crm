@@ -15,6 +15,12 @@ export const MAX_EVENTS_PER_BATCH = 20;
 // feature exists for is silently dropped.
 export const MAX_BODY_BYTES = 32_768;
 export const MAX_FORM_FIELDS = 40;
+/**
+ * Form fields never recorded, by name or (in the browser) autocomplete
+ * token: secrets, cards, birth dates, tax ids and social security numbers.
+ */
+export const SENSITIVE_FIELD =
+  /pass|secret|token|card|cvv|cvc|csc|cc.?(num|exp)|iban|routing|ssn|social.?(sec|ins)|birth|bday|dob|tax.?id|taxpayer/i;
 
 /** Events a site may record per minute, and one visitor of it. */
 export const SITE_EVENTS_PER_MINUTE = 600;

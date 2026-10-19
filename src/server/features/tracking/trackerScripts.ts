@@ -5,6 +5,7 @@ import {
   MAX_BODY_BYTES,
   MAX_EVENTS_PER_BATCH,
   MAX_FORM_FIELDS,
+  SENSITIVE_FIELD,
   type TrackingConfig,
 } from "@/server/features/tracking/trackingRules";
 
@@ -13,7 +14,9 @@ import {
 // page, so: never throw (every decode, parse and URL is wrapped; a malformed
 // UTM reads as absent), take every limit from trackingRules.ts, and stay
 // inside the collector's body limit (flush() splits a batch, then trims one
-// oversized form, rather than posting a body the collector drops).
+// oversized form, rather than posting a body the collector drops). A form
+// with a password field, or marked `data-crm-ignore`, is never sent, nor is
+// a field so marked or one SENSITIVE_FIELD names.
 
 /**
  * `/t/crm.js`, the tag a person pastes: reads the site id from `data-site`
@@ -48,7 +51,7 @@ export function trackerSource(
 ): string {
   return `(function(){
 var C=${JSON.stringify(config)},E=${JSON.stringify(endpoint)},N=${JSON.stringify(COOKIE_NAME)},FS=${JSON.stringify(COOKIE_FIRST_TOUCH)};
-var B=${MAX_BODY_BYTES},M=${MAX_EVENTS_PER_BATCH};
+var B=${MAX_BODY_BYTES},M=${MAX_EVENTS_PER_BATCH},S=${String(SENSITIVE_FIELD)};
 var d=document,w=window,loc=w.location;
 if(w.__crmT)return;w.__crmT=1;
 function host(){return loc.hostname.toLowerCase()}
@@ -157,14 +160,16 @@ function onClick(ev){
    return}
   el=el.parentElement}}
 function onSubmit(ev){
- var f=ev.target;
- if(!f||f.tagName!=="FORM")return;
+ var f=ev.target,i,el;
+ if(!f||f.tagName!=="FORM"||f.hasAttribute("data-crm-ignore"))return;
+ for(i=0;i<f.elements.length;i++)if((f.elements[i].type||"").toLowerCase()==="password")return;
  var fields={},n=0;
- for(var i=0;i<f.elements.length&&n<${MAX_FORM_FIELDS};i++){
-  var el=f.elements[i],name=el.name||el.id;
-  if(!name||!el.value)continue;
+ for(i=0;i<f.elements.length&&n<${MAX_FORM_FIELDS};i++){
+  el=f.elements[i];var name=el.name||el.id;
+  if(!name||!el.value||el.hasAttribute("data-crm-ignore"))continue;
   var type=(el.type||"").toLowerCase();
-  if(type==="password"||type==="hidden"||type==="file")continue;
+  if(type==="hidden"||type==="file")continue;
+  if(S.test(name)||S.test(el.getAttribute("autocomplete")||""))continue;
   if(type==="checkbox"||type==="radio"){if(!el.checked)continue}
   fields[name]=String(el.value).slice(0,512);n++}
  if(!n)return;

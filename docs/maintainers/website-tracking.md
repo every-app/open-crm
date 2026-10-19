@@ -90,8 +90,11 @@ this order; the ones that need no database run before the one lookup:
 
 Stored fields are bounded too: paths and referrers at 512 characters,
 labels at 80, UTM values at 120, and forms at 40 fields of 512 characters.
-Query strings, password, hidden and file inputs, sensitive field names, card
-numbers and IP addresses are never stored.
+A form with a password field, and a form or field marked
+`data-crm-ignore`, is never sent. Query strings, hidden and file inputs,
+fields whose name or autocomplete token is sensitive (secrets, cards, birth
+dates, tax ids, social security numbers; `SENSITIVE_FIELD`), card numbers
+and IP addresses are never stored.
 
 A form submission becomes a contact under the same rules captured mail
 follows (`src/shared/participants.ts`):

@@ -25,6 +25,7 @@ import {
   normalizePath,
   ORG_EVENTS_PER_DAY,
   originAllowed,
+  SENSITIVE_FIELD,
   SITE_EVENTS_PER_MINUTE,
   stripQuery,
   trackingConfig,
@@ -70,8 +71,7 @@ const MAX_FIELD_KEY = 64;
 const MAX_FIELD_VALUE = 512;
 
 const BOT = /bot|crawler|spider|crawling|headlesschrome|lighthouse|preview/i;
-// Field names that never leave the collector, and values shaped like a card.
-const SENSITIVE = /pass|secret|token|card|cvv|cvc|ssn|iban|routing/i;
+// Values shaped like a card never leave the collector either.
 const CARD = /^[0-9 -]{12,25}$/;
 
 type Site = { organizationId: string; config: TrackingConfig };
@@ -151,7 +151,7 @@ function cleanFields(fields: Record<string, unknown> | undefined) {
     MAX_FORM_FIELDS,
   )) {
     if (typeof value !== "string") continue;
-    if (SENSITIVE.test(key)) continue;
+    if (SENSITIVE_FIELD.test(key)) continue;
     if (CARD.test(value.trim())) continue;
     kept[trim(key, MAX_FIELD_KEY)] = trim(value, MAX_FIELD_VALUE);
   }
