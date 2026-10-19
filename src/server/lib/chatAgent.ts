@@ -30,9 +30,27 @@ const openRouterUsageSchema = z.object({
   openrouter: z.object({ usage: z.object({ cost: z.number() }) }),
 });
 
-export function openRouterCostUsd(providerMetadata: unknown): number {
-  const parsed = openRouterUsageSchema.safeParse(providerMetadata);
-  return parsed.success ? parsed.data.openrouter.usage.cost : 0;
+/** The model staticAssistantModel answers as: it calls no provider. */
+const STATIC_MODEL_ID = "static-assistant";
+
+/**
+ * A model response's cost. One that carries none is billed $0, as it always
+ * was, and logged with the model that answered, so a model or provider that
+ * stops reporting its cost shows up rather than spending unseen. A static
+ * reply costs nothing and logs nothing.
+ */
+export function openRouterCostUsd(answer: {
+  providerMetadata: unknown;
+  response: { modelId: string };
+}): number {
+  const parsed = openRouterUsageSchema.safeParse(answer.providerMetadata);
+  if (parsed.success) return parsed.data.openrouter.usage.cost;
+  if (answer.response.modelId !== STATIC_MODEL_ID) {
+    console.warn("[billing] a model response had no cost; billed $0", {
+      model: answer.response.modelId,
+    });
+  }
+  return 0;
 }
 
 // The provider package re-exports only LanguageModelV3 itself, so the stream
@@ -56,7 +74,7 @@ export function staticAssistantModel(text: string): LanguageModelV3 {
   return {
     specificationVersion: "v3",
     provider: "openseo",
-    modelId: "static-assistant",
+    modelId: STATIC_MODEL_ID,
     supportedUrls: {},
     doGenerate: async () => ({
       content: [{ type: "text", text }],

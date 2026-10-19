@@ -147,7 +147,7 @@ export class CrmAgent extends Think {
               "low",
             );
             const result = await generateText({ model, prompt });
-            this.meter.record(openRouterCostUsd(result.providerMetadata));
+            this.meter.record(openRouterCostUsd(result));
             return result.text;
           },
         }),
@@ -387,7 +387,7 @@ export class CrmAgent extends Think {
   }
 
   override async onStepFinish(step: StepContext): Promise<void> {
-    const costUsd = openRouterCostUsd(step.providerMetadata);
+    const costUsd = openRouterCostUsd(step);
     this.meter.record(costUsd);
     const session = this.turnSession;
     if (!session) return;
