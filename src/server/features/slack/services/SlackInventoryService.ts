@@ -253,12 +253,31 @@ async function queueSync(
   }
 }
 
-/** Members and the Slack users they matched. */
+/**
+ * As in the CRM, the members are matched again when they changed since the
+ * last match: someone not matched yet, or a match older than the connection.
+ * Not while a read is running.
+ */
+function rematchIfChanged(
+  connection: SlackConnectionRow,
+  members: Array<{ reviewedAt: string | null }>,
+): void {
+  const fresh = members.every(
+    (row) =>
+      row.reviewedAt !== null && row.reviewedAt >= connection.connectedAt,
+  );
+  if (!fresh && syncState(connection) !== "syncing") {
+    startSync(connection.organizationId);
+  }
+}
+
+/** Members and the Slack users they matched, matching them again if they changed. */
 async function matches(context: Context) {
   const connection = await SlackRepository.getConnection(
     context.organizationId,
   );
   const rows = await SlackRepository.listMatches(context.organizationId);
+  if (connection) rematchIfChanged(connection, rows);
   return {
     sync: connection ? syncState(connection) : ("idle" as const),
     rows: rows.map((row) => ({
@@ -320,6 +339,7 @@ export const SlackInventoryService = {
   joinChannel,
   createChannel,
   refresh,
+  rematchIfChanged,
   matches,
   builderInventory,
   startSync,

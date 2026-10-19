@@ -197,7 +197,7 @@ export const slackTools = {
 
   list_slack_people: crmTool({
     description:
-      "The organization's members and the Slack user each is, matched by exact email (null when no Slack user has their email). 50 a page, by name.",
+      "The organization's members and the Slack user each is, matched by exact email. Members not checked yet are matched in the background, and `sync` says when that is done. 50 a page, by name.",
     risk: "read",
     input: z.object({ page: pageInput }).strict(),
     output: z.object({
@@ -209,7 +209,15 @@ export const slackTools = {
         z.object({
           name: z.string(),
           email: z.string(),
-          slackUserId: z.string().nullable(),
+          reviewed: z
+            .boolean()
+            .describe("The CRM has looked for them in Slack."),
+          slackUserId: z
+            .string()
+            .nullable()
+            .describe(
+              "Null until they are reviewed, and after when no Slack user has their email.",
+            ),
           slackHandle: z.string().nullable(),
         }),
       ),

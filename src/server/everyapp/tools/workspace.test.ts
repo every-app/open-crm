@@ -201,7 +201,7 @@ describe("workspace tools", () => {
     );
   });
 
-  it("slack: its status and people without a connection; with one, its channels, joining and creating one, and reading Slack again, also when a join finds a channel changed", async () => {
+  it("slack: its status and people without a connection; with one, its channels, joining and creating one, and reading Slack again: when a join finds a channel changed, and when someone joined since the people were matched", async () => {
     expect(await call("get_slack_status", {}, readOnly)).toMatchObject({
       available: false,
       connected: false,
@@ -210,7 +210,12 @@ describe("workspace tools", () => {
     expect(await call("list_slack_people")).toMatchObject({
       sync: "idle",
       people: [
-        { email: ana.email, slackUserId: null, slackHandle: null },
+        {
+          email: ana.email,
+          reviewed: false,
+          slackUserId: null,
+          slackHandle: null,
+        },
         { email: member.email },
       ],
     });
@@ -257,8 +262,13 @@ describe("workspace tools", () => {
     });
     expect(await call("list_slack_people")).toMatchObject({
       people: [
-        { email: ana.email, slackUserId: "U1", slackHandle: "@ana" },
-        { email: member.email, slackUserId: null },
+        {
+          email: ana.email,
+          reviewed: true,
+          slackUserId: "U1",
+          slackHandle: "@ana",
+        },
+        { email: member.email, reviewed: true, slackUserId: null },
       ],
     });
     const reads = () =>
@@ -266,6 +276,20 @@ describe("workspace tools", () => {
     const settled = () =>
       Promise.all(vi.mocked(waitUntil).mock.calls.map(([read]) => read));
     await settled();
+    expect(await reads()).toEqual([]);
+    // Someone who opens the CRM after the people were matched is matched
+    // when they are listed, as the status would.
+    const newcomer = { ...member, sub: "user_d", email: "di@a.test" };
+    await call("get_workspace", {}, { as: newcomer });
+    expect(await call("list_slack_people")).toMatchObject({
+      people: [
+        { email: ana.email },
+        { email: member.email },
+        { email: newcomer.email, reviewed: false, slackUserId: null },
+      ],
+    });
+    await settled();
+    expect(await reads()).toHaveLength(1);
     await testDb.exec(`DELETE FROM agent_task WHERE kind = 'slack-sync'`);
     expect(await call("join_slack_channel", { channelId: "C1" })).toEqual({
       outcome: "joined",

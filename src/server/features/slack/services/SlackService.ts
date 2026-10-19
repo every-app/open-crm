@@ -102,16 +102,7 @@ async function status(context: Context) {
     SlackRepository.listMatches(context.organizationId),
     slackAgents(context.organizationId),
   ]);
-  // As in the CRM, the members are matched again when they changed since
-  // the last match: someone not matched yet, or a match older than the
-  // connection. Not while a read is running.
-  const inventoryFresh = members.every(
-    (row) =>
-      row.reviewedAt !== null && row.reviewedAt >= connection.connectedAt,
-  );
-  if (!inventoryFresh && syncState(connection) !== "syncing") {
-    SlackInventoryService.startSync(context.organizationId);
-  }
+  SlackInventoryService.rematchIfChanged(connection, members);
   const scopes = scopeList(connection.botScopes);
   return {
     ...base,
