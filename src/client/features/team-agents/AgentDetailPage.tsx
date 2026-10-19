@@ -43,8 +43,8 @@ const TRIGGER_ORDER = ["SCHEDULE", "EVENT", "MANUAL"] as const;
 
 /**
  * A team agent (the CRM's team agent detail): what triggers it, the version
- * waiting for review with its exact files, and the deployed version's
- * permissions and code, which its creator or an admin can change. Archiving
+ * waiting for review, and its permissions and code as that version has them
+ * (else as deployed), which its creator or an admin can change. Archiving
  * and deleting are in its ⋯ menu; runs and every change are in the history
  * drawer.
  */
@@ -88,6 +88,9 @@ function LoadedAgent({ agent }: { agent: Agent }) {
   const review = agent.reviewVersion;
   const current = agent.currentVersion;
   const isDraft = agent.status === "DRAFT";
+  // A deployed agent's editor shows, and its changes build on, the version
+  // waiting for review.
+  const editing = current?.readable && review?.readable ? review : null;
 
   const runNow = useAgentMutation(
     agent.id,
@@ -208,7 +211,11 @@ function LoadedAgent({ agent }: { agent: Agent }) {
 
         {review ? (
           <div ref={reviewRef} className="scroll-mt-6">
-            <ReviewSection agent={agent} review={review} />
+            <ReviewSection
+              agent={agent}
+              review={review}
+              withCode={editing === null}
+            />
           </div>
         ) : null}
 
@@ -251,10 +258,11 @@ function LoadedAgent({ agent }: { agent: Agent }) {
 
         {current?.readable ? (
           <AgentCapabilities
-            key={`${current.id}:${resets}`}
+            key={`${(editing ?? current).id}:${resets}`}
             agentId={agent.id}
-            versionId={current.id}
-            manifest={current.manifest}
+            versionId={(editing ?? current).id}
+            manifest={(editing ?? current).manifest}
+            live={editing ? current.manifest : null}
             canManage={agent.canManage}
             onReset={() => setResets((count) => count + 1)}
           />
@@ -279,13 +287,18 @@ function LoadedAgent({ agent }: { agent: Agent }) {
   );
 }
 
-/** The version waiting for a person to deploy it, exactly as it would run. */
+/**
+ * The version waiting for a person to deploy it, exactly as it would run:
+ * with its files, unless the editor below shows them.
+ */
 function ReviewSection({
   agent,
   review,
+  withCode,
 }: {
   agent: Agent;
   review: NonNullable<Agent["reviewVersion"]>;
+  withCode: boolean;
 }) {
   const deploy = useAgentMutation(
     agent.id,
@@ -324,7 +337,9 @@ function ReviewSection({
             <AlertDescription>{review.problem}</AlertDescription>
           </Alert>
         )}
-        <AgentCode agentId={agent.id} versionId={review.id} />
+        {withCode ? (
+          <AgentCode agentId={agent.id} versionId={review.id} />
+        ) : null}
       </div>
     </SettingsSection>
   );
