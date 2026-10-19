@@ -4,6 +4,7 @@ import { messageHasVisibleContent } from "@/client/components/chat/ChatMessage";
 import { useStickToBottom } from "@/client/components/chat/useStickToBottom";
 import { QueryError } from "@/client/components/QueryState";
 import { Spinner } from "@/client/components/Spinner";
+import { ScrollToLatest } from "@/client/features/agent/ScrollToLatest";
 import { AgentCodeWorkspace } from "@/client/features/team-agents/AgentCodeWorkspace";
 import { ChatUnavailable } from "@/client/features/team-agents/ChatUnavailable";
 import {
@@ -44,7 +45,7 @@ export function SharedChatPage({ token }: { token: string }) {
 }
 
 function SharedThread({ chat, token }: { chat: SharedChat; token: string }) {
-  const { scrollRef, onScroll } = useStickToBottom(
+  const { scrollRef, onScroll, pinToBottom } = useStickToBottom(
     chat.messages,
     chat.working ? "working" : "ready",
   );
@@ -67,31 +68,34 @@ function SharedThread({ chat, token }: { chat: SharedChat; token: string }) {
           ) : null}
         </div>
       </header>
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto"
-      >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-5 sm:py-9">
-          <p className="text-center text-xs text-muted-foreground">
-            Shared by {chat.ownerName}
-          </p>
-          {chat.messages.map((message) =>
-            message.role === "user" ? (
-              <UserMessage key={message.id} message={message} share={token} />
-            ) : messageHasVisibleContent(message) ? (
-              <AssistantMessage
-                key={message.id}
-                message={message}
-                streaming={false}
-                hidden={undefined}
-              />
-            ) : null,
-          )}
-          {chat.files.length > 0 ? (
-            <AgentCodeWorkspace files={chat.files} working={chat.working} />
-          ) : null}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-5 sm:py-9">
+            <p className="text-center text-xs text-muted-foreground">
+              Shared by {chat.ownerName}
+            </p>
+            {chat.messages.map((message) =>
+              message.role === "user" ? (
+                <UserMessage key={message.id} message={message} share={token} />
+              ) : messageHasVisibleContent(message) ? (
+                <AssistantMessage
+                  key={message.id}
+                  message={message}
+                  streaming={false}
+                  hidden={undefined}
+                />
+              ) : null,
+            )}
+            {chat.files.length > 0 ? (
+              <AgentCodeWorkspace files={chat.files} working={chat.working} />
+            ) : null}
+          </div>
         </div>
+        <ScrollToLatest scrollRef={scrollRef} onClick={pinToBottom} />
       </div>
     </div>
   );
