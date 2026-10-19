@@ -65,3 +65,11 @@ overrides:
   browserslist: "^4.28.7"
   baseline-browser-mapping: "^2.11.0"
   "nanoid@3": "^3.3.18"
+  # GHSA-6qxp-vccf-f47h. agents 0.22 asks for exactly 2.0.0 and 1.30.0 as
+  # peers; nothing in the CRM uses its MCP client.
+  "@modelcontextprotocol/client": "^2.2.0"
+  "@modelcontextprotocol/sdk": "^1.31.0"
+  # GHSA-hp3w-g68c-fv3c has no patched release. just-bash imports sprintf-js
+  # only for its printf command, and the Worker never ships just-bash
+  # (vite-plugin-lean-worker-bundle.ts).
+  "just-bash>sprintf-js": "-"
