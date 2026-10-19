@@ -44,7 +44,6 @@ import {
   renewBudget,
   sessionSpender,
   spentChatReply,
-  startTurnTokens,
   tokenLimitStep,
   type Spend,
 } from "./runtime/budget";
@@ -106,12 +105,11 @@ export class CrmAgent extends Think {
     proactive: { maxInputTokens: MAX_INPUT_TOKENS },
   };
 
-  // The session and model, loaded at the start of each turn, the turn's
-  // system prompt, and whether it builds an agent (a build's token limit).
+  // The session and model, loaded at the start of each turn, and the turn's
+  // system prompt.
   private turnSession: AgentSession | null = null;
   private modelChoice: ModelChoice | null = null;
   private turnSystem = "";
-  private building = false;
 
   // Hosted billing: what the session spends (server/billing/meter.ts).
   private readonly meter = new SessionMeter((p) => this.ctx.waitUntil(p));
@@ -224,7 +222,6 @@ export class CrmAgent extends Think {
     return withPgClient(async (): Promise<TurnConfig> => {
       const session = await loadAgentSession(this.name);
       this.turnSession = session;
-      this.building = false;
       if (!session) {
         return { model: staticAssistantModel(GONE_REPLY), activeTools: [] };
       }
@@ -274,7 +271,6 @@ export class CrmAgent extends Think {
           sink: this.meter.sink,
         });
         this.turnSystem = builder.system;
-        this.building = builder.creating;
         return {
           system: builder.system,
           tools: builder.tools,
@@ -300,7 +296,6 @@ export class CrmAgent extends Think {
   private async openTurn(session: AgentSession): Promise<void> {
     if (session.kind === "chat") {
       renewBudget(this.ctx.storage.kv, CHAT_BUDGET);
-      startTurnTokens(this.ctx.storage.kv);
       await AgentConversationRepository.recordMessage(
         session.organizationId,
         session.conversation.id,
@@ -357,14 +352,16 @@ export class CrmAgent extends Think {
 
   /**
    * Before each model call, the session's token limits (runtime/budget.ts):
-   * past them a research session, a chat or a build writes up what it has,
-   * and a run fails.
+   * past them a research session or a chat writes up what it has, and a run
+   * fails.
    */
   override beforeStep() {
     const kind = this.turnSession?.kind;
     if (!kind) return undefined;
-    const turn = { kind, system: this.turnSystem, building: this.building };
-    return tokenLimitStep(this.ctx.storage.kv, turn);
+    return tokenLimitStep(this.ctx.storage.kv, {
+      kind,
+      system: this.turnSystem,
+    });
   }
 
   /** The chat's person's gateway role, as their socket connected with it. */

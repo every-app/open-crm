@@ -2,12 +2,7 @@ import { generateText, stepCountIs, tool, type ToolSet } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import {
-  addTokens,
-  spentChatReply,
-  startTurnTokens,
-  tokenLimitStep,
-} from "./budget";
+import { addTokens, spentChatReply, tokenLimitStep } from "./budget";
 import type { AgentSession } from "./session";
 
 // A session's token limits, applied as CrmAgent applies them: each step's
@@ -65,14 +60,12 @@ const tools: ToolSet = {
   look: tool({ inputSchema: z.object({}), execute: async () => "Seen." }),
 };
 
-/** A turn, as CrmAgent runs it: a person's message opens a chat's turn. */
+/** A turn of a session of `kind`, as CrmAgent runs it. */
 function turn(
   storage: Storage,
   stub: MockLanguageModelV3,
   kind: AgentSession["kind"],
-  building = false,
 ) {
-  if (kind === "chat") startTurnTokens(storage);
   const system = "Answer.";
   return generateText({
     model: stub,
@@ -80,7 +73,7 @@ function turn(
     prompt: "Who else should we talk to?",
     tools,
     stopWhen: stepCountIs(5),
-    prepareStep: () => tokenLimitStep(storage, { kind, system, building }),
+    prepareStep: () => tokenLimitStep(storage, { kind, system }),
     onStepFinish: (step) => addTokens(storage, step.usage),
   });
 }
@@ -105,21 +98,6 @@ describe("a session's token limits", () => {
     expect(spentChatReply(storage, "RECORD")).toBe(
       "This conversation has hit its token limit. Start a new conversation.",
     );
-  });
-
-  it("hold a build to its own 100,000, while its chat has room, and count the next build afresh", async () => {
-    const storage = sessionStorage();
-    const build = model(120_000);
-    await turn(storage, build, "chat", true);
-    expect(toolsOf(build, 1)).toEqual([]);
-    expect(JSON.stringify(build.doGenerateCalls[1]?.prompt)).toContain(
-      "The token budget for this build is spent.",
-    );
-    expect(spentChatReply(storage, "BUILDER")).toBeNull();
-
-    const next = model(10);
-    await turn(storage, next, "chat", true);
-    expect(toolsOf(next, 1)).not.toEqual([]);
   });
 
   it("fail a run's next model call past its 500,000 input tokens, in the CRM's words", async () => {

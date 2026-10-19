@@ -261,8 +261,7 @@ async function withTagsAndFiles(
  * tools re-check every tagged record against the organization before
  * anything is saved. A question's research draws on the turn's budget.
  * `messages` gives the model what the person tagged and attached, from the
- * model messages Think assembled for the turn (TurnContext.messages), and
- * `creating` says whether the turn builds, which has its own token limit.
+ * model messages Think assembled for the turn (TurnContext.messages).
  */
 export function prepareBuilderTurn(
   session: ChatSession,
@@ -276,7 +275,6 @@ export function prepareBuilderTurn(
   system: string;
   tools: ToolSet;
   messages: (assembled: ModelMessage[]) => Promise<ModelMessage[]>;
-  creating: boolean;
 } {
   const userMessages = input.messages.filter(
     (message) => message.role === "user",
@@ -341,6 +339,5 @@ export function prepareBuilderTurn(
     tools,
     messages: (assembled) =>
       withTagsAndFiles(session, input.messages, people, assembled),
-    creating,
   };
 }

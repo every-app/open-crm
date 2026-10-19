@@ -66,8 +66,6 @@ type SessionStorage = {
 
 const BUDGET_KEY = "crm-agent:budget";
 const TOKENS_KEY = "crm-agent:tokens";
-/** The tokens since the person's latest message: a build's own. */
-const TURN_TOKENS_KEY = "crm-agent:turn-tokens";
 
 const budgetState = z.object({
   spent: z.number(),
@@ -89,65 +87,45 @@ export function renewBudget(storage: SessionStorage, budget: number): void {
   storage.put(BUDGET_KEY, { spent: 0, budget, exhausted: false });
 }
 
-type TokenLimit = { input: number; output: number };
+type Tokens = { input: number; output: number };
 
 /**
  * The CRM's token limits: its agent's on every session, research and chats
- * alike (agent.ts); its build subagent's on each build, within the chat's
- * (agent_builder/agent.ts); and its runner's on each run
- * (agent_runner/agent.ts).
+ * alike (agent.ts), and its runner's on each run (agent_runner/agent.ts).
  */
 const TOKEN_LIMITS = {
   session: { input: 500_000, output: 50_000 },
-  build: { input: 100_000, output: 10_000 },
   run: { input: 500_000, output: 40_000 },
-} satisfies Record<string, TokenLimit>;
+} satisfies Record<string, Tokens>;
 
 const tokenUse = z
   .object({ input: z.number(), output: z.number() })
   .catch({ input: 0, output: 0 });
 
-const WRITE_UP = {
-  session:
-    "The token budget for this session is spent. Call no more tools: write up what you already have, as you would when the research budget runs out.",
-  build:
-    "The token budget for this build is spent. Call no more tools: say where the build got to, and if no draft was saved, explain that the build could not finish and ask the person to try again.",
-};
+const TOKENS_SPENT =
+  "The token budget for this session is spent. Call no more tools: write up what you already have, as you would when the research budget runs out.";
 
-/** Adds a step's tokens to the session's, and to its turn's. */
+/** Adds a step's tokens to the session's. */
 export function addTokens(
   storage: SessionStorage,
   usage: Pick<LanguageModelUsage, "inputTokens" | "outputTokens">,
 ): void {
-  for (const key of [TOKENS_KEY, TURN_TOKENS_KEY]) {
-    const used = tokenUse.parse(storage.get(key));
-    storage.put(key, {
-      input: used.input + (usage.inputTokens ?? 0),
-      output: used.output + (usage.outputTokens ?? 0),
-    });
-  }
+  const used = tokenUse.parse(storage.get(TOKENS_KEY));
+  storage.put(TOKENS_KEY, {
+    input: used.input + (usage.inputTokens ?? 0),
+    output: used.output + (usage.outputTokens ?? 0),
+  });
 }
 
-/** A person's new turn counts its own tokens from here, for a build's limit. */
-export function startTurnTokens(storage: SessionStorage): void {
-  storage.put(TURN_TOKENS_KEY, { input: 0, output: 0 });
-}
-
-/** The limit the tokens kept at `key` have reached, input first, or null. */
+/** The limit the session's tokens have reached, input first, or null. */
 function reached(
   storage: SessionStorage,
-  key: string,
-  limit: TokenLimit,
+  limit: Tokens,
 ): "input" | "output" | null {
-  const used = tokenUse.parse(storage.get(key));
+  const used = tokenUse.parse(storage.get(TOKENS_KEY));
   if (used.input >= limit.input) return "input";
   if (used.output >= limit.output) return "output";
   return null;
-}
-
-/** Whether a research session's or a chat's tokens are spent. */
-function tokensSpent(storage: SessionStorage): boolean {
-  return reached(storage, TOKENS_KEY, TOKEN_LIMITS.session) !== null;
 }
 
 /**
@@ -158,7 +136,7 @@ export function spentChatReply(
   storage: SessionStorage,
   kind: ChatSession["conversation"]["kind"],
 ): string | null {
-  if (!tokensSpent(storage)) return null;
+  if (!reached(storage, TOKEN_LIMITS.session)) return null;
   return kind === "BUILDER"
     ? "This chat has hit its token limit. Start a new chat."
     : "This conversation has hit its token limit. Start a new conversation.";
@@ -166,19 +144,19 @@ export function spentChatReply(
 
 /**
  * A session's next model call, within its token limits. A research session
- * or a chat whose tokens are spent, or a build whose own are, takes a step
- * with no tools and the instruction to write up what it has, so it ends as
- * running out of research budget ends it, not with an error. A run that has
- * spent its tokens fails the call instead, in the words the CRM's runtime
- * failed an unattended session with (SESSION_TOKEN_LIMIT_REACHED), so the run
- * ends FAILED, as TURN_FAILED. Undefined while tokens remain.
+ * or a chat whose tokens are spent takes a step with no tools and the
+ * instruction to write up what it has, so it ends as running out of research
+ * budget ends it, not with an error. A run that has spent its tokens fails
+ * the call instead, in the words the CRM's runtime failed an unattended
+ * session with (SESSION_TOKEN_LIMIT_REACHED), so the run ends FAILED, as
+ * TURN_FAILED. Undefined while tokens remain.
  */
 export function tokenLimitStep(
   storage: SessionStorage,
-  turn: { kind: AgentSession["kind"]; system: string; building: boolean },
+  turn: { kind: AgentSession["kind"]; system: string },
 ): { activeTools: string[]; system: string } | undefined {
   if (turn.kind === "run") {
-    const limit = reached(storage, TOKENS_KEY, TOKEN_LIMITS.run);
+    const limit = reached(storage, TOKEN_LIMITS.run);
     if (limit) {
       throw new Error(
         `The session reached its configured ${limit} token limit.`,
@@ -186,11 +164,6 @@ export function tokenLimitStep(
     }
     return undefined;
   }
-  const spent = tokensSpent(storage)
-    ? "session"
-    : turn.building && reached(storage, TURN_TOKENS_KEY, TOKEN_LIMITS.build)
-      ? "build"
-      : null;
-  if (!spent) return undefined;
-  return { activeTools: [], system: `${turn.system}\n\n${WRITE_UP[spent]}` };
+  if (!reached(storage, TOKEN_LIMITS.session)) return undefined;
+  return { activeTools: [], system: `${turn.system}\n\n${TOKENS_SPENT}` };
 }
