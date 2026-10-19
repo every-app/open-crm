@@ -46,7 +46,7 @@ The CRM swept when someone signed in, at most every five minutes. Here the gatew
 
 ## The evidence ledger
 
-What the agent learns about a person is a fact in `contact_fact`, priced by its evidence (`lib/evidence.ts`, `lib/facts.ts`, whose header states the rules). A blank field is filled; a value already there is replaced only by verified evidence; anything weaker becomes a suggestion a person accepts or dismisses on the contact sheet. The agent owns a column only while it still holds the value the agent wrote, so a person's correction is never overwritten. A dismissed value is never offered again.
+What the agent learns about a person is a fact in `contact_fact`, priced by its evidence (`lib/evidence.ts`, `lib/facts.ts`, whose header states the rules). A blank field is filled; a value already there is replaced only by verified evidence; anything weaker becomes a suggestion a person accepts or dismisses on the contact sheet. A weaker employer, location or tenure, which the record has no column for, is dropped instead. The agent owns a column only while it still holds the value the agent wrote, so a person's correction is never overwritten. A dismissed value is never offered again.
 
 ## Chats
 
