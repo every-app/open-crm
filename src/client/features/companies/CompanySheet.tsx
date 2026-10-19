@@ -230,9 +230,12 @@ function CompanyStats({ company }: { company: Company }) {
   );
 }
 
-/** What deleting a company forever takes with it, for the confirmation. */
+/**
+ * What deleting a company forever takes with it, for the confirmation: every
+ * deal, archived ones included.
+ */
 function purgeConsequence(company: Company): string {
-  const deals = company.deals.length;
+  const deals = company.dealCount;
   return deals > 0
     ? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything filed against the account go too.`
     : "Everything filed against the account goes too.";

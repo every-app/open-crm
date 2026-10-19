@@ -13,7 +13,7 @@ import {
   fieldWrites,
   runBulk,
 } from "@/server/features/records/recordRules";
-import { AppError } from "@/server/lib/errors";
+import { AppError, UserFacingError } from "@/server/lib/errors";
 import { normalizeCurrency, roundMoney } from "@/shared/currency";
 import { isClosedStage, isLosingStage } from "@/shared/deal-stages";
 import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
@@ -222,7 +222,7 @@ async function setStage(
   if (found.stage === stage) return { id, stage, changed: false };
   const reason = input.closedReason?.trim() || null;
   if (isLosingStage(stage) && !reason) {
-    throw new AppError(
+    throw new UserFacingError(
       "VALIDATION_ERROR",
       "Say why it was lost: a closed-lost deal with no reason teaches nobody anything.",
     );
@@ -244,7 +244,7 @@ async function setStage(
     // Someone moved it first: fine if they moved it here too.
     const now = await requireDeal(organizationId, id);
     if (now.stage === stage) return { id, stage, changed: false };
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "Someone moved this deal to another stage meanwhile.",
     );
@@ -279,7 +279,7 @@ async function restoreDeal(organizationId: string, id: string) {
 async function purgeDeal(organizationId: string, id: string) {
   const found = await requireDeal(organizationId, id);
   if (!found.archivedAt) {
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "Only an archived deal can be deleted forever. Archive it first.",
     );
@@ -291,7 +291,7 @@ async function purgeDeal(organizationId: string, id: string) {
     new Date().toISOString(),
   );
   if (purged.length === 0) {
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "The deal was restored before it could be deleted.",
     );
@@ -400,7 +400,7 @@ async function bulkSetStage(
 ): Promise<BulkResult> {
   const closedReason = input.closedReason?.trim();
   if (isLosingStage(input.stage) && !closedReason) {
-    throw new AppError(
+    throw new UserFacingError(
       "VALIDATION_ERROR",
       "Say why they were lost: a closed-lost deal with no reason teaches nobody anything.",
     );

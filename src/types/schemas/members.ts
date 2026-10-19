@@ -7,8 +7,9 @@ export type MemberRole = (typeof MEMBER_ROLES)[number];
 export const MEMBER_SORTS = ["name", "email", "role", "joinedAt"] as const;
 
 /**
- * Settings → Members' search, role filter, sort and page, kept in the URL.
- * A value that doesn't parse is dropped, so a stale link still opens.
+ * Settings → Members' search, role filter, sort, page and hidden columns,
+ * kept in the URL. A value that doesn't parse is dropped, so a stale link
+ * still opens.
  */
 export const membersSearchSchema = z.object({
   // The router reads `?q=42` as a number: keep it text.
@@ -21,6 +22,7 @@ export const membersSearchSchema = z.object({
   sort: z.enum(MEMBER_SORTS).optional().catch(undefined),
   dir: z.enum(SORT_DIRECTIONS).optional().catch(undefined),
   page: z.coerce.number().int().positive().optional().catch(undefined),
+  hide: z.array(z.string()).optional().catch(undefined),
 });
 
 export type MembersSearch = z.infer<typeof membersSearchSchema>;

@@ -77,11 +77,14 @@ export const bulkOwnerSchema = bulkIdsSchema.extend({
 
 /**
  * How a bulk action went. `error` is the code of the first record that
- * failed, for the client's copy; the rest of each failure stays in the logs.
+ * failed, and `message` its refusal in words when the server wrote one for
+ * people (a domain taken, an owner who left); the rest of each failure stays
+ * in the logs.
  */
 export type BulkResult = {
   requested: number;
   succeeded: number;
   failed: number;
   error: ErrorCode | null;
+  message: string | null;
 };

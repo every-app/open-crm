@@ -18,15 +18,15 @@ export function columnLabel<TData>(column: Column<TData>): string {
 }
 
 /**
- * A list toolbar's "Columns" menu: shows or hides each column that can be,
- * then "Edit fields…", which opens the list's fields sheet.
+ * A table toolbar's "Columns" menu: shows or hides each column that can be,
+ * then, on a record list, "Edit fields…", which opens its fields sheet.
  */
 export function ColumnsMenu<TData>({
   table,
   onEditFields,
 }: {
   table: Table<TData>;
-  onEditFields: () => void;
+  onEditFields?: () => void;
 }) {
   const columns = table
     .getAllLeafColumns()
@@ -50,11 +50,15 @@ export function ColumnsMenu<TData>({
             {columnLabel(column)}
           </MenuPrimitive.CheckboxItem>
         ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onEditFields}>
-          <Settings2 />
-          Edit fields…
-        </DropdownMenuItem>
+        {onEditFields ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onEditFields}>
+              <Settings2 />
+              Edit fields…
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -40,16 +40,17 @@ function countOf(count: number, noun: RecordNoun): string {
 
 /**
  * Says how a bulk action went: what it did (`done` gets "3 companies"),
- * and why any records were left alone.
+ * and why any records were left alone, in the server's words when it has
+ * them ("A live company already uses this company's domain…").
  */
 export function reportBulk(
   result: BulkResult,
   noun: RecordNoun,
   done: (count: string) => string,
 ): void {
-  const why = result.error
-    ? getStandardErrorMessage(new Error(result.error))
-    : null;
+  const why =
+    result.message ??
+    (result.error ? getStandardErrorMessage(new Error(result.error)) : null);
   if (result.succeeded === 0) {
     toast.error(why ?? "Nothing changed.");
     return;

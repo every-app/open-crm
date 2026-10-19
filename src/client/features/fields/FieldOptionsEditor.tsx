@@ -6,7 +6,7 @@ import {
   SortableList,
 } from "@/client/features/fields/SortableList";
 import { ADD_OPTION } from "@/client/features/fields/fieldsCopy";
-import { FIELD_OPTION_LABEL_MAX } from "@/shared/fields";
+import { FIELD_OPTION_LABEL_MAX, FIELD_OPTIONS_MAX } from "@/shared/fields";
 
 /** A select's option while it is edited: `id` once saved, `key` for React. */
 type DraftOption = { id?: string; key: string; label: string };
@@ -35,8 +35,9 @@ export function optionsProblem(options: DraftOption[]): string | null {
 }
 
 /**
- * A select's options: rename in place, drag to reorder, remove, add.
- * Removing a saved option retires it: records that hold it keep showing it.
+ * A select's options: rename in place, drag to reorder, remove, add, up to
+ * the most a select takes. Removing a saved option retires it: records that
+ * hold it keep showing it.
  */
 export function FieldOptionsEditor({
   options,
@@ -47,6 +48,7 @@ export function FieldOptionsEditor({
   onChange: (options: DraftOption[]) => void;
   error: string | null;
 }) {
+  const full = options.length >= FIELD_OPTIONS_MAX;
   return (
     <div className="space-y-2">
       <SortableList
@@ -98,11 +100,17 @@ export function FieldOptionsEditor({
       <Button
         variant="ghost"
         size="sm"
+        disabled={full}
         onClick={() => onChange([...options, draftOption()])}
       >
         <Plus data-icon="inline-start" />
         {ADD_OPTION}
       </Button>
+      {full ? (
+        <p className="text-xs text-muted-foreground">
+          {`A select takes at most ${FIELD_OPTIONS_MAX} options.`}
+        </p>
+      ) : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );

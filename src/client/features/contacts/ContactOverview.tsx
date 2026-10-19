@@ -23,7 +23,7 @@ import { RecordLink } from "@/client/features/records/RecordLink";
 import { SheetSection } from "@/client/features/records/RecordSheet";
 import { OwnerField } from "@/client/features/records/owners";
 import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
-import { safeHttpUrl } from "@/shared/safe-url";
+import { normalizeUrl } from "@/shared/safe-url";
 import type { UpdateContactInput } from "@/types/schemas/contacts";
 
 type Mutations = ReturnType<typeof useContactMutations>;
@@ -244,10 +244,14 @@ const LINKS = [
   ["githubUrl", "GitHub"],
 ] as const;
 
-/** Their profiles, as links that open them. */
+/**
+ * Their profiles, as links that open them: one saved as typed, without
+ * https://, opens over https.
+ */
 function ContactLinks({ contact }: { contact: Contact }) {
   const links = LINKS.flatMap(([key, label]) => {
-    const href = safeHttpUrl(contact[key]);
+    const value = contact[key];
+    const href = value ? normalizeUrl(value) : null;
     return href ? [{ href, label }] : [];
   });
   if (links.length === 0) return null;

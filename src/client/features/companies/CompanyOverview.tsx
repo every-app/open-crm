@@ -12,7 +12,7 @@ import {
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
 import { SheetSection } from "@/client/features/records/RecordSheet";
 import { OwnerField } from "@/client/features/records/owners";
-import { safeHttpUrl } from "@/shared/safe-url";
+import { normalizeUrl } from "@/shared/safe-url";
 import type { UpdateCompanyInput } from "@/types/schemas/companies";
 import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
 
@@ -20,9 +20,8 @@ type Mutations = ReturnType<typeof useCompanyMutations>;
 type CompanyPatch = Omit<UpdateCompanyInput, "id">;
 
 /**
- * A company's Overview tab: what it does (once that's known), its details
- * and links, and its visits to the website. Its people and deals have tabs
- * of their own.
+ * A company's Overview tab: what it does, its details and links, and its
+ * visits to the website. Its people and deals have tabs of their own.
  */
 export function CompanyOverview({
   company,
@@ -42,15 +41,14 @@ export function CompanyOverview({
 
   return (
     <div>
-      {company.description ? (
-        <SheetSection title="About">
-          <InlineTextArea
-            label="Description"
-            value={company.description}
-            {...field("description")}
-          />
-        </SheetSection>
-      ) : null}
+      {/* Even when empty: a cleared description can be written again. */}
+      <SheetSection title="About">
+        <InlineTextArea
+          label="Description"
+          value={company.description}
+          {...field("description")}
+        />
+      </SheetSection>
 
       <SheetSection
         title="Details"
@@ -162,9 +160,11 @@ const LINKS = [
   ["careersUrl", "Careers"],
 ] as const;
 
+/** Its profiles and pages; one imported without https:// opens over https. */
 function CompanyLinks({ company }: { company: Company }) {
   const links = LINKS.flatMap(([key, label]) => {
-    const href = safeHttpUrl(company[key]);
+    const value = company[key];
+    const href = value ? normalizeUrl(value) : null;
     return href ? [{ href, label }] : [];
   });
   if (links.length === 0) return null;

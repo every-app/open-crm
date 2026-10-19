@@ -28,7 +28,10 @@ import {
   formatMoneyCompact,
   type DashboardSummary,
 } from "@/client/features/dashboard/dashboardFormat";
-import { RelativeTime } from "@/client/features/records/LocalDateTime";
+import {
+  RelativeDay,
+  RelativeTime,
+} from "@/client/features/records/LocalDateTime";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import { EmptyValue, EntityLogo } from "@/client/features/records/cells";
 import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
@@ -155,7 +158,7 @@ export function OverdueTasks({ summary }: { summary: DashboardSummary }) {
                       aria-hidden
                       className="size-1.5 shrink-0 rounded-full bg-destructive"
                     />
-                    <RelativeTime date={task.dueAt} />
+                    <RelativeDay date={task.dueAt} />
                   </span>
                 ) : null}
               </li>

@@ -12,7 +12,7 @@ import {
   serializeRecordField,
   type RecordField,
 } from "@/server/features/fields/services/fieldShape";
-import { AppError } from "@/server/lib/errors";
+import { AppError, UserFacingError } from "@/server/lib/errors";
 import type { FieldEntity } from "@/shared/crm-enums";
 import {
   ENTITY_NOUNS,
@@ -64,7 +64,8 @@ async function recordFields(
 /**
  * Values by field key as `entity`'s live fields take them, each checked
  * against its field (its type, a select's options, required; a user must
- * work here); the first that doesn't fit is refused. Null clears a value.
+ * work here); the first that doesn't fit is refused, in words for the person
+ * who set it ("Tier cannot be empty."). Null clears a value.
  * Every write of values goes through here: setValues, and a record's create
  * or update (fieldWrites), which writes them in the record's own batch.
  */
@@ -86,7 +87,7 @@ async function checkValues(
   for (const [key, input] of Object.entries(values)) {
     const definition = byKey.get(key);
     if (!definition) {
-      throw new AppError(
+      throw new UserFacingError(
         "VALIDATION_ERROR",
         `There is no field called "${key}" on ${ENTITY_NOUNS[entity].many}.`,
       );
@@ -102,13 +103,15 @@ async function checkValues(
       },
       input,
     );
-    if (!parsed.ok) throw new AppError("VALIDATION_ERROR", parsed.message);
+    if (!parsed.ok) {
+      throw new UserFacingError("VALIDATION_ERROR", parsed.message);
+    }
     if (
       definition.type === "USER" &&
       typeof parsed.value === "string" &&
       !(await AuthRepository.isMember(organizationId, parsed.value))
     ) {
-      throw new AppError(
+      throw new UserFacingError(
         "VALIDATION_ERROR",
         `${definition.label} takes someone who works here.`,
       );

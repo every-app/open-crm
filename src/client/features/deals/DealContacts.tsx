@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 import { revalidateLogic } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
@@ -20,6 +20,7 @@ import { dealContactOptionsQueryOptions } from "@/client/features/deals/dealQuer
 import type { useDealMutations } from "@/client/features/deals/useDealMutations";
 import { InlineField } from "@/client/features/records/InlineField";
 import { RecordLink } from "@/client/features/records/RecordLink";
+import { useQuickAdd } from "@/client/features/records/recordStack";
 import {
   SheetEmpty,
   SheetSection,
@@ -40,7 +41,10 @@ export function DealContacts({
   deal: Deal;
   mutations: Mutations;
 }) {
-  const [adding, setAdding] = useState(false);
+  // In the URL, as the CRM had it: a refresh or a link brings the form back.
+  const [add, setAdd] = useQuickAdd();
+  const adding = add === "contact";
+  const setAdding = (open: boolean) => setAdd(open ? "contact" : undefined);
   const { detachContact, setContactRole } = mutations;
 
   return (

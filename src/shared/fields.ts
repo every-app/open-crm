@@ -1,6 +1,6 @@
 import type { FieldEntity, FieldType } from "@/shared/crm-enums";
 import { normalizeEmail } from "@/shared/domain";
-import { safeHttpUrl } from "@/shared/safe-url";
+import { normalizeUrl } from "@/shared/safe-url";
 
 // Custom fields: what each type means, how a field's key is made, and what
 // counts as a value of it. The server validates every write with
@@ -211,7 +211,9 @@ function parseText(
     default:
       return raw.length <= TEXT_MAX[type]
         ? { ok: true, value: raw }
-        : fail(`${label} is too long.`);
+        : fail(
+            `${label} takes at most ${TEXT_MAX[type].toLocaleString("en-US")} characters.`,
+          );
   }
 }
 
@@ -219,14 +221,4 @@ function parseText(
 function isCalendarDay(day: string): boolean {
   const date = new Date(`${day}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(day);
-}
-
-/** An http(s) address, given a scheme when it has none, or null. */
-function normalizeUrl(raw: string): string | null {
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)
-    ? raw
-    : `https://${raw}`;
-  const safe = safeHttpUrl(withScheme);
-  if (!safe) return null;
-  return new URL(safe).hostname.includes(".") ? safe : null;
 }

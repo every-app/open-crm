@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { contact, deal, user } from "@/db/schema";
 import { ownerColumns } from "@/server/features/records/listQuery";
@@ -82,6 +82,23 @@ async function listDeals(organizationId: string, companyId: string) {
   }));
 }
 
+/**
+ * How many deals the company has, archived ones included: what deleting it
+ * forever deletes with it.
+ */
+async function countDeals(organizationId: string, companyId: string) {
+  const [row] = await db
+    .select({ count: count() })
+    .from(deal)
+    .where(
+      and(
+        eq(deal.organizationId, organizationId),
+        eq(deal.companyId, companyId),
+      ),
+    );
+  return row?.count ?? 0;
+}
+
 /** One contact of the organization, with the company they work at. */
 async function findContact(organizationId: string, contactId: string) {
   const [row] = await db
@@ -108,5 +125,6 @@ async function findContact(organizationId: string, contactId: string) {
 export const CompanyRelationsRepository = {
   listContacts,
   listDeals,
+  countDeals,
   findContact,
 };

@@ -13,8 +13,10 @@ vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
 vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
+import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { db } from "@/db";
 import { company, member, user } from "@/db/schema";
+import { toClientError } from "@/server/lib/errors";
 import { createFieldSchema, type FieldFilters } from "@/types/schemas/fields";
 import { FieldsService } from "./FieldsService";
 import { FieldValuesService } from "./FieldValuesService";
@@ -107,38 +109,42 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       });
     });
 
-    it("refuses a value that doesn't fit its field, and writes none of the others", async () => {
+    it("refuses a value that doesn't fit its field, telling the browser why, and writes none of the others", async () => {
       await addField({ label: "Runs on" });
       await addField({ label: "Seats", type: "NUMBER" });
       await addField({ label: "Renewal", type: "DATE" });
       await addField({ label: "Pricing page", type: "URL" });
       await addField({ label: "Owner since", type: "TEXT", required: true });
-
-      for (const values of [
-        { seats: "a dozen" },
-        { renewal: "2027-02-30" },
-        { pricing_page: "javascript:alert(1)" },
-        { owner_since: "  " },
-        { no_such_field: "x" },
-      ]) {
-        await expect(
-          FieldValuesService.setValues("org_a", "COMPANY", "acme", {
-            runs_on: "AWS",
-            ...values,
-          }),
-        ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-      }
-      expect(await database.rows("SELECT id FROM field_value")).toHaveLength(0);
-    });
-
-    it("refuses a user who doesn't work in the organization", async () => {
       await addField({ label: "BDR", type: "USER" });
 
-      await expect(
-        FieldValuesService.setValues("org_a", "COMPANY", "acme", {
-          bdr: "user_b",
-        }),
-      ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+      for (const [values, why] of [
+        [{ seats: "a dozen" }, "Seats takes a number."],
+        [{ renewal: "2027-02-30" }, "Renewal takes a date like 2027-03-31."],
+        [
+          { pricing_page: "javascript:alert(1)" },
+          "Pricing page takes a web address like acme.com.",
+        ],
+        [{ owner_since: "  " }, "Owner since cannot be empty."],
+        [
+          { runs_on: "x".repeat(1001) },
+          "Runs on takes at most 1,000 characters.",
+        ],
+        // user_b works for the other organization.
+        [{ bdr: "user_b" }, "BDR takes someone who works here."],
+        [
+          { no_such_field: "x" },
+          'There is no field called "no_such_field" on companies.',
+        ],
+      ] as const) {
+        const refusal = await FieldValuesService.setValues(
+          "org_a",
+          "COMPANY",
+          "acme",
+          { runs_on: "AWS", ...values },
+        ).catch((error: unknown) => error);
+        expect(getStandardErrorMessage(toClientError(refusal))).toBe(why);
+      }
+      expect(await database.rows("SELECT id FROM field_value")).toHaveLength(0);
     });
 
     it("keeps one row per field and record, and clears it with null", async () => {

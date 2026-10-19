@@ -20,6 +20,7 @@ import {
 } from "react";
 import { cn } from "cn";
 import { EmptyState } from "@/client/components/EmptyState";
+import { ariaSort } from "@/client/components/table/SortableHeader";
 import { Button } from "@/client/components/ui/button";
 import { Checkbox } from "@/client/components/ui/checkbox";
 import { Skeleton } from "@/client/components/ui/skeleton";
@@ -247,6 +248,7 @@ export function DataTable<TData>({
                   {headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
+                      aria-sort={ariaSort(header.column)}
                       className={cn(
                         header.column.columnDef.meta?.width,
                         header.column.columnDef.meta?.headerClassName,

@@ -100,10 +100,11 @@ async function getCompany(organizationId: string, id: string) {
     organizationId,
     id,
   );
-  const [contacts, deals, primaryContact, agent, workspace] = await Promise.all(
-    [
+  const [contacts, deals, dealCount, primaryContact, agent, workspace] =
+    await Promise.all([
       CompanyRelationsRepository.listContacts(organizationId, id),
       CompanyRelationsRepository.listDeals(organizationId, id),
+      CompanyRelationsRepository.countDeals(organizationId, id),
       found.primaryContactId
         ? CompanyRelationsRepository.findContact(
             organizationId,
@@ -112,13 +113,14 @@ async function getCompany(organizationId: string, id: string) {
         : null,
       recordAgentStates(organizationId, "company", [id]),
       WorkspaceRepository.getOrCreate(organizationId),
-    ],
-  );
+    ]);
   return {
     ...found,
     primaryContact,
     contacts,
     deals,
+    // Archived deals too: deleting the company forever deletes them all.
+    dealCount,
     queued: agent.queued.has(id),
     waiting: agent.waiting.has(id),
     // Deal totals are summed in the workspace's reporting currency.
@@ -272,7 +274,7 @@ async function restoreCompany(organizationId: string, id: string) {
 async function purgeCompany(organizationId: string, id: string) {
   const found = await requireCompany(organizationId, id);
   if (!found.archivedAt) {
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "Only an archived company can be deleted forever. Archive it first.",
     );
@@ -284,7 +286,7 @@ async function purgeCompany(organizationId: string, id: string) {
     new Date().toISOString(),
   );
   if (purged.length === 0) {
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "The company was restored before it could be deleted.",
     );
