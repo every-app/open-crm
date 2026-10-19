@@ -56,6 +56,10 @@ export const member = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").default("member").notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    // When the CRM last saw the member (a page, a tool call), at most once a
+    // day, as ISO text like the CRM's own tables. A member unseen for 30 days
+    // has their mailbox syncs paused: the gateway never says who it removed.
+    lastSeenAt: text("last_seen_at"),
   },
   (table) => [
     index("member_organizationId_idx").on(table.organizationId),

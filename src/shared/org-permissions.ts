@@ -14,7 +14,8 @@ const statement = {
   // Change, pause, archive or delete any team agent (its creator always may),
   // and stop anyone's run.
   agent: ["manage"],
-  // Connect or disconnect the workspace's Slack.
+  // Connect or disconnect the workspace's Slack; disconnect any member's
+  // mailbox, or delete what it synced.
   connection: ["manage"],
   // Change the plan, buy credits and open the billing portal (hosted
   // billing): the owner's alone, as in OpenSEO.

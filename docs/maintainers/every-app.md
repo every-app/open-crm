@@ -25,9 +25,19 @@ Identity is the same in both; the deploy picks the shape.
 | Database           | Postgres through Hyperdrive (`DATABASE_PROVIDER=postgres`)                       | D1                                                      |
 | Deploy             | `pnpm deploy:everyapp:first-party`                                               | `pnpm deploy:everyapp`                                  |
 
-In both shapes the token's organization id is the CRM's organization id: the first request from a member of a new organization creates its `organization` row, the member's `user` row and a `member` row mirroring their role (`src/server/auth/delegated-organization.ts`). Every CRM table hangs off `organization_id`. Authorization always reads the organization and role from the signed token, never from a member row, so a member the gateway removes has no way back in.
+In both shapes the token's organization id is the CRM's organization id: the first request from a member of a new organization creates its `organization` row, the member's `user` row and a `member` row mirroring their role (`src/server/auth/delegated-organization.ts`). Every CRM table hangs off `organization_id`. Authorization always reads the organization and role from the signed token, never from a member row, so a member the gateway removes can't open the CRM or call its tools again. The gateway never tells the CRM whom it removed, though, so their `member` row stays, and so does anything they connected: see "Removing a member" below.
+
+The `member` row also notes when the CRM last saw the member (`last_seen_at`: a page, a server function or a tool call), at most once a day. A gateway that deletes a removed member's account gives them a new id if they're invited again; the old `user` row keeps the records it is on and gives its email up to the new one (`src/middleware/ensure-user/delegated.ts`).
 
 Unlike OpenSEO, a fork doesn't map its organization to a `shared-workspace` row: OpenSEO keeps that for data its older self-host modes wrote, and the CRM has none.
+
+## Removing a member
+
+1. Remove them at the gateway. From then on, no request of theirs reaches the CRM.
+2. In Settings → Connections, an owner or admin finds their mailbox under "Members' mailboxes" and disconnects it (Google's grant is withdrawn, as when the member disconnects it). "Delete synced data" there also removes what it brought in.
+3. Their companies, contacts and deals keep them as owner until someone reassigns them.
+
+Without step 2, their mailbox keeps syncing until the CRM has gone 30 days without seeing them: the daily cron then pauses their syncs (`MemberMailboxService.pauseUnseen`), and they resume if the member comes back.
 
 ## Whose calls they are
 

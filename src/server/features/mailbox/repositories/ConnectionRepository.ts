@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { mailboxConnection, oauthState } from "@/db/schema";
+import { mailboxConnection, oauthState, user } from "@/db/schema";
 import { randomToken } from "@/server/lib/pkce";
 import {
   grantedSources,
@@ -95,6 +95,27 @@ async function listForUser(organizationId: string, userId: string) {
       ),
     );
   // SQLite answers the comparison as 0 or 1.
+  return rows.map((row) => ({
+    ...row,
+    hasRefreshToken: Boolean(row.hasRefreshToken),
+  }));
+}
+
+/**
+ * Every member's connections in the organization, with each member's name
+ * and email, without their tokens: for its owners and admins.
+ */
+async function listForOrganization(organizationId: string) {
+  const rows = await db
+    .select({
+      ...connectionColumns,
+      name: user.name,
+      email: user.email,
+    })
+    .from(mailboxConnection)
+    .innerJoin(user, eq(user.id, mailboxConnection.userId))
+    .where(eq(mailboxConnection.organizationId, organizationId))
+    .orderBy(user.name, mailboxConnection.provider);
   return rows.map((row) => ({
     ...row,
     hasRefreshToken: Boolean(row.hasRefreshToken),
@@ -294,6 +315,7 @@ export const ConnectionRepository = {
   createState,
   consumeState,
   listForUser,
+  listForOrganization,
   findWithTokens,
   accountConnectedElsewhere,
   upsert,

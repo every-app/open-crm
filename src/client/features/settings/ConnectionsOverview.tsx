@@ -11,6 +11,7 @@ import { Button } from "@/client/components/ui/button";
 import { Skeleton } from "@/client/components/ui/skeleton";
 import { COPY, mailboxState } from "@/client/features/mailbox/connectionCopy";
 import { connectionsQueryOptions } from "@/client/features/mailbox/mailboxQueries";
+import { MemberMailboxes } from "@/client/features/mailbox/MemberMailboxes";
 import {
   ConnectionBadge,
   type ConnectionState,
@@ -21,6 +22,8 @@ import {
   SlackLogo,
 } from "@/client/features/settings/brandLogos";
 import { slackStatusQueryOptions } from "@/client/features/slack/slackQueries";
+import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
+import { hasOrgPermission } from "@/shared/org-permissions";
 
 type Connection = {
   name: string;
@@ -36,11 +39,16 @@ type Connection = {
 
 /**
  * Settings → Connections (the CRM's connections page): each connection, its
- * state, and the way to its own page.
+ * state, and the way to its own page; for owners and admins, every member's
+ * mailbox too.
  */
 export function ConnectionsOverview() {
   const mailbox = useQuery(connectionsQueryOptions());
   const slack = useQuery(slackStatusQueryOptions());
+  const workspace = useQuery(workspaceQueryOptions());
+  const canManage = hasOrgPermission(workspace.data?.role ?? "", {
+    connection: ["manage"],
+  });
   const provider = (name: "google" | "microsoft") =>
     mailbox.data?.providers.find((entry) => entry.provider === name);
   const google = provider("google");
@@ -90,6 +98,7 @@ export function ConnectionsOverview() {
           <ConnectionRow key={connection.name} connection={connection} />
         ))}
       </SettingsCard>
+      {canManage ? <MemberMailboxes /> : null}
     </SettingsPage>
   );
 }

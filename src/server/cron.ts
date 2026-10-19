@@ -2,6 +2,7 @@ import { runScheduledWork } from "@/server/features/agent/scheduled";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CurrencyService } from "@/server/features/currency/services/CurrencyService";
 import { TrackingRetentionService } from "@/server/features/tracking/services/TrackingRetentionService";
+import { MemberMailboxService } from "@/server/features/mailbox/services/MemberMailboxService";
 import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSyncService";
 
 // The Worker's one cron trigger fires every minute (cloudflare.config.ts);
@@ -13,9 +14,11 @@ import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSy
 //   feed has published since the last fetch and takes each organization
 //   whose rates are a day old;
 // - at 05:00 UTC: the retention purge of records archived longer than their
-//   workspace keeps them, as the CRM ran it;
+//   workspace keeps them, as the CRM ran it, and the pause of mailbox syncs
+//   whose member the CRM hasn't seen for 30 days;
 // - at minute 30 of every hour: website tracking's retention (roll up and
-//   delete events past the window, bounded per run, and expired counters).
+//   delete events past the window, bounded per run, old form submissions
+//   and expired counters).
 //
 // One job failing doesn't stop the others; the tick still reports failure.
 const PURGE_HOUR_UTC = 5;
@@ -38,6 +41,7 @@ export async function runCron(
       ArchiveService.purgeAllExpiredArchives().then((totals) => {
         console.log("[archive] retention purge", totals);
       }),
+      MemberMailboxService.pauseUnseen(at),
     );
   }
   if (at.getUTCMinutes() === TRACKING_RETENTION_MINUTE) {

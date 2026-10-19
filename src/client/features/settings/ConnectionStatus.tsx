@@ -6,6 +6,7 @@ const STATES = {
   attention: { label: "Needs attention", variant: "warning" },
   disconnected: { label: "Not connected", variant: "outline" },
   unconfigured: { label: "Not configured", variant: "warning" },
+  paused: { label: "Paused", variant: "secondary" },
 } as const;
 
 export type ConnectionState = keyof typeof STATES;

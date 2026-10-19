@@ -9,6 +9,11 @@ export const mailboxProviderSchema = z.object({
   provider: z.enum(MAILBOX_PROVIDERS),
 });
 
+/** A member's connection to `provider`: the caller's own unless `userId`. */
+export const memberMailboxSchema = mailboxProviderSchema.extend({
+  userId: z.string().min(1).max(256).optional(),
+});
+
 export const setAutoCreateSchema = z.object({
   source: z.enum(SYNC_SOURCES),
   enabled: z.boolean(),

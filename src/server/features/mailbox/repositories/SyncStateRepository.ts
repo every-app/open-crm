@@ -1,6 +1,17 @@
-import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/db";
-import { mailboxSync } from "@/db/schema";
+import { mailboxSync, member } from "@/db/schema";
 import {
   AUTO_CREATE_DEFAULT,
   type SyncSource,
@@ -102,6 +113,14 @@ async function listForUser(organizationId: string, userId: string) {
         eq(mailboxSync.userId, userId),
       ),
     );
+}
+
+/** Every member's syncs in the organization, for its owners and admins. */
+async function listForOrganization(organizationId: string) {
+  return db
+    .select()
+    .from(mailboxSync)
+    .where(eq(mailboxSync.organizationId, organizationId));
 }
 
 function dueCondition(now: string) {
@@ -296,14 +315,63 @@ async function setAutoCreate(input: {
   return rows.length > 0;
 }
 
+/**
+ * Pauses, across every organization, the waiting sources of members the CRM
+ * hasn't seen since `cutoff` (the gateway may have removed them): they are
+ * due no more until `resume`. A check in progress is left to finish. How
+ * many sources it paused.
+ */
+async function pauseUnseen(cutoff: string): Promise<number> {
+  const seen = db
+    .select({ id: member.id })
+    .from(member)
+    .where(
+      and(
+        eq(member.organizationId, mailboxSync.organizationId),
+        eq(member.userId, mailboxSync.userId),
+        gte(member.lastSeenAt, cutoff),
+      ),
+    );
+  const paused = await db
+    .update(mailboxSync)
+    .set({
+      status: "PAUSED",
+      nextSyncAt: null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(inArray(mailboxSync.status, ["IDLE", "FAILED"]), notExists(seen)),
+    )
+    .returning({ id: mailboxSync.id });
+  return paused.length;
+}
+
+/** The member is back: their paused sources are due now. */
+async function resume(organizationId: string, userId: string) {
+  const now = new Date().toISOString();
+  await db
+    .update(mailboxSync)
+    .set({ status: "IDLE", nextSyncAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(mailboxSync.organizationId, organizationId),
+        eq(mailboxSync.userId, userId),
+        eq(mailboxSync.status, "PAUSED"),
+      ),
+    );
+}
+
 export const SyncStateRepository = {
   ensureSources,
   removeSources,
   listForUser,
+  listForOrganization,
   due,
   claim,
   settle,
   needReconnect,
   markDue,
   setAutoCreate,
+  pauseUnseen,
+  resume,
 };

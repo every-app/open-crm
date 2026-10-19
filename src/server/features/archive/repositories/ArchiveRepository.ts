@@ -154,23 +154,21 @@ async function purge(
     }
     return [
       ...agentRows,
-      tx
-        .delete(formSubmission)
-        .where(
-          and(
-            eq(formSubmission.organizationId, organizationId),
-            or(
-              inArray(formSubmission.contactId, purged),
-              inArray(
-                formSubmission.email,
-                tx
-                  .select({ email: sql<string>`lower(trim(${contact.email}))` })
-                  .from(contact)
-                  .where(expired(contact, organizationId, before, ids)),
-              ),
+      tx.delete(formSubmission).where(
+        and(
+          eq(formSubmission.organizationId, organizationId),
+          or(
+            inArray(formSubmission.contactId, purged),
+            inArray(
+              formSubmission.email,
+              tx
+                .select({ email: sql<string>`lower(trim(${contact.email}))` })
+                .from(contact)
+                .where(expired(contact, organizationId, before, ids)),
             ),
           ),
         ),
+      ),
       tx
         .insert(suppressedContact)
         .select((qb) =>
