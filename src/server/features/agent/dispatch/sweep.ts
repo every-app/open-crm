@@ -36,7 +36,9 @@ import { runLimited } from "./pool";
 // has no sign-in of its own, so the minute cron takes a few organizations a
 // tick, each at most every five minutes. What it queues is scheduled
 // research: held with it (FIRST_PARTY_SCHEDULED_RESEARCH, `askedForOnly`),
-// and an organization out of credits gets none.
+// and an organization out of credits, or one that turned off Research
+// automatically, gets none. Records whose research waits for a person
+// (ResearchHoldService) are passed over, but for their favicons.
 
 /** Sweeps the organizations due one; how many it swept. */
 export async function runEnrichmentSweep(options: {
@@ -49,9 +51,12 @@ export async function runEnrichmentSweep(options: {
   const { everyMs, organizations, pictures } = DISPATCH.enrichment;
   const due = await AgentSweepRepository.claimDue(organizations, everyMs);
   if (due.length === 0) return 0;
-  if (!options.askedForOnly) {
+  const researching = options.askedForOnly
+    ? []
+    : due.filter((organization) => organization.researchAutomatically);
+  if (researching.length > 0) {
     const contextReady = await options.contextReady();
-    for (const organizationId of due) {
+    for (const { organizationId } of researching) {
       if (options.signal?.aborted) break;
       try {
         await sweepOrganization(organizationId, contextReady, options.credits);
@@ -67,7 +72,7 @@ export async function runEnrichmentSweep(options: {
   // The free passes go after: their fetches can't hold up the queueing, and
   // the tick's share of them keeps it within the Worker's subrequests.
   let room = pictures.perTick;
-  for (const organizationId of due) {
+  for (const { organizationId } of due) {
     if (options.signal?.aborted || room <= 0) break;
     try {
       room -= await fetchPictures(organizationId, room, options.signal);

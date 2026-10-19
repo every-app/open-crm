@@ -1,4 +1,5 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactFactRepository } from "@/server/features/contacts/repositories/ContactFactRepository";
@@ -114,6 +115,8 @@ async function getContact(organizationId: string, id: string) {
     organizationId,
     id,
   );
+  // Opening one a website form or a calendar invite added lets its research go.
+  await ResearchHoldService.opened(organizationId, "contact", found);
   const [facts, brief, deals, colleagues, relationship, agent] =
     await Promise.all([
       ContactFactRepository.listOpen(organizationId, id),
@@ -363,6 +366,7 @@ async function requestEnrichment(organizationId: string, id: string) {
       found.updatedAt,
     );
   }
+  await ResearchHoldService.asked(organizationId, "contact", id);
   return { id, queued };
 }
 

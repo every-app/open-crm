@@ -29,8 +29,10 @@ import { taskSubject } from "@/shared/agent-tasks";
 // records, ported from the CRM's BackfillService, and the notes it keeps of
 // what it did itself. Every read but `claimDue` is scoped to one
 // organization; `claimDue` picks whose turn it is across them, and hands back
-// only organization ids. Archived records are left alone: nobody is looking
-// at them.
+// only organization ids and whether each researches automatically. Archived
+// records are left alone: nobody is looking at them. Neither is the paid
+// research of a record held for a person (ResearchHoldService); its free
+// favicon still comes.
 
 /**
  * A task of `kind` about the outer query's record that is open, or (with
@@ -69,7 +71,10 @@ const contactRecord = { column: "contactId", id: contact.id } as const;
  * them swept now. A conditional update, so two overlapping ticks never sweep
  * the same organization.
  */
-async function claimDue(limit: number, everyMs: number): Promise<string[]> {
+async function claimDue(
+  limit: number,
+  everyMs: number,
+): Promise<{ organizationId: string; researchAutomatically: boolean }[]> {
   const now = new Date();
   const due = or(
     isNull(workspace.enrichmentSweptAt),
@@ -86,7 +91,7 @@ async function claimDue(limit: number, everyMs: number): Promise<string[]> {
     .limit(limit);
   if (candidates.length === 0) return [];
   // Not `updated_at`: nobody edited the workspace.
-  const claimed = await db
+  return db
     .update(workspace)
     .set({ enrichmentSweptAt: now.toISOString() })
     .where(
@@ -98,8 +103,10 @@ async function claimDue(limit: number, everyMs: number): Promise<string[]> {
         due,
       ),
     )
-    .returning({ organizationId: workspace.organizationId });
-  return claimed.map((row) => row.organizationId);
+    .returning({
+      organizationId: workspace.organizationId,
+      researchAutomatically: workspace.researchAutomatically,
+    });
 }
 
 /**
@@ -160,6 +167,7 @@ async function companiesNeverLookedUp(
       and(
         eq(company.organizationId, organizationId),
         isNull(company.archivedAt),
+        isNull(company.researchHeldAt),
         isNotNull(company.domain),
         or(
           eq(company.enrichmentStatus, "PENDING"),
@@ -194,6 +202,7 @@ async function companiesWithoutArtwork(
       and(
         eq(company.organizationId, organizationId),
         isNull(company.archivedAt),
+        isNull(company.researchHeldAt),
         isNotNull(company.domain),
         isNull(company.logoUrl),
         isNull(company.iconUrl),
@@ -342,6 +351,7 @@ async function contactsNeedingPhoto(
       and(
         eq(contact.organizationId, organizationId),
         isNull(contact.archivedAt),
+        isNull(contact.researchHeldAt),
         isNull(contact.imageUrl),
         input.contextReady
           ? or(
@@ -381,6 +391,7 @@ async function contactsNeverResearched(
       and(
         eq(contact.organizationId, organizationId),
         isNull(contact.archivedAt),
+        isNull(contact.researchHeldAt),
         inArray(contact.enrichmentStatus, ["PENDING", "FAILED"]),
         notExists(
           taskAbout(organizationId, "identify", contactRecord, endedSince),

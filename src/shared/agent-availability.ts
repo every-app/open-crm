@@ -32,8 +32,9 @@ export type AgentAvailability = {
   /** The workspace is out of usage credits, so paid work waits (hosted). */
   outOfCredits: boolean;
   /**
-   * The agent researches on its own schedule; a first-party deployment may
-   * hold that to work a person asked for.
+   * The agent researches on its own schedule; the organization (Research
+   * automatically) or a first-party deployment may hold that to work a
+   * person asked for.
    */
   scheduledResearch: boolean;
   tier: DeploymentTier;

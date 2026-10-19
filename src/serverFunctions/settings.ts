@@ -4,7 +4,10 @@ import { AgentAvailabilityService } from "@/server/features/agent/services/Agent
 import { SettingsService } from "@/server/features/settings/services/SettingsService";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
 import { agentModelId } from "@/server/lib/openrouter";
-import { setArchiveRetentionSchema } from "@/types/schemas/settings";
+import {
+  setArchiveRetentionSchema,
+  setAutomaticResearchSchema,
+} from "@/types/schemas/settings";
 
 /**
  * The model the agent runs on. It isn't chosen in the app: Luna, or a
@@ -38,5 +41,23 @@ export const setArchiveRetention = createServerFn({ method: "POST" })
     return SettingsService.setArchiveRetention(
       context.organizationId,
       data.days,
+    );
+  });
+
+/** Whether the research agent researches on its own (Research automatically). */
+export const getAutomaticResearch = createServerFn({ method: "GET" })
+  .middleware(requireAuthenticatedContext)
+  .handler(async ({ context }) =>
+    SettingsService.getAutomaticResearch(context.organizationId),
+  );
+
+export const setAutomaticResearch = createServerFn({ method: "POST" })
+  .middleware(requireAuthenticatedContext)
+  .validator(setAutomaticResearchSchema)
+  .handler(async ({ data, context }) => {
+    requireOrgPermission(context, { workspace: ["manage"] });
+    return SettingsService.setAutomaticResearch(
+      context.organizationId,
+      data.enabled,
     );
   });

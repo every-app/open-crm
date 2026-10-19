@@ -1,4 +1,5 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CompanyDirectoryRepository } from "@/server/features/companies/repositories/CompanyDirectoryRepository";
 import { CompanyRelationsRepository } from "@/server/features/companies/repositories/CompanyRelationsRepository";
@@ -100,6 +101,8 @@ async function getCompany(organizationId: string, id: string) {
     organizationId,
     id,
   );
+  // Opening one a website form or a calendar invite added lets its research go.
+  await ResearchHoldService.opened(organizationId, "company", found);
   const [contacts, deals, dealCount, primaryContact, agent, workspace] =
     await Promise.all([
       CompanyRelationsRepository.listContacts(organizationId, id),
@@ -319,6 +322,7 @@ async function requestEnrichment(organizationId: string, id: string) {
       found.updatedAt,
     );
   }
+  await ResearchHoldService.asked(organizationId, "company", id);
   return { id, queued };
 }
 
