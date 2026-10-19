@@ -7,6 +7,7 @@ import {
   RUNTIME_INSTRUCTIONS,
 } from "../prompt/instructions";
 import { sessionPreamble, type Opened } from "../prompt/preamble";
+import type { Egress } from "../tools/egress";
 import { buildAgentTools } from "../tools/registry";
 import type { Spend } from "./budget";
 import { fieldKeysOf } from "./brief";
@@ -40,6 +41,12 @@ export async function prepareTurn(
     role: string | null;
     /** Where the tools' paid calls report their cost (CrmAgent's meter). */
     sink: SpendSink;
+    /**
+     * What a research session has read that decides where its web_fetch may
+     * go, from its own storage (tools/egress.ts). Without it, it reads no
+     * pages.
+     */
+    egress?: Egress;
   },
 ): Promise<{ system: string; tools: ToolSet }> {
   const opened: Opened =
@@ -82,6 +89,7 @@ export async function prepareTurn(
       attended: session.kind === "chat",
       role: session.kind === "chat" ? input.role : null,
       spend: input.spend,
+      egress: input.egress,
     },
     input.sink,
   );

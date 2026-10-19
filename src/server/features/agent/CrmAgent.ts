@@ -66,6 +66,7 @@ import {
 import { MAX_STEPS, maxOutputTokens, prepareTurn } from "./runtime/turn";
 import { parseSessionName } from "./sessionName";
 import { normalizeTitle } from "./tools/conversation";
+import { sessionEgress } from "./tools/egress";
 import { consumeBuilderCommand } from "@/shared/builder-command";
 
 // A person's turn in a conversation gets this much research budget.
@@ -286,6 +287,7 @@ export class CrmAgent extends Think {
         spend: this.spender(session),
         role: this.chatRole(),
         sink: this.meter.sink,
+        egress: sessionEgress(this.ctx.storage.kv),
       });
       this.turnSystem = system;
       return { system, tools, maxOutputTokens: maxOutputTokens(session.kind) };
@@ -392,6 +394,12 @@ export class CrmAgent extends Think {
     const session = this.turnSession;
     if (!session) return;
     addTokens(this.ctx.storage.kv, session.kind, step.usage);
+    // The pages web_search cited, which an unattended web_fetch may read.
+    sessionEgress(this.ctx.storage.kv).noteSearched(
+      step.sources.flatMap((source) =>
+        source.sourceType === "url" ? [source.url] : [],
+      ),
+    );
     await withPgClient(() => recordStep(session, step, costUsd));
   }
 

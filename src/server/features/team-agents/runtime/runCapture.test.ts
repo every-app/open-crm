@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // A version reads the organization's captured email and meetings only when it
 // grants them, only on the records in its scope, never another
 // organization's, and nothing a member deleted from their synced data. What
-// it reads comes back as an outsider's text.
+// it reads comes back as an outsider's text, and a run, which nobody
+// watches, reads web pages only from its records' own sites and its
+// searches' sources, and none at all when its version may read captured mail.
 const { testDb } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -16,6 +18,16 @@ vi.mock("cloudflare:workers", () => ({
 vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("@/server/features/agent/lib/perplexity", () => ({
+  webResearchAccess: async () => fetch,
+  asker: () => async () => ({
+    ok: true,
+    data: {
+      text: "Acme raised a Series B.",
+      citations: ["https://news.test/acme-series-b?utm_source=feed"],
+    },
+  }),
+}));
 
 import { FREE } from "@/server/features/agent/runtime/budget";
 import { SyncedDataRepository } from "@/server/features/mailbox/repositories/SyncedDataRepository";
@@ -56,6 +68,8 @@ async function run(
     );
   };
   return {
+    tools,
+    call,
     read: (kind: "company" | "contact" | "deal", id: string) =>
       call("read_crm_record", { kind, id }),
     inspect: () => call("inspect_run", {}),
@@ -71,7 +85,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
       await database.seedTwoOrganizations();
       await database.exec(`
-        INSERT INTO company (id, organization_id, name) VALUES ('acme', 'org_a', 'Acme'), ('globex', 'org_a', 'Globex');
+        INSERT INTO company (id, organization_id, name, domain) VALUES ('acme', 'org_a', 'Acme', 'acme.test'), ('globex', 'org_a', 'Globex', 'globex.test');
         INSERT INTO contact (id, organization_id, first_name, email, company_id) VALUES ('paula', 'org_a', 'Paula', 'paula@acme.test', 'acme');
         INSERT INTO deal (id, organization_id, name, company_id, owner_id) VALUES ('renewal', 'org_a', 'Renewal', 'acme', 'user_a');
         INSERT INTO email_thread (id, organization_id, root_message_id, subject, company_id, contact_id, first_message_at, last_message_at, message_count)
@@ -130,6 +144,33 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await expect(agent.read("company", "globex")).rejects.toThrow(
         "outside this agent version's approved scope",
       );
+    });
+
+    it("reads pages only from its records' sites and its searches' sources, and none when it may read captured mail", async () => {
+      for (const grant of [EMAIL, CALENDAR]) {
+        expect((await run([grant])).tools.web_fetch).toBeUndefined();
+      }
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async () => new Response("Pricing"));
+      const agent = await run(
+        [{ kind: "company", id: "acme", label: "Acme" }],
+        "SELECTED",
+      );
+      expect(
+        await agent.call("web_search", { question: "What's new at Acme?" }),
+      ).toContain('<untrusted-data source=\\"web search\\">');
+      for (const url of [
+        "https://www.acme.test/pricing?ref=secret",
+        "https://news.test/acme-series-b?d=secret",
+        "https://globex.test/",
+      ]) {
+        await agent.call("web_fetch", { url });
+      }
+      expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+        new URL("https://www.acme.test/pricing"),
+        new URL("https://news.test/acme-series-b"),
+      ]);
     });
 
     it("can't read a member's synced data once they delete it", async () => {

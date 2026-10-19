@@ -1,5 +1,9 @@
 import { tool } from "ai";
 import { z } from "zod";
+import {
+  scopedPage,
+  type FetchScope,
+} from "@/server/features/agent/tools/egress";
 import { untrusted } from "@/server/features/agent/tools/untrusted";
 import { refusedUrl } from "@/server/lib/publicUrl";
 
@@ -14,6 +18,9 @@ import { refusedUrl } from "@/server/lib/publicUrl";
 // 50 KB, since every result is re-sent on each later step, inside the
 // envelope that marks it as an outsider's text (agent/tools/untrusted.ts).
 // Free: nothing goes through the gateway.
+//
+// A person's chat reads any page (webFetch). A session nobody watches reads
+// only what its scope allows (scopedWebFetch, agent/tools/egress.ts).
 
 /** The most of a page read: past it, its head is all that comes back. */
 const MAX_READ_BYTES = 256 * 1024;
@@ -310,9 +317,31 @@ const pageInput = z.object({
     .describe("Seconds to wait for the page: 30 by default, at most 120."),
 });
 
+/** Any public page: a person's chat, who sees what it reads. */
 export const webFetch = tool({
   description:
     "Fetch a public web page and return its content: markdown by default, or plain text, or the HTML as it came. The URL must start with https://. A redirect is not followed: fetch the URL it names next. Free. Never put customer text (a pasted thread, a quote from an email) in the URL.",
   inputSchema: pageInput,
   execute: (input) => readPage(input),
 });
+
+const CLOSED =
+  "This session has read captured email or meetings, so it reads no more web pages. Carry on with what you have.";
+
+const OUT_OF_SCOPE =
+  "With nobody watching, web_fetch reads only the website of the record this session is about and pages a web search returned in this session. Carry on without this page.";
+
+/** web_fetch for a session nobody watches: only the pages `scope` allows. */
+export function scopedWebFetch(scope: FetchScope) {
+  return tool({
+    description:
+      "Fetch a page from the website of the record this session is about, or a page a web search returned in this session, and return its content: markdown by default, or plain text, or the HTML as it came. Any query string is dropped. The URL must start with https://. A redirect is not followed: fetch the URL it names next. Free.",
+    inputSchema: pageInput,
+    execute: async (input) => {
+      if (!scope.open()) return failed(CLOSED);
+      const page = scopedPage(input.url, await scope.hosts(), scope.searched());
+      if (!page) return failed(OUT_OF_SCOPE);
+      return readPage({ ...input, url: page });
+    },
+  });
+}
