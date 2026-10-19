@@ -254,7 +254,13 @@ describe("record tools", () => {
     const id = await idFrom("create_company", { name: "Umbrella" });
     expect(
       await call("bulk_archive", { kind: "company", ids: [id, "nope"] }),
-    ).toEqual({ requested: 2, succeeded: 1, failed: 1, error: "NOT_FOUND" });
+    ).toEqual({
+      requested: 2,
+      succeeded: 1,
+      failed: 1,
+      error: "NOT_FOUND",
+      message: null,
+    });
     expect(
       await call("bulk_restore", { kind: "company", ids: [id] }),
     ).toMatchObject({ succeeded: 1, error: null });

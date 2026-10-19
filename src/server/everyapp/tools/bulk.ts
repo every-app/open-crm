@@ -33,6 +33,10 @@ const bulkOutput = z.object({
     .describe(
       "Why the first one failed: NOT_FOUND, CONFLICT (say, not archived, or its domain or email taken), FORBIDDEN.",
     ),
+  message: z
+    .string()
+    .nullable()
+    .describe("The first refusal in words, when there is one."),
 });
 
 const SERVICES = {
