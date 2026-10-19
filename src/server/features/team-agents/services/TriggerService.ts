@@ -23,8 +23,11 @@ import { AgentRunService } from "./AgentRunService";
 
 const SCHEDULE_BATCH = 20;
 
-/** CRM events taken at a time, and how long one is held while it's handled. */
-const EVENTS = { batch: 50, leaseMs: 5 * 60_000 } as const;
+/**
+ * CRM events taken at a time (on the minute cron, at most `perOrganization`
+ * of them an organization's), and how long one is held while it's handled.
+ */
+const EVENTS = { batch: 50, perOrganization: 10, leaseMs: 5 * 60_000 } as const;
 
 const HELD_OUTCOME =
   "No runs: this deployment holds unattended runs with its scheduled research.";
@@ -142,6 +145,9 @@ async function queueEventRuns(options: {
 }): Promise<number> {
   const tasks = await AgentQueueRepository.claimDue({
     limit: EVENTS.batch,
+    perOrganization: options.organizationId
+      ? undefined
+      : EVENTS.perOrganization,
     lane: { only: [AGENT_EVENT_KIND] },
     leaseMs: EVENTS.leaseMs,
     organizationId: options.organizationId,

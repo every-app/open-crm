@@ -36,9 +36,9 @@ export async function runScheduledWork(
         console.error("[agent] late dispatch work failed", error);
       }),
     );
-  defer(sweepAllBlankFacts());
-  await reconcileStaleTasks();
   const signal = AbortSignal.timeout(DISPATCH.sweep.timeoutMs);
+  defer(sweepAllBlankFacts(signal));
+  await reconcileStaleTasks();
   const askedForOnly = !scheduledResearchEnabled(env);
   // Where usage is billed, organizations out of credits wait.
   const credits = laneCreditCheck(env);

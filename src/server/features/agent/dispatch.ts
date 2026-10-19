@@ -40,9 +40,13 @@ import { runPortrait } from "./visible/portrait";
 // CRM events (agent-event) are neither: the team-agent lane turns them into
 // runs (TriggerService).
 //
-// Every gateway call is the task's organization's (forOrganization). A task
-// that fails is retried when its lease runs out, up to MAX_ATTEMPTS, then
-// retired by the stale-task sweep. Where usage is billed, both lanes leave an
+// On the minute cron, organizations take turns in both lanes, each at most
+// its share of a tick, so one organization's bulk enrich can't hold back
+// everyone else's work. Every gateway call is the task's organization's
+// (forOrganization). A task that fails is retried when its lease runs out,
+// up to MAX_ATTEMPTS, then retired by the stale-task sweep; one its model's
+// provider failed is retried later without using an attempt
+// (runtime/research.ts). Where usage is billed, both lanes leave an
 // organization out of credits waiting (`credits`, billing/credits.ts), but for
 // work that costs nothing (FREE_KINDS).
 
@@ -54,7 +58,8 @@ type ResearchStart = (task: LeasedTask) => Promise<{ sessionId: string }>;
 
 /**
  * Runs due brand and portrait tasks, `concurrency` at a time, up to the
- * lane's batch: across organizations, or one organization's for a poke.
+ * lane's batch: across organizations, each at most `perOrganization` of
+ * them, or one organization's for a poke.
  */
 export async function runVisibleLane(options: {
   organizationId?: string;
@@ -62,17 +67,23 @@ export async function runVisibleLane(options: {
   defer: Defer;
   credits?: CreditCheck;
 }): Promise<number> {
-  const { batch, concurrency, leaseMs } = DISPATCH.visible;
+  const { batch, concurrency, leaseMs, perOrganization } = DISPATCH.visible;
+  const share = options.organizationId ? batch : perOrganization;
+  const taken = new Map<string, number>();
   let handled = 0;
   while (handled < batch && !options.signal?.aborted) {
-    const tasks = await AgentQueueRepository.claimDue({
+    const claimed = await AgentQueueRepository.claimDue({
       limit: Math.min(concurrency, batch - handled),
       lane: { only: DIRECT_KINDS },
       leaseMs,
       organizationId: options.organizationId,
+      skipOrganizations: [...taken].flatMap(([organizationId, count]) =>
+        count >= share ? [organizationId] : [],
+      ),
       creditsHeldSince: options.credits ? creditsHeldSince() : undefined,
     });
-    if (tasks.length === 0) break;
+    if (claimed.length === 0) break;
+    const tasks = await withinShare(claimed, taken, share);
     await runLimited(
       concurrency,
       await withCredits(tasks, options.credits),
@@ -82,6 +93,27 @@ export async function runVisibleLane(options: {
     handled += tasks.length;
   }
   return handled;
+}
+
+/**
+ * The leased tasks within each organization's share of the tick (`taken`
+ * counts what each has had); the rest go back to the queue, their attempts
+ * uncounted, for the next tick.
+ */
+async function withinShare(
+  tasks: LeasedTask[],
+  taken: Map<string, number>,
+  share: number,
+): Promise<LeasedTask[]> {
+  const kept: LeasedTask[] = [];
+  for (const task of tasks) {
+    const count = taken.get(task.organizationId) ?? 0;
+    if (count < share) {
+      taken.set(task.organizationId, count + 1);
+      kept.push(task);
+    } else await AgentTaskRepository.release(task.organizationId, task.id);
+  }
+  return kept;
 }
 
 type DirectOutcome = { finished: true } | { finished: false; reason: string };
@@ -193,9 +225,11 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 }
 
 /**
- * Leases due research tasks across organizations and starts a session for
- * each. `askedForOnly` (a first-party deployment holding its scheduled
- * research) leaves all but the work a person asked for.
+ * Leases due research tasks across organizations, at most `perOrganization`
+ * each, and starts a session for each. `askedForOnly` (a first-party
+ * deployment holding its scheduled research) leaves all but the work a
+ * person asked for; so does an organization that turned off Research
+ * automatically, for its own.
  *
  * Research the model can't do waits rather than fails: with no way to a
  * model at all (`modelConfigured` false) nothing is leased, and an
@@ -214,6 +248,7 @@ export async function runResearchLane(options: {
   if (options.signal?.aborted || !options.modelConfigured) return 0;
   const tasks = await AgentQueueRepository.claimDue({
     limit: DISPATCH.research.batch,
+    perOrganization: DISPATCH.research.perOrganization,
     lane: { except: [...DIRECT_KINDS, AGENT_EVENT_KIND] },
     leaseMs: DISPATCH.research.leaseMs,
     minPriority: options.askedForOnly ? ASKED_FOR_PRIORITY : undefined,
