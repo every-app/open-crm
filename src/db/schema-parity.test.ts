@@ -105,6 +105,19 @@ function uniqueColumnTuples(table: Table, dialect: Dialect): string[] {
   return sortStrings([...tuples]);
 }
 
+// Every index as "name(cols in order)[ unique][ partial]": an index on one
+// backend only leaves the same query fast on one and scanning on the other.
+function indexSignatures(table: Table, dialect: Dialect): string[] {
+  return sortStrings(
+    getConfig(table, dialect).indexes.map((index) => {
+      const cols = index.config.columns
+        .map(columnName)
+        .filter((name): name is string => name !== null);
+      return `${index.config.name}(${cols.join(",")})${index.config.unique ? " unique" : ""}${index.config.where ? " partial" : ""}`;
+    }),
+  );
+}
+
 function primaryKeyColumns(table: Table, dialect: Dialect): string[] {
   const config = getConfig(table, dialect);
   const pk = new Set<string>();
@@ -185,6 +198,11 @@ describe("schema parity: application tables", () => {
       it("has matching unique constraints (onConflict targets)", () => {
         expect(uniqueColumnTuples(pgTable, "pg")).toEqual(
           uniqueColumnTuples(sqliteTable, "sqlite"),
+        );
+      });
+      it("has matching indexes", () => {
+        expect(indexSignatures(pgTable, "pg")).toEqual(
+          indexSignatures(sqliteTable, "sqlite"),
         );
       });
       it("has matching foreign keys (incl. onDelete)", () => {

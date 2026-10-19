@@ -34,6 +34,11 @@ import { isoNow, timestamp } from "./columns";
 // product table does: one database serves every organization on a
 // first-party deployment, and a fork's one organization alike. Repositories
 // filter by it on every read and write.
+//
+// Deleting a record follows its foreign keys into other tables (deleting
+// the rows, or setting the key to null), so each such key also has an
+// index led by the key itself: with only one led by `organization_id`,
+// Postgres scans every organization's rows for each record deleted.
 
 const organizationId = () =>
   text("organization_id")
@@ -163,6 +168,11 @@ export const company = sqliteTable(
       table.organizationId,
       table.archivedAt,
     ),
+    // The lists' default order, newest first.
+    index("company_organization_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
   ],
 );
 
@@ -239,6 +249,17 @@ export const contact = sqliteTable(
       table.organizationId,
       table.archivedAt,
     ),
+    // The company list's count of each company's live contacts.
+    index("contact_organization_company_archived_idx").on(
+      table.organizationId,
+      table.companyId,
+      table.archivedAt,
+    ),
+    index("contact_organization_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index("contact_company_idx").on(table.companyId),
   ],
 );
 
@@ -374,6 +395,17 @@ export const deal = sqliteTable(
       table.organizationId,
       table.archivedAt,
     ),
+    // The company list's count of each company's live open deals.
+    index("deal_organization_company_archived_idx").on(
+      table.organizationId,
+      table.companyId,
+      table.archivedAt,
+    ),
+    index("deal_organization_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index("deal_company_idx").on(table.companyId),
   ],
 );
 
@@ -635,6 +667,9 @@ export const activity = sqliteTable(
       table.dueAt,
     ),
     index("activity_created_by_idx").on(table.createdById),
+    index("activity_company_idx").on(table.companyId),
+    index("activity_contact_idx").on(table.contactId),
+    index("activity_deal_idx").on(table.dealId),
   ],
 );
 
@@ -673,6 +708,8 @@ export const emailThread = sqliteTable(
       table.contactId,
       table.lastMessageAt,
     ),
+    index("email_thread_company_idx").on(table.companyId),
+    index("email_thread_contact_idx").on(table.contactId),
   ],
 );
 
@@ -769,6 +806,8 @@ export const calendarEvent = sqliteTable(
       table.contactId,
       table.startsAt,
     ),
+    index("calendar_event_company_idx").on(table.companyId),
+    index("calendar_event_contact_idx").on(table.contactId),
   ],
 );
 

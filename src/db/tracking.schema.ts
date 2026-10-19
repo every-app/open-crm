@@ -115,6 +115,8 @@ export const trackedVisitor = sqliteTable(
       table.organizationId,
       table.contactId,
     ),
+    // Led by the key, for deleting a contact (crm.schema.ts).
+    index("tracked_visitor_contact_idx").on(table.contactId),
   ],
 );
 
@@ -230,5 +232,7 @@ export const formSubmission = sqliteTable(
       table.organizationId,
       table.contactId,
     ),
+    // Led by the key, for deleting a contact (crm.schema.ts).
+    index("form_submission_contact_idx").on(table.contactId),
   ],
 );
