@@ -197,7 +197,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     });
 
     it("fetches a base again once the feed has published since: on a refresh, and hourly though no organization is due; a late feed is asked again an hour on", async () => {
-      // Whenever the feed said it would publish next, that time has come.
+      // The time the feed said it would publish next has come.
       const published = () =>
         database.exec(
           `UPDATE fx_rate SET next_fetch_at = '2026-01-01T00:00:00.000Z'`,
@@ -218,7 +218,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       });
       expect(fetchMock).toHaveBeenCalledTimes(3);
 
-      // It hasn't published yet, and says so with the time already gone.
+      // A late feed: still the rates it had, and a next time already gone.
       fetchMock.mockImplementation(async (input) =>
         feed(FEEDS[requestedBase(input)] ?? {}, Date.now() / 1000 - 60),
       );
