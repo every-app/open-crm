@@ -16,7 +16,6 @@ import { generateText } from "ai";
 import { z } from "zod";
 import { withPgClient } from "@/db";
 import { SessionMeter } from "@/server/billing/meter";
-import { OUT_OF_CREDITS_REPLY } from "@/shared/billing";
 import {
   openRouterCostUsd,
   staticAssistantModel,
@@ -235,11 +234,10 @@ export class CrmAgent extends Think {
         organizationId: session.organizationId,
         effort: effortFor(session.kind),
       };
-      if (await this.meter.admit(session)) {
-        return {
-          model: staticAssistantModel(OUT_OF_CREDITS_REPLY),
-          activeTools: [],
-        };
+      // Out of credits: the meter's reply instead.
+      const refusal = await this.meter.admit(session);
+      if (refusal) {
+        return { model: staticAssistantModel(refusal), activeTools: [] };
       }
       if (session.kind === "run") {
         const prepared = await prepareRunTurn(session, {
