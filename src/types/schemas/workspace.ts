@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const WORKSPACE_NAME_MAX = 80;
+export const WORKSPACE_NAME_MAX = 120;
 
 export const updateWorkspaceSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(WORKSPACE_NAME_MAX),
