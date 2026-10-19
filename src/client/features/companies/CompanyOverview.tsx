@@ -12,7 +12,7 @@ import {
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
 import { SheetSection } from "@/client/features/records/RecordSheet";
 import { OwnerField } from "@/client/features/records/owners";
-import { safeHttpUrl } from "@/shared/safe-url";
+import { normalizeUrl } from "@/shared/safe-url";
 import type { UpdateCompanyInput } from "@/types/schemas/companies";
 import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
 
@@ -162,9 +162,11 @@ const LINKS = [
   ["careersUrl", "Careers"],
 ] as const;
 
+/** Its profiles and pages; one imported without https:// opens over https. */
 function CompanyLinks({ company }: { company: Company }) {
   const links = LINKS.flatMap(([key, label]) => {
-    const href = safeHttpUrl(company[key]);
+    const value = company[key];
+    const href = value ? normalizeUrl(value) : null;
     return href ? [{ href, label }] : [];
   });
   if (links.length === 0) return null;

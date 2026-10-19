@@ -25,6 +25,19 @@ export function safeHttpUrl(value: string | null | undefined): string | null {
 }
 
 /**
+ * An http(s) address as a person types one, given https when it has no
+ * scheme ("linkedin.com/in/ana"), or null when it isn't one.
+ */
+export function normalizeUrl(raw: string): string | null {
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)
+    ? raw
+    : `https://${raw}`;
+  const safe = safeHttpUrl(withScheme);
+  if (!safe) return null;
+  return new URL(safe).hostname.includes(".") ? safe : null;
+}
+
+/**
  * Extract the bare hostname (without leading `www.`) from a URL string,
  * returning null if the URL is invalid or uses a non-http(s) scheme.
  */
