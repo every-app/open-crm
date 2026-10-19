@@ -60,7 +60,7 @@ export const activityOutput = z.object({
       attendees: z.number(),
     })
     .nullable()
-    .describe("A captured meeting: get_meeting lists who attended."),
+    .describe("A captured meeting: get_meeting reads it."),
 });
 
 /** An activity as a model reads it: people by name, records by id and name. */
@@ -143,7 +143,7 @@ const timelineRecord = {
 export const activityTools = {
   list_activities: crmTool({
     description:
-      "A company's, contact's or deal's timeline, newest first: notes, calls, emails, meetings, tasks, stage changes and the research agent's findings. A company's includes its people's and deals'. Filter `email` or `meetings` for captured mail and meetings. 30 a page unless `limit` says (at most 100); pass nextCursor for older entries.",
+      "A company's, contact's or deal's timeline, newest first: notes, calls, emails, meetings, tasks, stage changes and the research agent's findings. A company's includes its people's and deals'. Filters go by type, and captured mail and meetings are EMAIL and MEETING entries (with a threadId or meetingId), so `notes`, `email` and `meetings` each hold both logged and captured ones. 30 a page unless `limit` says (at most 100); pass nextCursor for older entries.",
     risk: "read",
     input: z
       .object({
@@ -152,7 +152,7 @@ export const activityTools = {
           .enum(TIMELINE_FILTERS)
           .optional()
           .describe(
-            "history: everything but open tasks; notes: notes, calls, emails and meetings people logged; upcoming: open tasks; done: finished tasks; email and meetings: captured ones.",
+            "history: everything but open tasks; notes: notes, calls, emails and meetings; upcoming: open tasks; done: finished tasks; email: emails; meetings: meetings. Emails and meetings are logged or captured alike.",
           ),
         cursor: z
           .string()
