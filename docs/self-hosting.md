@@ -43,6 +43,12 @@ The CRM has two optional settings of its own: `OPENROUTER_MODEL` ([below](#give-
 pnpm everyapp secret set GITHUB_TOKEN
 ```
 
+Before anyone connects mail, a calendar or Slack, give the CRM the key it encrypts their tokens with. Keep it safe: if it changes or is lost, everyone connects again.
+
+```bash
+TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --from-env TOKEN_ENCRYPTION_KEY
+```
+
 ## Give the agent its keys
 
 The research agent's keys live on the gateway, never in the CRM. Set each once:
@@ -59,6 +65,8 @@ The agent runs on GPT-6 Luna through OpenRouter. To use another OpenRouter model
 ```bash
 pnpm everyapp secret set OPENROUTER_MODEL
 ```
+
+The model must have a Zero Data Retention endpoint on OpenRouter: every call asks for zero retention and no data collection.
 
 ### Mail and calendar
 
@@ -79,15 +87,17 @@ Gmail's read scope is one Google restricts. If everyone who connects is in your 
 
 Microsoft client secrets expire after the period you pick when you create one, from 90 days to 24 months. Set a new one with the same command before it does.
 
+Organizations that let only admins consent send members to an approval page. An admin opens the **Grant admin consent** link on the member's Microsoft page in the CRM, or in Microsoft Entra goes to _Enterprise applications_, the app, _Permissions_, **Grant admin consent**.
+
 ### Slack
 
-Team agents post to Slack through a Slack app whose client the gateway holds. At [api.slack.com/apps](https://api.slack.com/apps), create an app, add the redirect URL `https://<crm host>/integrations/slack/callback` under _OAuth & Permissions_, and add the bot token scopes `users:read`, `users:read.email`, `channels:read`, `groups:read`, `channels:history`, `groups:history`, `chat:write`, `chat:write.public`, `im:write`, `channels:join`, `channels:manage`, `groups:write`, `channels:write.invites`, `groups:write.invites`, `conversations.connect:write` and `links:write`, and the user token scopes `channels:read`, `channels:write`, `groups:read` and `groups:write`. Then give the gateway its client:
+Team agents post to Slack through a Slack app whose client the gateway holds. At [api.slack.com/apps](https://api.slack.com/apps), create an app, add the redirect URL `https://<crm host>/integrations/slack/callback` under _OAuth & Permissions_, and add the bot token scopes `users:read`, `users:read.email`, `channels:read`, `groups:read`, `chat:write`, `chat:write.public`, `im:write`, `channels:join`, `channels:manage`, `groups:write`, `channels:write.invites` and `groups:write.invites`, and the user token scopes `channels:read`, `channels:write`, `groups:read` and `groups:write`. Then give the gateway its client:
 
 ```bash
 pnpm everyapp secret set SLACK_CLIENT_ID SLACK_CLIENT_SECRET --for gateway
 ```
 
-An owner or admin then connects the workspace's Slack from Settings → Connections.
+An owner or admin then connects the workspace's Slack from Settings → Connections. Joining and creating channels is theirs too, since it uses the token of whoever connected.
 
 ## Invite your team
 
@@ -115,7 +125,11 @@ The agent researches every record you add and, every five minutes, up to 500 rec
 
 - Give the OpenRouter key the gateway holds a credit limit that resets daily, in [OpenRouter's key settings](https://openrouter.ai/settings/keys). $10 a day covers a team adding a few dozen records a day, and holds a large import to $300 a month.
 - Turn off **Research automatically** in Settings → General (owners and admins). The agent then researches only what someone asks for, and new records wait.
-- Import a large CSV with **Research new records** off.
+- Import a large CSV with **Research new records** off. Those records are never researched automatically.
+
+Records a website form or a calendar invite adds aren't researched until someone opens or enriches them, and a calendar adds at most 50 people an hour. With **Research automatically** off, an import's research waits even when **Research new records** is on. Agent tasks and their step logs older than 30 days are deleted daily.
+
+Research and team agents read web pages only from the record's own site and pages their searches returned, and none once they've read captured mail.
 
 ## Website tracking
 
@@ -123,7 +137,8 @@ The tracking tag runs on your own website, for visitors who aren't signed in:
 
 - If your site sends a Content-Security-Policy, allow the CRM's host (`https://<crm host>`) in `script-src` and `connect-src`.
 - If Cloudflare Access protects your gateway's app hosts, bypass `/t/*` and `/health` on the CRM's host. The Every App repository's `docs/runbooks/cloudflare-access.md` shows how.
-- The collector takes at most 600 events a minute from a site and 120 from one visitor, and forms create at most 50 contacts an hour. Anything over is dropped.
+- The collector takes at most 600 events a minute from a site and 120 from one visitor, 120 requests a minute from one address to one site (600 across sites), and 50,000 events a day per organization. Forms create at most 50 contacts an hour. Anything over is dropped.
+- Add `data-crm-ignore` to a form or a field to keep it out of tracking. Forms with a password field are never sent.
 
 ## Run it locally
 
