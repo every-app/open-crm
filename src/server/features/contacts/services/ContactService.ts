@@ -1,6 +1,6 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
-import { CompanyService } from "@/server/features/companies/services/CompanyService";
+import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactFactRepository } from "@/server/features/contacts/repositories/ContactFactRepository";
 import { ContactRelationsRepository } from "@/server/features/contacts/repositories/ContactRelationsRepository";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
@@ -179,7 +179,11 @@ async function createContact(
   const companyId =
     input.companyId ??
     (email
-      ? await CompanyService.companyForEmail(organizationId, email, ownerId)
+      ? await CompanyDirectoryService.companyForEmail(
+          organizationId,
+          email,
+          ownerId,
+        )
       : null);
   const firstName = input.firstName.trim();
   const lastName = blankToNull(input.lastName ?? "");

@@ -1,7 +1,7 @@
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
-import { CompanyService } from "@/server/features/companies/services/CompanyService";
+import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
@@ -133,7 +133,7 @@ async function resolve(
     external.find((person) => domainFromEmail(person.email) === domain) ??
     external[0];
   if (!lead) return NO_MATCH;
-  const companyId = await CompanyService.companyForEmail(
+  const companyId = await CompanyDirectoryService.companyForEmail(
     organizationId,
     lead.email,
     request.ownerId,

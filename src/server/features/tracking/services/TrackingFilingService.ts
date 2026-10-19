@@ -1,6 +1,6 @@
 import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
-import { CompanyService } from "@/server/features/companies/services/CompanyService";
+import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import { MatchService } from "@/server/features/mailbox/services/MatchService";
@@ -165,7 +165,10 @@ async function file(
       email,
       phone: null,
       title: null,
-      companyId: await CompanyService.companyForEmail(organizationId, email),
+      companyId: await CompanyDirectoryService.companyForEmail(
+        organizationId,
+        email,
+      ),
       ownerId: null,
       source: "TRACKING",
     });
