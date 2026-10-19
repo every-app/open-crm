@@ -11,6 +11,7 @@ import {
 } from "@/client/components/SettingsSection";
 import { everyAppAccountQueryOptions } from "@/client/components/Sidebar";
 import { useDataTable } from "@/client/components/table/DataTable";
+import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
 import { ariaSort } from "@/client/components/table/SortableHeader";
 import { DataTableToolbar } from "@/client/components/table/DataTableToolbar";
 import { TablePagination } from "@/client/components/table/TablePagination";
@@ -29,6 +30,7 @@ import {
   RoleFilter,
 } from "@/client/features/members/MemberFilters";
 import { memberColumns } from "@/client/features/members/memberColumns";
+import { columnVisibility } from "@/client/features/records/listSearch";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import {
   isRole,
@@ -87,6 +89,10 @@ export function MembersSettings() {
   ];
   const viewerId = account?.userId ?? null;
   const columns = useMemo(() => memberColumns(viewerId), [viewerId]);
+  // Every column shows until the Columns menu hides one.
+  const visibility = columnVisibility(search.hide, [], (hide) =>
+    setSearch({ hide }),
+  );
   const table = useDataTable({
     data: rows,
     columns,
@@ -94,7 +100,9 @@ export function MembersSettings() {
     state: {
       sorting,
       pagination: { pageIndex: page - 1, pageSize: PAGE_SIZE },
+      columnVisibility: visibility.state,
     },
+    onColumnVisibilityChange: visibility.onChange,
     withSorting: true,
     withPagination: true,
     // The page lives in the URL; TablePagination moves it back in range.
@@ -151,6 +159,9 @@ export function MembersSettings() {
               })
             }
           />
+          <div className="ml-auto">
+            <ColumnsMenu table={table} />
+          </div>
         </DataTableToolbar>
         <Table>
           <TableHeader>
@@ -189,7 +200,7 @@ export function MembersSettings() {
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length}>
+                <TableCell colSpan={table.getVisibleLeafColumns().length}>
                   <EmptyState
                     kind="filtered"
                     variant="plain"

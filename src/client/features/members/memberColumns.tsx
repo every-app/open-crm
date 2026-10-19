@@ -10,7 +10,8 @@ import { RelativeTime } from "@/client/features/records/LocalDateTime";
 
 /**
  * Settings → Members' columns, as the CRM's members table has them: the
- * email hides below `md` and the joined date below `sm`.
+ * email hides below `md` and the joined date below `sm`, and the Columns menu
+ * hides any but the name.
  */
 export function memberColumns(viewerId: string | null): ColumnDef<Member>[] {
   return [
@@ -18,6 +19,7 @@ export function memberColumns(viewerId: string | null): ColumnDef<Member>[] {
       id: "name",
       accessorFn: (member) => member.name,
       sortingFn: "text",
+      enableHiding: false,
       header: ({ column }) => <SortableHeader column={column} label="Name" />,
       cell: ({ row }) => (
         <span className="flex min-w-0 items-center gap-2">
@@ -42,6 +44,7 @@ export function memberColumns(viewerId: string | null): ColumnDef<Member>[] {
         <span className="text-muted-foreground">{row.original.email}</span>
       ),
       meta: {
+        label: "Email",
         headerClassName: "hidden md:table-cell",
         cellClassName: "hidden md:table-cell",
       },
@@ -54,6 +57,7 @@ export function memberColumns(viewerId: string | null): ColumnDef<Member>[] {
       cell: ({ row }) => (
         <span className="text-muted-foreground">{roleLabel(row.original)}</span>
       ),
+      meta: { label: "Role" },
     },
     {
       id: "joinedAt",
@@ -69,6 +73,7 @@ export function memberColumns(viewerId: string | null): ColumnDef<Member>[] {
         </span>
       ),
       meta: {
+        label: "Joined date",
         headerClassName: "hidden text-right sm:table-cell",
         cellClassName: "hidden text-right sm:table-cell",
       },
