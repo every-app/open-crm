@@ -18,7 +18,8 @@ import { RECORD_KINDS, type RecordRef } from "@/shared/records";
 //
 // The panels opened in a sheet or over the page are in the URL too, under
 // the CRM's keys, so a refresh or a link brings them back:
-//   add                    a company's quick-add form, "contact" or "deal"
+//   add                    a company's quick-add form, "contact" or "deal",
+//                          or a deal's Add contact form
 //   timeline               the Activity tab's view; All when absent
 //   emailThread            the email thread open on the timeline
 //   thread                 the conversation with the agent open on the
@@ -51,7 +52,10 @@ export const RECORD_TABS = [
 ] as const;
 export type RecordTab = (typeof RECORD_TABS)[number];
 
-/** A company's quick-add forms, each on the tab of what it adds. */
+/**
+ * A sheet's add forms, each on the tab of what it adds: a company's quick
+ * adds, and a deal's Add contact.
+ */
 const QUICK_ADDS = ["contact", "deal"] as const;
 type QuickAdd = (typeof QUICK_ADDS)[number];
 const QUICK_ADD_TAB: Record<QuickAdd, RecordTab> = {
@@ -275,7 +279,10 @@ export function useNewForm() {
   ] as const;
 }
 
-/** A company sheet's quick-add form: which is open, and opening or closing one. */
+/**
+ * A sheet's add form (a company's quick adds, a deal's Add contact): which is
+ * open, and opening or closing one.
+ */
 export function useQuickAdd() {
   const { add } = useAppSearch();
   const setSearch = useSetAppSearch();
