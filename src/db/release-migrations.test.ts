@@ -15,23 +15,25 @@ import { describe, expect, it } from "vitest";
  * deletes rows in other tables. Change tables additively instead
  * (docs/maintainers/database.md).
  */
-const DIRS = ["drizzle/sqlite", "drizzle/pg"];
+const DIR = "drizzle/sqlite";
 const CONTRACTING = /\bDROP\s+(TABLE|COLUMN)\b|\bRENAME\b/i;
 const MARKED = /^--\s*everyapp:contract\s+\S+/m;
 const REBUILDING = /\bDROP\s+TABLE\b|__new_/i;
 
-// Written before these checks: it drops two workspace columns no release
-// read.
+// Written before the first release, so no deployed code read what they drop:
+// two workspace columns, then the paid_session table and another workspace
+// column.
 const UNMARKED_CONTRACTS = new Set([
   "drizzle/sqlite/0001_parity.sql",
-  "drizzle/pg/0001_parity.sql",
+  "drizzle/sqlite/0006_fuzzy_mesmero.sql",
 ]);
 
-function migrations(dir: string): string[] {
-  return readdirSync(dir)
-    .filter((file) => file.endsWith(".sql"))
-    .map((file) => `${dir}/${file}`);
-}
+// Drops a table no other table references, so nothing cascades from it.
+const LEAF_DROPS = new Set(["drizzle/sqlite/0006_fuzzy_mesmero.sql"]);
+
+const MIGRATIONS = readdirSync(DIR)
+  .filter((file) => file.endsWith(".sql"))
+  .map((file) => `${DIR}/${file}`);
 
 function withoutComments(sql: string): string {
   return sql
@@ -41,7 +43,7 @@ function withoutComments(sql: string): string {
 }
 
 describe("migrations", () => {
-  it.each(DIRS.flatMap(migrations))("%s only expands the schema", (path) => {
+  it.each(MIGRATIONS)("%s only expands the schema", (path) => {
     const sql = readFileSync(path, "utf8");
     if (MARKED.test(sql) || UNMARKED_CONTRACTS.has(path)) return;
     expect(
@@ -50,7 +52,8 @@ describe("migrations", () => {
     ).toBeNull();
   });
 
-  it.each(migrations("drizzle/sqlite"))("%s rebuilds no table", (path) => {
+  it.each(MIGRATIONS)("%s rebuilds no table", (path) => {
+    if (LEAF_DROPS.has(path)) return;
     expect(
       withoutComments(readFileSync(path, "utf8")).match(REBUILDING)?.[0] ??
         null,

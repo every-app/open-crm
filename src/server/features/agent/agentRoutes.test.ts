@@ -12,7 +12,7 @@ const { database, resolveUser, routed } = await vi.hoisted(async () => {
     routed: { request: null as Request | null },
   };
 });
-vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
+vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/middleware/ensure-user/resolve", () => ({
   resolveUserContextFromHeaders: resolveUser,

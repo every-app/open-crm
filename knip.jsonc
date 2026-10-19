@@ -10,14 +10,11 @@
     "src/routes/**/*.{ts,tsx}",
     // Drizzle configs (plugin disabled due to cloudflare:workers import issues)
     "drizzle/sqlite.config.ts",
-    "drizzle/pg.config.ts",
     // Operator scripts, run with `node`
     "scripts/erase-organization.ts",
     // DB schema — exports consumed via `import * as schema` / drizzle()
     "src/db/index.ts",
     "src/db/schema.ts",
-    "src/db/d1/schema.ts",
-    "src/db/pg/schema.ts",
     // shadcn components are copied in whole; pages use only some exports
     "src/client/components/ui/**",
   ],

@@ -1,6 +1,5 @@
 import type { ToolSet } from "ai";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
-import type { SpendSink } from "@/server/billing/spendSink";
 import { MEMBER_ROLES } from "@/types/schemas/members";
 import type { Capability } from "../prompt/capabilities";
 import {
@@ -71,8 +70,6 @@ export async function prepareTurn(
      * checked against the member mirror each turn (turnRole).
      */
     role: string | null;
-    /** Where the tools' paid calls report their cost (CrmAgent's meter). */
-    sink: SpendSink;
     /**
      * What a research session has read that decides where its web_fetch may
      * go, from its own storage (tools/egress.ts). Without it, it reads no
@@ -107,24 +104,20 @@ export async function prepareTurn(
   ]
     .filter(Boolean)
     .join("\n\n");
-  const tools = buildAgentTools(
-    {
-      organizationId: session.organizationId,
-      sessionId: session.sessionId,
-      record: session.record,
-      task: session.task
-        ? { id: session.task.id, kind: session.task.kind }
-        : null,
-      conversation: session.conversation
-        ? { id: session.conversation.id, needsTitle }
-        : null,
-      attended: session.kind === "chat",
-      role:
-        session.kind === "chat" ? await turnRole(session, input.role) : null,
-      spend: input.spend,
-      egress: input.egress,
-    },
-    input.sink,
-  );
+  const tools = buildAgentTools({
+    organizationId: session.organizationId,
+    sessionId: session.sessionId,
+    record: session.record,
+    task: session.task
+      ? { id: session.task.id, kind: session.task.kind }
+      : null,
+    conversation: session.conversation
+      ? { id: session.conversation.id, needsTitle }
+      : null,
+    attended: session.kind === "chat",
+    role: session.kind === "chat" ? await turnRole(session, input.role) : null,
+    spend: input.spend,
+    egress: input.egress,
+  });
   return { system, tools };
 }

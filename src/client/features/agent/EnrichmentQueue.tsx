@@ -19,7 +19,7 @@ import { RecordLink } from "@/client/features/records/RecordLink";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
 import type { getEnrichmentQueue } from "@/serverFunctions/agent";
 import { ENRICHMENT_PAGE, ENRICHMENT_PAGE_MAX } from "@/types/schemas/agent";
-import { PausedReason } from "./AgentPaused";
+import { ModelNotSetUp } from "./AgentPaused";
 import { enrichmentQueueQueryOptions } from "./agentQueries";
 import {
   dueLabel,
@@ -42,7 +42,6 @@ const STATE_DOTS: Record<QueueState, string> = {
   queued: "bg-muted-foreground/60",
   failed: "bg-destructive",
   waiting: "bg-warning",
-  credits: "bg-warning",
 };
 
 const ROW_LINK =
@@ -122,7 +121,7 @@ export function EnrichmentQueue() {
         </div>
         {paused ? (
           <p className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
-            <PausedReason />
+            <ModelNotSetUp />
           </p>
         ) : null}
 

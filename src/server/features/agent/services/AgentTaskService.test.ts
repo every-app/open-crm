@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // A company a person adds gets its favicon at once, as the CRM fetched it
-// (companies.service.ts): free, so not after its brand, nor held while the
-// workspace is out of credits as the brand is.
+// (companies.service.ts): free, so not after its brand.
 const { database, r2, deferred } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return {
@@ -12,21 +11,12 @@ const { database, r2, deferred } = await vi.hoisted(async () => {
   };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1", R2: r2 },
+  env: { R2: r2 },
   waitUntil: (work: Promise<unknown>) => deferred.push(work),
 }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
-// The first-party deployment, which bills.
-const { autumn } = await vi.hoisted(async () => ({
-  autumn: (await import("@/server/billing/autumnTestSupport")).autumnMock(),
-}));
-vi.mock("@/server/billing/autumn", () => ({
-  autumn,
-  AUTUMN_TRACK_RETRY_OPTIONS: {},
-}));
 
-import { withBalance } from "@/server/billing/autumnTestSupport";
 import { AgentTaskService } from "./AgentTaskService";
 
 describe("a company a person adds", () => {
@@ -55,8 +45,7 @@ describe("a company a person adds", () => {
     );
   });
 
-  it("gets its favicon at once, while its brand waits for credits", async () => {
-    withBalance(autumn, 0);
+  it("gets its favicon at once, and its brand queued", async () => {
     await AgentTaskService.companyAddedByPerson("org_a", "acme");
     await Promise.all(deferred);
 
@@ -65,14 +54,11 @@ describe("a company a person adds", () => {
       /^\/api\/images\/org_a\/companies\/acme\/icon-\w+\.ico$/,
     );
     expect(
-      await database.rows(
-        "SELECT kind, finished_at FROM agent_task WHERE kind = 'brand'",
-      ),
-    ).toEqual([{ kind: "brand", finished_at: null }]);
+      await database.rows("SELECT kind FROM agent_task WHERE kind = 'brand'"),
+    ).toEqual([{ kind: "brand" }]);
   });
 
   it("gets its favicon and no research where the workspace turned off Research automatically", async () => {
-    withBalance(autumn, 500);
     await database.exec(
       `INSERT INTO workspace (organization_id, name, research_automatically) VALUES ('org_a', 'A', false);`,
     );

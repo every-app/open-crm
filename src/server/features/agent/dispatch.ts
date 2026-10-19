@@ -1,19 +1,8 @@
-import { creditsHeldSince } from "@/server/billing/creditReading";
-import type { CreditCheck } from "@/server/billing/credits";
-import { taskEstimate } from "@/server/billing/estimates";
-import {
-  PaidSessionRepository,
-  type PaidSessionClaim,
-} from "@/server/billing/paidSessions";
-import { billResearchSpend } from "@/server/billing/researchSpend";
-import { withSpendSink, type ProviderSpend } from "@/server/billing/spendSink";
 import { forOrganization } from "@/server/lib/gateway-attribution";
 import { SlackSyncService } from "@/server/features/slack/services/SlackSyncService";
 import {
   AGENT_EVENT_KIND,
-  ASKED_FOR_PRIORITY,
   DIRECT_KINDS,
-  FREE_KINDS,
   SLACK_SYNC_KIND,
 } from "@/shared/agent-tasks";
 import { DISPATCH } from "./dispatch/config";
@@ -26,7 +15,6 @@ import {
 import { AgentTaskRepository } from "./repositories/AgentTaskRepository";
 import { FREE } from "./runtime/budget";
 import { MODEL_RETRY_MS } from "./services/AgentAvailabilityService";
-import { sessionName } from "./sessionName";
 import { brandOutcome, runBrand, storeFavicon } from "./visible/brand";
 import { runPortrait } from "./visible/portrait";
 
@@ -52,10 +40,7 @@ import { runPortrait } from "./visible/portrait";
 // (forOrganization). A task that fails is retried when its lease runs out,
 // up to MAX_ATTEMPTS, then retired by the stale-task sweep; one its model's
 // provider failed is retried later without using an attempt
-// (runtime/research.ts). Where usage is billed, both lanes admit paid work
-// task by task against what the organization's balance has left (`credits`,
-// billing/credits.ts), and research only into a free session slot
-// (billing/paidSessions.ts); work that costs nothing (FREE_KINDS) always goes.
+// (runtime/research.ts).
 
 /** Work that outlives the call that started it (ctx.waitUntil). */
 export type Defer = (work: Promise<unknown>) => void;
@@ -72,7 +57,6 @@ export async function runVisibleLane(options: {
   organizationId?: string;
   signal?: AbortSignal;
   defer: Defer;
-  credits?: CreditCheck;
 }): Promise<number> {
   const { batch, concurrency, leaseMs, perOrganization } = DISPATCH.visible;
   const share = options.organizationId ? batch : perOrganization;
@@ -87,13 +71,12 @@ export async function runVisibleLane(options: {
       skipOrganizations: [...taken].flatMap(([organizationId, count]) =>
         count >= share ? [organizationId] : [],
       ),
-      creditsHeldSince: options.credits ? creditsHeldSince() : undefined,
     });
     if (claimed.length === 0) break;
     const tasks = await withinShare(claimed, taken, share);
     await runLimited(
       concurrency,
-      await withCredits(tasks, options.credits),
+      tasks,
       (task) => runDirect(task, options.defer),
       options.signal,
     );
@@ -128,7 +111,7 @@ type DirectOutcome = { finished: true } | { finished: false; reason: string };
 async function runDirect(task: LeasedTask, defer: Defer): Promise<void> {
   const work: Promise<DirectOutcome> = forOrganization(
     task.organizationId,
-    () => handleDirectBilled(task),
+    () => handleDirect(task),
   ).then(
     () => ({ finished: true }) as const,
     (error: unknown) => ({ finished: false, reason: reasonOf(error) }) as const,
@@ -152,21 +135,6 @@ async function reconcileDirect(
     reason: outcome.reason,
   });
   await settle(task, "FAILED", outcome.reason).catch(() => {});
-}
-
-/** A logo or photo lookup, its Context.dev calls billed once it ran. */
-async function handleDirectBilled(task: LeasedTask): Promise<void> {
-  const spent: ProviderSpend[] = [];
-  try {
-    await withSpendSink(
-      (spend) => {
-        spent.push(spend);
-      },
-      () => handleDirect(task),
-    );
-  } finally {
-    await billResearchSpend(task.organizationId, spent, { taskId: task.id });
-  }
 }
 
 async function handleDirect(task: LeasedTask): Promise<void> {
@@ -233,24 +201,20 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 
 /**
  * Leases due research tasks across organizations, at most `perOrganization`
- * each, and starts a session for each. `askedForOnly` (a first-party
- * deployment holding its scheduled research) leaves all but the work a
- * person asked for; so does an organization that turned off Research
- * automatically, for its own.
+ * each, and starts a session for each. An organization that turned off
+ * Research automatically has only the work a person asked for leased.
  *
  * Research the model can't do waits rather than fails: with no way to a
  * model at all (`modelConfigured` false) nothing is leased, and an
  * organization whose model the gateway refused lately is left until
  * MODEL_RETRY_MS has passed, when its next session finds out whether a key
- * has been set meanwhile. Research nobody can pay for waits too (`credits`).
+ * has been set meanwhile.
  */
 export async function runResearchLane(options: {
   start: ResearchStart;
   modelConfigured: boolean;
-  askedForOnly: boolean;
   signal?: AbortSignal;
   defer: Defer;
-  credits?: CreditCheck;
 }): Promise<number> {
   if (options.signal?.aborted || !options.modelConfigured) return 0;
   const tasks = await AgentQueueRepository.claimDue({
@@ -258,50 +222,10 @@ export async function runResearchLane(options: {
     perOrganization: DISPATCH.research.perOrganization,
     lane: { except: [...DIRECT_KINDS, AGENT_EVENT_KIND] },
     leaseMs: DISPATCH.research.leaseMs,
-    minPriority: options.askedForOnly ? ASKED_FOR_PRIORITY : undefined,
     heldSince: new Date(Date.now() - MODEL_RETRY_MS).toISOString(),
-    creditsHeldSince: options.credits ? creditsHeldSince() : undefined,
   });
-  const funded = await withCredits(tasks, options.credits, researchSession);
-  await Promise.all(funded.map((task) => beginResearch(task, options)));
-  return funded.length;
-}
-
-const COSTS_NOTHING = new Set<string>(FREE_KINDS);
-
-/**
- * The leased tasks this tick admits: each paid one against what its
- * organization's balance has left (billing/credits.ts), and a research
- * session only into one of the organization's session slots
- * (billing/paidSessions.ts). Work that costs nothing always goes. The others
- * go back to the queue, their attempts uncounted, to wait.
- */
-async function withCredits(
-  tasks: LeasedTask[],
-  credits: CreditCheck | undefined,
-  sessionOf?: (task: LeasedTask) => PaidSessionClaim,
-): Promise<LeasedTask[]> {
-  if (!credits) return tasks;
-  const funded: LeasedTask[] = [];
-  for (const task of tasks) {
-    const admitted =
-      COSTS_NOTHING.has(task.kind) ||
-      ((await credits(task.organizationId, taskEstimate(task))) &&
-        (!sessionOf || (await PaidSessionRepository.claim(sessionOf(task)))));
-    if (admitted) funded.push(task);
-    else await AgentTaskRepository.release(task.organizationId, task.id);
-  }
-  return funded;
-}
-
-/** A research task's session, holding its slot for as long as its lease. */
-function researchSession(task: LeasedTask): PaidSessionClaim {
-  return {
-    organizationId: task.organizationId,
-    kind: "research",
-    sessionId: sessionName("task", task.organizationId, task.id),
-    leaseMs: DISPATCH.research.leaseMs,
-  };
+  await Promise.all(tasks.map((task) => beginResearch(task, options)));
+  return tasks.length;
 }
 
 type StartOutcome =
@@ -319,7 +243,6 @@ async function beginResearch(
     await markRunning(task);
   } catch (error) {
     await settle(task, "FAILED", reasonOf(error)).catch(() => {});
-    await freeSlot(task);
     return;
   }
   const send: Promise<StartOutcome> = options.start(task).then(
@@ -349,15 +272,6 @@ async function reconcileStart(
     reason: outcome.reason,
   });
   await settle(task, "FAILED", outcome.reason).catch(() => {});
-  await freeSlot(task);
-}
-
-/** A session that never started frees the slot it was given (if any). */
-async function freeSlot(task: LeasedTask): Promise<void> {
-  await PaidSessionRepository.release(
-    task.organizationId,
-    researchSession(task).sessionId,
-  ).catch(() => {});
 }
 
 async function linkSession(task: LeasedTask, sessionId: string): Promise<void> {

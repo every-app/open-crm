@@ -24,6 +24,4 @@ pnpm dev        # http://crm.localhost:8787, signed in as a dev owner
 To your own Every App gateway: `pnpm deploy:everyapp`, then set the agent's
 keys on the gateway. [docs/self-hosting.md](docs/self-hosting.md) covers
 setup, keys, costs, local runs, operations, upgrades and troubleshooting, and
-[docs/release-notes.md](docs/release-notes.md) what each release changes. The
-first-party deploy to a hosted gateway is in
-[docs/maintainers/every-app.md](docs/maintainers/every-app.md).
+[docs/release-notes.md](docs/release-notes.md) what each release changes.

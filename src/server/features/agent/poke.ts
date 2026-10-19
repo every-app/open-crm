@@ -1,5 +1,4 @@
-import { env, waitUntil } from "cloudflare:workers";
-import { laneCreditCheck } from "@/server/billing/credits";
+import { waitUntil } from "cloudflare:workers";
 import { runVisibleLane } from "./dispatch";
 import { collapsingByKey } from "./dispatch/pool";
 import { storeFavicon } from "./visible/brand";
@@ -8,11 +7,7 @@ import { storeFavicon } from "./visible/brand";
 // CSV of forty companies pokes forty times); its leases keep it from taking
 // what another isolate's lane, or the minute cron, has taken.
 const runVisibleLaneFor = collapsingByKey(async (organizationId) => {
-  await runVisibleLane({
-    organizationId,
-    defer: waitUntil,
-    credits: laneCreditCheck(env),
-  });
+  await runVisibleLane({ organizationId, defer: waitUntil });
 });
 
 /**
@@ -20,8 +15,8 @@ const runVisibleLaneFor = collapsingByKey(async (organizationId) => {
  * the next minute's tick, so a new company's logo appears as it is added.
  * With `faviconOf`, a company a person just added or gave a new domain, its
  * favicon is fetched now too, as the CRM fetched it then
- * (companies.service.ts): free, so it waits for neither the lane nor
- * credits, and a brand found later replaces it. Research waits for the cron.
+ * (companies.service.ts): free, so it doesn't wait for the lane, and a brand
+ * found later replaces it. Research waits for the cron.
  * Never throws: queueing work must not fail the request that queued it.
  */
 export function pokeDispatcher(

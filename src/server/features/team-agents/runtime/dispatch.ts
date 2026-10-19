@@ -3,9 +3,6 @@ import { AgentVersionRepository } from "@/server/features/team-agents/repositori
 import { RunSettlement } from "@/server/features/team-agents/services/RunSettlement";
 import { RunQueueRepository } from "@/server/features/team-agents/repositories/RunQueueRepository";
 import { getAgentByName } from "agents";
-import type { CreditCheck } from "@/server/billing/credits";
-import { sessionEstimate } from "@/server/billing/estimates";
-import { PaidSessionRepository } from "@/server/billing/paidSessions";
 import { settledWithin } from "@/server/features/agent/dispatch/pool";
 import type { CrmAgent } from "@/server/features/agent/CrmAgent";
 import { sessionName } from "@/server/features/agent/sessionName";
@@ -16,7 +13,6 @@ import { AGENT_ACTION_TYPES, agentManifest } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import { MODEL_UNAVAILABLE } from "../services/RunSettlement";
 import { TriggerService } from "../services/TriggerService";
-import { RUN_LIMITS } from "./turns";
 
 // The team agents' lane of the minute cron, ported from the CRM's
 // drainAgentRuns: it settles runs that overran or never got going, queues
@@ -24,10 +20,8 @@ import { RUN_LIMITS } from "./turns";
 // one at a time per agent, each in its own CrmAgent session
 // (`run.<organization>.<run id>`). A person's "Run now", and the runs a
 // record write's events queued, poke it for their organization at once. A
-// run that can't run (no model on the gateway, Slack not connected, the
-// workspace out of credits) fails with the reason instead of waiting; one
-// the workspace's credits or run slots can take only later waits.
-// Organizations take turns, each at most RUNS.perOrganization runs a tick.
+// run that can't run (no model on the gateway, Slack not connected) fails
+// with the reason instead of waiting. Organizations take turns, each at most RUNS.perOrganization runs a tick.
 // The per-minute scans are a few indexed queries whatever the number of
 // organizations.
 
@@ -43,9 +37,6 @@ const RUNS = {
   deliveryLeaseMs: 5 * MINUTE_MS,
   startTimeoutMs: MINUTE_MS,
 } as const;
-
-/** What a run may cost, where usage is billed (billing/estimates.ts). */
-const RUN_ESTIMATE = sessionEstimate(RUN_LIMITS.budget);
 
 type Defer = (work: Promise<unknown>) => void;
 
@@ -111,16 +102,9 @@ async function recover(env: Env, defer: Defer): Promise<void> {
 async function cannotStart(
   env: Env,
   run: { organizationId: string; agentId: string; versionId: string },
-  credits: CreditCheck | undefined,
 ): Promise<{ code: string; message: string } | null> {
   if (getOpenRouterFetch(env, run.organizationId) === null) {
     return MODEL_UNAVAILABLE;
-  }
-  if (credits && !(await credits(run.organizationId))) {
-    return {
-      code: "INSUFFICIENT_CREDITS",
-      message: "The workspace is out of credits, so this run didn't start.",
-    };
   }
   const version = await AgentVersionRepository.findVersion(
     run.organizationId,
@@ -158,9 +142,8 @@ async function start(
     versionId: string;
   },
   defer: Defer,
-  credits: CreditCheck | undefined,
 ): Promise<boolean> {
-  const blocked = await cannotStart(env, run, credits);
+  const blocked = await cannotStart(env, run);
   if (blocked) {
     await RunSettlement.failRun(
       run.organizationId,
@@ -171,36 +154,13 @@ async function start(
     return false;
   }
   const sessionId = sessionName("run", run.organizationId, run.id);
-  // Where usage is billed, a run waits in the queue while what the
-  // organization's balance has left this tick can't cover it, or while its
-  // run slots are taken (billing/paidSessions.ts).
-  if (
-    credits &&
-    !(
-      (await credits(run.organizationId, RUN_ESTIMATE)) &&
-      (await PaidSessionRepository.claim({
-        organizationId: run.organizationId,
-        kind: "run",
-        sessionId,
-        leaseMs: RUNS.executionTimeoutMs,
-      }))
-    )
-  ) {
-    return false;
-  }
-  // A slot for a run that never starts is freed at once.
-  const freeSlot = () =>
-    PaidSessionRepository.release(run.organizationId, sessionId);
   // The run records the model it ran on, for its history.
   const claimed = await AgentRunRepository.claim(
     run.organizationId,
     run.id,
     await agentModelId(),
   );
-  if (!claimed) {
-    await freeSlot();
-    return false;
-  }
+  if (!claimed) return false;
   await RunEventRepository.insertEvent({
     organizationId: run.organizationId,
     sessionId,
@@ -221,7 +181,6 @@ async function start(
           "DELIVERY_FAILED",
           error instanceof Error ? error.message : String(error),
         );
-        await freeSlot();
       },
     );
   const outcome = await settledWithin(handed, RUNS.startTimeoutMs);
@@ -230,26 +189,22 @@ async function start(
 }
 
 /**
- * The lane: recover, queue due schedules (unless unattended runs are held)
- * and the runs of queued CRM events, then start what is queued, across
- * organizations or, for a poke, one. How many runs it started.
+ * The lane: recover, queue due schedules and the runs of queued CRM events,
+ * then start what is queued, across organizations or, for a poke, one. How
+ * many runs it started.
  */
 export async function runTeamAgentLane(
   env: Env,
   options: {
     defer: Defer;
     organizationId?: string;
-    holdUnattended?: boolean;
     signal?: AbortSignal;
-    credits?: CreditCheck;
   },
 ): Promise<number> {
   if (!options.organizationId) {
     await recover(env, options.defer);
-    if (!options.holdUnattended) await TriggerService.queueDueSchedules();
-    await TriggerService.queueEventRuns({
-      held: options.holdUnattended ?? false,
-    });
+    await TriggerService.queueDueSchedules();
+    await TriggerService.queueEventRuns();
   }
   if (options.signal?.aborted) return 0;
   const queued = await RunQueueRepository.queuedAcrossOrganizations({
@@ -261,16 +216,14 @@ export async function runTeamAgentLane(
   for (const run of queued) {
     if (options.signal?.aborted) break;
     const ok = await forOrganization(run.organizationId, () =>
-      start(env, run, options.defer, options.credits).catch(
-        (error: unknown) => {
-          console.error(
-            "[team-agents] run did not start",
-            { runId: run.id },
-            error,
-          );
-          return false;
-        },
-      ),
+      start(env, run, options.defer).catch((error: unknown) => {
+        console.error(
+          "[team-agents] run did not start",
+          { runId: run.id },
+          error,
+        );
+        return false;
+      }),
     );
     if (ok) started += 1;
   }

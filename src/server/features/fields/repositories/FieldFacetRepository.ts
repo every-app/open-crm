@@ -13,8 +13,6 @@ import type { FieldEntity } from "@/shared/crm-enums";
 
 // What a list's filters on select and user fields count.
 
-// Resolved per call, not at import: `@/db/schema` hands out whichever
-// dialect's tables are live.
 function recordColumn(entity: FieldEntity) {
   switch (entity) {
     case "COMPANY":

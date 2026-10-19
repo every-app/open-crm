@@ -14,14 +14,11 @@ import {
   modelBlocked,
   type AgentAvailability,
 } from "@/shared/agent-availability";
-import { SETTINGS_BILLING_ROUTE } from "@/shared/billing";
 
 // What every screen showing the agent's progress says when the agent can't
 // run: the records it would research wait for its model to be set up on the
-// gateway, or for the workspace's credits, and nothing pretends to be
-// working on them. Each says so in one line, with where it is fixed.
-
-const OUT_OF_CREDITS = "The workspace is out of credits.";
+// gateway, and nothing pretends to be working on them. Each says so in one
+// line, with where it is fixed.
 
 const LINK = "whitespace-nowrap text-foreground underline underline-offset-4";
 
@@ -42,10 +39,6 @@ export function useAgentPaused(): boolean {
  */
 export function ModelNotSetUp() {
   const canManage = useCanManageWorkspace();
-  // The hosted CRM's model is Every App's: there is nothing to set up here.
-  if (useAgentAvailability()?.tier === "first_party") {
-    return <>The agent is unavailable.</>;
-  }
   return (
     <>
       The agent's model isn't set up.{" "}
@@ -56,17 +49,6 @@ export function ModelNotSetUp() {
       ) : (
         "An owner or admin can set it up."
       )}
-    </>
-  );
-}
-
-/** Why the agent is paused, in one line: the credits, or its model. */
-export function PausedReason() {
-  const outOfCredits = useAgentAvailability()?.outOfCredits;
-  if (!outOfCredits) return <ModelNotSetUp />;
-  return (
-    <>
-      {OUT_OF_CREDITS} <BillingLink />
     </>
   );
 }
@@ -101,22 +83,5 @@ export function WaitingForSetup() {
         </p>
       </PopoverContent>
     </Popover>
-  );
-}
-
-/** The record's agent tab: its research waits for credits. */
-export function OutOfCredits() {
-  return (
-    <p className="text-xs text-muted-foreground">
-      {OUT_OF_CREDITS} <BillingLink />
-    </p>
-  );
-}
-
-function BillingLink() {
-  return (
-    <Link to={SETTINGS_BILLING_ROUTE} className={LINK}>
-      Go to Billing
-    </Link>
   );
 }

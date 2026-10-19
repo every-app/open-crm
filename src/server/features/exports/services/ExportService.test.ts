@@ -2,45 +2,40 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // An owner's full export: every dataset of their organization, in cells a
 // spreadsheet reads, and nothing of another's.
-const { testDb } = await vi.hoisted(async () => {
-  const { createDualDialectTestDb } =
-    await import("@/server/testing/dualDialectTestDb");
-  return { testDb: await createDualDialectTestDb() };
+const { database } = await vi.hoisted(async () => {
+  const { createSqliteTestDb } = await import("@/server/testing/testDb");
+  return { database: await createSqliteTestDb() };
 });
-vi.mock("cloudflare:workers", () => testDb.modules.workers);
-vi.mock("@/db", () => testDb.modules.db);
-vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
-vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("cloudflare:workers", () => ({ env: {} }));
+vi.mock("@/db", () => ({ db: database.db }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 
 import type { ExportDataset } from "@/types/schemas/exports";
 import { ExportService } from "./ExportService";
 
 const OWNER = { organizationId: "org_a", role: "owner" };
 
-for (const dialect of ["sqlite", "postgres"] as const) {
-  describe(`ExportService (${dialect})`, () => {
-    const database = testDb.use(dialect);
-    beforeEach(async () => {
-      testDb.use(dialect);
-      await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
-      await database.seedTwoOrganizations();
-    });
+describe("ExportService", () => {
+  beforeEach(async () => {
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
+    await database.seedTwoOrganizations();
+  });
 
-    /** The dataset as rows keyed by header. */
-    const exported = async (dataset: ExportDataset) => {
-      const { header, rows, next } = await ExportService.page(
-        OWNER,
-        dataset,
-        null,
-      );
-      expect(next).toBeNull();
-      return rows.map((row) =>
-        Object.fromEntries(header.map((name, index) => [name, row[index]])),
-      );
-    };
+  /** The dataset as rows keyed by header. */
+  const exported = async (dataset: ExportDataset) => {
+    const { header, rows, next } = await ExportService.page(
+      OWNER,
+      dataset,
+      null,
+    );
+    expect(next).toBeNull();
+    return rows.map((row) =>
+      Object.fromEntries(header.map((name, index) => [name, row[index]])),
+    );
+  };
 
-    it("exports the organization's records with their custom fields, as the import reads them", async () => {
-      await database.exec(`
+  it("exports the organization's records with their custom fields, as the import reads them", async () => {
+    await database.exec(`
         INSERT INTO company (id, organization_id, name, domain, owner_id) VALUES
           ('co_a', 'org_a', 'Acme', 'acme.test', 'user_a'),
           ('co_b', 'org_b', 'Other', 'other.test', NULL);
@@ -57,35 +52,35 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         INSERT INTO deal_contact (deal_id, contact_id, organization_id) VALUES ('d_a', 'p_a', 'org_a');
       `);
 
-      expect(await exported("companies")).toMatchObject([
-        {
-          Name: "Acme",
-          Domain: "acme.test",
-          Owner: "ana@a.test",
-          Tier: "Gold",
-        },
-      ]);
-      expect(await exported("contacts")).toMatchObject([
-        {
-          "First name": "Jane",
-          Phone: "+1 555 0100",
-          LinkedIn: "https://linkedin.com/in/jane",
-          Company: "Acme",
-        },
-      ]);
-      expect(await exported("deals")).toMatchObject([
-        {
-          Name: "Pilot",
-          Company: "Acme",
-          Stage: "Demo booked",
-          "Close date": "2027-03-31",
-          Contacts: "jane@acme.test",
-        },
-      ]);
-    });
+    expect(await exported("companies")).toMatchObject([
+      {
+        Name: "Acme",
+        Domain: "acme.test",
+        Owner: "ana@a.test",
+        Tier: "Gold",
+      },
+    ]);
+    expect(await exported("contacts")).toMatchObject([
+      {
+        "First name": "Jane",
+        Phone: "+1 555 0100",
+        LinkedIn: "https://linkedin.com/in/jane",
+        Company: "Acme",
+      },
+    ]);
+    expect(await exported("deals")).toMatchObject([
+      {
+        Name: "Pilot",
+        Company: "Acme",
+        Stage: "Demo booked",
+        "Close date": "2027-03-31",
+        Contacts: "jane@acme.test",
+      },
+    ]);
+  });
 
-    it("exports notes, tasks, email, meetings and website activity, leaving the captured mail out of the notes", async () => {
-      await database.exec(`
+  it("exports notes, tasks, email, meetings and website activity, leaving the captured mail out of the notes", async () => {
+    await database.exec(`
         INSERT INTO contact (id, organization_id, first_name, email) VALUES
           ('p_a', 'org_a', 'Jane', 'jane@acme.test');
         INSERT INTO email_thread (id, organization_id, root_message_id, contact_id, first_message_at, last_message_at) VALUES
@@ -106,30 +101,29 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('fs1', 'org_a', 'p_a', 'acme.test', '/contact', 'jane@acme.test', '{"message":"Call me"}', 'k1');
       `);
 
-      expect(await exported("notes")).toMatchObject([
-        { Type: "Call", Subject: "Intro call", Contact: "jane@acme.test" },
-      ]);
-      expect(await exported("tasks")).toMatchObject([
-        { Subject: "Send deck", Author: "ana@a.test" },
-      ]);
-      expect(await exported("emails")).toMatchObject([
-        { To: "ana@a.test", Body: "Can we talk?", Contact: "jane@acme.test" },
-      ]);
-      expect(await exported("meetings")).toMatchObject([
-        { Title: "Demo", Attendees: "jane@acme.test" },
-      ]);
-      expect(await exported("website-activity")).toMatchObject([
-        { Type: "Page view", Path: "/pricing", Contact: "jane@acme.test" },
-      ]);
-      expect(await exported("form-submissions")).toMatchObject([
-        { Fields: "message: Call me", Contact: "jane@acme.test" },
-      ]);
-    });
-
-    it("is the owner's alone", async () => {
-      await expect(
-        ExportService.page({ ...OWNER, role: "admin" }, "contacts", null),
-      ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    });
+    expect(await exported("notes")).toMatchObject([
+      { Type: "Call", Subject: "Intro call", Contact: "jane@acme.test" },
+    ]);
+    expect(await exported("tasks")).toMatchObject([
+      { Subject: "Send deck", Author: "ana@a.test" },
+    ]);
+    expect(await exported("emails")).toMatchObject([
+      { To: "ana@a.test", Body: "Can we talk?", Contact: "jane@acme.test" },
+    ]);
+    expect(await exported("meetings")).toMatchObject([
+      { Title: "Demo", Attendees: "jane@acme.test" },
+    ]);
+    expect(await exported("website-activity")).toMatchObject([
+      { Type: "Page view", Path: "/pricing", Contact: "jane@acme.test" },
+    ]);
+    expect(await exported("form-submissions")).toMatchObject([
+      { Fields: "message: Call me", Contact: "jane@acme.test" },
+    ]);
   });
-}
+
+  it("is the owner's alone", async () => {
+    await expect(
+      ExportService.page({ ...OWNER, role: "admin" }, "contacts", null),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});

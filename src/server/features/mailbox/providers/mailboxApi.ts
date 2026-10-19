@@ -6,8 +6,7 @@ import { withoutNul } from "@/server/features/mailbox/lib/messageText";
 // status read as "the cursor expired", "the token was refused", "slow down"
 // or a failure. Calls are made with the member's own access token, straight
 // to the provider; the gateway only ever sees the token endpoint. Every
-// string in an answer arrives without NUL characters, which Postgres can't
-// store: a subject or a body carrying one would stall its mailbox.
+// string in an answer arrives without NUL characters.
 
 export type MailboxResult<T> =
   | { outcome: "ok"; data: T }

@@ -1,10 +1,6 @@
 import { MutationCache, QueryClient } from "@tanstack/query-core";
 import { toast } from "sonner";
-import { showOutOfCredits } from "@/client/features/billing/outOfCredits";
-import {
-  getErrorCode,
-  getStandardErrorMessage,
-} from "@/client/lib/error-messages";
+import { getStandardErrorMessage } from "@/client/lib/error-messages";
 
 declare module "@tanstack/query-core" {
   interface Register {
@@ -20,12 +16,6 @@ export const queryClient = new QueryClient({
   // out through meta, so no failure is silent.
   mutationCache: new MutationCache({
     onError: (error, _variables, _context, mutation) => {
-      // Out of credits (hosted billing) always opens the one dialog that
-      // says how to get more, whoever handles the mutation's other errors.
-      if (getErrorCode(error) === "INSUFFICIENT_CREDITS") {
-        showOutOfCredits();
-        return;
-      }
       if (mutation.options.onError || mutation.meta?.errorToast === false) {
         return;
       }

@@ -28,8 +28,6 @@ export type FieldWrite = {
 // D1 binds about 100 parameters per statement.
 const IDS_PER_STATEMENT = 90;
 
-// Resolved per call, not at import: `@/db/schema` hands out whichever
-// dialect's tables are live.
 export function records(entity: FieldEntity) {
   switch (entity) {
     case "COMPANY":

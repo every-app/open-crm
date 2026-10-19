@@ -1,9 +1,8 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 
-// NULL ordering differs by dialect (Postgres sorts NULLs first in DESC, SQLite
-// last), so orderings over nullable columns say where NULLs go. Both D1's
-// SQLite and Postgres accept NULLS FIRST / NULLS LAST.
+// Orderings over nullable columns say where NULLs go (NULLS FIRST / NULLS
+// LAST), rather than leave it to the database's default.
 
 export function descNullsLast(column: SQLiteColumn): SQL {
   return sql`${column} desc nulls last`;

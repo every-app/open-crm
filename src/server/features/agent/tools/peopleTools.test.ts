@@ -12,10 +12,9 @@ const { database, contextFetch, ask } = await vi.hoisted(async () => {
     ask: vi.fn(),
   };
 });
-vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
+vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({
   db: database.db,
-  withPgClient: (fn: () => unknown) => fn(),
 }));
 vi.mock("@/db/runBatch", () => ({ runBatch: database.runBatch }));
 vi.mock("@/server/lib/provider-access", () => ({

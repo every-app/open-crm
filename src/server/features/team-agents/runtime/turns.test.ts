@@ -15,7 +15,6 @@ const { database } = await vi.hoisted(async () => {
 });
 vi.mock("cloudflare:workers", () => ({
   env: {
-    DATABASE_PROVIDER: "d1",
     // A stored file's bytes are its key, so a file part shows what was read.
     R2: {
       get: async (key: string) => ({
@@ -27,7 +26,6 @@ vi.mock("cloudflare:workers", () => ({
 }));
 vi.mock("@/db", () => ({
   db: database.db,
-  withPgClient: (fn: () => unknown) => fn(),
 }));
 
 import { agentConversation, agentConversationAttachment } from "@/db/schema";
@@ -52,7 +50,6 @@ function turn(messages: UIMessage[]) {
     thinkSystem: "",
     messages,
     spend: FREE,
-    sink: () => {},
   });
 }
 
@@ -283,7 +280,7 @@ describe("a builder chat's turn", () => {
     ]);
   });
 
-  it("searches the web at OpenRouter, inside the model call that bills it, on Parallel's engine", async () => {
+  it("searches the web at OpenRouter, inside the model call that pays for it, on Parallel's engine", async () => {
     const sent: unknown[][] = [];
     const gateway: typeof fetch = async (_url, init) => {
       const body = requestBody.parse(

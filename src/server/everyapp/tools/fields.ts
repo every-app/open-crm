@@ -250,7 +250,7 @@ export const fieldTools = {
 
   fill_field: crmTool({
     description:
-      "Ask the research agent to fill a custom field on records with no value yet, up to 500 at a time (owners and admins only, fields the agent fills). It costs the organization credits.",
+      "Ask the research agent to fill a custom field on records with no value yet, up to 500 at a time (owners and admins only, fields the agent fills).",
     risk: "write",
     input: fieldIdInput,
     output: z.object({

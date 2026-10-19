@@ -107,8 +107,8 @@ export const socialTools: ToolGroup = (context) => ({
       if (!person) {
         return { written: false as const, reason: "No such contact." };
       }
-      // Corroborating an X handle is a search, billed at its cost, that the
-      // CRM never counted against the research budget.
+      // Corroborating an X handle is a search that the CRM never counted
+      // against the research budget.
       const research = await webResearchAccess();
       const ask: Ask = research
         ? asker(research)

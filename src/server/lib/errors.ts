@@ -44,7 +44,7 @@ export function loggableError(error: unknown): {
   return code ? { error: error.name, code } : { error: error.name };
 }
 
-/** An AppError's code, a driver's (Postgres's SQLSTATE, libSQL's), or the SQLite code D1 ends its message with. */
+/** An AppError's code, a driver's (libSQL's), or the SQLite code D1 ends its message with. */
 function codeOf(error: unknown): string | undefined {
   if (!(error instanceof Error)) return undefined;
   const code: unknown = Reflect.get(error, "code");

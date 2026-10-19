@@ -1,16 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Settling the agent's suggestions on both backends: facts are JSON, and a
+// Settling the agent's suggestions: facts are JSON, and a
 // decision is a batch whose writes only follow its own claim on the fact.
-const { testDb } = await vi.hoisted(async () => {
-  const { createDualDialectTestDb } =
-    await import("@/server/testing/dualDialectTestDb");
-  return { testDb: await createDualDialectTestDb() };
+const { database } = await vi.hoisted(async () => {
+  const { createSqliteTestDb } = await import("@/server/testing/testDb");
+  return { database: await createSqliteTestDb() };
 });
-vi.mock("cloudflare:workers", () => testDb.modules.workers);
-vi.mock("@/db", () => testDb.modules.db);
-vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
-vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("cloudflare:workers", () => ({ env: {} }));
+vi.mock("@/db", () => ({ db: database.db }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 
 import { AgentFactRepository } from "@/server/features/agent/repositories/AgentFactRepository";
 import { ContactFactService } from "./ContactFactService";
@@ -39,113 +37,109 @@ const dismiss = (factId: string) =>
     decision: "dismiss",
   });
 
-for (const dialect of ["sqlite", "postgres"] as const) {
-  describe(`ContactFactService (${dialect})`, () => {
-    const database = testDb.use(dialect);
-    beforeEach(async () => {
-      testDb.use(dialect);
-      await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
-      await database.seedTwoOrganizations();
-      await database.exec(
-        `INSERT INTO contact (id, organization_id, first_name, title) VALUES ('c1', 'org_a', 'ana', 'Engineer');`,
-      );
+describe("ContactFactService", () => {
+  beforeEach(async () => {
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
+    await database.seedTwoOrganizations();
+    await database.exec(
+      `INSERT INTO contact (id, organization_id, first_name, title) VALUES ('c1', 'org_a', 'ana', 'Engineer');`,
+    );
+  });
+
+  it("accepts a suggestion into its field and supersedes the field's older facts", async () => {
+    await database.exec(
+      [
+        fact("f1", "title", "Staff Engineer", "APPLIED", 1),
+        fact("f2", "title", "VP Engineering", "PROPOSED", 3),
+        fact("f3", "title", "CTO", "DISMISSED", 2),
+        fact("f4", "name", "Ana  Maria Zed", "PROPOSED", 4),
+      ].join("\n"),
+    );
+    const before = await ContactService.getContact("org_a", "c1");
+    expect(before.facts.map((item) => item.id)).toEqual(["f4", "f2", "f1"]);
+    expect(before.facts[0]?.evidence).toEqual([
+      { kind: "web.cited-claim", detail: "Their talk bio says so" },
+    ]);
+
+    await expect(accept("f2")).resolves.toEqual({
+      contactId: "c1",
+      field: "title",
+      applied: true,
     });
+    await expect(dismiss("f2")).rejects.toMatchObject({ code: "CONFLICT" });
+    await accept("f4");
 
-    it("accepts a suggestion into its field and supersedes the field's older facts", async () => {
-      await database.exec(
-        [
-          fact("f1", "title", "Staff Engineer", "APPLIED", 1),
-          fact("f2", "title", "VP Engineering", "PROPOSED", 3),
-          fact("f3", "title", "CTO", "DISMISSED", 2),
-          fact("f4", "name", "Ana  Maria Zed", "PROPOSED", 4),
-        ].join("\n"),
-      );
-      const before = await ContactService.getContact("org_a", "c1");
-      expect(before.facts.map((item) => item.id)).toEqual(["f4", "f2", "f1"]);
-      expect(before.facts[0]?.evidence).toEqual([
-        { kind: "web.cited-claim", detail: "Their talk bio says so" },
-      ]);
-
-      await expect(accept("f2")).resolves.toEqual({
-        contactId: "c1",
-        field: "title",
-        applied: true,
-      });
-      await expect(dismiss("f2")).rejects.toMatchObject({ code: "CONFLICT" });
-      await accept("f4");
-
-      expect(
-        await database.rows(
-          "SELECT id, status, decided_by_id FROM contact_fact ORDER BY id",
-        ),
-      ).toMatchObject([
-        { id: "f1", status: "SUPERSEDED", decided_by_id: null },
-        { id: "f2", status: "APPLIED", decided_by_id: "user_a" },
-        // A dismissal stands: the agent never offers that value again.
-        { id: "f3", status: "DISMISSED" },
-        { id: "f4", status: "APPLIED" },
-      ]);
-      expect(await ContactService.getContact("org_a", "c1")).toMatchObject({
-        firstName: "Ana",
-        lastName: "Maria Zed",
-        title: "VP Engineering",
-        companyId: null,
-      });
-    });
-
-    it("offers only what accepting writes on the contact, on the sheet, in the list and to a decision", async () => {
-      await database.exec(
-        [
-          fact("f1", "title", "VP Engineering", "PROPOSED", 1),
-          fact("f2", "employer", "Acme", "PROPOSED", 2),
-          fact("f3", "location", "Berlin", "PROPOSED", 3),
-        ].join("\n"),
-      );
-      const contact = await ContactService.getContact("org_a", "c1");
-      expect(contact.facts.map((item) => item.id)).toEqual(["f1"]);
-      expect(
-        await ContactFactService.listSuggestions("org_a", {
-          page: 1,
-          pageSize: 25,
-        }),
-      ).toMatchObject({ rows: [{ id: "f1" }], total: 1 });
-      await expect(accept("f2")).rejects.toMatchObject({ code: "NOT_FOUND" });
-    });
-
-    it("changes nothing when a suggestion was settled between its read and the decision", async () => {
-      await database.exec(
-        [
-          fact("f1", "title", "Engineer", "APPLIED"),
-          fact("f2", "title", "CTO", "DISMISSED"),
-        ].join("\n"),
-      );
-      // Someone else dismissed f2 after this decision read it as proposed.
-      await expect(
-        AgentFactRepository.decide("org_a", {
-          fact: { id: "f2", contactId: "c1", field: "title" },
-          accept: true,
-          decidedById: "user_a",
-          write: { patch: { title: "CTO" }, expected: null },
-        }),
-      ).resolves.toBe(false);
-      expect(
-        await database.rows(
-          "SELECT f.status, c.title FROM contact_fact f JOIN contact c ON c.id = f.contact_id ORDER BY f.id",
-        ),
-      ).toMatchObject([
-        { status: "APPLIED", title: "Engineer" },
-        { status: "DISMISSED", title: "Engineer" },
-      ]);
-    });
-
-    it("keeps one organization's suggestions out of another's reach", async () => {
-      await database.exec(fact("f1", "title", "CTO", "PROPOSED"));
-      await expect(accept("f1", "org_b")).rejects.toMatchObject({
-        code: "NOT_FOUND",
-      });
-      expect(
-        await database.rows("SELECT status FROM contact_fact"),
-      ).toMatchObject([{ status: "PROPOSED" }]);
+    expect(
+      await database.rows(
+        "SELECT id, status, decided_by_id FROM contact_fact ORDER BY id",
+      ),
+    ).toMatchObject([
+      { id: "f1", status: "SUPERSEDED", decided_by_id: null },
+      { id: "f2", status: "APPLIED", decided_by_id: "user_a" },
+      // A dismissal stands: the agent never offers that value again.
+      { id: "f3", status: "DISMISSED" },
+      { id: "f4", status: "APPLIED" },
+    ]);
+    expect(await ContactService.getContact("org_a", "c1")).toMatchObject({
+      firstName: "Ana",
+      lastName: "Maria Zed",
+      title: "VP Engineering",
+      companyId: null,
     });
   });
-}
+
+  it("offers only what accepting writes on the contact, on the sheet, in the list and to a decision", async () => {
+    await database.exec(
+      [
+        fact("f1", "title", "VP Engineering", "PROPOSED", 1),
+        fact("f2", "employer", "Acme", "PROPOSED", 2),
+        fact("f3", "location", "Berlin", "PROPOSED", 3),
+      ].join("\n"),
+    );
+    const contact = await ContactService.getContact("org_a", "c1");
+    expect(contact.facts.map((item) => item.id)).toEqual(["f1"]);
+    expect(
+      await ContactFactService.listSuggestions("org_a", {
+        page: 1,
+        pageSize: 25,
+      }),
+    ).toMatchObject({ rows: [{ id: "f1" }], total: 1 });
+    await expect(accept("f2")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("changes nothing when a suggestion was settled between its read and the decision", async () => {
+    await database.exec(
+      [
+        fact("f1", "title", "Engineer", "APPLIED"),
+        fact("f2", "title", "CTO", "DISMISSED"),
+      ].join("\n"),
+    );
+    // Someone else dismissed f2 after this decision read it as proposed.
+    await expect(
+      AgentFactRepository.decide("org_a", {
+        fact: { id: "f2", contactId: "c1", field: "title" },
+        accept: true,
+        decidedById: "user_a",
+        write: { patch: { title: "CTO" }, expected: null },
+      }),
+    ).resolves.toBe(false);
+    expect(
+      await database.rows(
+        "SELECT f.status, c.title FROM contact_fact f JOIN contact c ON c.id = f.contact_id ORDER BY f.id",
+      ),
+    ).toMatchObject([
+      { status: "APPLIED", title: "Engineer" },
+      { status: "DISMISSED", title: "Engineer" },
+    ]);
+  });
+
+  it("keeps one organization's suggestions out of another's reach", async () => {
+    await database.exec(fact("f1", "title", "CTO", "PROPOSED"));
+    await expect(accept("f1", "org_b")).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(
+      await database.rows("SELECT status FROM contact_fact"),
+    ).toMatchObject([{ status: "PROPOSED" }]);
+  });
+});

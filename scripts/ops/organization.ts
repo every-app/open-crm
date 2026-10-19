@@ -1,5 +1,5 @@
 import { MAX_ATTEMPTS, RETIRED_OUTCOME } from "../../src/shared/agent-tasks.ts";
-import { int, literal, type Database } from "./db.ts";
+import { literal, type Database } from "./db.ts";
 
 // One organization at a glance, for support: its workspace, members, how
 // much it holds, its connections (never their tokens) and its agent's queue.
@@ -12,7 +12,7 @@ async function findOrganization(db: Database, selector: string) {
     ? `o.id in (select m.organization_id from member m join "user" u on u.id = m.user_id where lower(u.email) = lower(${literal(selector)}))`
     : `o.id = ${literal(selector)}`;
   const found = await db.query(
-    `select o.id, o.name, w.website, w.onboarded_at, w.model_refused_at, w.model_answered_at, w.credits_depleted_at, w.enrichment_swept_at
+    `select o.id, o.name, w.website, w.onboarded_at, w.model_refused_at, w.model_answered_at, w.enrichment_swept_at
      from organization o left join workspace w on w.organization_id = o.id
      where ${where} order by o.id`,
   );
@@ -31,7 +31,7 @@ export async function lookupOrganization(db: Database, selector: string) {
   const now = literal(new Date().toISOString());
   const dayAgo = literal(new Date(Date.now() - DAY_MS).toISOString());
   const count = (table: string, where = "") =>
-    `${int(`(select count(*) from ${table} where organization_id = ${id}${where})`)} as ${table}`;
+    `(select count(*) from ${table} where organization_id = ${id}${where}) as ${table}`;
 
   const [
     [counts],
@@ -81,20 +81,20 @@ export async function lookupOrganization(db: Database, selector: string) {
       `select site_id, paused, created_at from tracking_site where organization_id = ${id}`,
     ),
     db.query(
-      `select kind, ${int("count(*)")} as open,
-           ${int(`sum(case when leased_until > ${now} then 1 else 0 end)`)} as running,
-           ${int(`sum(case when attempts >= ${MAX_ATTEMPTS} then 1 else 0 end)`)} as out_of_attempts,
+      `select kind, count(*) as open,
+           sum(case when leased_until > ${now} then 1 else 0 end) as running,
+           sum(case when attempts >= ${MAX_ATTEMPTS} then 1 else 0 end) as out_of_attempts,
            min(due_at) as oldest_due_at
          from agent_task where organization_id = ${id} and finished_at is null
          group by kind order by kind`,
     ),
     db.query(
-      `select kind, ${int("count(*)")} as retired from agent_task
+      `select kind, count(*) as retired from agent_task
          where organization_id = ${id} and outcome = ${literal(RETIRED_OUTCOME)} and finished_at >= ${dayAgo}
          group by kind order by kind`,
     ),
     db.query(
-      `select status, ${int("count(*)")} as runs from agent_run
+      `select status, count(*) as runs from agent_run
          where organization_id = ${id} group by status order by status`,
     ),
   ]);

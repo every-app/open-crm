@@ -17,9 +17,6 @@ const statement = {
   // Connect or disconnect the workspace's Slack; disconnect any member's
   // mailbox, or delete what it synced.
   connection: ["manage"],
-  // Change the plan, buy credits and open the billing portal (hosted
-  // billing): the owner's alone, as in OpenSEO.
-  billing: ["manage"],
 } as const;
 
 type Statement = typeof statement;
@@ -37,7 +34,7 @@ const FULL: OrgPermissionRequest = {
 };
 
 const ROLE_PERMISSIONS: Record<string, OrgPermissionRequest> = {
-  owner: { ...FULL, workspace: ["manage", "export"], billing: ["manage"] },
+  owner: { ...FULL, workspace: ["manage", "export"] },
   admin: FULL,
   member: {},
 };
@@ -58,8 +55,7 @@ function grants(
     covers(granted.field, permissions.field) &&
     covers(granted.record, permissions.record) &&
     covers(granted.agent, permissions.agent) &&
-    covers(granted.connection, permissions.connection) &&
-    covers(granted.billing, permissions.billing)
+    covers(granted.connection, permissions.connection)
   );
 }
 

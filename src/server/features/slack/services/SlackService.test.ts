@@ -14,10 +14,8 @@ const { database, gateway } = await vi.hoisted(async () => {
     gateway: { exchange: vi.fn<typeof fetch>() },
   };
 });
-// The first-party deployment, which bills, with no way to Autumn here: no
-// organization has credits. Reading Slack costs nothing, so it never waits.
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1" },
+  env: {},
   waitUntil: vi.fn(),
 }));
 vi.mock("@/db", () => ({ db: database.db }));
@@ -154,7 +152,7 @@ describe("SlackService", () => {
       workspace: "Acme HQ",
       canInviteItself: true,
     });
-    expect(JSON.stringify(status)).not.toContain("secret");
+    expect(JSON.stringify(status)).not.toContain("xox");
     expect(await SlackService.status(outsider)).toMatchObject({
       connected: false,
     });

@@ -14,7 +14,6 @@ import { RelativeTime } from "@/client/features/records/LocalDateTime";
 import type { TaskHold } from "@/shared/agent-availability";
 import { MAX_ATTEMPTS } from "@/shared/agent-tasks";
 import type { RecordRef } from "@/shared/records";
-import { OutOfCredits } from "./AgentPaused";
 import { AgentStepLine } from "./AgentStepLine";
 import { agentRuns, type Run } from "./agentLog";
 import { agentActivityQueryOptions } from "./agentQueries";
@@ -42,7 +41,6 @@ type OpenTask = {
 
 const HELD: Record<NonNullable<TaskHold>, { label: string; title?: string }> = {
   setup: { label: "Waiting for setup" },
-  credits: { label: "Out of credits" },
   schedule: {
     label: "Held",
     title: "Background research is off. Re-enrich runs it.",
@@ -116,9 +114,6 @@ export function AgentWork({
             <OpenTaskLine key={task.id} task={task} />
           ))}
         </ul>
-      ) : null}
-      {openTasks.some((task) => task.hold === "credits") ? (
-        <OutOfCredits />
       ) : null}
       {runs.length > 0 ? (
         <Collapsible defaultOpen={defaultOpen}>

@@ -49,7 +49,7 @@ import {
 //
 // 1. a bot's user agent;
 // 2. the site id: shaped like one, live (a rotated id names nothing), not
-//    paused, and, on a fork, the fork's own organization's;
+//    paused, and the pinned organization's (EVERY_APP_ORG_ID);
 // 3. Origin: present, and on the allow-list when there is one;
 // 4. the visitor id: 8 to 64 of [A-Za-z0-9_-];
 // 5. replay: three or more events sharing one timestamp;
@@ -78,7 +78,7 @@ type Site = { organizationId: string; config: TrackingConfig };
 
 /**
  * The live config a site id names, or null: unknown, rotated away, paused,
- * or another organization's on a fork (EVERY_APP_ORG_ID).
+ * or not the pinned organization's (EVERY_APP_ORG_ID).
  */
 async function configForSite(siteId: string): Promise<Site | null> {
   if (!isSiteId(siteId)) return null;

@@ -12,12 +12,11 @@ const { database } = await vi.hoisted(async () => {
   return { database: await createSqliteTestDb() };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1" },
+  env: {},
   waitUntil: vi.fn(),
 }));
 vi.mock("@/db", () => ({
   db: database.db,
-  withPgClient: (fn: () => unknown) => fn(),
 }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 vi.mock("@/server/lib/provider-access", () => ({
@@ -97,7 +96,6 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
       () => {},
     ),
     role: null,
-    sink: () => {},
   });
   // The session's own storage, where CrmAgent keeps its tokens.
   const stored = new Map<string, unknown>();
@@ -145,7 +143,6 @@ describe("a research session", () => {
     const started = await runResearchLane({
       start: (task) => runSession(task, stub),
       modelConfigured: true,
-      askedForOnly: true,
       defer: vi.fn(),
     });
     expect(started).toBe(1);
@@ -229,7 +226,6 @@ describe("a research session", () => {
     await runResearchLane({
       start: (task) => runSession(task, stub),
       modelConfigured: true,
-      askedForOnly: true,
       defer: vi.fn(),
     });
 

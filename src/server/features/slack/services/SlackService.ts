@@ -7,7 +7,6 @@ import { z } from "zod";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { requireOrgPermission } from "@/server/auth/org-gate";
 import { TeamAgentRepository } from "@/server/features/team-agents/repositories/TeamAgentRepository";
-import { isForkDeployment } from "@/server/lib/deployment-tier";
 import { AppError } from "@/server/lib/errors";
 import { gatewayCallFor } from "@/server/lib/gateway-attribution";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
@@ -82,14 +81,14 @@ async function status(context: Context) {
   ]);
   const manage = canManage(context);
   // `everyapp dev` has no gateway: the developer's own client goes in
-  // .dev.vars under the gateway's names. Otherwise only the operator of a
-  // fork's gateway can set its secrets.
+  // .dev.vars under the gateway's names. Otherwise owners and admins, who
+  // operate the gateway too, get the command that sets its secrets.
   const local = Boolean((env as { EVERYAPP_DEV?: string }).EVERYAPP_DEV);
   const base = {
     configured: client.ready,
     canManage: manage,
     setup:
-      isForkDeployment(env) && (local || manage)
+      local || manage
         ? {
             command: local
               ? null
@@ -348,14 +347,8 @@ async function postMessage(
   return posted.data;
 }
 
-/** Whether the gateway holds Slack's client (the setup checklist). */
-async function clientReady(): Promise<boolean> {
-  return (await gatewayClient()).ready;
-}
-
 export const SlackService = {
   status,
-  clientReady,
   startConnect,
   completeConnect,
   disconnect,

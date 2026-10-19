@@ -171,7 +171,7 @@ export const teamAgentRunTools = {
 
   run_team_agent: crmTool({
     description:
-      "Run a live team agent now, as Run now does: its deployed version, with what that version was approved to do. It costs the organization credits. Returns the run's id.",
+      "Run a live team agent now, as Run now does: its deployed version, with what that version was approved to do. Returns the run's id.",
     risk: "write",
     input: z.object({ agentId }).strict(),
     output: z.object({ id: z.string() }),
@@ -187,7 +187,7 @@ export const teamAgentRunTools = {
 
   retry_team_agent_run: crmTool({
     description:
-      "Run an ended run again: the same version, trigger and input. The agent must be live and idle. It costs the organization credits. Returns the new run's id.",
+      "Run an ended run again: the same version, trigger and input. The agent must be live and idle. Returns the new run's id.",
     risk: "write",
     input: z.object({ agentId, runId }).strict(),
     output: z.object({ id: z.string() }),

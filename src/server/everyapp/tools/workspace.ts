@@ -325,7 +325,7 @@ export const workspaceTools = {
 
   get_enrichment_queue: crmTool({
     description:
-      "What the research agent is doing for the organization: its tasks running, waiting or out of attempts (most urgent first) and the research booked for later, with totals. `paused` when its model isn't set up or credits ran out.",
+      "What the research agent is doing for the organization: its tasks running, waiting or out of attempts (most urgent first) and the research booked for later, with totals. `paused` when its model isn't set up.",
     risk: "read",
     input: z
       .object({
@@ -340,7 +340,7 @@ export const workspaceTools = {
       rows: z.array(
         z.object({
           kind: z.string(),
-          state: z.enum(["running", "queued", "failed", "waiting", "credits"]),
+          state: z.enum(["running", "queued", "failed", "waiting"]),
           startedAt: z.string().nullable(),
           subject: subjectOutput,
         }),

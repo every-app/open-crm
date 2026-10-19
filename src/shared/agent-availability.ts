@@ -19,9 +19,6 @@ export function modelBlocked(state: ModelState): boolean {
   return state === "missing" || state === "refused";
 }
 
-/** How the CRM was deployed: who sets the gateway's keys (deployment-tier.ts). */
-export type DeploymentTier = "first_party" | "fork";
-
 /** What the agent has to work with, for Settings, the checklist and Home. */
 export type AgentAvailability = {
   model: ModelState;
@@ -29,19 +26,12 @@ export type AgentAvailability = {
   modelRefusal: string | null;
   /** Context.dev (logos, brand data, LinkedIn) is set up on the gateway. */
   context: boolean;
-  /** The workspace is out of usage credits, so paid work waits (hosted). */
-  outOfCredits: boolean;
   /**
-   * The agent researches on its own schedule; the organization (Research
-   * automatically) or a first-party deployment may hold that to work a
-   * person asked for.
+   * The agent researches on its own schedule; the organization may hold that
+   * to work a person asked for (Research automatically).
    */
   scheduledResearch: boolean;
-  tier: DeploymentTier;
 };
 
-/**
- * What holds an open task back: the model's setup, the schedule, the
- * workspace's credits, or nothing.
- */
-export type TaskHold = "setup" | "schedule" | "credits" | null;
+/** What holds an open task back: the model's setup, the schedule, or nothing. */
+export type TaskHold = "setup" | "schedule" | null;

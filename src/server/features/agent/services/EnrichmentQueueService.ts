@@ -24,10 +24,10 @@ type QueueSubject =
   | { kind: "deal"; id: string; name: string };
 
 /**
- * Running under a live lease, waiting its turn, out of attempts, waiting
- * for the agent's model to be set up, or for the workspace's credits.
+ * Running under a live lease, waiting its turn, out of attempts, or waiting
+ * for the agent's model to be set up.
  */
-type QueueState = "running" | "queued" | "failed" | "waiting" | "credits";
+type QueueState = "running" | "queued" | "failed" | "waiting";
 
 type Task = Awaited<
   ReturnType<typeof EnrichmentQueueRepository.due>
@@ -36,9 +36,7 @@ type Task = Awaited<
 function stateOf(task: Task, now: string, hold: ResearchHold): QueueState {
   if (task.leasedUntil !== null && task.leasedUntil > now) return "running";
   if (task.attempts >= MAX_ATTEMPTS) return "failed";
-  const held = taskHold(task, hold);
-  if (held === "credits") return "credits";
-  return held === "setup" ? "waiting" : "queued";
+  return taskHold(task, hold) === "setup" ? "waiting" : "queued";
 }
 
 function unique(ids: (string | null)[]): string[] {
@@ -50,8 +48,7 @@ function unique(ids: (string | null)[]): string[] {
  * most urgent first, `limit` of `total`) and those booked for later
  * (`scheduled`, soonest first, `limit` of `scheduledTotal`). A task whose
  * record is gone is counted but not listed, as in the CRM. `paused`: the
- * agent's model isn't set up, or the workspace is out of credits, so its
- * research waits.
+ * agent's model isn't set up, so its research waits.
  */
 async function queue(organizationId: string, limit: number) {
   const now = new Date().toISOString();
@@ -117,7 +114,7 @@ async function queue(organizationId: string, limit: number) {
         : [];
     }),
     total: due.total,
-    paused: hold.paused || hold.outOfCredits,
+    paused: hold.paused,
     scheduled: booked.tasks.flatMap((task) => {
       const subject = subjectOf(task);
       return subject

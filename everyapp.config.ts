@@ -5,62 +5,27 @@
  * Google and Microsoft OAuth clients for mail capture, so a deploy needs no
  * settings of its own. See docs/maintainers/every-app.md.
  *
- * One manifest, two shapes:
- *
- * - Fork (self-hosted gateway, or an organization's own copy): D1, one
- *   organization (EVERY_APP_ORG_ID, set by the deploy).
- *
- *     pnpm deploy:everyapp
- *
- * - First party (one shared Worker for every organization on a hosted
- *   gateway): Postgres through Hyperdrive, which `everyapp deploy` creates
- *   from POSTGRES_DATABASE_URL in .everyapp/secrets.env and migrates before
- *   it uploads.
- *
- *     pnpm deploy:everyapp:first-party   # OPEN_CRM_DATABASE=postgres everyapp deploy --shared
- *
- *   pnpm dev                              # everyapp dev: D1, behind a gateway-lite
+ *   pnpm deploy:everyapp   # D1, pinned to the organization (EVERY_APP_ORG_ID)
+ *   pnpm dev               # everyapp dev: D1, behind a gateway-lite
  */
-const postgres = process.env.OPEN_CRM_DATABASE === "postgres";
-
-// Where the Postgres database runs, as a cloud region in Cloudflare's
-// placement form (aws:us-east-1, gcp:europe-west1, azure:westeurope).
-// Deployed, the Worker serves requests beside it, since a request's queries
-// cross to the database one after another. Unset, AWS us-east-1, beside
-// OpenSEO's; set OPEN_CRM_DATABASE_REGION for a database elsewhere.
-const databaseRegion = process.env.OPEN_CRM_DATABASE_REGION ?? "aws:us-east-1";
-
 export default {
   id: "crm",
   name: "CRM",
   description:
     "Companies, contacts and deals, kept up to date by a research agent.",
   resources: {
-    // The first-party shape keeps its data in Postgres and has no D1.
-    ...(postgres ? { hyperdrive: [{ name: "HYPERDRIVE" }] } : { d1: ["DB"] }),
+    d1: ["DB"],
     durableObjects: [
       // The research agent: one instance per task or record conversation.
       { name: "CRM_AGENT", className: "CrmAgent" },
     ],
   },
-  ...(postgres
-    ? {
-        database: { provider: "postgres" as const, region: databaseRegion },
-        migrations: {
-          engine: "drizzle" as const,
-          dialect: "postgresql" as const,
-          dir: "drizzle/pg",
-          config: "drizzle/pg.config.ts",
-        },
-      }
-    : {
-        migrations: {
-          engine: "drizzle" as const,
-          dir: "drizzle/sqlite",
-          config: "drizzle/sqlite.config.ts",
-          binding: "DB",
-        },
-      }),
+  migrations: {
+    engine: "drizzle" as const,
+    dir: "drizzle/sqlite",
+    config: "drizzle/sqlite.config.ts",
+    binding: "DB",
+  },
   // The agent's model and its web research (Perplexity's Sonar models), through
   // the gateway's AI proxy and its OPENROUTER_API_KEY.
   providers: ["openrouter"],

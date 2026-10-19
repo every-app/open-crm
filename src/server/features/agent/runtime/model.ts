@@ -1,6 +1,5 @@
 import type { LanguageModelV3 } from "@openrouter/ai-sdk-provider";
 import { wrapLanguageModel } from "ai";
-import { withPgClient } from "@/db";
 import {
   agentModelId,
   buildAgentModel,
@@ -53,8 +52,9 @@ export function buildCrmAgentModel(
     const { organizationId } = choice;
     const observed: typeof fetch = async (input, init) => {
       const response = await gatewayFetch(input, init);
-      await withPgClient(() =>
-        AgentAvailabilityService.noteModelResponse(organizationId, response),
+      await AgentAvailabilityService.noteModelResponse(
+        organizationId,
+        response,
       );
       return response;
     };

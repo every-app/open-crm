@@ -29,7 +29,6 @@ type Inventory = {
   slack: unknown;
   sessions: number;
   objects: number;
-  autumnCustomerId: string;
 };
 
 type Step = { done: boolean; erased: Record<string, number> };
@@ -155,10 +154,7 @@ async function main() {
         organizationId,
         erased: totals,
         verified: "No rows, members, connections, sessions or objects remain.",
-        manual: [
-          `Delete Autumn customer ${before.autumnCustomerId} (and its Stripe customer) by hand, unless billing must keep it.`,
-          "Unset ERASURE_SECRET on the Worker.",
-        ],
+        manual: ["Unset ERASURE_SECRET on the Worker."],
       },
       null,
       2,

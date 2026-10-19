@@ -22,7 +22,7 @@ import { SlackRepository } from "@/server/features/slack/repositories/SlackRepos
 //    forgets the rows that named them;
 // 4. deletes its R2 objects (logos and photos, builder attachments);
 // 5. deletes its rows, the largest tables in batches, then the organization,
-//    which cascades to the rest, with the users no other organization has.
+//    which cascades to the rest, with its members' users.
 //
 // Every step is idempotent, so a call that fails is simply made again.
 
@@ -44,7 +44,6 @@ type Erased = {
   sessions: number;
   objects: number;
   users: number;
-  usersKept: number;
 };
 
 function bucket(): R2Bucket | null {
@@ -92,7 +91,6 @@ async function inventory(organizationId: string) {
       email: one.email,
       role: one.role,
       lastSeenAt: one.lastSeenAt,
-      erasedWithIt: one.memberships === 1,
     })),
     rows,
     mailboxes: mailboxes.map((one) => ({
@@ -103,8 +101,6 @@ async function inventory(organizationId: string) {
     slack: slack ? { teamName: slack.teamName } : null,
     sessions: sessions.length,
     objects,
-    // Billing isn't the CRM's to erase: the operator deletes it by hand.
-    autumnCustomerId: organizationId,
   };
 }
 
@@ -152,7 +148,6 @@ async function eraseNext(
     sessions: 0,
     objects: 0,
     users: 0,
-    usersKept: 0,
   };
   const late = () => Date.now() >= deadline;
 
@@ -202,9 +197,7 @@ async function eraseNext(
   ) {
     if (late()) return { done: false, erased };
   }
-  const users = await ErasureRepository.deleteOrganization(organizationId);
-  erased.users = users.erased;
-  erased.usersKept = users.kept;
+  erased.users = await ErasureRepository.deleteOrganization(organizationId);
   console.log("[erasure] organization erased", { organizationId });
   return { done: true, erased };
 }

@@ -7,7 +7,7 @@ import type { AgentSession, ChatSession } from "./session";
 //
 // The research budget, ported from the CRM's lib/focus.ts, is how many paid
 // lookups a session may make before it writes up. Units aren't money (each
-// vendor call is billed at its real cost): they price calls as the CRM did.
+// vendor call costs what the vendor charges): they price calls as the CRM did.
 // A lookup (a brand, a person, a page extraction, a search for someone's
 // profiles) costs 2, a quick web question 1 and a deep one 2, and checking an
 // X handle nothing, so a budget of 4 buys two lookups or four quick questions.

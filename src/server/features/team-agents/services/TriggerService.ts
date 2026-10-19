@@ -17,9 +17,6 @@ import { AgentRunService } from "./AgentRunService";
 // landed; the minute cron, and a poke after the write, turn those into runs
 // here. Each run is keyed by what caused it (the schedule slot, or the event
 // and the trigger), so a slot or an event handled twice is one run.
-//
-// Both are unattended spending: a first-party deployment holding its
-// scheduled research (FIRST_PARTY_SCHEDULED_RESEARCH=off) holds them too.
 
 const SCHEDULE_BATCH = 20;
 
@@ -28,9 +25,6 @@ const SCHEDULE_BATCH = 20;
  * of them an organization's), and how long one is held while it's handled.
  */
 const EVENTS = { batch: 50, perOrganization: 10, leaseMs: 5 * 60_000 } as const;
-
-const HELD_OUTCOME =
-  "No runs: this deployment holds unattended runs with its scheduled research.";
 
 /** The next slot after `from` that is still in the future. */
 export function nextSlot(
@@ -78,7 +72,7 @@ async function queueDueSchedules(now = new Date()): Promise<number> {
       slot,
       nextSlot(slot, trigger.intervalMinutes ?? 1_440, now),
     );
-    if (run?.created) queued += 1;
+    if (run.created) queued += 1;
   }
   return queued;
 }
@@ -119,7 +113,6 @@ async function runsForEvent(task: LeasedTask): Promise<number> {
       },
       requestedSummary: `${CRM_EVENT_CATALOG[type].label}: ${trigger.name}`,
     });
-    if (!run) continue;
     runs += 1;
     if (run.created) {
       await TriggerRepository.markTriggerRan(
@@ -135,14 +128,12 @@ async function runsForEvent(task: LeasedTask): Promise<number> {
 /**
  * Turns queued CRM events into runs and closes them: across organizations
  * for the minute cron, or one organization's for a poke after a record
- * write. `held` (a deployment holding unattended runs) closes them with
- * none. An event that fails keeps its lease and is tried again when the
+ * write. An event that fails keeps its lease and is tried again when the
  * lease runs out, like any task. How many runs the events queued.
  */
-async function queueEventRuns(options: {
-  organizationId?: string;
-  held: boolean;
-}): Promise<number> {
+async function queueEventRuns(
+  options: { organizationId?: string } = {},
+): Promise<number> {
   const tasks = await AgentQueueRepository.claimDue({
     limit: EVENTS.batch,
     perOrganization: options.organizationId
@@ -155,15 +146,13 @@ async function queueEventRuns(options: {
   let queued = 0;
   for (const task of tasks) {
     try {
-      const runs = options.held ? 0 : await runsForEvent(task);
+      const runs = await runsForEvent(task);
       await AgentTaskRepository.complete(
         task.organizationId,
         task.id,
-        options.held
-          ? HELD_OUTCOME
-          : runs === 1
-            ? "Queued 1 matching agent run."
-            : `Queued ${runs} matching agent runs.`,
+        runs === 1
+          ? "Queued 1 matching agent run."
+          : `Queued ${runs} matching agent runs.`,
       );
       queued += runs;
     } catch (error) {

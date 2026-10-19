@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { mailboxConnection, oauthState, user } from "@/db/schema";
 import { randomToken } from "@/server/lib/pkce";
@@ -163,8 +163,8 @@ async function findWithTokens(
 }
 
 /**
- * Whether any other connection, in this organization or another, is to the
- * same account at `provider`. Only whether one exists: nothing of it is read.
+ * Whether another member's connection is to the same account at `provider`.
+ * Only whether one exists: nothing of it is read.
  */
 async function accountConnectedElsewhere(input: {
   organizationId: string;
@@ -177,12 +177,10 @@ async function accountConnectedElsewhere(input: {
     .from(mailboxConnection)
     .where(
       and(
+        eq(mailboxConnection.organizationId, input.organizationId),
         eq(mailboxConnection.provider, input.provider),
         eq(mailboxConnection.accountEmail, input.accountEmail),
-        or(
-          ne(mailboxConnection.organizationId, input.organizationId),
-          ne(mailboxConnection.userId, input.userId),
-        ),
+        ne(mailboxConnection.userId, input.userId),
       ),
     )
     .limit(1);

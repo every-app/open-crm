@@ -4,10 +4,10 @@ import { expect, it, vi } from "vitest";
 import { openRouterCostUsd, staticAssistantModel } from "./chatAgent";
 
 // A response's cost is what OpenRouter reports with it. One that reports none
-// is billed $0, as it always was, and logged with the model that sent it; a
-// static reply calls no provider, so it costs nothing and logs nothing.
+// counts as $0 and is logged with the model that sent it; a static reply calls
+// no provider, so it costs nothing and logs nothing.
 
-it("bills a response with no cost at $0 and names its model, but not a static reply", async () => {
+it("counts a response with no cost as $0 and names its model, but not a static reply", async () => {
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const uncosted = await generateText({
     model: new MockLanguageModelV3({
@@ -25,7 +25,7 @@ it("bills a response with no cost at $0 and names its model, but not a static re
     prompt: "hi",
   });
   const gated = await generateText({
-    model: staticAssistantModel("You're out of credits."),
+    model: staticAssistantModel("This chat has run out of room."),
     prompt: "hi",
   });
   expect([openRouterCostUsd(uncosted), openRouterCostUsd(gated)]).toEqual([

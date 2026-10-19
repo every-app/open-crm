@@ -1,1 +1,0 @@
-ALTER TABLE "fx_rate" ADD COLUMN "next_fetch_at" text;

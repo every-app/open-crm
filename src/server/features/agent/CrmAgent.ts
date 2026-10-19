@@ -15,8 +15,6 @@ import type {
 import { createCompactFunction } from "agents/experimental/memory/utils";
 import { generateText } from "ai";
 import { z } from "zod";
-import { withPgClient } from "@/db";
-import { SessionMeter } from "@/server/billing/meter";
 import {
   openRouterCostUsd,
   staticAssistantModel,
@@ -82,7 +80,7 @@ const ROLE_KEY = "crm-agent:role";
 
 // A research task's or a run's session is cleared this long after it has
 // reported back for good: its transcript is read by nobody (the audit is in
-// agent_event), and the wait lets the turn's own writes and billing land.
+// agent_event), and the wait lets the turn's own writes land.
 const FORGET_AFTER_SECONDS = 5 * 60;
 
 /**
@@ -110,9 +108,6 @@ export class CrmAgent extends Think {
   private turnSession: AgentSession | null = null;
   private modelChoice: ModelChoice | null = null;
   private turnSystem = "";
-
-  // Hosted billing: what the session spends (server/billing/meter.ts).
-  private readonly meter = new SessionMeter((p) => this.ctx.waitUntil(p));
 
   // An answer to the agent's open question is checked before Think takes it
   // (team-agents/runtime/answers.ts). Think installs its chat protocol's
@@ -147,7 +142,6 @@ export class CrmAgent extends Think {
               "low",
             );
             const result = await generateText({ model, prompt });
-            this.meter.record(openRouterCostUsd(result));
             return result.text;
           },
         }),
@@ -166,7 +160,7 @@ export class CrmAgent extends Think {
     /** The lease the dispatcher holds: a task handed back is leased anew. */
     lease?: string | null;
   }): Promise<{ sessionId: string }> {
-    const session = await withPgClient(() => loadAgentSession(this.name));
+    const session = await loadAgentSession(this.name);
     if (session?.kind !== "research" || session.task.id !== input.taskId) {
       throw new Error("This research session has no task to work on.");
     }
@@ -193,7 +187,7 @@ export class CrmAgent extends Think {
    * cancel it.
    */
   async startRun(input: { runId: string }): Promise<{ sessionId: string }> {
-    const session = await withPgClient(() => loadAgentSession(this.name));
+    const session = await loadAgentSession(this.name);
     if (session?.kind !== "run" || session.run.id !== input.runId) {
       throw new Error("This run session has no run to work on.");
     }
@@ -219,77 +213,67 @@ export class CrmAgent extends Think {
   }
 
   async beforeTurn(turn: TurnContext): Promise<TurnConfig> {
-    return withPgClient(async (): Promise<TurnConfig> => {
-      const session = await loadAgentSession(this.name);
-      this.turnSession = session;
-      if (!session) {
-        return { model: staticAssistantModel(GONE_REPLY), activeTools: [] };
-      }
-      // A chat past its tokens takes no more turns (runtime/budget.ts).
-      const spent =
-        session.kind === "chat" && !turn.continuation
-          ? spentChatReply(this.ctx.storage.kv, session.conversation.kind)
-          : null;
-      if (spent) return { model: staticAssistantModel(spent), activeTools: [] };
-      this.modelChoice = {
-        organizationId: session.organizationId,
-        effort: effortFor(session.kind),
-      };
-      // Out of credits, or every chat slot taken: the meter's reply instead.
-      const refusal = await this.meter.admit(session);
-      if (refusal) {
-        return { model: staticAssistantModel(refusal), activeTools: [] };
-      }
-      if (session.kind === "run") {
-        const prepared = await prepareRunTurn(session, {
-          thinkSystem: turn.system,
-          spend: this.spender(session),
-          sink: this.meter.sink,
-        });
-        if (!prepared) {
-          return {
-            model: staticAssistantModel(RUN_STOPPED_REPLY),
-            activeTools: [],
-          };
-        }
-        if (!turn.continuation) await this.openTurn(session);
+    const session = await loadAgentSession(this.name);
+    this.turnSession = session;
+    if (!session) {
+      return { model: staticAssistantModel(GONE_REPLY), activeTools: [] };
+    }
+    // A chat past its tokens takes no more turns (runtime/budget.ts).
+    const spent =
+      session.kind === "chat" && !turn.continuation
+        ? spentChatReply(this.ctx.storage.kv, session.conversation.kind)
+        : null;
+    if (spent) return { model: staticAssistantModel(spent), activeTools: [] };
+    this.modelChoice = {
+      organizationId: session.organizationId,
+      effort: effortFor(session.kind),
+    };
+    if (session.kind === "run") {
+      const prepared = await prepareRunTurn(session, {
+        thinkSystem: turn.system,
+        spend: this.spender(session),
+      });
+      if (!prepared) {
         return {
-          system: prepared.system,
-          tools: prepared.tools,
-          maxSteps: RUN_LIMITS.maxSteps,
-          maxOutputTokens: maxOutputTokens(session.kind),
+          model: staticAssistantModel(RUN_STOPPED_REPLY),
+          activeTools: [],
         };
       }
       if (!turn.continuation) await this.openTurn(session);
-      else if (session.kind === "chat") await this.continueTurn(session);
-      if (session.kind === "chat" && session.conversation.kind === "BUILDER") {
-        const builder = prepareBuilderTurn(session, {
-          thinkSystem: turn.system,
-          messages: this.messages,
-          spend: this.spender(session),
-          sink: this.meter.sink,
-        });
-        this.turnSystem = builder.system;
-        return {
-          system: builder.system,
-          tools: builder.tools,
-          // What the person tagged and attached (team-agents/runtime/turns.ts).
-          messages: await builder.messages(turn.messages),
-          maxOutputTokens: maxOutputTokens("chat"),
-        };
-      }
-      const install = await readCapabilities(this.env, session.organizationId);
-      const { system, tools } = await prepareTurn(session, {
+      return {
+        system: prepared.system,
+        tools: prepared.tools,
+        maxSteps: RUN_LIMITS.maxSteps,
+        maxOutputTokens: maxOutputTokens(session.kind),
+      };
+    }
+    if (!turn.continuation) await this.openTurn(session);
+    else if (session.kind === "chat") await this.continueTurn(session);
+    if (session.kind === "chat" && session.conversation.kind === "BUILDER") {
+      const builder = prepareBuilderTurn(session, {
         thinkSystem: turn.system,
-        capabilities: capabilityList(install),
+        messages: this.messages,
         spend: this.spender(session),
-        role: this.chatRole(),
-        sink: this.meter.sink,
-        egress: sessionEgress(this.ctx.storage.kv),
       });
-      this.turnSystem = system;
-      return { system, tools, maxOutputTokens: maxOutputTokens(session.kind) };
+      this.turnSystem = builder.system;
+      return {
+        system: builder.system,
+        tools: builder.tools,
+        // What the person tagged and attached (team-agents/runtime/turns.ts).
+        messages: await builder.messages(turn.messages),
+        maxOutputTokens: maxOutputTokens("chat"),
+      };
+    }
+    const install = await readCapabilities(this.env, session.organizationId);
+    const { system, tools } = await prepareTurn(session, {
+      thinkSystem: turn.system,
+      capabilities: capabilityList(install),
+      spend: this.spender(session),
+      role: this.chatRole(),
+      egress: sessionEgress(this.ctx.storage.kv),
     });
+    this.turnSystem = system;
+    return { system, tools, maxOutputTokens: maxOutputTokens(session.kind) };
   }
 
   /** A new turn: a person's message (or the dispatcher's brief) arrived. */
@@ -373,8 +357,10 @@ export class CrmAgent extends Think {
   override async afterToolCall(call: ToolCallResultContext): Promise<void> {
     const session = this.turnSession;
     if (!session) return;
-    await withPgClient(() =>
-      recordEvent(session, call.success ? "tool.completed" : "tool.failed", {
+    await recordEvent(
+      session,
+      call.success ? "tool.completed" : "tool.failed",
+      {
         toolName: call.toolName,
         toolCallId: call.toolCallId,
         input: call.input,
@@ -382,13 +368,12 @@ export class CrmAgent extends Think {
         ...(call.success
           ? { output: call.output }
           : { error: String(call.error) }),
-      }),
+      },
     );
   }
 
   override async onStepFinish(step: StepContext): Promise<void> {
     const costUsd = openRouterCostUsd(step);
-    this.meter.record(costUsd);
     const session = this.turnSession;
     if (!session) return;
     addTokens(this.ctx.storage.kv, session.kind, step.usage);
@@ -398,40 +383,37 @@ export class CrmAgent extends Think {
         source.sourceType === "url" ? [source.url] : [],
       ),
     );
-    await withPgClient(() => recordStep(session, step, costUsd));
+    await recordStep(session, step, costUsd);
   }
 
   override async onChatResponse(result: ChatResponseResult): Promise<void> {
-    this.meter.flush();
     const session = this.turnSession;
     if (!session) return;
-    await withPgClient(async () => {
-      await recordEvent(session, "message.completed", {
-        status: result.status,
-        text: messageText(result.message),
-        ...(result.error ? { error: result.error } : {}),
-      });
-      if (session.kind !== "chat") return;
-      await AgentConversationRepository.recordMessage(
+    await recordEvent(session, "message.completed", {
+      status: result.status,
+      text: messageText(result.message),
+      ...(result.error ? { error: result.error } : {}),
+    });
+    if (session.kind !== "chat") return;
+    await AgentConversationRepository.recordMessage(
+      session.organizationId,
+      session.conversation.id,
+      {
+        messageCount: this.messages.length,
+        assistant: result.status === "completed",
+      },
+    );
+    // Named from the first message when the model didn't name it, without
+    // the "/Create agent" a build opens with.
+    const first = lastText(this.messages.slice(0, 1), "user");
+    const title = normalizeTitle(consumeBuilderCommand(first) ?? first);
+    if (!session.conversation.title && title) {
+      await AgentConversationRepository.setTitleIfEmpty(
         session.organizationId,
         session.conversation.id,
-        {
-          messageCount: this.messages.length,
-          assistant: result.status === "completed",
-        },
+        title,
       );
-      // Named from the first message when the model didn't name it, without
-      // the "/Create agent" a build opens with.
-      const first = lastText(this.messages.slice(0, 1), "user");
-      const title = normalizeTitle(consumeBuilderCommand(first) ?? first);
-      if (!session.conversation.title && title) {
-        await AgentConversationRepository.setTitleIfEmpty(
-          session.organizationId,
-          session.conversation.id,
-          title,
-        );
-      }
-    });
+    }
   }
 
   // The return value becomes the stored chat-terminal body that reconnecting
@@ -442,17 +424,13 @@ export class CrmAgent extends Think {
       { name: this.name, stage: context?.stage },
       error,
     );
-    // A stopped or failed turn still consumed what it consumed.
-    this.meter.flush();
     const session = this.turnSession;
     if (session) {
       this.ctx.waitUntil(
-        withPgClient(() =>
-          recordEvent(session, "turn.failed", {
-            stage: context?.stage ?? null,
-            message: error instanceof Error ? error.message : String(error),
-          }),
-        ),
+        recordEvent(session, "turn.failed", {
+          stage: context?.stage ?? null,
+          message: error instanceof Error ? error.message : String(error),
+        }),
       );
     }
     return error;
@@ -461,9 +439,7 @@ export class CrmAgent extends Think {
   override async onSubmissionStatus(
     submission: ThinkSubmissionInspection,
   ): Promise<void> {
-    const done = await withPgClient(() =>
-      endSubmission(this.name, submission, this.messages),
-    );
+    const done = await endSubmission(this.name, submission, this.messages);
     if (done) {
       await this.schedule(FORGET_AFTER_SECONDS, "forgetSession", undefined, {
         idempotent: true,

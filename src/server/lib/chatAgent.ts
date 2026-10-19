@@ -24,8 +24,8 @@ subscribe("chat", (event) => {
 });
 
 // OpenRouter (with usage accounting on) reports the real USD cost of each
-// response under providerMetadata.openrouter.usage.cost. Used by SAM to meter
-// LLM spend against the credit pool.
+// response under providerMetadata.openrouter.usage.cost, which the agent's
+// audit trail records with each step.
 const openRouterUsageSchema = z.object({
   openrouter: z.object({ usage: z.object({ cost: z.number() }) }),
 });
@@ -34,10 +34,10 @@ const openRouterUsageSchema = z.object({
 const STATIC_MODEL_ID = "static-assistant";
 
 /**
- * A model response's cost. One that carries none is billed $0, as it always
- * was, and logged with the model that answered, so a model or provider that
- * stops reporting its cost shows up rather than spending unseen. A static
- * reply costs nothing and logs nothing.
+ * A model response's cost. One that carries none counts as $0 and is logged
+ * with the model that answered, so a model or provider that stops reporting
+ * its cost shows up rather than spending unseen. A static reply costs nothing
+ * and logs nothing.
  */
 export function openRouterCostUsd(answer: {
   providerMetadata: unknown;
@@ -46,7 +46,7 @@ export function openRouterCostUsd(answer: {
   const parsed = openRouterUsageSchema.safeParse(answer.providerMetadata);
   if (parsed.success) return parsed.data.openrouter.usage.cost;
   if (answer.response.modelId !== STATIC_MODEL_ID) {
-    console.warn("[billing] a model response had no cost; billed $0", {
+    console.warn("[agent] a model response had no cost; recorded $0", {
       model: answer.response.modelId,
     });
   }
@@ -73,7 +73,7 @@ const FINISH_STOP = { unified: "stop", raw: undefined } as const;
 export function staticAssistantModel(text: string): LanguageModelV3 {
   return {
     specificationVersion: "v3",
-    provider: "openseo",
+    provider: "open-crm",
     modelId: STATIC_MODEL_ID,
     supportedUrls: {},
     doGenerate: async () => ({

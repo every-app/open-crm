@@ -36,9 +36,6 @@ export const SLACK_SYNC_KIND = "slack-sync";
  */
 export const DIRECT_KINDS = ["brand", "portrait", SLACK_SYNC_KIND] as const;
 
-/** Kinds that cost nothing, so they never wait for credits. */
-export const FREE_KINDS = [SLACK_SYNC_KIND] as const;
-
 /** Kinds whose progress is the contact's enrichment status. */
 const CONTACT_STATUS_KINDS = ["identify", "profile", "recheck"] as const;
 
@@ -80,8 +77,8 @@ export const PRIORITY = {
 
 /**
  * Research at or above this priority is work a person asked for (their
- * workspace's website, an "enrich now"), which runs even where a first-party
- * deployment holds its scheduled research (deployment-tier.ts).
+ * workspace's website, an "enrich now"), which runs even where the
+ * organization turned off Research automatically.
  */
 export const ASKED_FOR_PRIORITY = PRIORITY.requested;
 

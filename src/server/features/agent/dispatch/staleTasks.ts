@@ -12,7 +12,7 @@ import { settle } from "./enrichment";
 // The stale-task sweep, ported from the CRM's lib/stale-tasks.ts. Before each
 // tick's dispatch it closes rows that are provably done or provably dead, so
 // the queue a person reads is the work that is actually happening. A database
-// pass: no session, no model, no credits. It only looks at work that is due
+// pass: no session, no model. It only looks at work that is due
 // and holds no live lease; a live lease is work in flight.
 
 const LANDED_OUTCOME =

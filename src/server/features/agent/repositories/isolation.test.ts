@@ -9,7 +9,7 @@ const { database } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return { database: await createSqliteTestDb() };
 });
-vi.mock("cloudflare:workers", () => ({ env: { DATABASE_PROVIDER: "d1" } }));
+vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 

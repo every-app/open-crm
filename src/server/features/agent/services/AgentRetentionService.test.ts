@@ -1,16 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The daily cleanup on both backends (a delete through a bounded subquery):
+// The daily cleanup (a delete through a bounded subquery):
 // finished tasks and agent events past 30 days go, and nothing open or recent.
-const { testDb } = await vi.hoisted(async () => {
-  const { createDualDialectTestDb } =
-    await import("@/server/testing/dualDialectTestDb");
-  return { testDb: await createDualDialectTestDb() };
+const { database } = await vi.hoisted(async () => {
+  const { createSqliteTestDb } = await import("@/server/testing/testDb");
+  return { database: await createSqliteTestDb() };
 });
-vi.mock("cloudflare:workers", () => testDb.modules.workers);
-vi.mock("@/db", () => testDb.modules.db);
-vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
-vi.mock("@/db/schema", () => testDb.modules.schema);
+vi.mock("cloudflare:workers", () => ({ env: {} }));
+vi.mock("@/db", () => ({ db: database.db }));
+vi.mock("@/db/runBatch", () => database.runBatchModule);
 
 import { AgentRetentionService } from "./AgentRetentionService";
 
@@ -18,18 +16,14 @@ const DAY_MS = 24 * 60 * 60_000;
 const ago = (days: number) =>
   new Date(Date.now() - days * DAY_MS).toISOString();
 
-for (const dialect of ["sqlite", "postgres"] as const) {
-  describe(`the agent's daily cleanup (${dialect})`, () => {
-    const database = testDb.use(dialect);
+describe("the agent's daily cleanup", () => {
+  beforeEach(async () => {
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
+    await database.seedTwoOrganizations();
+  });
 
-    beforeEach(async () => {
-      testDb.use(dialect);
-      await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
-      await database.seedTwoOrganizations();
-    });
-
-    it("deletes finished tasks and agent events older than 30 days, and keeps what is open or recent", async () => {
-      await database.exec(`
+  it("deletes finished tasks and agent events older than 30 days, and keeps what is open or recent", async () => {
+    await database.exec(`
         INSERT INTO agent_task (id, organization_id, kind, reason, due_at, finished_at, subject) VALUES
           ('old_done', 'org_a', 'identify', 'x', '${ago(40)}', '${ago(31)}', 'contact:1'),
           ('recent_done', 'org_b', 'identify', 'x', '${ago(40)}', '${ago(29)}', 'contact:2'),
@@ -39,16 +33,15 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('recent_event', 'org_a', 'task.y', 'step.completed', '{}', '${ago(29)}');
       `);
 
-      expect(await AgentRetentionService.purge(new Date())).toEqual({
-        tasks: 1,
-        events: 1,
-      });
-      expect(
-        await database.rows("SELECT id FROM agent_task ORDER BY id"),
-      ).toEqual([{ id: "old_open" }, { id: "recent_done" }]);
-      expect(await database.rows("SELECT id FROM agent_event")).toEqual([
-        { id: "recent_event" },
-      ]);
+    expect(await AgentRetentionService.purge(new Date())).toEqual({
+      tasks: 1,
+      events: 1,
     });
+    expect(
+      await database.rows("SELECT id FROM agent_task ORDER BY id"),
+    ).toEqual([{ id: "old_open" }, { id: "recent_done" }]);
+    expect(await database.rows("SELECT id FROM agent_event")).toEqual([
+      { id: "recent_event" },
+    ]);
   });
-}
+});

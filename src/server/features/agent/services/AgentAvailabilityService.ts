@@ -1,12 +1,7 @@
 import { GATEWAY_ERROR_HEADER } from "@every-app/sdk/internal";
 import { gatewayRefusal } from "@every-app/sdk/server";
-import { heldForCredits } from "@/server/billing/credits";
 import { getOpenRouterFetch } from "@/server/lib/openrouter";
 import { hasContextAccess } from "@/server/lib/provider-access";
-import {
-  deploymentTierFor,
-  scheduledResearchEnabled,
-} from "@/server/lib/deployment-tier";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
 import {
   AGENT_EVENT_KIND,
@@ -73,7 +68,6 @@ async function modelOf(organizationId: string) {
     Date.now(),
   );
   return {
-    env,
     state,
     refusal: state === "refused" ? sighting.refusal : null,
   };
@@ -83,65 +77,53 @@ async function modelOf(organizationId: string) {
 async function forOrganization(
   organizationId: string,
 ): Promise<AgentAvailability> {
-  const [model, context, outOfCredits, automatic] = await Promise.all([
+  const [model, context, automatic] = await Promise.all([
     modelOf(organizationId),
     hasContextAccess(),
-    heldForCredits(organizationId),
     AgentAvailabilityRepository.researchesAutomatically(organizationId),
   ]);
   return {
     model: model.state,
     modelRefusal: model.refusal,
     context,
-    outOfCredits,
-    scheduledResearch: automatic && scheduledResearchEnabled(model.env),
-    tier: deploymentTierFor(model.env),
+    scheduledResearch: automatic,
   };
 }
 
 /**
- * What holds the organization's research back: the model (`paused`), the
- * workspace out of credits (`outOfCredits`, every paid task), and where its
- * scheduled research is held (the organization turned off Research
- * automatically, or a first-party deployment holds it), every task below
+ * What holds the organization's research back: the model (`paused`), and,
+ * once the organization turned off Research automatically, every task below
  * the work a person asked for (`minPriority`).
  */
 export type ResearchHold = {
   paused: boolean;
-  outOfCredits: boolean;
   minPriority: number | null;
 };
 
 async function researchHold(organizationId: string): Promise<ResearchHold> {
-  const [model, outOfCredits, automatic] = await Promise.all([
+  const [model, automatic] = await Promise.all([
     modelOf(organizationId),
-    heldForCredits(organizationId),
     AgentAvailabilityRepository.researchesAutomatically(organizationId),
   ]);
   return {
     paused: model.state === "missing" || model.state === "refused",
-    outOfCredits,
-    minPriority:
-      automatic && scheduledResearchEnabled(model.env)
-        ? null
-        : ASKED_FOR_PRIORITY,
+    minPriority: automatic ? null : ASKED_FOR_PRIORITY,
   };
 }
 
 const DIRECT = new Set<string>(DIRECT_KINDS);
 
 /**
- * What keeps an open task from running: the workspace's credits, the model's
- * setup, the schedule, or nothing. Logos and photos (the visible lane) need
- * no model, so only credits hold them. Nothing holds a CRM event: its runs
- * are checked when they're queued and started.
+ * What keeps an open task from running: the model's setup, the schedule, or
+ * nothing. Logos and photos (the visible lane) need no model, so nothing
+ * holds them. Nothing holds a CRM event either: its runs are checked when
+ * they're queued and started.
  */
 export function taskHold(
   task: { kind: string; priority: number },
   hold: ResearchHold,
 ): TaskHold {
   if (task.kind === AGENT_EVENT_KIND) return null;
-  if (hold.outOfCredits) return "credits";
   if (DIRECT.has(task.kind)) return null;
   if (hold.paused) return "setup";
   if (hold.minPriority !== null && task.priority < hold.minPriority) {

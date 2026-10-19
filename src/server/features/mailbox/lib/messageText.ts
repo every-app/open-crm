@@ -16,7 +16,7 @@ const MAX_BODY_LENGTH = 50_000;
 /** Base64 that decodes to MAX_TEXT_INPUT characters at up to 3 bytes each. */
 const MAX_ENCODED_INPUT = 4 * MAX_TEXT_INPUT;
 
-/** Text as a database stores it: Postgres refuses the NUL character. */
+/** Text as the database stores it: without NUL characters. */
 export function withoutNul(text: string): string {
   return text.replaceAll("\0", "");
 }
