@@ -145,7 +145,10 @@ export function EmailThreadMessages({
   );
 }
 
-/** A meeting entry's time, attendees and call link. */
+/**
+ * A meeting entry's time, attendees and call link. Its location is in the
+ * entry's text, as the calendar sync writes it.
+ */
 export function MeetingDetails({
   event,
 }: {
@@ -189,7 +192,6 @@ export function MeetingDetails({
           ) : null}
         </span>
       ) : null}
-      {event.location && !joinUrl ? <span>{event.location}</span> : null}
       {joinUrl ? (
         <a
           href={joinUrl}
