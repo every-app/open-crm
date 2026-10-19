@@ -56,7 +56,7 @@ To the gateway in your Cloudflare account:
 pnpm deploy:everyapp
 ```
 
-`everyapp deploy` registers the app, creates its D1 database and R2 bucket, builds the Worker, checks the schema has no migration drift, migrates D1 after a restore point, uploads, and binds it to the gateway. The gateway holds the provider keys for every app (`everyapp secret set OPENROUTER_API_KEY --for gateway`, and `CONTEXT_API_KEY`). The CRM's one optional setting of its own is `GITHUB_TOKEN` (`everyapp secret set GITHUB_TOKEN`).
+`everyapp deploy` registers the app, creates its D1 database and R2 bucket, builds the Worker, checks the schema has no migration drift, migrates D1 after a restore point, uploads, and binds it to the gateway. The gateway holds the provider keys for every app (`everyapp secret set OPENROUTER_API_KEY`, and `CONTEXT_API_KEY`). The CRM's one optional setting of its own is `GITHUB_TOKEN` (`everyapp secret set GITHUB_TOKEN`).
 
 ## Database
 

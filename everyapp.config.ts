@@ -56,6 +56,23 @@ export default {
       why: "Connects the workspace's Slack so team agents can post to an approved channel.",
     },
   },
+  // The CRM's own settings (`everyapp secret set`), all optional but one.
+  secrets: [
+    // Required before anyone connects mail, a calendar or Slack: the key their
+    // tokens are encrypted under, 32 or more random characters
+    // (src/server/lib/tokenCrypto.ts). Changing it means connecting again.
+    "TOKEN_ENCRYPTION_KEY",
+    // Raises GitHub's rate limit when the agent matches people to GitHub
+    // profiles. Any classic token with no scopes will do.
+    "GITHUB_TOKEN",
+    // The OpenRouter model the agent runs on, for a deployment that wants
+    // another than GPT-6 Luna (src/server/lib/openrouter.ts). The key itself,
+    // OPENROUTER_API_KEY, is the gateway's.
+    "OPENROUTER_MODEL",
+    // Set only while an operator erases an organization: it signs the erasure
+    // requests (docs/maintainers/runbooks/erase-organization.md).
+    "ERASURE_SECRET",
+  ],
   // Every member of the organization works in the CRM.
   access: "everyone",
   // Nothing reaches the CRM without a signed-in member but website tracking,

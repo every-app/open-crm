@@ -6,7 +6,7 @@ What each release changes for a self-hosted CRM. To upgrade, see [Upgrading](sel
 
 The first tagged release.
 
-**Needs** an Every App checkout that includes commit `8722653b`, which gives the gateway the CRM's Google, Microsoft and Slack clients (`git merge-base --is-ancestor 8722653b HEAD` in that checkout says whether it does), Node.js 22.18 or newer, and pnpm 10.
+**Needs** an Every App checkout that includes commit `54f85b5d`, which gives the gateway the CRM's Google, Microsoft and Slack clients and takes the secrets its manifest lists (`git merge-base --is-ancestor 54f85b5d HEAD` in that checkout says whether it does), Node.js 22.18 or newer, and pnpm 10.
 
 **Breaking changes:** none.
 

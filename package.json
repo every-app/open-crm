@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "everyapp dev",
     "build:dev": "vite build --mode development && tsc --noEmit",
-    "build:prod": "node scripts/build-prod.ts",
+    "build:prod": "EVERYAPP_BUILD=1 cf build",
     "lint": "oxlint . --type-aware",
     "lint:fix": "oxlint . --type-aware --fix",
     "types:generate": "cf workers types",

@@ -20,7 +20,7 @@ const STANDARD_MESSAGES: Record<ErrorCode, string> = {
   UPSTREAM_UNAVAILABLE:
     "A provider is temporarily unavailable. Please retry in a moment.",
   AGENT_UNAVAILABLE:
-    "The research agent isn't set up on your Every App gateway yet. An admin sets OPENROUTER_API_KEY with `everyapp secret set OPENROUTER_API_KEY --for gateway`.",
+    "The research agent isn't set up on your Every App gateway yet. An admin sets OPENROUTER_API_KEY with `everyapp secret set OPENROUTER_API_KEY`.",
   INTEGRATION_UNAVAILABLE:
     "That connection isn't set up on your Every App gateway yet. An admin sets it up there.",
   TEAM_AGENT_NOT_LIVE:

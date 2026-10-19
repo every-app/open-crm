@@ -92,7 +92,7 @@ async function status(context: Context) {
         ? {
             command: local
               ? null
-              : `pnpm everyapp secret set ${SLACK_CLIENT_SETTINGS.join(" ")} --for gateway`,
+              : `pnpm everyapp secret set ${SLACK_CLIENT_SETTINGS.join(" ")}`,
             devVars: local ? SLACK_CLIENT_SETTINGS : null,
           }
         : null,

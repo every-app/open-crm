@@ -53,10 +53,10 @@ TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" pnpm everyapp secret set TOKEN
 
 The research agent's keys live on the gateway, never in the CRM. Set each once:
 
-| Setting              | What it unlocks                                                                | Command                                                     |
-| -------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| `OPENROUTER_API_KEY` | The research agent and the chats on each record, including their web research  | `pnpm everyapp secret set OPENROUTER_API_KEY --for gateway` |
-| `CONTEXT_API_KEY`    | Company logos and brand data, LinkedIn profile lookups, and website extraction | `pnpm everyapp secret set CONTEXT_API_KEY --for gateway`    |
+| Setting              | What it unlocks                                                                | Command                                       |
+| -------------------- | ------------------------------------------------------------------------------ | --------------------------------------------- |
+| `OPENROUTER_API_KEY` | The research agent and the chats on each record, including their web research  | `pnpm everyapp secret set OPENROUTER_API_KEY` |
+| `CONTEXT_API_KEY`    | Company logos and brand data, LinkedIn profile lookups, and website extraction | `pnpm everyapp secret set CONTEXT_API_KEY`    |
 
 Each command asks for the value at a hidden prompt, so the key never appears in your shell history. The change is live on the gateway at once, with no redeploy of the gateway or the CRM. The CRM notices a newly set key on its own, with no restart: work waiting for the model key starts within about ten minutes, and logos and photos waiting for the Context.dev key within about five.
 
@@ -77,8 +77,8 @@ Members connect their own Gmail and Google Calendar, or Outlook, from Settings �
 3. Give the gateway each client:
 
 ```bash
-pnpm everyapp secret set GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECRET --for gateway
-pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET --for gateway
+pnpm everyapp secret set GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECRET
+pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET
 ```
 
 Settings → Connections shows the exact redirect URI for your CRM to owners and admins, and each card says when its client isn't set up yet.
@@ -94,7 +94,7 @@ Organizations that let only admins consent send members to an approval page. An 
 Team agents post to Slack through a Slack app whose client the gateway holds. At [api.slack.com/apps](https://api.slack.com/apps), create an app, add the redirect URL `https://<crm host>/integrations/slack/callback` under _OAuth & Permissions_, and add the bot token scopes `users:read`, `users:read.email`, `channels:read`, `groups:read`, `chat:write`, `chat:write.public`, `im:write`, `channels:join`, `channels:manage`, `groups:write`, `channels:write.invites` and `groups:write.invites`, and the user token scopes `channels:read`, `channels:write`, `groups:read` and `groups:write`. Then give the gateway its client:
 
 ```bash
-pnpm everyapp secret set SLACK_CLIENT_ID SLACK_CLIENT_SECRET --for gateway
+pnpm everyapp secret set SLACK_CLIENT_ID SLACK_CLIENT_SECRET
 ```
 
 An owner or admin then connects the workspace's Slack from Settings → Connections. Joining and creating channels is theirs too, since it uses the token of whoever connected.

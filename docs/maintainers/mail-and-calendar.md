@@ -7,8 +7,8 @@ Each member connects their own Gmail and Google Calendar, or their Outlook mail,
 The gateway holds the two OAuth clients (`google-workspace`, `microsoft-365` in `everyapp.config.ts` `capabilities`); the CRM holds none. Until an operator sets one, its page under Settings → Connections says it isn't configured (owners and admins see the command and the redirect URI).
 
 ```bash
-pnpm everyapp secret set GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECRET --for gateway
-pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET --for gateway
+pnpm everyapp secret set GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECRET
+pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET
 ```
 
 Register these redirect URIs on each client, on the CRM's own host:

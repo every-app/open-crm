@@ -15,7 +15,7 @@ type SetupState = "done" | "checking" | "missing";
 
 type KeySpec = {
   id: "model" | "context";
-  /** The gateway setting an operator sets (`everyapp secret set … --for gateway`). */
+  /** The gateway setting an operator sets (`everyapp secret set …`). */
   setting: string;
   check: (availability: AgentAvailability) => SetupState;
   /** Why it isn't set up, when there is more to say than "it isn't". */
@@ -88,7 +88,7 @@ async function checklist(
               : null)),
       command:
         showCommands && state === "missing"
-          ? `pnpm everyapp secret set ${spec.setting} --for gateway`
+          ? `pnpm everyapp secret set ${spec.setting}`
           : null,
     };
   });

@@ -276,7 +276,7 @@ async function status(
         ? {
             command: local
               ? null
-              : `pnpm everyapp secret set ${GATEWAY_SECRETS[provider].join(" ")} --for gateway`,
+              : `pnpm everyapp secret set ${GATEWAY_SECRETS[provider].join(" ")}`,
             devVars: local ? [...GATEWAY_SECRETS[provider]] : null,
             redirectUri: redirectUri(origin, provider),
           }
