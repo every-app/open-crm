@@ -151,10 +151,14 @@ describe("a research session", () => {
     expect(started).toBe(1);
 
     // The model was briefed on our own business, by this organization's data,
-    // and could search the web as the CRM's agent could.
+    // and could search the web as the CRM's agent could, when the site
+    // doesn't say who the customer is.
     const [firstCall] = stub.doGenerateCalls;
     expect(JSON.stringify(firstCall?.prompt)).toContain(
       "You are writing the profile of **the company you work for** — Acme (acme.test)",
+    );
+    expect(JSON.stringify(firstCall?.prompt)).toContain(
+      "search the web only if the site does not say who",
     );
     expect(firstCall?.tools).toContainEqual(
       expect.objectContaining({ type: "provider", name: "web_search" }),
