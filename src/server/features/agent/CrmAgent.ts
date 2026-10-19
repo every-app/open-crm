@@ -366,7 +366,10 @@ export class CrmAgent extends Think {
     });
   }
 
-  /** The chat's person's gateway role, as their socket connected with it. */
+  /**
+   * The chat's person's gateway role, as their socket connected with it;
+   * each turn lowers it to the member mirror's (runtime/turn.ts).
+   */
   private chatRole(): string | null {
     const stored = z.string().safeParse(this.ctx.storage.kv.get(ROLE_KEY));
     return stored.success ? stored.data : null;
@@ -473,8 +476,8 @@ export class CrmAgent extends Think {
   // close is an alarm, so it outlives hibernation.
   override async onConnect(...args: Parameters<Think["onConnect"]>) {
     // The role the Worker verified for the person connecting (agentRoutes.ts).
-    // A conversation is one person's, so the last connect's role is theirs,
-    // at most one socket lifetime old.
+    // A conversation is one person's, so the last connect's role is theirs;
+    // each turn checks it against the member mirror (runtime/turn.ts).
     const role = args[1].request.headers.get(CHAT_ROLE_HEADER);
     if (role) this.ctx.storage.kv.put(ROLE_KEY, role);
     else this.ctx.storage.kv.delete(ROLE_KEY);
