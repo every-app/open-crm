@@ -31,7 +31,9 @@ function AppRouteLayout() {
     <AppLayout
       workspaceName={workspace?.name ?? null}
       sidebarHeader={
-        <div className="space-y-1 pb-1">
+        // A gap, not space-y: an open menu appends hidden focus guards after
+        // its trigger, which would give the trigger space-y's margin.
+        <div className="flex flex-col gap-1 pb-1">
           <QuickSwitcher />
           <EnrichmentQueue />
         </div>
