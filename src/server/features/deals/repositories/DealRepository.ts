@@ -15,10 +15,8 @@ import { activity, company, deal, user } from "@/db/schema";
 import { queueCrmEvents } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import { idChunks } from "@/server/features/records/recordRules";
-import {
-  fieldValueWrites,
-  type FieldWrite,
-} from "@/server/features/fields/repositories/FieldValueRepository";
+import { fieldValueWrites } from "@/server/features/fields/repositories/FieldValueRepository";
+import type { FieldWrite } from "@/server/features/fields/repositories/FieldValueRepository";
 import type { DealStage } from "@/shared/crm-enums";
 import { isClosedStage } from "@/shared/deal-stages";
 
@@ -98,8 +96,8 @@ type DealPatch = Partial<
 /**
  * Changes the deal and writes the custom field values given with the
  * change, in one batch (the caller has checked the deal is the
- * organization's: a value names its record by id alone). The changed deal,
- * or null when it isn't the organization's.
+ * organization's: a value names its record by id alone). The changed deal
+ * as findById reads it, or null when it isn't the organization's.
  */
 async function update(
   organizationId: string,
@@ -114,11 +112,7 @@ async function update(
       .where(inOrganization(organizationId, id)),
     ...fieldValueWrites(tx, organizationId, "DEAL", id, fields),
   ]);
-  const [row] = await db
-    .select({ id: deal.id, name: deal.name })
-    .from(deal)
-    .where(inOrganization(organizationId, id));
-  return row ?? null;
+  return findById(organizationId, id);
 }
 
 type StageMove = {

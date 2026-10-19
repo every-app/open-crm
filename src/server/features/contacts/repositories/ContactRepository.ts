@@ -18,10 +18,8 @@ import type { RecordSource } from "@/shared/crm-enums";
 import { queueCrmEvents } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import { leaveOtherCompanies } from "@/server/features/contacts/repositories/ContactRelationsRepository";
-import {
-  fieldValueWrites,
-  type FieldWrite,
-} from "@/server/features/fields/repositories/FieldValueRepository";
+import { fieldValueWrites } from "@/server/features/fields/repositories/FieldValueRepository";
+import type { FieldWrite } from "@/server/features/fields/repositories/FieldValueRepository";
 import {
   FILTER_OPTIONS_MAX,
   activityCondition,
@@ -29,6 +27,7 @@ import {
   anyOfCondition,
   archivedCondition,
   countsByValue,
+  ownerColumns,
   ownerCondition,
   pageWindow,
   searchCondition,
@@ -89,13 +88,6 @@ const companyJoin = and(
   eq(company.id, contact.companyId),
   eq(company.organizationId, contact.organizationId),
 );
-
-const owner = {
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  image: user.image,
-};
 
 const companySummary = {
   id: company.id,
@@ -258,7 +250,7 @@ async function list(
         createdAt: contact.createdAt,
         archivedAt: contact.archivedAt,
         company: companySummary,
-        owner,
+        owner: ownerColumns,
       })
       .from(contact)
       .leftJoin(company, companyJoin)
@@ -281,7 +273,7 @@ async function findById(organizationId: string, id: string) {
   const [row] = await db
     .select({
       contact,
-      owner,
+      owner: ownerColumns,
       company: {
         ...companySummary,
         industry: company.industry,
@@ -375,8 +367,8 @@ type ContactPatch = Partial<
  * company never names someone who works elsewhere; the custom field values
  * given with the change are written in the same batch (the caller has
  * checked the contact is the organization's: a value names its record by id
- * alone). Throws a unique violation when a live contact already has the new
- * email.
+ * alone). The changed contact as findById reads it. Throws a unique
+ * violation when a live contact already has the new email.
  */
 async function update(
   organizationId: string,
@@ -396,17 +388,7 @@ async function update(
     ...(email ? [allowAgain(tx, organizationId, email)] : []),
     ...fieldValueWrites(tx, organizationId, "CONTACT", id, fields),
   ]);
-  const [row] = await db
-    .select({
-      id: contact.id,
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      email: contact.email,
-      companyId: contact.companyId,
-    })
-    .from(contact)
-    .where(inOrganization(organizationId, id));
-  return row ?? null;
+  return findById(organizationId, id);
 }
 
 /** Archives the live contacts among `ids`; the ids it archived. */

@@ -30,10 +30,8 @@ import {
   type SortSpec,
 } from "@/server/features/records/listQuery";
 import { idChunks } from "@/server/features/records/recordRules";
-import {
-  fieldValueWrites,
-  type FieldWrite,
-} from "@/server/features/fields/repositories/FieldValueRepository";
+import { fieldValueWrites } from "@/server/features/fields/repositories/FieldValueRepository";
+import type { FieldWrite } from "@/server/features/fields/repositories/FieldValueRepository";
 import type { CompanyListInput, CompanySort } from "@/types/schemas/companies";
 import { UNASSIGNED, type FacetCounts } from "@/types/schemas/records";
 
@@ -323,7 +321,7 @@ async function insert(values: NewCompany) {
  * Changes the company and writes the custom field values given with the
  * change, in one batch (the caller has checked the company is the
  * organization's: a value names its record by id alone). The changed
- * company, or null when it isn't the organization's.
+ * company as findById reads it, or null when it isn't the organization's.
  */
 async function update(
   organizationId: string,
@@ -338,11 +336,7 @@ async function update(
       .where(inOrganization(organizationId, id)),
     ...fieldValueWrites(tx, organizationId, "COMPANY", id, fields),
   ]);
-  const [row] = await db
-    .select({ id: company.id, name: company.name, domain: company.domain })
-    .from(company)
-    .where(inOrganization(organizationId, id));
-  return row ?? null;
+  return findById(organizationId, id);
 }
 
 /** Archives the live companies among `ids`; the ids it archived. */
