@@ -208,6 +208,41 @@ describe("record tools", () => {
     });
   });
 
+  it("full reads: a company's people and deals with their owners and converted amounts; a contact's applied facts apart from their suggestions, and their deals' owners", async () => {
+    const companyId = await idFrom("create_company", { name: "Initrode" });
+    const jo = await idFrom("create_contact", {
+      firstName: "Jo",
+      companyId,
+      ownerEmail: ana.email,
+    });
+    const dealId = await idFrom("create_deal", {
+      name: "Initrode pilot",
+      companyId,
+      amount: 500,
+      currency: "USD",
+    });
+    await call("add_deal_contact", { dealId, contactId: jo });
+    await testDb.exec(
+      `INSERT INTO contact_fact (id, organization_id, contact_id, field, value, score, band, evidence, method, status) VALUES ('fact_cto', 'org_a', '${jo}', 'title', 'CTO', 0.9, 'VERIFIED', '[]', 'web', 'APPLIED'), ('fact_ceo', 'org_a', '${jo}', 'title', 'CEO', 0.6, 'PROBABLE', '[]', 'web', 'PROPOSED')`,
+    );
+    const owner = { name: "Ana", email: ana.email };
+    expect(await call("get_company", { id: companyId })).toMatchObject({
+      contacts: [{ id: jo, owner }],
+      deals: [
+        {
+          id: dealId,
+          owner,
+          inReportingCurrency: { amount: 500, currency: "USD" },
+        },
+      ],
+    });
+    expect(await call("get_contact", { id: jo })).toMatchObject({
+      facts: [{ field: "title", value: "CTO", band: "VERIFIED" }],
+      suggestions: [{ id: "fact_ceo" }],
+      deals: [{ id: dealId, owner }],
+    });
+  });
+
   it("bulk actions say how many records they changed and why the first one failed", async () => {
     const id = await idFrom("create_company", { name: "Umbrella" });
     expect(
@@ -274,6 +309,9 @@ describe("custom field and saved view tools", () => {
         { key: "account_manager", value: ana.email },
       ],
     });
+    expect(await call("get_company", { id })).toMatchObject({
+      fields: { segment: "Enterprise", account_manager: ana.email },
+    });
     const { fields } = await call("list_fields", { entity: "COMPANY" });
     const { total } = await call("list_companies");
     expect(
@@ -316,6 +354,93 @@ describe("custom field and saved view tools", () => {
         { key: "segment" },
       ],
     });
+  });
+
+  it("a record's create and update take custom field values and write them with the record, all or nothing: people by email as set_field_values takes them, never onto another organization's record", async () => {
+    for (const entity of ["COMPANY", "CONTACT", "DEAL"]) {
+      await call("create_field", {
+        entity,
+        label: "Champion",
+        type: "USER",
+        agentFilled: false,
+      });
+    }
+    // A member's first call makes them one of the CRM's members.
+    const companyId = await idFrom(
+      "create_company",
+      {
+        name: "Pied Piper",
+        domain: "piedpiper.test",
+        fields: { champion: ana.email },
+      },
+      { as: member },
+    );
+    const records = [
+      ["company", companyId],
+      [
+        "contact",
+        await idFrom("create_contact", {
+          firstName: "Richard",
+          companyId,
+          fields: { champion: ana.email },
+        }),
+      ],
+      [
+        "deal",
+        await idFrom("create_deal", {
+          name: "Compression",
+          companyId,
+          fields: { champion: ana.email },
+        }),
+      ],
+    ] as const;
+    for (const [kind, id] of records) {
+      expect(await call(`get_${kind}`, { id })).toMatchObject({
+        fields: { champion: ana.email },
+      });
+      await call(`update_${kind}`, { id, fields: { champion: member.email } });
+      expect(await call(`get_${kind}`, { id })).toMatchObject({
+        fields: { champion: member.email },
+      });
+    }
+
+    // A change that fails writes none of its values.
+    await idFrom("create_company", { name: "Raviga", domain: "raviga.test" });
+    expect(
+      await failure("update_company", {
+        id: companyId,
+        domain: "raviga.test",
+        fields: { champion: ana.email },
+      }),
+    ).toBe("Another company already uses that domain.");
+    expect(await call("get_company", { id: companyId })).toMatchObject({
+      domain: "piedpiper.test",
+      fields: { champion: member.email },
+    });
+
+    // Another organization's company, though it has a field of that key.
+    await call(
+      "create_field",
+      {
+        entity: "COMPANY",
+        label: "Champion",
+        type: "USER",
+        agentFilled: false,
+      },
+      { as: bo },
+    );
+    expect(
+      await failure(
+        "update_company",
+        { id: companyId, fields: { champion: bo.email } },
+        { as: bo },
+      ),
+    ).toBe(`No company with id ${companyId}.`);
+    expect(
+      await testDb.rows(
+        `SELECT id FROM field_value WHERE organization_id = 'org_b'`,
+      ),
+    ).toEqual([]);
   });
 
   it("saved views: a list's filters saved under a name, the owner by email", async () => {

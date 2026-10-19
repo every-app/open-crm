@@ -123,6 +123,22 @@ export const pageSizeInput = z
   .optional()
   .describe("Rows a page: 25 unless said, at most 100.");
 
+/** A deal's amount in the reporting currency, as the tools show it. */
+export const reportedOutput = z
+  .object({ amount: z.number(), currency: z.string() })
+  .nullable()
+  .describe("The amount in the reporting currency, when a rate converts it.");
+
+/** The amount in the reporting currency, when a rate converted it. */
+export function reported(
+  deal: { baseAmount: number | null; baseCurrency: string | null },
+  reportingCurrency: string,
+) {
+  return deal.baseAmount !== null && deal.baseCurrency === reportingCurrency
+    ? { amount: deal.baseAmount, currency: reportingCurrency }
+    : null;
+}
+
 /** How a company or contact came into the CRM. */
 export const sourceOutput = z
   .enum(RECORD_SOURCES)

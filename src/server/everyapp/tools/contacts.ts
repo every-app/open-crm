@@ -12,8 +12,12 @@ import { suggestionOutput } from "@/server/everyapp/tools/suggestions";
 import {
   fieldColumnsOutput,
   fieldFiltersInput,
+  fieldValuesInput,
+  recordValues,
+  recordValuesOutput,
   resolveFieldFilters,
   userFieldsByEmail,
+  withMemberIds,
 } from "@/server/everyapp/tools/fieldFilters";
 import {
   ContactService,
@@ -23,6 +27,7 @@ import {
 import {
   DEAL_STAGES,
   ENRICHMENT_STATUSES,
+  FACT_BANDS,
   RECORD_SOURCES,
 } from "@/shared/crm-enums";
 import {
@@ -76,6 +81,7 @@ const summaryOutput = z.object({
   lastActivityAt: z.string().nullable(),
   enrichment,
   source: sourceOutput,
+  createdAt: z.string(),
   archivedAt: z.string().nullable(),
   fields: fieldColumnsOutput,
 });
@@ -111,6 +117,12 @@ const detailsOutput = z.object({
   primaryContactOfCompany: z.boolean(),
   owner: personOutput.nullable(),
   enrichment,
+  enrichmentError: z
+    .string()
+    .nullable()
+    .describe("Why the research agent's last look failed."),
+  queued: z.boolean().describe("The research agent has work on them due now."),
+  fields: recordValuesOutput,
   brief: z
     .object({
       narrative: z.string().nullable(),
@@ -120,11 +132,22 @@ const detailsOutput = z.object({
       seniority: z.string().optional(),
       function: z.string().optional(),
       location: z.string().optional(),
+      score: z.number().describe("How well its sources back it, 0 to 1."),
       sourceUrl: z.string().nullable(),
       refreshedAt: z.string(),
     })
     .nullable()
     .describe("The research agent's brief on them."),
+  facts: z
+    .array(
+      z.object({
+        field: z.string(),
+        value: z.string(),
+        band: z.enum(FACT_BANDS).describe("How sure the agent is."),
+        sourceUrl: z.string().nullable(),
+      }),
+    )
+    .describe("What the research agent found and put on the record."),
   suggestions: z
     .array(suggestionOutput)
     .describe("What the research agent found that waits for a person."),
@@ -138,6 +161,7 @@ const detailsOutput = z.object({
       amount: z.number().nullable(),
       currency: z.string(),
       expectedCloseDate: z.string().nullable(),
+      owner: personOutput.nullable(),
     }),
   ),
   colleagues: z.array(
@@ -148,6 +172,7 @@ const detailsOutput = z.object({
     }),
   ),
   emails: z.number().describe("Captured emails with them."),
+  threads: z.number().describe("The threads those emails are in."),
   lastReplyAt: z.string().nullable(),
   meetings: z.number().describe("Captured meetings with them."),
   nextMeeting: z
@@ -158,7 +183,10 @@ const detailsOutput = z.object({
   archivedAt: z.string().nullable(),
 });
 
-function details(contact: ContactDetail): z.input<typeof detailsOutput> {
+function details(
+  contact: ContactDetail,
+  fields: z.input<typeof recordValuesOutput>,
+): z.input<typeof detailsOutput> {
   const { relationship, brief } = contact;
   return {
     ...contact,
@@ -166,7 +194,9 @@ function details(contact: ContactDetail): z.input<typeof detailsOutput> {
     name: fullName(contact),
     primaryContactOfCompany: contact.isPrimaryContact,
     enrichment: contact.enrichmentStatus,
+    fields,
     brief: brief ? { ...brief, ...brief.sections } : null,
+    facts: contact.facts.filter((fact) => fact.status === "APPLIED"),
     suggestions: contact.facts
       .filter((fact) => fact.status === "PROPOSED")
       .map((fact) => ({
@@ -296,36 +326,45 @@ export const contactTools = {
 
   get_contact: crmTool({
     description:
-      "One contact in full: details, company, owner, the research agent's brief and its suggestions waiting for a person, their deals and colleagues, and the mail and meetings captured with them.",
+      "One contact in full: details, company, owner, custom fields, the research agent's state, brief, what it found and its suggestions waiting for a person, their deals and colleagues, and the mail and meetings captured with them.",
     risk: "read",
     input: z.object({ id: contactId }).strict(),
     output: detailsOutput,
-    handler: async ({ id }, context) =>
-      details(await ContactService.getContact(context.organizationId, id)),
+    handler: async ({ id }, context) => {
+      const [contact, fields] = await Promise.all([
+        ContactService.getContact(context.organizationId, id),
+        recordValues(context.organizationId, "CONTACT", id),
+      ]);
+      return details(contact, fields);
+    },
   }),
 
   create_contact: crmTool({
     description:
-      "Add a contact. Their email must not belong to another live contact. Without a companyId, a work email files them under that domain's company, adding it if missing (free mail such as gmail.com files them nowhere). The research agent then looks them up.",
+      "Add a contact, with their custom field values if given. Their email must not belong to another live contact. Without a companyId, a work email files them under that domain's company, adding it if missing (free mail such as gmail.com files them nowhere). The research agent then looks them up.",
     risk: "write",
     input: createContactSchema
       .omit({ ownerId: true })
       .extend({
         companyId: companyId.optional(),
         ownerEmail: ownerEmail.optional(),
+        fields: fieldValuesInput,
       })
       .strict(),
     output: contactRefOutput,
-    handler: async ({ ownerEmail: email, ...input }, context) =>
+    handler: async ({ ownerEmail: email, fields, ...input }, context) =>
       ContactService.createContact(context.organizationId, {
         ...input,
         ownerId: email ? await memberId(context.organizationId, email) : null,
+        fields:
+          fields &&
+          (await withMemberIds(context.organizationId, "CONTACT", fields)),
       }),
   }),
 
   update_contact: crmTool({
     description:
-      "Change a contact's details. Only the fields given change; an empty string clears one. A null companyId takes them off their company.",
+      "Change a contact's details and custom field values, in one write. Only what is given changes; an empty string clears a detail. A null companyId takes them off their company.",
     risk: "write",
     input: updateContactSchema
       .omit({ ownerId: true })
@@ -336,16 +375,20 @@ export const contactTools = {
           .nullable()
           .optional()
           .describe("The new owner's email, or null for nobody."),
+        fields: fieldValuesInput,
       })
       .strict(),
     output: contactRefOutput,
-    handler: async ({ ownerEmail: email, ...input }, context) =>
+    handler: async ({ ownerEmail: email, fields, ...input }, context) =>
       ContactService.updateContact(context.organizationId, {
         ...input,
         ownerId:
           email === undefined
             ? undefined
             : email && (await memberId(context.organizationId, email)),
+        fields:
+          fields &&
+          (await withMemberIds(context.organizationId, "CONTACT", fields)),
       }),
   }),
 
