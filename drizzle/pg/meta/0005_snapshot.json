@@ -1,5 +1,5 @@
 {
-  "id": "f78fb913-fcf9-4da6-af80-6825e041cd44",
+  "id": "0881e8f9-7238-4b24-bafe-7691c78f4c75",
   "prevId": "52f7a3a1-6e33-4ad2-ab89-e37245c05a2b",
   "version": "7",
   "dialect": "postgresql",
@@ -1301,6 +1301,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "research_held_at": {
+          "name": "research_held_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "source": {
           "name": "source",
           "type": "text",
@@ -1701,6 +1707,12 @@
         },
         "enrichment_error": {
           "name": "enrichment_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "research_held_at": {
+          "name": "research_held_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -4825,6 +4837,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "research_automatically": {
+          "name": "research_automatically",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -5643,6 +5662,22 @@
           "method": "btree",
           "with": {}
         },
+        "agent_task_open_due_idx": {
+          "name": "agent_task_open_due_idx",
+          "columns": [
+            {
+              "expression": "due_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"agent_task\".\"finished_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "agent_task_open_kind_subject_uidx": {
           "name": "agent_task_open_kind_subject_uidx",
           "columns": [
@@ -5719,6 +5754,72 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.paid_session": {
+      "name": "paid_session",
+      "schema": "",
+      "columns": {
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slot": {
+          "name": "slot",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "leased_until": {
+          "name": "leased_until",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "paid_session_organization_id_organization_id_fk": {
+          "name": "paid_session_organization_id_organization_id_fk",
+          "tableFrom": "paid_session",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "paid_session_organization_id_kind_slot_pk": {
+          "name": "paid_session_organization_id_kind_slot_pk",
+          "columns": [
+            "organization_id",
+            "kind",
+            "slot"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
