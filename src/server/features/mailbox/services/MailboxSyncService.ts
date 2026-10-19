@@ -35,8 +35,9 @@ import {
 // checks when its shared budget of provider calls or its time runs out; each
 // check stops where it got to and is due again in five minutes, behind
 // whatever waited longer. One big mailbox gets at most its per-check cap
-// (120 messages, five calendar pages), and a failing provider settles FAILED
-// and waits its turn, so neither starves the rest.
+// (120 messages; a calendar read pays a call for each meeting it files), and
+// a failing provider settles FAILED and waits its turn, so neither starves
+// the rest.
 
 const SYNCERS = {
   gmail: syncGmail,

@@ -5,17 +5,39 @@ import {
   type IncomingEvent,
 } from "@/server/features/mailbox/services/CaptureService";
 import { budgetLeft, mailboxGet } from "./mailboxApi";
-import { failureOf, type SyncJob, type SyncResult } from "./syncJob";
+import {
+  createFiler,
+  failureOf,
+  type SyncJob,
+  type SyncResult,
+} from "./syncJob";
 
 // Google Calendar, read-only, ported from the CRM's calendar.client.ts and
 // calendar-sync.service.ts. The first check reads the meetings from now to
-// 180 days out; later ones read only what changed since its sync token. Up
-// to five pages per check; a cancelled meeting is deleted.
+// 180 days out; later ones read only what changed since its sync token. A
+// cancelled meeting is deleted.
+//
+// A read goes on while its check's budget lasts, and each meeting filed is
+// charged to it like a call: filing one costs a few database queries, which
+// are Worker subrequests too. The cursor keeps the read's place, so a
+// calendar of any size finishes over as many checks as it takes: Google's
+// sync token between reads, and during one the next page's token with the
+// query it belongs to (Google takes a page token only with its own query).
 
 const BASE = "https://www.googleapis.com/calendar/v3/calendars/primary";
 
-const MAX_PAGES_PER_CHECK = 5;
+const PAGE_SIZE = 250;
 const HORIZON_DAYS = 180;
+
+/** Where a read stands: the query it makes, and its next page. */
+const placeSchema = z.object({
+  syncToken: z.string().optional(),
+  timeMin: z.string().optional(),
+  timeMax: z.string().optional(),
+  pageToken: z.string().optional(),
+});
+
+type Place = z.infer<typeof placeSchema>;
 
 const timeSchema = z.object({
   dateTime: z.string().optional(),
@@ -82,15 +104,37 @@ export async function primaryCalendar(
   return mailboxGet(BASE, accessToken, calendarSchema, budget);
 }
 
+/** The read a cursor stands for: one under way, changes since a sync token, or a new one. */
+function placeOf(cursor: string | null): Place {
+  if (cursor && !cursor.startsWith("{")) return { syncToken: cursor };
+  const saved = cursor ? placeSchema.safeParse(jsonOf(cursor)) : null;
+  if (saved?.success) return saved.data;
+  const now = Date.now();
+  return {
+    timeMin: new Date(now).toISOString(),
+    timeMax: new Date(now + HORIZON_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+  };
+}
+
+function jsonOf(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/** A place as the cursor keeps it; a new read's first page keeps nothing. */
+function cursorOf(place: Place): string | null {
+  return place.pageToken ? JSON.stringify(place) : (place.syncToken ?? null);
+}
+
 export async function syncCalendar(job: SyncJob): Promise<SyncResult> {
   const { row, accessToken, budget } = job;
-  const syncToken = row.cursor ?? undefined;
-  const now = new Date();
-  const horizon = new Date(now.getTime() + HORIZON_DAYS * 24 * 60 * 60 * 1000);
-  let pageToken: string | undefined;
-
-  for (let page = 0; page < MAX_PAGES_PER_CHECK; page += 1) {
-    if (!budgetLeft(budget)) break;
+  const filer = createFiler(job);
+  let place = placeOf(row.cursor);
+  while (budgetLeft(budget)) {
+    const at = cursorOf(place);
     const result = await mailboxGet(
       `${BASE}/events`,
       accessToken,
@@ -99,12 +143,8 @@ export async function syncCalendar(job: SyncJob): Promise<SyncResult> {
       {
         singleEvents: true,
         showDeleted: true,
-        maxResults: 250,
-        syncToken,
-        pageToken,
-        ...(syncToken
-          ? {}
-          : { timeMin: now.toISOString(), timeMax: horizon.toISOString() }),
+        maxResults: PAGE_SIZE,
+        ...place,
       },
     );
     if (result.outcome === "cursor-invalid") {
@@ -115,38 +155,44 @@ export async function syncCalendar(job: SyncJob): Promise<SyncResult> {
       });
       return { status: "IDLE", cursor: null };
     }
-    if (result.outcome !== "ok") return failureOf(result);
+    if (result.outcome === "failed" && result.status === 400) {
+      // A page token Google no longer takes: the read starts again.
+      return failureOf(
+        result,
+        filer.place(cursorOf({ ...place, pageToken: undefined })),
+      );
+    }
+    if (result.outcome !== "ok") return failureOf(result, filer.place(at));
 
     for (const item of result.data.items ?? []) {
-      // A cancelled occurrence may carry only its id.
-      if (item.status === "cancelled" && !item.iCalUID && item.id) {
-        await MeetingWriteRepository.deleteGoogleEvent(
-          row.organizationId,
-          row.userId,
-          item.id,
-        );
-        continue;
-      }
-      const event = parseEvent(item);
-      if (event) {
-        await CaptureService.applyEvent(
-          job.capture,
-          event,
-          await job.context(),
-        );
-      }
+      budget.calls -= 1;
+      await filer.file(item.id, at, () => fileItem(job, item));
     }
-
-    pageToken = result.data.nextPageToken;
+    const pageToken = result.data.nextPageToken;
     if (!pageToken) {
-      return {
-        status: "IDLE",
-        cursor: result.data.nextSyncToken ?? syncToken ?? null,
-      };
+      return filer.end(result.data.nextSyncToken ?? place.syncToken ?? null);
     }
+    place = { ...place, pageToken };
   }
-  // Out of pages for this check: the next one starts over from the cursor.
-  return { status: "IDLE" };
+  // Out of budget: the next check reads on from this page.
+  return filer.end(cursorOf(place));
+}
+
+/** Files one meeting, or deletes a cancelled one. */
+async function fileItem(job: SyncJob, item: GoogleEvent) {
+  // A cancelled occurrence may carry only its id.
+  if (item.status === "cancelled" && !item.iCalUID && item.id) {
+    await MeetingWriteRepository.deleteGoogleEvent(
+      job.row.organizationId,
+      job.row.userId,
+      item.id,
+    );
+    return;
+  }
+  const event = parseEvent(item);
+  if (event) {
+    await CaptureService.applyEvent(job.capture, event, await job.context());
+  }
 }
 
 function eventTime(

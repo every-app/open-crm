@@ -14,7 +14,7 @@ export type MailboxResult<T> =
   | { outcome: "cursor-invalid"; reason: string }
   | { outcome: "unauthorized"; reason: string }
   | { outcome: "rate-limited"; reason: string; retryAfterMs: number }
-  | { outcome: "failed"; reason: string };
+  | { outcome: "failed"; reason: string; status?: number };
 
 export type MailboxFailure = Exclude<MailboxResult<unknown>, { outcome: "ok" }>;
 
@@ -86,7 +86,7 @@ export async function mailboxGet<T>(
           retryAfterMs: backoffFrom(response),
         };
       }
-      return { outcome: "failed", reason: detail };
+      return { outcome: "failed", reason: detail, status: response.status };
     case 429:
       return {
         outcome: "rate-limited",
@@ -99,7 +99,7 @@ export async function mailboxGet<T>(
         path: target.pathname,
         status: response.status,
       });
-      return { outcome: "failed", reason: detail };
+      return { outcome: "failed", reason: detail, status: response.status };
   }
 }
 

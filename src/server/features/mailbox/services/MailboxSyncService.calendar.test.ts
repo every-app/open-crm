@@ -221,6 +221,37 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
     });
 
+    it("finishes a first read longer than five pages, going on from the page a check stopped at", async () => {
+      let failing = true;
+      const fetched = stubProviders({
+        [EVENTS]: (url) => {
+          const page = Number(url.searchParams.get("pageToken") ?? "1");
+          if (page === 4 && failing) {
+            failing = false;
+            return json({ error: { message: "Backend Error" } }, 503);
+          }
+          return page < 7
+            ? { items: [], nextPageToken: String(page + 1) }
+            : { items: [], nextSyncToken: "sync-1" };
+        },
+      });
+
+      await MailboxSyncService.runDue();
+      const first = fetched[0]?.searchParams;
+      fetched.length = 0;
+      await dueAgain();
+      await MailboxSyncService.runDue();
+      // Pages 4 to 7, of the same window.
+      expect(fetched).toHaveLength(4);
+      const resumed = fetched[0]?.searchParams;
+      expect(resumed?.get("pageToken")).toBe("4");
+      expect(resumed?.get("timeMin")).toBe(first?.get("timeMin"));
+      expect(resumed?.get("timeMax")).toBe(first?.get("timeMax"));
+      expect(
+        await database.rows(`SELECT cursor, status FROM mailbox_sync`),
+      ).toEqual([{ cursor: "sync-1", status: "IDLE" }]);
+    });
+
     it("re-reads the window when the sync token has expired", async () => {
       await database.exec(`UPDATE mailbox_sync SET cursor = 'old'`);
       stubProviders({
