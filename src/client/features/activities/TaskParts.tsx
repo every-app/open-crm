@@ -3,7 +3,7 @@ import { Checkbox } from "@/client/components/ui/checkbox";
 import { useCompleteTask } from "@/client/features/activities/activityQueries";
 import type { ActivityEntry } from "@/client/features/activities/activityFormat";
 import { fullName } from "@/client/features/companies/companyFormat";
-import { RelativeTime } from "@/client/features/records/LocalDateTime";
+import { RelativeDay } from "@/client/features/records/LocalDateTime";
 import { RecordLink } from "@/client/features/records/RecordLink";
 
 // A task as every list shows it: ticked off in place, due when, and about
@@ -25,7 +25,10 @@ export function TaskCheckbox({ task }: { task: ActivityEntry }) {
   );
 }
 
-/** "Due in 2 days", or "Overdue 3 days ago" in red. */
+/**
+ * "Due tomorrow", or "Overdue 3 days ago" in red: by the due day, so a task
+ * due tomorrow reads so at any time of day.
+ */
 export function TaskDue({ dueAt }: { dueAt: string }) {
   const overdue = new Date(dueAt) < new Date();
   return (
@@ -43,7 +46,7 @@ export function TaskDue({ dueAt }: { dueAt: string }) {
         )}
       />
       <span>
-        {overdue ? "Overdue" : "Due"} <RelativeTime date={dueAt} />
+        {overdue ? "Overdue" : "Due"} <RelativeDay date={dueAt} />
       </span>
     </span>
   );

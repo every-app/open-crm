@@ -1,4 +1,7 @@
-import { formatRelativeTime } from "@/client/lib/relative-time";
+import {
+  formatRelativeDay,
+  formatRelativeTime,
+} from "@/client/lib/relative-time";
 
 // Dates as the reader keeps them: their locale and time zone. The server
 // sends ISO timestamps (UTC) and calendar days (YYYY-MM-DD).
@@ -25,6 +28,20 @@ export function RelativeTime({ date }: { date: string }) {
   return (
     <time dateTime={date} title={DATE_TIME.format(value)}>
       {formatRelativeTime(date)}
+    </time>
+  );
+}
+
+/**
+ * "tomorrow", "3 days ago": a moment's day against today, as a task's due
+ * day reads, with the exact local date and time on hover.
+ */
+export function RelativeDay({ date }: { date: string }) {
+  const value = new Date(date);
+  if (!isValid(value)) return null;
+  return (
+    <time dateTime={date} title={DATE_TIME.format(value)}>
+      {formatRelativeDay(date)}
     </time>
   );
 }
