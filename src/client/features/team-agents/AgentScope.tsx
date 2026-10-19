@@ -6,6 +6,7 @@ import {
   SettingsRow,
   SettingsSection,
 } from "@/client/components/SettingsSection";
+import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import { Input } from "@/client/components/ui/input";
 import {
@@ -35,16 +36,34 @@ const CAPTURED_LABELS: Record<CaptureKind, string> = {
 export const recordKey = (record: { kind: string; id: string }) =>
   `${record.kind}:${record.id}`;
 
+/** A label, marked when what it names waits for review. */
+export function ReviewLabel({
+  label,
+  inReview,
+}: {
+  label: string;
+  inReview: boolean;
+}) {
+  if (!inReview) return label;
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {label}
+      <Badge variant="outline">In review</Badge>
+    </span>
+  );
+}
+
 /**
- * What the deployed version reads (the CRM's "What it can see"): its records
- * and the captured email and meetings, as the page's unsaved changes have
- * them. A workspace-wide agent can be narrowed to chosen records.
+ * What the agent reads (the CRM's "What it can see"): its records and the
+ * captured email and meetings, as the page's unsaved changes have them. A
+ * workspace-wide agent can be narrowed to chosen records.
  */
 export function AgentScope({
   workspace,
   narrowable,
   records,
   sources,
+  inReview,
   canManage,
   disabled,
   onRecords,
@@ -56,6 +75,8 @@ export function AgentScope({
   narrowable: boolean;
   records: RecordResource[];
   sources: CaptureKind[];
+  /** The records and sources (by `recordKey`) that wait for review. */
+  inReview: ReadonlySet<string>;
   canManage: boolean;
   disabled: boolean;
   onRecords: (records: RecordResource[]) => void;
@@ -103,7 +124,12 @@ export function AgentScope({
         {records.map((record) => (
           <SettingsRow
             key={recordKey(record)}
-            label={record.label}
+            label={
+              <ReviewLabel
+                label={record.label}
+                inReview={inReview.has(recordKey(record))}
+              />
+            }
             description={KIND_LABELS[record.kind]}
           >
             {remove(record.label, () =>
@@ -114,7 +140,14 @@ export function AgentScope({
         {sources.map((kind) => (
           <SettingsRow
             key={kind}
-            label={CAPTURED_LABELS[kind]}
+            label={
+              <ReviewLabel
+                label={CAPTURED_LABELS[kind]}
+                inReview={inReview.has(
+                  recordKey(CAPTURE_GRANTS[kind].resource),
+                )}
+              />
+            }
             description="On the records it can see"
           >
             {remove(CAPTURED_LABELS[kind], () =>

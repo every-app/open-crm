@@ -3,7 +3,15 @@ import { describe, expect, it } from "vitest";
 import { buildProgress, builderStep } from "./builderSteps";
 
 describe("builder steps", () => {
-  it("reads a call that threw as failed with its error, and counts nothing it refused as written or saved", () => {
+  it("reads a call that failed before or while it ran as failed with its error, and counts nothing it refused as written or saved", () => {
+    const invalidWrite = {
+      type: "tool-write_agent_file",
+      toolCallId: "call_0",
+      state: "output-error",
+      input: undefined,
+      rawInput: { path: "agent/instructions.md" },
+      errorText: "Invalid input for tool write_agent_file: content is missing.",
+    } as const;
     const refusedWrite = {
       type: "tool-write_agent_file",
       toolCallId: "call_1",
@@ -23,18 +31,23 @@ describe("builder steps", () => {
     const reply: UIMessage = {
       id: "m1",
       role: "assistant",
-      parts: [refusedWrite, refusedSave],
+      parts: [invalidWrite, refusedWrite, refusedSave],
     };
 
-    expect(builderStep(refusedWrite, false)).toEqual({
+    expect(builderStep(invalidWrite, true)).toEqual({
       label:
-        "Writing instructions — Agent files cannot contain credentials or secret values.",
+        "Could not write instructions — Invalid input for tool write_agent_file: content is missing.",
       tone: "warning",
       sources: [],
     });
+    expect(builderStep(refusedWrite, false)).toMatchObject({
+      label:
+        "Could not write instructions — Agent files cannot contain credentials or secret values.",
+      tone: "warning",
+    });
     expect(builderStep(refusedSave, false)).toMatchObject({
       label:
-        "Saving draft · Monday digest — The agent builder exceeded its draft-save budget.",
+        "Could not save draft · Monday digest — The agent builder exceeded its draft-save budget.",
       tone: "warning",
     });
     expect(buildProgress([reply])).toEqual({

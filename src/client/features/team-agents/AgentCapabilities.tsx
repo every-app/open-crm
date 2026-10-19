@@ -33,30 +33,35 @@ import {
   type SlackDestination,
 } from "@/shared/team-agents";
 import { AgentCode, MANIFEST_PATH } from "./AgentCode";
-import { AgentScope, recordKey } from "./AgentScope";
+import { AgentScope, recordKey, ReviewLabel } from "./AgentScope";
 import { SaveBar } from "./agentEditing";
 import { teamAgentFilesQueryOptions, teamAgentKeys } from "./teamAgentQueries";
 
 type Channel = { id: string; name: string };
 
 /**
- * The deployed version's permissions and code (the CRM's agent capabilities
- * and agent code): where it posts, what it can do there, what it can see,
- * and its files. Its creator or an admin changes them, and the changes wait
- * in one save bar for the page. Taking something away goes live at once;
- * giving it more, or editing its manifest, makes a version to review and
- * deploy. Saving or discarding starts the page afresh (`onReset`).
+ * The agent's permissions and code (the CRM's agent capabilities and agent
+ * code): where it posts, what it can do there, what it can see, and its
+ * files, as the version waiting for review has them when there is one (what
+ * the deployed version lacks is marked), else as deployed. Its creator or an
+ * admin changes them, and the changes wait in one save bar for the page.
+ * Taking something away goes live at once; giving it more, or editing its
+ * manifest, makes a version to review and deploy. Saving or discarding
+ * starts the page afresh (`onReset`).
  */
 export function AgentCapabilities({
   agentId,
   versionId,
   manifest,
+  live,
   canManage,
   onReset,
 }: {
   agentId: string;
   versionId: string;
   manifest: AgentManifest;
+  /** The deployed version, when the one shown waits for review. */
+  live: AgentManifest | null;
   canManage: boolean;
   onReset: () => void;
 }) {
@@ -66,6 +71,22 @@ export function AgentCapabilities({
   const scope = recordResources(manifest.dataScope.resources);
   const granted = captureGrants(manifest.dataScope.resources);
   const files = useQuery(teamAgentFilesQueryOptions(agentId, versionId));
+  // What the version shown has and the deployed one doesn't: it waits.
+  const liveKeys = new Set(live?.dataScope.resources.map(recordKey));
+  const inReview = live
+    ? new Set([
+        ...manifest.dataScope.resources
+          .map(recordKey)
+          .filter((key) => !liveKeys.has(key)),
+        ...manifest.actions
+          .map((action) => action.type)
+          .filter(
+            (type) => !live.actions.some((action) => action.type === type),
+          ),
+      ])
+    : new Set<string>();
+  const moveInReview =
+    live !== null && destination?.id !== slackDestinationOf(live)?.id;
 
   const [channel, setChannel] = useState<Channel | null>(null);
   const [off, setOff] = useState<string[]>([]);
@@ -163,6 +184,7 @@ export function AgentCapabilities({
       {destination ? (
         <LivesIn
           destination={destination}
+          inReview={moveInReview}
           canManage={canManage}
           picked={channel}
           pending={save.isPending}
@@ -171,6 +193,7 @@ export function AgentCapabilities({
       ) : null}
       <WhatItCanDo
         manifest={manifest}
+        inReview={inReview}
         canManage={canManage}
         off={off}
         pending={save.isPending}
@@ -184,6 +207,7 @@ export function AgentCapabilities({
         }
         records={shownRecords}
         sources={shownSources}
+        inReview={inReview}
         canManage={canManage}
         disabled={save.isPending}
         onRecords={setRecords}
@@ -223,12 +247,15 @@ export function AgentCapabilities({
 /** The one Slack channel it posts to, and moving it to another. */
 function LivesIn({
   destination,
+  inReview,
   canManage,
   picked,
   pending,
   onPick,
 }: {
   destination: SlackDestination;
+  /** A move to `destination` waits for review. */
+  inReview: boolean;
   canManage: boolean;
   picked: Channel | null;
   pending: boolean;
@@ -260,7 +287,7 @@ function LivesIn({
 
   return (
     <SettingsSection
-      title="Lives in"
+      title={<ReviewLabel label="Lives in" inReview={inReview} />}
       action={
         canManage && isChannel && channels.data ? (
           <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
@@ -309,12 +336,15 @@ function LivesIn({
 /** Its actions, each one it may take switched on or off. */
 function WhatItCanDo({
   manifest,
+  inReview,
   canManage,
   off,
   pending,
   onChange,
 }: {
   manifest: AgentManifest;
+  /** The actions that wait for review. */
+  inReview: ReadonlySet<string>;
   canManage: boolean;
   /** The actions switched off and not saved yet. */
   off: string[];
@@ -329,7 +359,12 @@ function WhatItCanDo({
           return (
             <SettingsRow
               key={action.type}
-              label={label}
+              label={
+                <ReviewLabel
+                  label={label}
+                  inReview={inReview.has(action.type)}
+                />
+              }
               description={action.summary || action.provider}
             >
               <Switch

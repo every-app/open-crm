@@ -6,15 +6,13 @@ import { TriggerRepository } from "@/server/features/team-agents/repositories/Tr
 import { z } from "zod";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { AppError } from "@/server/lib/errors";
-import {
-  agentManifest,
-  type AgentManifest,
-  type TeamAgentStatus,
-} from "@/shared/team-agents";
+import type { TeamAgentStatus } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import type { VersionRow } from "../repositories/AgentVersionRepository";
 import { TeamAgentRepository } from "../repositories/TeamAgentRepository";
 import { canManageAgent, manageableAgent, readableAgent } from "./access";
+import { readable } from "./manifests";
+import { joinMovedChannel } from "./revisionVersions";
 
 // Team agents after the builder: the agents index and detail, human review
 // and deployment of a version, pause, resume, archive, restore and delete,
@@ -26,22 +24,6 @@ import { canManageAgent, manageableAgent, readableAgent } from "./access";
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
 const auditJson = z.json().catch(null);
-
-/** A manifest the review screen can show, or why it can't. */
-export function readable(
-  manifest: unknown,
-):
-  | { readable: true; manifest: AgentManifest }
-  | { readable: false; problem: string } {
-  const parsed = agentManifest.safeParse(manifest);
-  if (parsed.success) return { readable: true, manifest: parsed.data };
-  return {
-    readable: false,
-    problem: parsed.error.issues
-      .map((issue) => `${issue.path.join(".") || "manifest"} ${issue.message}`)
-      .join("; "),
-  };
-}
 
 /** The agents index: the team's agents and the person's drafts. */
 async function list(context: Context) {
@@ -92,7 +74,10 @@ function versionSummary(version: VersionRow) {
 async function get(context: Context, agentId: string) {
   const agent = await readableAgent(context, agentId);
   const { organizationId } = context;
-  const [current, latest, runs] = await Promise.all([
+  // A draft is reviewed on its newest version; a deployed agent shows what
+  // runs, and a newer READY version, from its chat or its page, waits for
+  // review beside it.
+  const [current, review, runs] = await Promise.all([
     agent.currentVersionId
       ? AgentVersionRepository.findVersion(
           organizationId,
@@ -100,15 +85,13 @@ async function get(context: Context, agentId: string) {
           agent.currentVersionId,
         )
       : null,
-    AgentVersionRepository.latestVersion(organizationId, agent.id),
+    AgentVersionRepository.reviewVersion(
+      organizationId,
+      agent.id,
+      agent.currentVersionId,
+    ),
     TeamAgentRepository.runCounts(organizationId, [agent.id]),
   ]);
-  // A draft is reviewed on its newest version; a deployed agent shows what
-  // runs, and a newer READY version from its chat waits for review beside it.
-  const review =
-    latest && latest.status === "READY" && latest.id !== current?.id
-      ? latest
-      : null;
   const shown = current ?? review;
   const triggers = shown
     ? await TriggerRepository.triggersForVersion(organizationId, shown.id)
@@ -238,11 +221,20 @@ async function deploy(
   if (agent.status === "ARCHIVED") {
     throw new AppError("CONFLICT", "Restore the agent before deploying it.");
   }
-  const version = await AgentVersionRepository.findVersion(
-    organizationId,
-    agent.id,
-    input.versionId,
-  );
+  const [version, replaced] = await Promise.all([
+    AgentVersionRepository.findVersion(
+      organizationId,
+      agent.id,
+      input.versionId,
+    ),
+    agent.currentVersionId
+      ? AgentVersionRepository.findVersion(
+          organizationId,
+          agent.id,
+          agent.currentVersionId,
+        )
+      : null,
+  ]);
   if (!version) throw new AppError("NOT_FOUND");
   const manifest = readable(version.manifest);
   if (!manifest.readable) {
@@ -283,6 +275,13 @@ async function deploy(
     );
     if (landed?.versionId !== version.id) throw error;
   }
+  // A channel move that waited for review joins the channel now.
+  const was = replaced ? readable(replaced.manifest) : null;
+  await joinMovedChannel(
+    context,
+    was?.readable ? was.manifest : null,
+    manifest.manifest,
+  );
   console.log("[team-agents] deployed", {
     organizationId,
     agentId: agent.id,

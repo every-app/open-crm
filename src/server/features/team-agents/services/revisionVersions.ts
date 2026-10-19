@@ -3,10 +3,6 @@ import { SlackInventoryService } from "@/server/features/slack/services/SlackInv
 import { AppError } from "@/server/lib/errors";
 import {
   AGENT_ACTION_TYPES,
-  CAPTURE_GRANTS,
-  CAPTURE_KINDS,
-  recordResources,
-  SLACK_RESOURCE,
   slackDestinationOf,
   type AgentManifest,
 } from "@/shared/team-agents";
@@ -23,16 +19,22 @@ import { BuilderRepository } from "../repositories/BuilderRepository";
 import { manageableAgent } from "./access";
 import { BuilderToolService } from "./BuilderToolService";
 import { draftInputSchema, draftIssues, manifestOf } from "./draft";
-import { readable } from "./TeamAgentService";
-import { nextSlot } from "./TriggerService";
+import {
+  draftOf,
+  KNOWN_INTEGRATIONS,
+  onlyTakesAway,
+  readable,
+} from "./manifests";
 
-// How a change made on a deployed agent's page lands. One its maker may
-// approve on the spot (turning things off, another Slack channel, fewer
-// records, edited instructions) is a new deployed version at once, with the
-// triggers moved over. One that gives the agent more (another record,
-// captured email or meetings) or edits its manifest is checked as the
-// builder checks a draft and saved as a version that waits for a person to
-// deploy it. Deploying stays the approval boundary.
+// How a change made on a deployed agent's page lands. The page shows, and its
+// changes build on, the version waiting for review when there is one, else
+// the deployed one. One its maker may approve on the spot (turning things
+// off, another Slack channel, fewer records, edited instructions) is a new
+// deployed version at once, with the triggers moved over; what waits keeps
+// waiting, saved again with the same change. One that gives the agent more
+// (another record, captured email or meetings) or edits its manifest is
+// checked as the builder checks a draft and saved as a version that waits for
+// a person to deploy it. Deploying stays the approval boundary.
 
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
@@ -53,26 +55,46 @@ type Change = {
   requestId: string;
 };
 
-/** The deployed version, for a change made from the agent's page. */
-export async function deployedVersion(context: Context, agentId: string) {
+/** A version and its manifest, as a change from the agent's page reads it. */
+export type PageVersion = { version: VersionRow; manifest: AgentManifest };
+
+function pageVersion(version: VersionRow): PageVersion | null {
+  const manifest = readable(version.manifest);
+  return manifest.readable ? { version, manifest: manifest.manifest } : null;
+}
+
+/**
+ * The versions a change from the agent's page reads: the deployed one, and
+ * the one waiting for review, if any, which the page shows and changes build
+ * on. One waiting with a manifest that can't be read is passed over: the
+ * change builds on the deployed version and takes its place.
+ */
+export async function pageVersions(context: Context, agentId: string) {
   const agent = await manageableAgent(context, agentId);
   if (!agent.currentVersionId) {
     throw new AppError("CONFLICT", "Deploy this agent before changing it.");
   }
-  const version = await AgentVersionRepository.findVersion(
-    context.organizationId,
-    agent.id,
-    agent.currentVersionId,
-  );
-  if (!version) throw new AppError("NOT_FOUND");
-  const manifest = readable(version.manifest);
-  if (!manifest.readable) {
+  const [deployed, review] = await Promise.all([
+    AgentVersionRepository.findVersion(
+      context.organizationId,
+      agent.id,
+      agent.currentVersionId,
+    ),
+    AgentVersionRepository.reviewVersion(
+      context.organizationId,
+      agent.id,
+      agent.currentVersionId,
+    ),
+  ]);
+  if (!deployed) throw new AppError("NOT_FOUND");
+  const live = pageVersion(deployed);
+  if (!live) {
     throw new AppError(
       "VALIDATION_ERROR",
       "This version's manifest is unreadable, so it can't be changed.",
     );
   }
-  return { agent, version, manifest: manifest.manifest };
+  return { agent, live, pending: review ? pageVersion(review) : null };
 }
 
 /** What an earlier request with this id already did, if anything. */
@@ -143,21 +165,51 @@ async function nextNumber(organizationId: string, agentId: string) {
 }
 
 /**
+ * Puts the CRM in the Slack channel a deployed version newly posts to, as the
+ * CRM's revise did; a channel it can't join shows on the Slack card, and a
+ * run says so if it can't post.
+ */
+export async function joinMovedChannel(
+  context: Context,
+  before: AgentManifest | null,
+  after: AgentManifest,
+): Promise<void> {
+  const moved = slackDestinationOf(after);
+  if (
+    !before ||
+    moved?.kind !== "channel" ||
+    moved.id === slackDestinationOf(before)?.id
+  ) {
+    return;
+  }
+  await SlackInventoryService.joinChannel(context, moved.id).catch(
+    (error: unknown) => {
+      console.warn("[team-agents] could not join the new channel", error);
+    },
+  );
+}
+
+type DeployNow = {
+  /** The deployed version it replaces, whose triggers move onto it. */
+  replacing: PageVersion;
+  /** The version whose files it carries, `edits` applied. */
+  from: VersionRow;
+  instructions: string;
+  manifest: AgentManifest;
+  edits: FileEdit[];
+  audit: Change & { type: string };
+};
+
+/**
  * A change its maker approves: a new deployed version at once, the agent's
  * triggers moved onto it and the old version kept in the history.
  */
-export async function deployNow(
+async function deployNow(
   context: Context,
-  input: {
-    from: VersionRow;
-    instructions: string;
-    manifest: AgentManifest;
-    edits: FileEdit[];
-    audit: Change & { type: string };
-  },
+  input: DeployNow,
 ): Promise<string> {
   const { organizationId } = context;
-  const { from } = input;
+  const { from, replacing } = input;
   const versionId = crypto.randomUUID();
   const now = new Date().toISOString();
   await AgentVersionRepository.replaceCurrentVersion({
@@ -174,7 +226,7 @@ export async function deployNow(
       approvedAt: now,
       deployedAt: now,
     },
-    fromVersionId: from.id,
+    fromVersionId: replacing.version.id,
     artifacts: await carriedFiles(
       organizationId,
       from.id,
@@ -190,58 +242,19 @@ export async function deployNow(
       ...input.audit,
     },
   });
+  await joinMovedChannel(context, replacing.manifest, input.manifest);
   return versionId;
 }
-
-/** The draft a manifest amounts to, as the builder's save_agent_draft takes it. */
-function draftOf(manifest: AgentManifest, instructions: string, now: Date) {
-  const ids = new Set(
-    manifest.dataScope.resources
-      .filter((resource) => resource.kind === "integration")
-      .map((resource) => resource.id),
-  );
-  return {
-    name: manifest.name,
-    description: manifest.description,
-    instructions,
-    // A schedule left as it was keeps its cadence from its next slot ahead.
-    triggers: manifest.triggers.map((trigger) =>
-      trigger.type === "SCHEDULE" &&
-      Date.parse(trigger.nextRunAt) <= now.getTime()
-        ? {
-            ...trigger,
-            nextRunAt: nextSlot(
-              trigger.nextRunAt,
-              trigger.intervalMinutes,
-              now,
-            ),
-          }
-        : trigger,
-    ),
-    recordScope: manifest.dataScope.mode,
-    resources: recordResources(manifest.dataScope.resources),
-    integrations: [
-      ...CAPTURE_KINDS.filter((kind) =>
-        ids.has(CAPTURE_GRANTS[kind].resource.id),
-      ),
-      ...(ids.has(SLACK_RESOURCE.id) ? ["slack" as const] : []),
-    ],
-    actions: manifest.actions,
-  };
-}
-
-const KNOWN_INTEGRATIONS = new Set<string>([
-  ...CAPTURE_KINDS.map((kind) => CAPTURE_GRANTS[kind].resource.id),
-  SLACK_RESOURCE.id,
-]);
 
 /**
  * A change that gives the agent more, or edits its manifest: checked as the
  * builder checks a draft (records by the CRM's own labels), then saved as a
  * READY version with its own triggers, off until a person deploys it. The
- * deployed version keeps running meanwhile.
+ * deployed version keeps running meanwhile. `deployFirst`, the same change
+ * made to the deployed version, goes live once the checks pass, before this
+ * version is saved, so this one stays the newest.
  */
-export async function saveForReview(
+async function saveForReview(
   context: Context,
   input: {
     from: VersionRow;
@@ -249,6 +262,7 @@ export async function saveForReview(
     instructions: string;
     edits: FileEdit[];
     audit: Change;
+    deployFirst?: DeployNow;
   },
 ): Promise<RevisionOutcome> {
   const { organizationId } = context;
@@ -286,11 +300,12 @@ export async function saveForReview(
     ...record,
     label: labels.get(`${record.kind}:${record.id}`) ?? record.label,
   }));
-  // The Slack destination the deployed version posts to stays approved, as
-  // the CRM never checked it again on a revision: a channel renamed since
-  // keeps its place, under the name Slack now gives it.
-  const deployed = readable(from.manifest);
-  const kept = deployed.readable ? slackDestinationOf(deployed.manifest) : null;
+  // The Slack destination of the version it builds on was checked when that
+  // version was saved, and stays approved, as the CRM never checked it again
+  // on a revision: a channel renamed since keeps its place, under the name
+  // Slack now gives it.
+  const built = readable(from.manifest);
+  const kept = built.readable ? slackDestinationOf(built.manifest) : null;
   const actions = parsed.data.actions.map((action) => {
     if (
       action.type !== AGENT_ACTION_TYPES.SLACK_MESSAGE_POST ||
@@ -321,6 +336,9 @@ export async function saveForReview(
   );
   if (issues.length > 0) return { saved: false, issues };
 
+  const deployedId = input.deployFirst
+    ? await deployNow(context, input.deployFirst)
+    : null;
   const manifest = manifestOf(draft);
   const versionId = crypto.randomUUID();
   const number = await nextNumber(organizationId, from.agentId);
@@ -368,5 +386,63 @@ export async function saveForReview(
       },
     ],
   });
-  return { saved: true, versionId, review: true };
+  return deployedId
+    ? { saved: true, versionId: deployedId, review: false }
+    : { saved: true, versionId, review: true };
+}
+
+/** A change from the agent's page, made on the version the page shows. */
+type PageChange = {
+  /** The version waiting for review, if any, else the deployed one. */
+  base: PageVersion;
+  manifest: AgentManifest;
+  instructions: string;
+  edits: FileEdit[];
+  /** It gives more than its base: another record or source, or a manifest edit. */
+  givesMore: boolean;
+  /** The same change made to the deployed version, when it changes it. */
+  onLive: Pick<DeployNow, "manifest" | "instructions" | "edits"> | null;
+  audit: Change;
+  /** The audit line's type when it goes live at once. */
+  deployedAs: string;
+};
+
+/**
+ * Where a change from the agent's page lands. When it gives the agent
+ * nothing it doesn't run with already, it goes live at once and nothing
+ * waits any more. When it gives more than the version it was made on, it
+ * waits for review, built on that version. When it only takes away while the
+ * version waiting still gives more, the same change goes live at once on the
+ * deployed version, and the waiting one is saved again with it, so what waits
+ * keeps waiting.
+ */
+export async function land(
+  context: Context,
+  live: PageVersion,
+  change: PageChange,
+): Promise<RevisionOutcome> {
+  const { base, manifest, instructions, edits } = change;
+  const audit = { type: change.deployedAs, ...change.audit };
+  if (!change.givesMore && onlyTakesAway(live.manifest, manifest)) {
+    const versionId = await deployNow(context, {
+      replacing: live,
+      from: base.version,
+      instructions,
+      manifest,
+      edits,
+      audit,
+    });
+    return { saved: true, versionId, review: false };
+  }
+  return saveForReview(context, {
+    from: base.version,
+    manifest,
+    instructions,
+    edits,
+    audit: change.audit,
+    deployFirst:
+      !change.givesMore && change.onLive
+        ? { replacing: live, from: live.version, ...change.onLive, audit }
+        : undefined,
+  });
 }

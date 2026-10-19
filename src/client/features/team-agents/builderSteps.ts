@@ -3,16 +3,20 @@ import { findLastIndex } from "remeda";
 import { z } from "zod";
 import {
   toolError,
+  toolVerb,
   type Step,
   type Tone,
 } from "@/client/features/agent/agentSteps";
 
 // How a builder chat words its own steps, as the CRM's toolLabel
 // (agent-tool-display.ts) did: the file it wrote, the draft it saved, the
-// title it chose. A call that threw comes back as `{ error }` (the tool
-// registry hands failures to the model), as one the secret check refused or
-// one past the build's limits does: it reads as failed, with its error, as the
-// record chat's steps do, and counts as neither written nor saved.
+// title it chose. A call can fail three ways: refused before it ran (its
+// input didn't check: an `output-error` part with its errorText), thrown
+// while it ran (the tool registry hands it back as `{ error }`, as it does a
+// write the secret check refused or a save past the build's limits), or, for
+// a draft, refused by the checks (`saved: false` with its issues). Any of
+// them reads as failed, with its error, as the CRM's builder chat showed a
+// step's errorText, and counts as neither written nor saved.
 
 type Part = UIMessage["parts"][number];
 
@@ -52,8 +56,20 @@ const FILE_NAMES: Record<string, string> = {
   "agent/README.md": "the readme",
 };
 
+/** Each builder tool's step while it runs, once it did, and if it failed. */
+const STEP_WORDS: Record<string, [string, string, string]> = {
+  [WRITE_AGENT_FILE]: ["Writing", "Wrote", "Could not write"],
+  save_agent_draft: ["Saving draft", "Saved draft", "Could not save draft"],
+  set_chat_title: [
+    "Naming this chat",
+    "Named this chat",
+    "Could not name this chat",
+  ],
+};
+
 const namedInput = z
   .object({
+    path: z.string().catch(""),
     name: z.string().catch(""),
     title: z.string().catch(""),
   })
@@ -65,51 +81,48 @@ const unsavedDraft = z
   .nullable()
   .catch(null);
 
-/** A builder tool's step in the CRM's words (its toolLabel), or null. */
+/**
+ * A builder tool's step in the CRM's words (its toolLabel), any other step
+ * whose call was refused before it ran, with its error, or null.
+ */
 export function builderStep(part: Part, live: boolean): Step | null {
   if (!isToolUIPart(part)) return null;
   const tool = getToolName(part);
+  const words = STEP_WORDS[tool];
+  const refused = part.state === "output-error";
+  if (!words && !refused) return null;
   const output = part.state === "output-available" ? part.output : null;
-  const error = toolError(output);
-  const done =
-    part.state === "output-available" || part.state === "output-error";
-  const failed =
-    error !== null || part.state === "output-error" || (!done && !live);
-  const finished = done && !failed;
-  const tone: Tone = failed ? "warning" : done ? "success" : "neutral";
+  const error = refused
+    ? part.errorText.trim() || null
+    : (toolError(output) ??
+      unsavedDraft.parse(output)?.issues.join(" ") ??
+      null);
   const withError = (label: string) => (error ? `${label} — ${error}` : label);
-  const input = namedInput.parse(part.input);
-  if (tool === WRITE_AGENT_FILE) {
-    const { path } = fileInput.parse(part.input);
-    const name = FILE_NAMES[path] ?? path;
-    return {
-      label: withError(finished ? `Wrote ${name}` : `Writing ${name}`),
-      tone,
-      sources: [],
-    };
+  if (!words) {
+    return { label: withError(toolVerb(tool)), tone: "warning", sources: [] };
   }
-  if (tool === "save_agent_draft") {
-    // A draft the checks refused was not saved: it says why.
-    const unsaved = unsavedDraft.parse(output);
-    const verb = finished && !unsaved ? "Saved draft" : "Saving draft";
-    const name = input.name?.trim();
-    const label = name ? `${verb} · ${name}` : verb;
-    return unsaved
-      ? {
-          label: `${label} — ${unsaved.issues.join(" ")}`,
-          tone: "warning",
-          sources: [],
-        }
-      : { label: withError(label), tone, sources: [] };
-  }
-  if (tool === "set_chat_title") {
-    const verb = finished ? "Named this chat" : "Naming this chat";
-    const title = input.title?.trim();
-    return {
-      label: withError(title ? `${verb} · ${title}` : verb),
-      tone,
-      sources: [],
-    };
-  }
-  return null;
+  const done = part.state === "output-available" || refused;
+  // A call still open in a reply that is no longer streaming never finished.
+  const failed = error !== null || refused || (!done && !live);
+  const tone: Tone = failed ? "warning" : done ? "success" : "neutral";
+  const [doing, did, couldNot] = words;
+  // A call refused before it ran keeps what it was asked as its raw input.
+  const input = namedInput.parse(
+    refused && part.input === undefined && "rawInput" in part
+      ? part.rawInput
+      : part.input,
+  );
+  const object =
+    tool === WRITE_AGENT_FILE
+      ? (FILE_NAMES[input.path ?? ""] ?? input.path)
+      : tool === "save_agent_draft"
+        ? input.name?.trim()
+        : input.title?.trim();
+  const verb = failed ? couldNot : done ? did : doing;
+  const label = !object
+    ? verb
+    : tool === WRITE_AGENT_FILE
+      ? `${verb} ${object}`
+      : `${verb} · ${object}`;
+  return { label: withError(label), tone, sources: [] };
 }
