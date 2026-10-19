@@ -42,8 +42,8 @@ import { runnerTools } from "./runnerTools";
 export const RUN_LIMITS = {
   maxSteps: 16,
   maxOutputTokens: 4_000,
-  /** Research units (two web searches). */
-  budget: 4,
+  /** Research units: two quick web questions. */
+  budget: 2,
   /** A run that has read this much input stops where it is. */
   maxInputTokens: 300_000,
 } as const;

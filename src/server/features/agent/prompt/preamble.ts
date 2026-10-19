@@ -105,7 +105,7 @@ async function contactPreamble(
     opened.kind ? `Task: **${opened.kind}**.` : "",
     opened.reason ? `Why now: ${opened.reason}` : "",
     opened.budget
-      ? `Budget: **${opened.budget}** units (a vendor call costs 2). Spend them where they matter.`
+      ? `Budget: **${opened.budget}** units (a lookup costs 2, a quick web question 1). Spend them where they matter.`
       : "",
     fieldBackfillLine(opened),
     "",
@@ -166,7 +166,7 @@ async function companyPreamble(
     opened.kind ? `Task: **${opened.kind}**.` : "",
     opened.reason ? `Why now: ${opened.reason}` : "",
     opened.budget
-      ? `Budget: **${opened.budget}** units (a vendor call costs 2). Spend them where they matter.`
+      ? `Budget: **${opened.budget}** units (a lookup costs 2, a quick web question 1). Spend them where they matter.`
       : "",
     fieldBackfillLine(opened),
     "",

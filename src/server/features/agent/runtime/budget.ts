@@ -1,14 +1,18 @@
 import type { LanguageModelUsage } from "ai";
 import { z } from "zod";
 
-// The research budget, ported from the CRM's lib/focus.ts. A unit is one
-// metered vendor call's share, not one credit: every billable lookup (a brand,
-// a person, a page extraction) costs 2, so a session with a budget of 4 can
-// make two of them. Beside it, a research session's tokens are capped, as the
-// CRM capped its agent's sessions. Running out of either is a normal ending,
-// not a failure. Both are kept in the session's own storage, so they outlive
-// the Durable Object's memory and carry over to a retried attempt.
+// The research budget, ported from the CRM's lib/focus.ts, is how many paid
+// lookups a session may make before it writes up. Units aren't money (each
+// vendor call is billed at its real cost): they price calls as the CRM did.
+// A lookup (a brand, a person, a page extraction, a search for someone's
+// profiles) costs 2, a quick web question 1 and a deep one 2, and checking an
+// X handle nothing, so a budget of 4 buys two lookups or four quick questions.
+// Beside it, a research session's tokens are capped, as the CRM capped its
+// agent's sessions. Running out of either is a normal ending, not a failure.
+// Both are kept in the session's own storage, so they outlive the Durable
+// Object's memory and carry over to a retried attempt.
 
+/** What a lookup costs: a brand, a person, a page extraction, a profile search. */
 export const BILLABLE_CALL_UNITS = 2;
 
 type BudgetState = { spent: number; budget: number; exhausted: boolean };

@@ -107,17 +107,15 @@ export const socialTools: ToolGroup = (context) => ({
       if (!person) {
         return { written: false as const, reason: "No such contact." };
       }
-      // Corroborating an X handle is a search: it costs a lookup, and only
-      // when a handle gets that far.
+      // Corroborating an X handle is a search, billed at its cost, that the
+      // CRM never counted against the research budget.
       const research = await webResearchAccess();
-      const ask: Ask = async (question, options) => {
-        if (!research) {
-          return { ok: false, reason: "web research is not set up here." };
-        }
-        const charge = context.spend(BILLABLE_CALL_UNITS);
-        if (!charge.ok) return { ok: false, reason: charge.reason };
-        return asker(research)(question, options);
-      };
+      const ask: Ask = research
+        ? asker(research)
+        : async () => ({
+            ok: false,
+            reason: "web research is not set up here.",
+          });
       const rejected: string[] = [];
       const outcomes: {
         field: "twitterUrl" | "githubUrl";

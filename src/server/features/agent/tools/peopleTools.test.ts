@@ -128,6 +128,22 @@ describe("the agent's people research", () => {
     expect(contextFetch).not.toHaveBeenCalled();
   });
 
+  it("prices a quick web question at 1 unit, a deep one at 2 and an X check at nothing, as the CRM did", async () => {
+    vi.mocked(webResearchAccess).mockResolvedValue(contextFetch);
+    const chat = toolSession();
+    const question = "What has Fernhill announced?";
+    await chat.call("research_person", { question });
+    expect(chat.budget.spent).toBe(1);
+    await chat.call("research_person", { question, deep: true });
+    expect(chat.budget.spent).toBe(3);
+    await chat.call("set_contact_socials", {
+      contactId: "c_a",
+      twitterUrl: "https://x.com/paulamarchetti",
+    });
+    expect(ask).toHaveBeenCalledTimes(3);
+    expect(chat.budget.spent).toBe(3);
+  });
+
   it("writes a GitHub account that names them, and rejects what it cannot corroborate", async () => {
     const chat = toolSession();
     githubAccount({

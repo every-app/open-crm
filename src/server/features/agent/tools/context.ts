@@ -25,7 +25,7 @@ export type AgentToolContext = {
    * an owner or admin may use.
    */
   role: string | null;
-  /** Draws on the session's research budget; vendor calls cost 2. */
+  /** Draws on the session's research budget, priced in runtime/budget.ts. */
   spend: Spend;
 };
 
