@@ -3,9 +3,8 @@ import { refusedHost } from "@/server/lib/publicUrl";
 // A GET (or HEAD) of a public http(s) URL for the agent's own reads (a page,
 // a logo, a photograph). Redirects are followed by hand, at most three, so
 // each hop is checked again: never an address, a local name or the Every App
-// gateway's hosts (publicUrl.ts), and the Worker's
-// global_fetch_strictly_public flag keeps every hop off private addresses.
-// Null for anything that is not a 2xx answer.
+// gateway's hosts (publicUrl.ts). Null for anything that is not a 2xx
+// answer.
 
 const MAX_REDIRECTS = 3;
 const TIMEOUT_MS = 15_000;

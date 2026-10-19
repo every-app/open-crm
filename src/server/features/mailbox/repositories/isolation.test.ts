@@ -169,6 +169,34 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toBeNull();
     });
 
+    it("takes due rows round-robin by organization, the longest-waiting first", async () => {
+      await SyncStateRepository.ensureSources({
+        ...A,
+        sources: ["gmail", "calendar", "outlook"],
+        resetCursor: false,
+      });
+      await SyncStateRepository.ensureSources({
+        organizationId: "org_b",
+        userId: "user_b",
+        sources: ["gmail"],
+        resetCursor: false,
+      });
+      // org_a's three have waited longer than org_b's one.
+      await database.exec(
+        `UPDATE mailbox_sync SET next_sync_at = CASE source WHEN 'gmail' THEN '2026-01-01T00:00:01.000Z' WHEN 'calendar' THEN '2026-01-01T00:00:02.000Z' ELSE '2026-01-01T00:00:03.000Z' END WHERE organization_id = 'org_a';
+         UPDATE mailbox_sync SET next_sync_at = '2026-01-01T00:00:09.000Z' WHERE organization_id = 'org_b';`,
+      );
+      const due = await SyncStateRepository.due({
+        now: new Date().toISOString(),
+        sources: ["gmail", "calendar", "outlook"],
+        limit: 2,
+      });
+      expect(due.map((row) => [row.organizationId, row.source])).toEqual([
+        ["org_a", "gmail"],
+        ["org_b", "gmail"],
+      ]);
+    });
+
     it("lets one check at a time hold a row, and leaves a held row out of the due list", async () => {
       await SyncStateRepository.ensureSources({
         ...A,

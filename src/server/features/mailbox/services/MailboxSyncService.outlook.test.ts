@@ -37,6 +37,7 @@ import {
 } from "@/server/features/mailbox/mailboxTestSupport";
 import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
 import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
+import { CaptureService } from "./CaptureService";
 import { MailboxSyncService } from "./MailboxSyncService";
 
 const GRAPH = "graph.microsoft.com/v1.0/me";
@@ -177,6 +178,66 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toEqual([
         ["About the renewal", "Outlook"],
         ["About the renewal", "Outlook"],
+      ]);
+    });
+
+    it("passes over a message that can't be stored once a later one is, and holds its place until then", async () => {
+      await database.exec(
+        `UPDATE mailbox_sync SET cursor = '2026-10-01T00:00:00.000Z', auto_create = ${dialect === "sqlite" ? 1 : "true"}`,
+      );
+      const store = CaptureService.storeMessage;
+      vi.spyOn(CaptureService, "storeMessage").mockImplementation(
+        (job, incoming, context) =>
+          incoming.rfcMessageId === "bad@outlook.com"
+            ? Promise.reject(new Error("Failed query: params: its body"))
+            : store(job, incoming, context),
+      );
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const page = (...messages: [string, string][]) =>
+        stubProviders({
+          [`${GRAPH}/messages`]: () => ({
+            value: messages.map(([id, receivedAt]) =>
+              message({
+                id,
+                from: "bo@contoso.com",
+                to: "kim@wayne.com",
+                receivedAt,
+              }),
+            ),
+          }),
+        });
+      const state = () =>
+        database.rows(`SELECT status, cursor FROM mailbox_sync`);
+
+      // Nothing was stored after it, so the fault may be the database's.
+      page(["good", "2026-10-01T10:00:00Z"], ["bad", "2026-10-01T11:00:00Z"]);
+      await MailboxSyncService.runDue();
+      expect(await state()).toEqual([
+        { status: "FAILED", cursor: "2026-10-01T10:00:00.000Z" },
+      ]);
+      expect(errors).toHaveBeenCalledWith("[mailbox] could not store an item", {
+        organizationId: "org_b",
+        userId: "user_b",
+        source: "outlook",
+        id: "bad",
+      });
+
+      // A later message is stored: the fault was the message's own.
+      page(["bad", "2026-10-01T11:00:00Z"], ["later", "2026-10-01T12:00:00Z"]);
+      await database.exec(
+        `UPDATE mailbox_sync SET next_sync_at = '2000-01-01T00:00:00.000Z'`,
+      );
+      await MailboxSyncService.runDue();
+      expect(await state()).toEqual([
+        { status: "IDLE", cursor: "2026-10-01T12:00:00.000Z" },
+      ]);
+      expect(
+        await database.rows(
+          `SELECT rfc_message_id FROM email_message ORDER BY rfc_message_id`,
+        ),
+      ).toEqual([
+        { rfc_message_id: "good@outlook.com" },
+        { rfc_message_id: "later@outlook.com" },
       ]);
     });
 

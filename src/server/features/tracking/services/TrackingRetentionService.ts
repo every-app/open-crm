@@ -5,41 +5,41 @@ import {
 } from "@/server/features/tracking/trackingRules";
 
 // Retention for every organization at once, from the hourly cron tick
-// (src/server/cron.ts). Each run:
+// (src/server/cron.ts). Each run, in batches, until its time is up:
 //
-// 1. rolls page views older than the cutoff into daily rows, before
-//    anything is deleted (clicks are not page views and are not rolled);
-// 2. deletes those events, in bounded passes; a run that hits the ceiling
-//    says so, and the next hour carries on (a day rolled twice keeps its
-//    larger count, so the rerun never under-reports what was deleted);
-// 3. deletes visitors whose contact is gone and who have nothing left;
-// 4. deletes rate counters whose window has passed.
+// 1. rolls the page views among a batch of events older than the cutoff
+//    into daily rows, and deletes the batch, atomically (clicks are not page
+//    views and are not rolled); a run out of time says so, and the next hour
+//    carries on;
+// 2. deletes visitors whose contact is gone and who have nothing left;
+// 3. deletes rate counters whose window has passed.
 //
-// The cutoff is a whole UTC day, so no calendar day is split across runs.
+// The cutoff is a whole UTC day.
 
 const SWEEP_BATCH = 5_000;
-const MAX_SWEEP_PASSES = 20;
+/** How long a run starts batches for. */
+const SWEEP_MS = 20_000;
 
-async function sweepPasses(remove: () => Promise<number>) {
+async function sweepUntil(deadline: number, remove: () => Promise<number>) {
   let removed = 0;
-  for (let pass = 0; pass < MAX_SWEEP_PASSES; pass += 1) {
+  for (;;) {
     const deleted = await remove();
     removed += deleted;
     if (deleted < SWEEP_BATCH) return { removed, complete: true };
+    if (Date.now() >= deadline) return { removed, complete: false };
   }
-  return { removed, complete: false };
 }
 
 async function sweep(now: Date = new Date()) {
   const cutoff = retentionCutoff(now, EVENT_RETENTION_DAYS);
-  await TrackingRetentionRepository.rollUpBefore(cutoff);
-  const events = await sweepPasses(() =>
-    TrackingRetentionRepository.deleteEventsBefore(cutoff, SWEEP_BATCH),
+  const deadline = Date.now() + SWEEP_MS;
+  const events = await sweepUntil(deadline, () =>
+    TrackingRetentionRepository.rollUpAndDeleteBefore(cutoff, SWEEP_BATCH),
   );
-  const visitors = await sweepPasses(() =>
+  const visitors = await sweepUntil(deadline, () =>
     TrackingRetentionRepository.deleteOrphanVisitors(cutoff, SWEEP_BATCH),
   );
-  const counters = await sweepPasses(() =>
+  const counters = await sweepUntil(deadline, () =>
     TrackingRetentionRepository.deleteExpiredCounters(
       now.toISOString(),
       SWEEP_BATCH,
@@ -47,7 +47,7 @@ async function sweep(now: Date = new Date()) {
   );
   if (!events.complete) {
     console.warn(
-      "[tracking] retention hit its pass limit: older events remain until the next run",
+      "[tracking] retention ran out of time: older events remain until the next run",
       { removed: events.removed, retentionDays: EVENT_RETENTION_DAYS },
     );
   }

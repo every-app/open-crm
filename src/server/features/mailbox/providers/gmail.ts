@@ -1,10 +1,10 @@
 import { z } from "zod";
 import {
   decodeBase64Url,
+  messageBody,
   normaliseMessageId,
   rootMessageIdFrom,
   stripHtml,
-  stripQuotedHistory,
 } from "@/server/features/mailbox/lib/messageText";
 import { parseAddress, parseAddressList } from "@/shared/participants";
 import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
@@ -13,7 +13,12 @@ import {
   type IncomingMessage,
 } from "@/server/features/mailbox/services/CaptureService";
 import { budgetLeft, mailboxGet } from "./mailboxApi";
-import { failureOf, type SyncJob, type SyncResult } from "./syncJob";
+import {
+  createFiler,
+  failureOf,
+  type SyncJob,
+  type SyncResult,
+} from "./syncJob";
 
 // Gmail, read-only and forward-only, ported from the CRM's gmail.client.ts,
 // gmail-mime.ts and gmail-sync.service.ts. The first check records the
@@ -142,12 +147,13 @@ export async function syncGmail(job: SyncJob): Promise<SyncResult> {
   let cursor = start;
   let fetched = 0;
   const seen = new Set<string>();
+  const filer = createFiler(job);
   for (const entry of entries) {
     for (const added of entry.messagesAdded ?? []) {
       const id = added.message?.id;
       if (!id || stored.has(id) || seen.has(id)) continue;
       if (fetched >= MAX_MESSAGES_PER_CHECK || !budgetLeft(budget)) {
-        return { status: "IDLE", cursor };
+        return filer.end(cursor);
       }
       seen.add(id);
       fetched += 1;
@@ -160,25 +166,22 @@ export async function syncGmail(job: SyncJob): Promise<SyncResult> {
       );
       // Deleted since it arrived: nothing to file.
       if (message.outcome === "cursor-invalid") continue;
-      if (message.outcome !== "ok") return failureOf(message, cursor);
+      if (message.outcome !== "ok") {
+        return failureOf(message, filer.place(cursor));
+      }
       const parsed = parseGmailMessage(message.data);
       if (parsed) {
-        await CaptureService.storeMessage(
-          job.capture,
-          parsed,
-          await job.context(),
+        await filer.file(id, cursor, async () =>
+          CaptureService.storeMessage(job.capture, parsed, await job.context()),
         );
       }
     }
     if (entry.id) cursor = entry.id;
   }
   // A history longer than a page continues from its last record next time.
-  return {
-    status: "IDLE",
-    cursor: history.data.nextPageToken
-      ? cursor
-      : (history.data.historyId ?? cursor),
-  };
+  return filer.end(
+    history.data.nextPageToken ? cursor : (history.data.historyId ?? cursor),
+  );
 }
 
 function header(
@@ -208,15 +211,25 @@ function findPart(part: GmailPart, mimeType: string): GmailPart | null {
   return null;
 }
 
+/** The charset a part's Content-Type declares; Gmail doesn't convert it. */
+function charsetOf(part: GmailPart): string | null {
+  const type = header(part.headers, "content-type");
+  return type?.match(/charset\s*=\s*"?([^";\s]+)/i)?.[1] ?? null;
+}
+
 /** The message's text: its text/plain part, else its HTML as text. */
 function plainTextBody(payload: GmailPart | undefined): string {
   if (!payload) return "";
   const plain = findPart(payload, "text/plain");
-  if (plain?.body?.data) return decodeBase64Url(plain.body.data);
+  if (plain?.body?.data) {
+    return decodeBase64Url(plain.body.data, charsetOf(plain));
+  }
   const html = findPart(payload, "text/html");
-  if (html?.body?.data) return stripHtml(decodeBase64Url(html.body.data));
+  if (html?.body?.data) {
+    return stripHtml(decodeBase64Url(html.body.data, charsetOf(html)));
+  }
   if (payload.body?.data && !payload.filename) {
-    return decodeBase64Url(payload.body.data);
+    return decodeBase64Url(payload.body.data, charsetOf(payload));
   }
   return "";
 }
@@ -260,7 +273,7 @@ function parseGmailMessage(message: GmailMessage): IncomingMessage | null {
     subject: header(headers, "subject"),
     from,
     recipients: [...people("to", "to"), ...people("cc", "cc")],
-    body: stripQuotedHistory(plainTextBody(message.payload)),
+    body: messageBody(plainTextBody(message.payload)),
     sentAt,
     gmailMessageId: message.id ?? null,
   };

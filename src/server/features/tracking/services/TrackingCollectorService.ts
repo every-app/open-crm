@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { forOrganization } from "@/server/lib/gateway-attribution";
+import { withinAddressLimit } from "@/server/features/tracking/addressLimit";
 import {
   classifyTouch,
   type RawTouch,
@@ -13,6 +14,7 @@ import {
 import { TrackingSiteRepository } from "@/server/features/tracking/repositories/TrackingSiteRepository";
 import { TrackingFilingService } from "@/server/features/tracking/services/TrackingFilingService";
 import {
+  dayWindow,
   dedupeKey,
   hostAllowed,
   isSiteId,
@@ -21,7 +23,9 @@ import {
   matchedHost,
   minuteWindow,
   normalizePath,
+  ORG_EVENTS_PER_DAY,
   originAllowed,
+  SENSITIVE_FIELD,
   SITE_EVENTS_PER_MINUTE,
   stripQuery,
   trackingConfig,
@@ -49,13 +53,16 @@ import {
 // 3. Origin: present, and on the allow-list when there is one;
 // 4. the visitor id: 8 to 64 of [A-Za-z0-9_-];
 // 5. replay: three or more events sharing one timestamp;
-// 6. each event's host against the allow-list (the batch is filtered, not
+// 6. the address's requests this minute, to the site and in all, counted
+//    in memory (addressLimit.ts);
+// 7. each event's host against the allow-list (the batch is filtered, not
 //    refused);
-// 7. the rate, charged per accepted event in the database: per site, then
-//    per visitor; a refused charge spends nothing.
+// 8. the rate, charged per accepted event in the database: per organization
+//    a day, then per site and per visitor a minute; a refused charge spends
+//    nothing.
 //
-// The cheap checks (1, the id's shape, Origin's presence, 4, 5) run before
-// the one database lookup.
+// The cheap checks (1, the id's shape, Origin's presence, 4, 5, 6) run
+// before the one database lookup.
 
 const MAX_LABEL = 80;
 const MAX_PATH = 512;
@@ -64,8 +71,7 @@ const MAX_FIELD_KEY = 64;
 const MAX_FIELD_VALUE = 512;
 
 const BOT = /bot|crawler|spider|crawling|headlesschrome|lighthouse|preview/i;
-// Field names that never leave the collector, and values shaped like a card.
-const SENSITIVE = /pass|secret|token|card|cvv|cvc|ssn|iban|routing/i;
+// Values shaped like a card never leave the collector either.
 const CARD = /^[0-9 -]{12,25}$/;
 
 type Site = { organizationId: string; config: TrackingConfig };
@@ -145,7 +151,7 @@ function cleanFields(fields: Record<string, unknown> | undefined) {
     MAX_FORM_FIELDS,
   )) {
     if (typeof value !== "string") continue;
-    if (SENSITIVE.test(key)) continue;
+    if (SENSITIVE_FIELD.test(key)) continue;
     if (CARD.test(value.trim())) continue;
     kept[trim(key, MAX_FIELD_KEY)] = trim(value, MAX_FIELD_VALUE);
   }
@@ -178,38 +184,50 @@ function nameFrom(fields: Record<string, string>): string | null {
 
 type Accepted = { event: TrackedEventInput; host: string };
 
-/** Charges the batch to the site's minute, then the visitor's. */
+/**
+ * Charges the batch to the organization's day, the site's minute, then the
+ * visitor's; a refused charge hands back the ones before it.
+ */
 async function withinRate(
   organizationId: string,
   visitorId: string,
   events: number,
 ): Promise<boolean> {
-  const window = minuteWindow(new Date());
-  const siteKey = `site:${window.key}`;
-  if (
-    !(await TrackingEventRepository.take(
-      organizationId,
-      siteKey,
-      SITE_EVENTS_PER_MINUTE,
-      events,
-      window.expiresAt,
-    ))
-  ) {
-    return false;
+  const now = new Date();
+  const minute = minuteWindow(now);
+  const day = dayWindow(now);
+  const charges = [
+    { key: `day:${day.key}`, limit: ORG_EVENTS_PER_DAY, window: day },
+    {
+      key: `site:${minute.key}`,
+      limit: SITE_EVENTS_PER_MINUTE,
+      window: minute,
+    },
+    {
+      key: `visitor:${visitorId}:${minute.key}`,
+      limit: VISITOR_EVENTS_PER_MINUTE,
+      window: minute,
+    },
+  ];
+  const taken: string[] = [];
+  for (const { key, limit, window } of charges) {
+    if (
+      !(await TrackingEventRepository.take(
+        organizationId,
+        key,
+        limit,
+        events,
+        window.expiresAt,
+      ))
+    ) {
+      for (const charged of taken) {
+        await TrackingEventRepository.release(organizationId, charged, events);
+      }
+      return false;
+    }
+    taken.push(key);
   }
-  if (
-    await TrackingEventRepository.take(
-      organizationId,
-      `visitor:${visitorId}:${window.key}`,
-      VISITOR_EVENTS_PER_MINUTE,
-      events,
-      window.expiresAt,
-    )
-  ) {
-    return true;
-  }
-  await TrackingEventRepository.release(organizationId, siteKey, events);
-  return false;
+  return true;
 }
 
 async function recordEvents(
@@ -325,7 +343,12 @@ const bodySchema = z
 /** Takes one POST from a tracker; never throws for anything it was sent. */
 async function accept(
   body: string,
-  request: { origin: string | null; userAgent: string | null },
+  request: {
+    origin: string | null;
+    userAgent: string | null;
+    /** The client's address (addressLimit.ts), when the request names one. */
+    address?: string;
+  },
 ): Promise<void> {
   if (request.userAgent && BOT.test(request.userAgent)) return;
   const parsed = bodySchema.safeParse(body);
@@ -339,6 +362,7 @@ async function accept(
     return event.success ? [event.data] : [];
   });
   if (events.length === 0 || scripted(events)) return;
+  if (!withinAddressLimit(request.address ?? "", batch.siteId)) return;
 
   const site = await configForSite(batch.siteId);
   if (!site || !originAllowed(request.origin, site.config)) return;

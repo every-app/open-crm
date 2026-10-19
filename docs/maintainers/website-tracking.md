@@ -74,17 +74,27 @@ this order; the ones that need no database run before the one lookup:
 3. Site id shape, `Origin` present, visitor id shape (8 to 64 characters of
    `[A-Za-z0-9_-]`), at most 20 events, and no replays (three or more events
    with the same timestamp).
-4. Site lookup: one indexed read. Refuses unknown, rotated or paused sites.
-5. `Origin` and each event's host against the allow-list. Off-list events
+4. The client's address (`CF-Connecting-IP`, an IPv6 one by its /64): at
+   most 120 requests a minute to one site and 600 in all. It is counted in
+   the Worker's memory (`addressLimit.ts`), so it holds per isolate, and it
+   is never stored. `/t/<siteId>.js` counts the same way and answers 429
+   past it. Every App's deploy policy doesn't allow a Workers Rate Limiting
+   binding yet; with one, the count would hold per Cloudflare location.
+5. Site lookup: one indexed read. Refuses unknown, rotated or paused sites.
+6. `Origin` and each event's host against the allow-list. Off-list events
    are filtered out; the rest of the batch is kept.
-6. Rate, charged per accepted event in the database with one conditional
-   upsert per counter. The limits are 600 events a minute per site and 120
-   per visitor. A refused charge spends nothing.
+7. Rate, charged per accepted event in the database with one conditional
+   upsert per counter. The limits are 50,000 events a day per organization,
+   600 a minute per site and 120 per visitor. A refused charge spends
+   nothing.
 
 Stored fields are bounded too: paths and referrers at 512 characters,
 labels at 80, UTM values at 120, and forms at 40 fields of 512 characters.
-Query strings, password, hidden and file inputs, sensitive field names, card
-numbers and IP addresses are never stored.
+A form with a password field, and a form or field marked
+`data-crm-ignore`, is never sent. Query strings, hidden and file inputs,
+fields whose name or autocomplete token is sensitive (secrets, cards, birth
+dates, tax ids, social security numbers; `SENSITIVE_FIELD`), card numbers
+and IP addresses are never stored.
 
 A form submission becomes a contact under the same rules captured mail
 follows (`src/shared/participants.ts`):
@@ -97,17 +107,18 @@ follows (`src/shared/participants.ts`):
   submission to an existing contact costs nothing.
 
 So the worst a scripted attacker can do to one organization is bounded per
-minute and per hour, and each event costs them a full HTTP request.
+minute, per hour and per day, and each event costs them a full HTTP request.
 
 ## Retention
 
 The hourly cron tick at minute 30 runs retention for every organization at
-once (`TrackingRetentionService`):
+once (`TrackingRetentionService`), in batches of 5,000 for up to 20 seconds:
 
-1. Page views older than 90 days, cut at a UTC midnight, are rolled into
-   `tracked_page_daily`.
-2. Those events are deleted in passes of up to 5,000. A run that hits the
-   pass limit logs a warning and the next hour continues. A day that gets
-   rolled twice keeps the larger count.
-3. Visitors whose contact is gone and who have no events left are deleted.
-4. Expired rate counters are deleted.
+1. A batch is the oldest events older than 90 days, cut at a UTC midnight.
+   Its page views are rolled into `tracked_page_daily` and its events are
+   deleted in one atomic batch, so an event is counted once, by the batch
+   that deletes it. Visitors are added up per batch: one whose views of a
+   page fall in two batches of a day counts twice. A run that runs out of
+   time logs a warning and the next hour continues.
+2. Visitors whose contact is gone and who have no events left are deleted.
+3. Expired rate counters are deleted.

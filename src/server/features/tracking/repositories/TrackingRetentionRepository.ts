@@ -1,5 +1,6 @@
-import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { runBatch } from "@/db/runBatch";
 import {
   trackedEvent,
   trackedPageDaily,
@@ -11,71 +12,76 @@ import {
 // cron's sweep). Nothing here is read back by an organization; each
 // statement is bounded by `limit`.
 
-/**
- * Rolls page views before `cutoff` into daily rows per page. A day rolled
- * twice keeps the larger count, so a sweep cut short and run again never
- * under-reports the part it already deleted.
- */
-async function rollUpBefore(cutoff: string) {
-  const day = sql<string>`substr(${trackedEvent.occurredAt}, 1, 10)`;
-  await db
-    .insert(trackedPageDaily)
-    .select(
-      db
-        .select({
-          organizationId: trackedEvent.organizationId,
-          day: sql<string>`${day}`.as("day"),
-          host: trackedEvent.host,
-          path: trackedEvent.path,
-          views: sql<number>`count(*)`.as("views"),
-          visitors: sql<number>`count(distinct ${trackedEvent.visitorId})`.as(
-            "visitors",
-          ),
-        })
-        .from(trackedEvent)
-        .where(
-          and(
-            lt(trackedEvent.occurredAt, cutoff),
-            eq(trackedEvent.type, "page_view"),
-          ),
-        )
-        .groupBy(
-          trackedEvent.organizationId,
-          day,
-          trackedEvent.host,
-          trackedEvent.path,
-        ),
-    )
-    .onConflictDoUpdate({
-      target: [
-        trackedPageDaily.organizationId,
-        trackedPageDaily.day,
-        trackedPageDaily.host,
-        trackedPageDaily.path,
-      ],
-      set: {
-        views: sql`case when excluded.views > ${trackedPageDaily.views} then excluded.views else ${trackedPageDaily.views} end`,
-        visitors: sql`case when excluded.visitors > ${trackedPageDaily.visitors} then excluded.visitors else ${trackedPageDaily.visitors} end`,
-      },
-    });
+/** The oldest `limit` events before `cutoff`, always the same ones. */
+function oldest(executor: typeof db, cutoff: string, limit: number) {
+  return executor
+    .select({ id: trackedEvent.id })
+    .from(trackedEvent)
+    .where(lt(trackedEvent.occurredAt, cutoff))
+    .orderBy(asc(trackedEvent.occurredAt), asc(trackedEvent.id))
+    .limit(limit);
 }
 
-/** Deletes up to `limit` events before `cutoff`; how many went. */
-async function deleteEventsBefore(cutoff: string, limit: number) {
-  const removed = await db
-    .delete(trackedEvent)
-    .where(
-      inArray(
-        trackedEvent.id,
-        db
-          .select({ id: trackedEvent.id })
+/**
+ * Rolls the page views among the oldest `limit` events before `cutoff` into
+ * daily rows per page, and deletes those events, in one atomic batch: each
+ * event is counted once, in the batch that deletes it. How many went.
+ * Visitors are added up per batch, so one whose views of a page fall in two
+ * batches of a day counts twice.
+ */
+async function rollUpAndDeleteBefore(cutoff: string, limit: number) {
+  const [batch] = await db
+    .select({ size: count() })
+    .from(oldest(db, cutoff, limit).as("oldest"));
+  const size = batch?.size ?? 0;
+  if (size === 0) return 0;
+  const day = sql<string>`substr(${trackedEvent.occurredAt}, 1, 10)`;
+  await runBatch((tx) => [
+    tx
+      .insert(trackedPageDaily)
+      .select(
+        tx
+          .select({
+            organizationId: trackedEvent.organizationId,
+            day: sql<string>`${day}`.as("day"),
+            host: trackedEvent.host,
+            path: trackedEvent.path,
+            views: sql<number>`count(*)`.as("views"),
+            visitors: sql<number>`count(distinct ${trackedEvent.visitorId})`.as(
+              "visitors",
+            ),
+          })
           .from(trackedEvent)
-          .where(lt(trackedEvent.occurredAt, cutoff))
-          .limit(limit),
-      ),
-    )
-    .returning({ id: trackedEvent.id });
-  return removed.length;
+          .where(
+            and(
+              inArray(trackedEvent.id, oldest(tx, cutoff, limit)),
+              eq(trackedEvent.type, "page_view"),
+            ),
+          )
+          .groupBy(
+            trackedEvent.organizationId,
+            day,
+            trackedEvent.host,
+            trackedEvent.path,
+          ),
+      )
+      .onConflictDoUpdate({
+        target: [
+          trackedPageDaily.organizationId,
+          trackedPageDaily.day,
+          trackedPageDaily.host,
+          trackedPageDaily.path,
+        ],
+        set: {
+          views: sql`${trackedPageDaily.views} + excluded.views`,
+          visitors: sql`${trackedPageDaily.visitors} + excluded.visitors`,
+        },
+      }),
+    tx
+      .delete(trackedEvent)
+      .where(inArray(trackedEvent.id, oldest(tx, cutoff, limit))),
+  ]);
+  return size;
 }
 
 /**
@@ -126,8 +132,7 @@ async function deleteExpiredCounters(now: string, limit: number) {
 }
 
 export const TrackingRetentionRepository = {
-  rollUpBefore,
-  deleteEventsBefore,
+  rollUpAndDeleteBefore,
   deleteOrphanVisitors,
   deleteExpiredCounters,
 };

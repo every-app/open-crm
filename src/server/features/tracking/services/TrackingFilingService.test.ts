@@ -85,6 +85,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         email: "Jane.Doe@Northwind.example",
         password: "hunter2",
         card: "4111 1111 1111 1111",
+        "cc-csc": "737",
+        dateOfBirth: "1990-04-01",
+        tax_id: "12-3456789",
+        social_security_number: "078-05-1120",
       };
       await submit(fields);
       // A resend inside the minute is the same submission.
@@ -101,7 +105,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
       expect(await submissions()).toMatchObject([{ skip_reason: null }]);
       // Sensitive fields never reach storage.
-      expect(JSON.stringify(await submissions())).not.toMatch(/hunter2|4111/);
+      expect(JSON.stringify(await submissions())).not.toMatch(
+        /hunter2|4111|737|1990|3456789|1120/,
+      );
       expect(
         await database.rows(
           "SELECT type, subject, created_by_id FROM activity",

@@ -1,5 +1,6 @@
 import { AppError } from "@/server/lib/errors";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
+import { refusedHost } from "@/server/lib/publicUrl";
 import { WebsiteActivityRepository } from "@/server/features/tracking/repositories/WebsiteActivityRepository";
 import { TrackingSiteRepository } from "@/server/features/tracking/repositories/TrackingSiteRepository";
 import {
@@ -123,9 +124,12 @@ async function sources(organizationId: string) {
 }
 
 // Verify installation fetches a page the person names, from the Worker:
-// https on every hop, no credentials, redirects followed by hand (each hop
-// checked again; global_fetch_strictly_public keeps them all off private
-// addresses), a timeout, and only the first MAX_VERIFY_BYTES read.
+// https on every hop, no credentials, redirects followed by hand with each
+// hop checked again (refusedHost: never an address, a local name or the
+// gateway's hosts), a timeout, and only the first MAX_VERIFY_BYTES read.
+// Nothing resolves a name first, so a public name that points at a private
+// address isn't refused here; global_fetch_strictly_public only sends a
+// fetch to the Worker's own zone through Cloudflare's front door.
 const VERIFY_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
 
@@ -168,6 +172,8 @@ async function fetchPage(url: URL): Promise<Fetched> {
     if (target.protocol !== "https:" || target.username || target.password) {
       return failed();
     }
+    const refused = await refusedHost(target);
+    if (refused) return failed(refused);
     let response: Response;
     try {
       response = await fetch(target, {

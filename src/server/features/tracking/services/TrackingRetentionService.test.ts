@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Retention rolls whole UTC days of page views up before it deletes them,
-// for every organization, and a day rolled twice keeps its larger count.
+// Retention rolls page views up as it deletes them, for every organization,
+// counting each event once, in the batch that deletes it.
 const { testDb } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -93,7 +93,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
     });
 
-    it("keeps a day's larger count when it is rolled again", async () => {
+    it("adds a day's events rolled in a later run to its count", async () => {
       await insertEvents([
         event("e1", "org_a", "v1", "page_view", `${OLD_DAY}T09:00:00.000Z`),
         event("e2", "org_a", "v2", "page_view", `${OLD_DAY}T10:00:00.000Z`),
@@ -106,7 +106,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await TrackingRetentionService.sweep(NOW);
       expect(
         await database.rows("SELECT views, visitors FROM tracked_page_daily"),
-      ).toEqual([{ views: 2, visitors: 2 }]);
+      ).toEqual([{ views: 3, visitors: 3 }]);
     });
   });
 }

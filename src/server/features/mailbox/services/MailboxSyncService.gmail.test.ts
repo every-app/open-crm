@@ -291,6 +291,53 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await database.rows(`SELECT id FROM company`)).toEqual([]);
     });
 
+    it("reads a part in the charset it declares, and stores no NUL characters", async () => {
+      await database.exec(`UPDATE mailbox_sync SET cursor = '100'`);
+      await ContactRepository.insert({
+        organizationId: "org_a",
+        firstName: "Jane",
+        lastName: null,
+        email: "jane@globex.com",
+        phone: null,
+        title: null,
+        companyId: null,
+        ownerId: null,
+      });
+      // Read as UTF-8, a UTF-16 part is NULs between letters, which
+      // Postgres refuses: the mailbox would never get past it.
+      fakeGmail({
+        historyId: "102",
+        history: [{ id: "101", messages: ["g1"] }],
+        messages: {
+          g1: {
+            id: "g1",
+            internalDate: String(Date.parse("2026-10-01T09:00:00.000Z")),
+            payload: {
+              mimeType: "text/plain",
+              headers: [
+                { name: "Message-ID", value: "<m1@globex.com>" },
+                { name: "From", value: "Jane <jane@globex.com>" },
+                { name: "To", value: "ana@acme.com" },
+                { name: "Subject", value: "Pi\u0000lot" },
+                { name: "Content-Type", value: 'text/plain; charset="UTF-16"' },
+              ],
+              body: {
+                data: Buffer.from("Grüße, Jane", "utf16le").toString(
+                  "base64url",
+                ),
+              },
+            },
+          },
+        },
+      });
+
+      await MailboxSyncService.runDue();
+      expect(
+        await database.rows(`SELECT subject, body FROM email_message`),
+      ).toEqual([{ subject: "Pilot", body: "Grüße, Jane" }]);
+      expect(await cursor()).toBe("102");
+    });
+
     it("asks the member to reconnect when Google refuses the refresh", async () => {
       await database.exec(
         `UPDATE mailbox_connection SET access_token_expires_at = '2000-01-01T00:00:00.000Z'`,
