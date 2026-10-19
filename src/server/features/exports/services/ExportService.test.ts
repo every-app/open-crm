@@ -58,7 +58,12 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       `);
 
       expect(await exported("companies")).toMatchObject([
-        { Name: "Acme", Domain: "acme.test", Owner: "ana@a.test", Tier: "Gold" },
+        {
+          Name: "Acme",
+          Domain: "acme.test",
+          Owner: "ana@a.test",
+          Tier: "Gold",
+        },
       ]);
       expect(await exported("contacts")).toMatchObject([
         {
