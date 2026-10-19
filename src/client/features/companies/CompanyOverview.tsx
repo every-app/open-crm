@@ -20,8 +20,8 @@ type Mutations = ReturnType<typeof useCompanyMutations>;
 type CompanyPatch = Omit<UpdateCompanyInput, "id">;
 
 /**
- * A company's Overview tab: what it does (once that's known), its details
- * and links, and its visits to the website. Its people and deals have tabs
+ * A company's Overview tab: what it does, its details and links, and its
+ * visits to the website. Its people and deals have tabs
  * of their own.
  */
 export function CompanyOverview({
@@ -42,15 +42,14 @@ export function CompanyOverview({
 
   return (
     <div>
-      {company.description ? (
-        <SheetSection title="About">
-          <InlineTextArea
-            label="Description"
-            value={company.description}
-            {...field("description")}
-          />
-        </SheetSection>
-      ) : null}
+      {/* Even when empty: a cleared description can be written again. */}
+      <SheetSection title="About">
+        <InlineTextArea
+          label="Description"
+          value={company.description}
+          {...field("description")}
+        />
+      </SheetSection>
 
       <SheetSection
         title="Details"
