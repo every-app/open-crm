@@ -51,8 +51,14 @@ describe("workspace tools", () => {
     expect(await call("list_members")).toMatchObject({
       total: 2,
       members: [
-        { name: "Ana", email: ana.email, role: "owner", isCaller: true },
-        { email: member.email, role: "member", isCaller: false },
+        {
+          id: ana.sub,
+          name: "Ana",
+          email: ana.email,
+          role: "owner",
+          isCaller: true,
+        },
+        { id: member.sub, email: member.email, isCaller: false },
       ],
     });
     expect(

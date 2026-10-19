@@ -10,6 +10,7 @@ import {
   forOrganization,
   serveEveryAppRequest,
 } from "@/server/lib/gateway-attribution";
+import { OWNER_FILTER_MAX } from "@/types/schemas/records";
 
 /** What a tool handler gets besides its input: the CRM's public origin. */
 type ToolCall = { origin: string };
@@ -67,20 +68,32 @@ export function crmTool<
   };
 }
 
-/** A member's user id from their email, as the tools take people. */
-export async function memberId(organizationId: string, email: string) {
+/**
+ * A member's user id from their email or their id, as the tools take people:
+ * list_members gives both, and a saved view keeps its owners by id.
+ */
+export async function memberId(organizationId: string, person: string) {
   const members = await AuthRepository.listMembers(organizationId);
+  const wanted = person.trim();
   const member = members.find(
-    (candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase(),
+    (candidate) =>
+      candidate.userId === wanted ||
+      candidate.email.toLowerCase() === wanted.toLowerCase(),
   );
   if (!member) {
     throw new AppError(
       "VALIDATION_ERROR",
-      `No member of this organization has the email ${email}. list_members gives them.`,
+      `No member of this organization is ${person}. list_members gives them.`,
     );
   }
   return member.userId;
 }
+
+/** A list's owner filter, as the list tools take it. */
+export const ownersInput = z
+  .array(z.string().trim().min(1))
+  .max(OWNER_FILTER_MAX)
+  .optional();
 
 // Shapes several tools return.
 

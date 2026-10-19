@@ -30,24 +30,29 @@ import {
 beforeAll(() => testDb.seedTwoOrganizations());
 
 describe("record tools", () => {
-  it("companies: create, change, find, read with its people, archive; another organization can't reach one", async () => {
+  it("companies: create, change, find (owners by email or id), read with its people, archive; another organization can't reach one", async () => {
     const id = await idFrom("create_company", {
       name: "Acme",
       domain: "https://www.acme.com/pricing",
       ownerEmail: ana.email,
     });
     await call("update_company", { id, industry: "Software" });
-    expect(await call("list_companies", { query: "acm" })).toMatchObject({
-      total: 1,
-      companies: [
-        {
-          id,
-          domain: "acme.com",
-          industry: "Software",
-          owner: { email: ana.email },
-        },
-      ],
-    });
+    // Owners by email or by the id list_members and saved views give.
+    for (const owner of [ana.email, ana.sub]) {
+      expect(
+        await call("list_companies", { query: "acm", owners: [owner] }),
+      ).toMatchObject({
+        total: 1,
+        companies: [
+          {
+            id,
+            domain: "acme.com",
+            industry: "Software",
+            owner: { email: ana.email },
+          },
+        ],
+      });
+    }
     // A work email files the contact under the company with its domain.
     const jo = await idFrom("create_contact", {
       firstName: "Jo",
@@ -112,6 +117,13 @@ describe("record tools", () => {
       pricingUrl: "https://soylent.test/pricing",
       careersUrl: "https://soylent.test/jobs",
     });
+    // A blank filter value is refused by name, as the list's own rules say.
+    expect(await failure("list_companies", { industries: [" "] })).toContain(
+      "industries.0",
+    );
+    expect(await failure("list_contacts", { titles: [""] })).toContain(
+      "titles.0",
+    );
   });
 
   it("contact suggestions: lists the organization's waiting ones, and accepting one writes it on the contact", async () => {
