@@ -12,11 +12,7 @@ import {
   type Field,
 } from "@/server/features/fields/services/fieldShape";
 import type { FieldEntity } from "@/shared/crm-enums";
-import {
-  fieldKeyFromLabel,
-  usesOptions,
-  type FieldValueJson,
-} from "@/shared/fields";
+import { fieldKeyFromLabel, usesOptions } from "@/shared/fields";
 import type {
   CreateFieldInput,
   FieldOptionInput,
@@ -384,28 +380,33 @@ async function fill(
 }
 
 /**
- * For a record that was just created: every field the agent fills is blank
- * on it but those it was created with a value for (`given`), so it is
- * queued once for all of them. Never fails the caller.
+ * For a record that was just created: the fields the agent fills that it
+ * wasn't created with a value for, queued once for all of them. Never fails
+ * the caller.
  */
 async function queueFillForNewRecord(
   organizationId: string,
   entity: FieldEntity,
   recordId: string,
-  given: readonly { key: string; value: FieldValueJson }[] = [],
 ): Promise<void> {
   try {
-    const filled = new Set(
-      given.flatMap((field) => (field.value === null ? [] : [field.key])),
-    );
-    const keys = (
+    const agentFilled = (
       await FieldDefinitionRepository.list(organizationId, entity, {
         includeArchived: false,
       })
-    )
-      .filter(
-        (definition) => definition.agentFilled && !filled.has(definition.key),
-      )
+    ).filter((definition) => definition.agentFilled);
+    if (agentFilled.length === 0) return;
+    const given = new Set(
+      (
+        await FieldValueRepository.listForRecord(
+          organizationId,
+          entity,
+          recordId,
+        )
+      ).map((value) => value.fieldId),
+    );
+    const keys = agentFilled
+      .filter((definition) => !given.has(definition.id))
       .map((definition) => definition.key);
     if (keys.length === 0) return;
     await AgentTaskService.fieldBackfillRecords(

@@ -8,11 +8,14 @@ import {
   AgentAvailabilityService,
   taskHold,
 } from "@/server/features/agent/services/AgentAvailabilityService";
+import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
 import { AppError, asAppError } from "@/server/lib/errors";
+import type { FieldEntity } from "@/shared/crm-enums";
 import type { BulkResult } from "@/types/schemas/records";
 
-// Rules every record (company, contact, deal) follows: who may own it, how a
-// bulk action reports, and when its enrichment counts as queued or waiting.
+// Rules every record (company, contact, deal) follows: who may own it, what
+// custom field values its create or update takes, how a bulk action reports,
+// and when its enrichment counts as queued or waiting.
 //
 // Archive and restore only set or clear `archived_at`: the record is hidden,
 // not changed. Purge permanently deletes an archived record, the same way
@@ -40,6 +43,29 @@ export async function assertOwner(
       "That owner is not a member of this organization.",
     );
   }
+}
+
+/**
+ * The custom field values a create or update was given, by key, checked as
+ * every value is (FieldValuesService.checkValues): the writes that go in the
+ * record's own batch. An update's (`recordId`) go onto the organization's own
+ * record only, since a value names its record by id alone.
+ */
+export async function fieldWrites(
+  organizationId: string,
+  entity: FieldEntity,
+  values: Record<string, unknown> = {},
+  recordId?: string,
+) {
+  const writes = await FieldValuesService.checkValues(
+    organizationId,
+    entity,
+    values,
+  );
+  if (recordId && writes.length > 0) {
+    await FieldValuesService.requireRecord(organizationId, entity, recordId);
+  }
+  return writes;
 }
 
 /**

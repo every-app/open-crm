@@ -22,6 +22,7 @@ import {
 import type { FieldFilters } from "@/types/schemas/fields";
 import type { FacetCounts } from "@/types/schemas/records";
 
+/** Refuses a record that isn't the organization's. */
 async function requireRecord(
   organizationId: string,
   entity: FieldEntity,
@@ -65,7 +66,7 @@ async function recordFields(
  * against its field (its type, a select's options, required; a user must
  * work here); the first that doesn't fit is refused. Null clears a value.
  * Every write of values goes through here: setValues, and a record's create
- * or update, which writes them in the record's own batch.
+ * or update (fieldWrites), which writes them in the record's own batch.
  */
 async function checkValues(
   organizationId: string,
@@ -260,6 +261,7 @@ async function facetCounts(
 }
 
 export const FieldValuesService = {
+  requireRecord,
   recordFields,
   checkValues,
   setValues,

@@ -10,6 +10,7 @@ import {
   assertOwner,
   blankToNull,
   bulkOutcome,
+  fieldWrites,
   isUniqueViolation,
   recordAgentStates,
   runBulk,
@@ -157,11 +158,7 @@ async function createContact(
   const ownerId = input.ownerId ?? null;
   await assertOwner(organizationId, ownerId);
   // Before the company: a refused contact leaves no company behind.
-  const fields = await FieldValuesService.checkValues(
-    organizationId,
-    "CONTACT",
-    input.fields ?? {},
-  );
+  const fields = await fieldWrites(organizationId, "CONTACT", input.fields);
   if (email) {
     const existing = await ContactRepository.findLiveByEmail(
       organizationId,
@@ -228,12 +225,7 @@ async function createContact(
     id,
     "Added by a person, with nothing on the record yet",
   );
-  await FieldsService.queueFillForNewRecord(
-    organizationId,
-    "CONTACT",
-    id,
-    fields,
-  );
+  await FieldsService.queueFillForNewRecord(organizationId, "CONTACT", id);
   return { id, firstName, lastName, companyId };
 }
 
@@ -269,13 +261,7 @@ async function updateContact(
     if (companyId) await requireLiveCompany(organizationId, companyId);
     patch.companyId = companyId;
   }
-  const fields = await FieldValuesService.checkValues(
-    organizationId,
-    "CONTACT",
-    input.fields ?? {},
-  );
-  // Also what makes the custom field values the organization's own
-  // contact's: a value names its record by id alone.
+  const fields = await fieldWrites(organizationId, "CONTACT", input.fields, id);
   await requireContact(organizationId, id);
   try {
     return (

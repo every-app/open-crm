@@ -9,6 +9,7 @@ import {
   assertOwner,
   blankToNull,
   bulkOutcome,
+  fieldWrites,
   isUniqueViolation,
   recordAgentStates,
   runBulk,
@@ -137,11 +138,7 @@ async function createCompany(
 ) {
   const domain = domainOf(input.domain);
   await assertOwner(organizationId, input.ownerId);
-  const fields = await FieldValuesService.checkValues(
-    organizationId,
-    "COMPANY",
-    input.fields ?? {},
-  );
+  const fields = await fieldWrites(organizationId, "COMPANY", input.fields);
   const name = input.name.trim();
   let id: string;
   try {
@@ -170,12 +167,7 @@ async function createCompany(
   console.log("[companies] created", { organizationId, companyId: id, domain });
   pokeEvents(organizationId);
   await AgentTaskService.companyAddedByPerson(organizationId, id);
-  await FieldsService.queueFillForNewRecord(
-    organizationId,
-    "COMPANY",
-    id,
-    fields,
-  );
+  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", id);
   return { id, name, domain };
 }
 
@@ -209,14 +201,7 @@ async function updateCompany(
     await assertOwner(organizationId, ownerId);
     patch.ownerId = ownerId;
   }
-  // Custom field values are written with the change, and only onto the
-  // organization's own company: a value names its record by id alone.
-  const fields = await FieldValuesService.checkValues(
-    organizationId,
-    "COMPANY",
-    input.fields ?? {},
-  );
-  if (fields.length > 0) await requireCompany(organizationId, id);
+  const fields = await fieldWrites(organizationId, "COMPANY", input.fields, id);
   let domainChanged = false;
   if (domain !== undefined) {
     patch.domain = domainOf(domain);
