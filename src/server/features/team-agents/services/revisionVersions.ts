@@ -204,10 +204,7 @@ type DeployNow = {
  * A change its maker approves: a new deployed version at once, the agent's
  * triggers moved onto it and the old version kept in the history.
  */
-async function deployNow(
-  context: Context,
-  input: DeployNow,
-): Promise<string> {
+async function deployNow(context: Context, input: DeployNow): Promise<string> {
   const { organizationId } = context;
   const { from, replacing } = input;
   const versionId = crypto.randomUUID();
