@@ -151,7 +151,9 @@ const detailsOutput = z.object({
         sourceUrl: z.string().nullable(),
       }),
     )
-    .describe("What the research agent found and put on the record."),
+    .describe(
+      "What the research agent found and applied: a name, title, seniority, function or profile link is on the record; an employer, location or tenure has no field there and stays with the agent.",
+    ),
   suggestions: z
     .array(suggestionOutput)
     .describe("What the research agent found that waits for a person."),
