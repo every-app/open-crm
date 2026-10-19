@@ -23,6 +23,8 @@ import {
   serveHealth,
 } from "@/server/features/health/healthRoutes";
 import { serveImage, IMAGE_ROUTE_PREFIX } from "@/server/lib/images";
+import { serveErasure } from "@/server/features/erasure/erasureRoute";
+import { ERASURE_PATH } from "@/shared/erasure";
 import { SLACK_REDIRECT_PATH } from "@/shared/slack";
 import { serveEveryAppRequest } from "@/server/lib/gateway-attribution";
 
@@ -110,6 +112,10 @@ async function handleRequest(
         return serveTracking(verified);
       }
       if (new URL(verified.url).pathname === HEALTH_PATH) return serveHealth();
+      // An operator erasing an organization: signed, and 404 unless armed.
+      if (new URL(verified.url).pathname === ERASURE_PATH) {
+        return serveErasure(verified);
+      }
       if (!user) return new Response("Not found", { status: 404 });
       return serveEveryAppRequest(verified, user, () =>
         routeAppRequest(verified, env, user),

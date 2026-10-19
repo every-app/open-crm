@@ -11,6 +11,8 @@
     // Drizzle configs (plugin disabled due to cloudflare:workers import issues)
     "drizzle/sqlite.config.ts",
     "drizzle/pg.config.ts",
+    // Operator scripts, run with `node`
+    "scripts/erase-organization.ts",
     // DB schema — exports consumed via `import * as schema` / drizzle()
     "src/db/index.ts",
     "src/db/schema.ts",

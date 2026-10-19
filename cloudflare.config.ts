@@ -34,6 +34,9 @@ const CRM_SECRETS = [
   // party does, and AUTUMN_DEV_STUB=free|paid|low|out stands in for Autumn.
   "BILLING",
   "AUTUMN_DEV_STUB",
+  // Set only while an operator erases an organization: it signs the erasure
+  // requests (docs/maintainers/runbooks/erase-organization.md).
+  "ERASURE_SECRET",
 ] as const;
 
 export default defineConfig((ctx) => {

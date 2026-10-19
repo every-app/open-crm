@@ -23,6 +23,9 @@ declare namespace Cloudflare {
     // Optional app secret (`everyapp secret set GITHUB_TOKEN`): raises GitHub's
     // rate limit for the agent's profile matching.
     GITHUB_TOKEN?: string;
+    // Set only while an operator erases an organization
+    // (docs/maintainers/runbooks/erase-organization.md): signs its requests.
+    ERASURE_SECRET?: string;
     // Local dev only, in .dev.vars: with no gateway binding the SDK calls the
     // providers with these.
     OPENROUTER_API_KEY?: string;
