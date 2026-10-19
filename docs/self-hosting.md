@@ -148,7 +148,7 @@ CONTEXT_API_KEY=...
 
 `https://<crm host>/health/dispatch` reports the research agent's queue: when each part last ran, its backlog and recent failures. It answers `503` when a part has stopped or work is overdue. Call it with a personal access token for the CRM, made by an owner or admin on the gateway, in an `Authorization: Bearer` header, every five minutes or so. Tokens expire (after 7 to 180 days, or on a date you pick), and the monitor fails from then on: make a new one before it does.
 
-It also reports the database's size (`"database": {"provider": "d1", "sizeBytes": …}`). D1 refuses every write once a database reaches 10 GB, so watch it.
+It also reports the database's size (`"database": {"provider": "d1", "sizeBytes": …}`). D1 refuses every write once a database reaches 10 GB, so watch it. [Moving to Postgres](maintainers/database.md) lifts the limit; there, set `OPEN_CRM_DATABASE_REGION` (for example `aws:eu-central-1`) when you deploy, so the Worker runs beside the database.
 
 ## Operations
 
