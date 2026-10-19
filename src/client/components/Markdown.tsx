@@ -17,6 +17,10 @@ type Props = {
  *
  * Anchor URLs are sanitized to http(s) only — LLMs can be coaxed into
  * emitting `javascript:` payloads.
+ *
+ * Images render as links to them, never as images: an image loads by itself
+ * when the text is shown, so a reply with planted text in it could send data
+ * out in an image's URL to anyone who opens the chat, or a shared link to it.
  */
 export function Markdown({ children, className }: Props) {
   return (
@@ -32,6 +36,11 @@ export function Markdown({ children, className }: Props) {
 }
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
+
+function ImageLink({ src, alt }: ComponentPropsWithoutRef<"img">) {
+  const href = typeof src === "string" ? src : undefined;
+  return <SafeAnchor href={href}>{alt || href}</SafeAnchor>;
+}
 
 function SafeAnchor({ href, children, ...rest }: AnchorProps) {
   const safeHref = safeHttpUrl(href);
@@ -77,6 +86,7 @@ const MARKDOWN_COMPONENTS = {
     <li className="leading-relaxed">{children}</li>
   ),
   a: SafeAnchor,
+  img: ImageLink,
   strong: ({ children }: { children?: ReactNode }) => (
     <strong className="font-semibold">{children}</strong>
   ),
