@@ -37,7 +37,6 @@ type Status = Awaited<ReturnType<typeof getSlackStatus>>;
 /** Withheld grants that keep the app out of private channels. */
 const PRIVATE_CHANNEL_SCOPES = new Set<string>([
   "groups:read",
-  "groups:history",
   SLACK_USER_GRANT.scope,
 ]);
 
