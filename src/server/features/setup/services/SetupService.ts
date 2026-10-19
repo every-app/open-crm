@@ -3,10 +3,7 @@ import { clientStatus } from "@/server/features/mailbox/providers/oauth";
 import { SlackService } from "@/server/features/slack/services/SlackService";
 import { SetupRepository } from "@/server/features/setup/repositories/SetupRepository";
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
-import {
-  modelBlocked,
-  type AgentAvailability,
-} from "@/shared/agent-availability";
+import type { AgentAvailability } from "@/shared/agent-availability";
 
 // The gateway's keys for the agent, as General's settings rows show them:
 // whether each is there and, while it isn't, how it gets there. Nothing here
@@ -136,7 +133,9 @@ async function getStarted(
     ]);
   const ownGateway = canManage && availability.tier === "fork";
   const steps: ({ id: GetStartedStep; done: boolean } | false)[] = [
-    ownGateway && { id: "model", done: !modelBlocked(availability.model) },
+    // Done once the model has answered: a new fork's gateway is connected
+    // before anyone knows whether it holds a key ("unchecked").
+    ownGateway && { id: "model", done: availability.model === "ready" },
     ownGateway && { id: "context", done: availability.context },
     { id: "companies", done: done.companies },
     (google.ready || microsoft.ready || ownGateway) && {
