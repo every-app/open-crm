@@ -187,8 +187,12 @@ describe("workspace tools", () => {
       cookieDays: 0,
       domains: [{ host: "www.acme.test", scope: "SITE_AND_SUBDOMAINS" }],
     });
-    // The snippet loads the tracker from the CRM's own origin.
+    // The snippet loads the tracker from the CRM's own origin; Tag Manager's
+    // carries the site id in its URL.
     expect(String(settings.snippet)).toContain("https://crm.test/t/crm.js");
+    expect(String(settings.tagManagerSnippet)).toContain(
+      `https://crm.test/t/crm.js?site=${String(settings.siteId)}`,
+    );
     expect(await failure("get_traffic_sources", {}, { as: member })).toBe(
       OWNERS_ONLY,
     );

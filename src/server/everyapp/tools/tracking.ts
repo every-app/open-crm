@@ -71,10 +71,20 @@ const settingsOutput = z.object({
     .string()
     .nullable()
     .describe("When the latest page view or form arrived."),
+  siteId: z
+    .string()
+    .nullable()
+    .describe("What the snippets carry, once ready."),
   snippet: z
     .string()
     .nullable()
     .describe("The script tag for the website's <head>, once ready."),
+  tagManagerSnippet: z
+    .string()
+    .nullable()
+    .describe(
+      "The tag for a Google Tag Manager install, which drops the plain tag's data-site.",
+    ),
 });
 
 async function settings(organizationId: string, origin: string) {
@@ -139,7 +149,7 @@ export const trackingTools = {
 
   get_tracking_settings: crmTool({
     description:
-      "Website tracking's state: whether it is ready or paused, its rules and cookies, the allowed domains, totals, when data last arrived, and the snippet to install.",
+      "Website tracking's state: whether it is ready or paused, its rules and cookies, the allowed domains, totals, when data last arrived, and the snippet to install (or its Google Tag Manager form).",
     risk: "read",
     input: z.object({}).strict(),
     output: settingsOutput,
