@@ -6,6 +6,21 @@ type SortableColumn = {
   getToggleSortingHandler: () => ((event: unknown) => void) | undefined;
 };
 
+/**
+ * A column header's `aria-sort`, for its header cell (where the CRM's tables
+ * set it): the direction a sortable column is sorted in, else "none";
+ * nothing on a column that doesn't sort.
+ */
+export function ariaSort(column: {
+  getCanSort: () => boolean;
+  getIsSorted: () => false | "asc" | "desc";
+}): "ascending" | "descending" | "none" | undefined {
+  if (!column.getCanSort()) return undefined;
+  const sorted = column.getIsSorted();
+  if (sorted === "asc") return "ascending";
+  return sorted === "desc" ? "descending" : "none";
+}
+
 export function SortableHeader({
   column,
   label,
@@ -30,7 +45,6 @@ export function SortableHeader({
       onClick={column.getToggleSortingHandler()}
       title={title}
       aria-label={`Sort by ${label}`}
-      aria-pressed={!!sorted}
     >
       {helpText ? <HelpLabel label={label} helpText={helpText} /> : label}
       {sorted === "asc" ? (

@@ -11,6 +11,7 @@ import {
 } from "@/client/components/SettingsSection";
 import { everyAppAccountQueryOptions } from "@/client/components/Sidebar";
 import { useDataTable } from "@/client/components/table/DataTable";
+import { ariaSort } from "@/client/components/table/SortableHeader";
 import { DataTableToolbar } from "@/client/components/table/DataTableToolbar";
 import { TablePagination } from "@/client/components/table/TablePagination";
 import { Button } from "@/client/components/ui/button";
@@ -158,6 +159,7 @@ export function MembersSettings() {
                 {group.headers.map((header) => (
                   <TableHead
                     key={header.id}
+                    aria-sort={ariaSort(header.column)}
                     className={header.column.columnDef.meta?.headerClassName}
                   >
                     {flexRender(
