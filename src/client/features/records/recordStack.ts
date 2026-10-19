@@ -1,5 +1,10 @@
 import { useCallback } from "react";
-import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import {
+  getRouteApi,
+  useLocation,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import { z } from "zod";
 import { DEAL_STAGES } from "@/shared/crm-enums";
 import { isLosingStage } from "@/shared/deal-stages";
@@ -25,8 +30,15 @@ import { RECORD_KINDS, type RecordRef } from "@/shared/records";
 //                          asks for
 //   new                    a list's New company, contact or deal form
 // They replace the history entry rather than add one, but for the New form,
-// which adds one so Back closes it; opening or closing a record closes them
-// all.
+// which adds one so Back closes it, and goes back to close it; opening or
+// closing a record closes them all.
+
+declare module "@tanstack/react-router" {
+  interface HistoryState {
+    /** The New form added this history entry: closing it goes back. */
+    newForm?: true;
+  }
+}
 
 // Every sheet has Overview, Activity and Agent; a company's sheet adds
 // Contacts and Deals, a contact's Deals and a deal's Contacts.
@@ -230,19 +242,36 @@ export function useRecordTab() {
 
 /**
  * A list's New form: whether it's open, and opening or closing it. Opening
- * adds a history entry, so Back closes it.
+ * adds a history entry, so Back closes it, and closing goes back to the
+ * entry under it. A page loaded with the form open (a link) has no entry of
+ * the list's under it: closing replaces its entry instead.
  */
 export function useNewForm() {
   const { new: open } = useAppSearch();
+  const added = useLocation({
+    select: (location) => location.state.newForm === true,
+  });
   const navigate = useNavigate();
+  const router = useRouter();
   return [
     open === true,
-    (next: boolean) =>
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, new: next || undefined }),
-        replace: !next,
-      }),
+    (next: boolean) => {
+      if (next) {
+        void navigate({
+          to: ".",
+          search: (prev) => ({ ...prev, new: true }),
+          state: { newForm: true },
+        });
+      } else if (added) {
+        router.history.back();
+      } else {
+        void navigate({
+          to: ".",
+          search: (prev) => ({ ...prev, new: undefined }),
+          replace: true,
+        });
+      }
+    },
   ] as const;
 }
 
