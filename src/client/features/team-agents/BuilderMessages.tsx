@@ -1,12 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getToolName, isToolUIPart, type UIMessage } from "ai";
+import { isToolUIPart, type UIMessage } from "ai";
 import { Bot, Paperclip, ThumbsDown, ThumbsUp } from "lucide-react";
-import { findLastIndex } from "remeda";
 import { z } from "zod";
 import { ChatMessage } from "@/client/components/chat/ChatMessage";
 import { Button } from "@/client/components/ui/button";
 import { AgentStepLine } from "@/client/features/agent/AgentStepLine";
-import type { Step, Tone } from "@/client/features/agent/agentSteps";
 import { ToolPart } from "@/client/features/agent/ConversationThread";
 import { rateBuilderReply } from "@/serverFunctions/teamAgents";
 import {
@@ -21,6 +19,7 @@ import {
   isPendingDealList,
   withoutTables,
 } from "./DealListResult";
+import { builderStep } from "./builderSteps";
 import { tagText } from "./TagPicker";
 import { teamAgentKeys } from "./teamAgentQueries";
 
@@ -47,10 +46,6 @@ const extras = z
   .partial()
   .catch({});
 
-const WRITE_AGENT_FILE = "write_agent_file";
-
-const fileInput = z.object({ path: z.string().catch("") }).catch({ path: "" });
-
 function textOf(message: UIMessage): string {
   return message.parts
     .flatMap((part) => (part.type === "text" ? [part.text] : []))
@@ -64,31 +59,6 @@ export function hasText(message: UIMessage): boolean {
 
 export function asksForAgent(message: UIMessage): boolean {
   return builderCommandType(textOf(message)) === "CREATE_AGENT";
-}
-
-/**
- * The files the latest build has written, and the one it is writing, read
- * from its `write_agent_file` calls since the person's last message.
- */
-export function buildProgress(messages: readonly UIMessage[]) {
-  const lastUser = findLastIndex(
-    messages,
-    (message) => message.role === "user",
-  );
-  const written = new Set<string>();
-  let writing: string | null = null;
-  for (const message of messages.slice(lastUser + 1)) {
-    for (const part of message.parts) {
-      if (!isToolUIPart(part) || getToolName(part) !== WRITE_AGENT_FILE) {
-        continue;
-      }
-      const { path } = fileInput.parse(part.input);
-      if (!path) continue;
-      if (part.state === "output-available") written.add(path);
-      else if (part.state !== "output-error") writing = path;
-    }
-  }
-  return { written, writing };
 }
 
 /**
@@ -210,67 +180,6 @@ export function AssistantMessage({
       }}
     />
   );
-}
-
-const FILE_NAMES: Record<string, string> = {
-  "agent/instructions.md": "instructions",
-  "agent/manifest.json": "the manifest",
-  "agent/README.md": "the readme",
-};
-
-const namedInput = z
-  .object({
-    name: z.string().catch(""),
-    title: z.string().catch(""),
-  })
-  .partial()
-  .catch({});
-
-const unsavedDraft = z
-  .object({ saved: z.literal(false), issues: z.array(z.string()) })
-  .nullable()
-  .catch(null);
-
-/** A builder tool's step in the CRM's words (its toolLabel), or null. */
-function builderStep(part: Part, live: boolean): Step | null {
-  if (!isToolUIPart(part)) return null;
-  const tool = getToolName(part);
-  const done =
-    part.state === "output-available" || part.state === "output-error";
-  const failed = part.state === "output-error" || (!done && !live);
-  const tone: Tone = failed ? "warning" : done ? "success" : "neutral";
-  const input = namedInput.parse(part.input);
-  if (tool === WRITE_AGENT_FILE) {
-    const { path } = fileInput.parse(part.input);
-    const name = FILE_NAMES[path] ?? path;
-    return {
-      label: done ? `Wrote ${name}` : `Writing ${name}`,
-      tone,
-      sources: [],
-    };
-  }
-  if (tool === "save_agent_draft") {
-    // A draft the checks refused was not saved: it says why.
-    const unsaved = unsavedDraft.parse(
-      part.state === "output-available" ? part.output : null,
-    );
-    const verb = done && !unsaved ? "Saved draft" : "Saving draft";
-    const name = input.name?.trim();
-    const label = name ? `${verb} · ${name}` : verb;
-    return unsaved
-      ? {
-          label: `${label} — ${unsaved.issues.join(" ")}`,
-          tone: "warning",
-          sources: [],
-        }
-      : { label, tone, sources: [] };
-  }
-  if (tool === "set_chat_title") {
-    const verb = done ? "Named this chat" : "Naming this chat";
-    const title = input.title?.trim();
-    return { label: title ? `${verb} · ${title}` : verb, tone, sources: [] };
-  }
-  return null;
 }
 
 /** One tool call in a reply: the builder's own in its words, else a step. */
