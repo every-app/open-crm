@@ -21,8 +21,7 @@ type CompanyPatch = Omit<UpdateCompanyInput, "id">;
 
 /**
  * A company's Overview tab: what it does, its details and links, and its
- * visits to the website. Its people and deals have tabs
- * of their own.
+ * visits to the website. Its people and deals have tabs of their own.
  */
 export function CompanyOverview({
   company,

@@ -247,8 +247,9 @@ export function useRecordTab() {
 /**
  * A list's New form: whether it's open, and opening or closing it. Opening
  * adds a history entry, so Back closes it, and closing goes back to the
- * entry under it. A page loaded with the form open (a link) has no entry of
- * the list's under it: closing replaces its entry instead.
+ * list's entry under it, a reload of the form included (the entry's state
+ * says the form added it). A page opened from a link with the form open has
+ * no list entry under it: closing replaces its entry instead.
  */
 export function useNewForm() {
   const { new: open } = useAppSearch();
