@@ -112,8 +112,10 @@ function dueCondition(now: string) {
 }
 
 /**
- * The rows due now across every organization, of `sources`, the longest
- * waiting first: the minute cron's one query (mailbox_sync_next_idx).
+ * The rows due now across every organization, of `sources`: the minute
+ * cron's one query (mailbox_sync_next_idx). Round-robin by organization,
+ * each one's longest-waiting row first, then each one's next, so one
+ * organization's many mailboxes don't hold back everyone else's.
  */
 async function due(input: {
   now: string;
@@ -130,7 +132,10 @@ async function due(input: {
         inArray(mailboxSync.source, [...input.sources]),
       ),
     )
-    .orderBy(asc(mailboxSync.nextSyncAt))
+    .orderBy(
+      sql`row_number() over (partition by ${mailboxSync.organizationId} order by ${mailboxSync.nextSyncAt})`,
+      asc(mailboxSync.nextSyncAt),
+    )
     .limit(input.limit);
 }
 
