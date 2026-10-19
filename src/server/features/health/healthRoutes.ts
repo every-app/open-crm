@@ -1,9 +1,12 @@
+import { env } from "cloudflare:workers";
 import { hasScope, type EveryAppUser } from "@every-app/sdk/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { databaseSize } from "@/db/maintenance";
 import { workspace } from "@/db/schema";
 import { resolveEveryAppUserContext } from "@/middleware/ensure-user/everyApp";
 import { DispatchHealthService } from "@/server/features/agent/services/DispatchHealthService";
+import { isForkDeployment } from "@/server/lib/deployment-tier";
 import { hasOrgPermission } from "@/shared/org-permissions";
 
 // The CRM's health checks, as the CRM had them (apps/api/src/health, and its
@@ -16,7 +19,7 @@ import { hasOrgPermission } from "@/shared/org-permissions";
 //   CRM's agent turned away a caller without its secret. An owner or admin
 //   reads it with their session or a personal access token for the CRM
 //   holding `*` or the `health` scope, and sees their own organization's
-//   work only.
+//   work only, and on a fork the database's size.
 
 export const HEALTH_PATH = "/health";
 export const DISPATCH_HEALTH_PATH = "/health/dispatch";
@@ -63,7 +66,10 @@ export async function serveDispatchHealth(
   const health = await DispatchHealthService.forOrganization(
     context.organizationId,
   );
-  return json(health, health.ok ? 200 : 503);
+  // A fork's owners run its database too, and D1 refuses every write once
+  // it is full. A first-party deployment's is every organization's.
+  const database = isForkDeployment(env) ? await databaseSize() : undefined;
+  return json({ ...health, database }, health.ok ? 200 : 503);
 }
 
 function json(body: unknown, status: number): Response {

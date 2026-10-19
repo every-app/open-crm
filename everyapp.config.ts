@@ -23,6 +23,13 @@
  */
 const postgres = process.env.OPEN_CRM_DATABASE === "postgres";
 
+// Where the Postgres database runs, as a cloud region in Cloudflare's
+// placement form (aws:us-east-1, gcp:europe-west1, azure:westeurope).
+// Deployed, the Worker serves requests beside it, since a request's queries
+// cross to the database one after another. Unset, AWS us-east-1, beside
+// OpenSEO's; set OPEN_CRM_DATABASE_REGION for a database elsewhere.
+const databaseRegion = process.env.OPEN_CRM_DATABASE_REGION ?? "aws:us-east-1";
+
 export default {
   id: "crm",
   name: "CRM",
@@ -38,7 +45,7 @@ export default {
   },
   ...(postgres
     ? {
-        database: { provider: "postgres" as const },
+        database: { provider: "postgres" as const, region: databaseRegion },
         migrations: {
           engine: "drizzle" as const,
           dialect: "postgresql" as const,
