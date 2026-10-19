@@ -78,7 +78,7 @@ pnpm deploy:everyapp
 pnpm deploy:everyapp:first-party   # OPEN_CRM_DATABASE=postgres everyapp deploy --shared
 ```
 
-With `OPEN_CRM_DATABASE=postgres`, `everyapp.config.ts` declares Postgres (`database.provider`), a `HYPERDRIVE` binding and the Postgres migrations instead of D1: the deploy creates the Hyperdrive config from the database URL, runs `drizzle-kit migrate` with `drizzle/pg.config.ts` before it uploads, and registers the app as shared (no `EVERY_APP_ORG_ID`, `EVERYAPP_SHARED=1`). The first party bills usage on OpenSEO's Autumn account, so it also needs `everyapp secret set AUTUMN_SECRET_KEY` ([billing.md](billing.md)).
+With `OPEN_CRM_DATABASE=postgres`, `everyapp.config.ts` declares Postgres (`database.provider`), a `HYPERDRIVE` binding and the Postgres migrations instead of D1: the deploy creates the Hyperdrive config from the database URL, runs `drizzle-kit migrate` with `drizzle/pg.config.ts` before it uploads, and registers the app as shared (no `EVERY_APP_ORG_ID`, `EVERYAPP_SHARED=1`). The first party bills usage on the Autumn environment it shares with OpenSEO's first party (not app.openseo.so's), so it also needs `everyapp secret set AUTUMN_SECRET_KEY` ([billing.md](billing.md)).
 
 ## Database
 

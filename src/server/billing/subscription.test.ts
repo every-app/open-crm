@@ -10,23 +10,24 @@ vi.mock("@/server/billing/autumn", () => ({
 }));
 
 import { withBalance } from "./autumnTestSupport";
-import { checkUsageCreditsDepleted } from "./subscription";
+import { checkUsageCredits } from "./subscription";
 
 const customer = { organizationId: "org_a" };
 
 describe("the credit gate", () => {
-  it("admits any positive balance and refuses only a ≤ 0 both read paths confirm", async () => {
-    // Monthly credits spent, top-ups left: admitted on the first read.
+  it("trusts a reading that covers the work, and refuses only what both read paths confirm falls short", async () => {
+    // Monthly credits spent, top-ups left: enough on the first read.
     withBalance(autumn, 0, 400);
-    await expect(checkUsageCreditsDepleted(customer)).resolves.toEqual({
-      depleted: false,
+    await expect(checkUsageCredits(customer, 192)).resolves.toEqual({
       monthlyRemaining: 0,
+      topupRemaining: 400,
     });
     expect(autumn.customers.getOrCreate).not.toHaveBeenCalled();
 
-    // /check reads 0, but the customer object shows credits: Autumn served a
-    // stale balance, so the work goes ahead on the confirmed reading.
-    withBalance(autumn, 0);
+    // /check reads short, but the customer object shows enough: Autumn
+    // served a stale balance, so the work goes ahead on the confirmed
+    // reading.
+    withBalance(autumn, 100);
     autumn.customers.getOrCreate.mockResolvedValueOnce({
       id: "org_a",
       balances: {
@@ -40,14 +41,15 @@ describe("the credit gate", () => {
       subscriptions: [],
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
-    await expect(checkUsageCreditsDepleted(customer)).resolves.toEqual({
-      depleted: false,
+    await expect(checkUsageCredits(customer, 192)).resolves.toEqual({
       monthlyRemaining: 250,
+      topupRemaining: 0,
     });
 
-    // Both agree: out of credits.
-    await expect(checkUsageCreditsDepleted(customer)).resolves.toMatchObject({
-      depleted: true,
+    // Both read short.
+    await expect(checkUsageCredits(customer, 192)).resolves.toEqual({
+      monthlyRemaining: 100,
+      topupRemaining: 0,
     });
   });
 });

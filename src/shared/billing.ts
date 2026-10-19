@@ -1,8 +1,9 @@
 // OpenSEO's billing constants and credit math (its src/shared/billing.ts),
-// verbatim: the CRM bills the same Autumn account, so the plans, features
-// and markup are OpenSEO's and an organization's credits are one balance
-// across OpenSEO, the CRM and, later, the Every App gateway. "SEO data" in
-// the names is OpenSEO's history; the pool is every app's.
+// verbatim: on Every App, OpenSEO's first party and the CRM bill the same
+// Autumn customer per organization, so the plans, features and markup are
+// OpenSEO's and an organization's credits are one balance across both
+// (docs/maintainers/billing.md). "SEO data" in the names is OpenSEO's
+// history; the pool is every app's.
 
 /** Settings → Billing, shown on a deployment that bills (server/billing). */
 export const SETTINGS_BILLING_ROUTE = "/settings/billing";

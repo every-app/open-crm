@@ -309,6 +309,44 @@ describe("the dispatcher", () => {
     );
   });
 
+  it("admits an organization's research task by task against one reading, three sessions at a time", async () => {
+    for (const id of ["t1", "t2", "t3", "t4"]) {
+      await queue(id, {
+        kind: "identify",
+        priority: PRIORITY.identify,
+        contactId: "c1",
+      });
+    }
+    const start = vi.fn(async (task: { id: string }) => ({
+      sessionId: `task.${task.id}`,
+    }));
+    const tick = () =>
+      runResearchLane({
+        start,
+        modelConfigured: true,
+        askedForOnly: false,
+        defer,
+        credits: laneCreditCheck({}),
+      });
+    const waiting = () =>
+      database.rows(
+        `SELECT id FROM agent_task WHERE leased_until IS NULL AND attempts = 0`,
+      );
+
+    // One reading of 500 credits covers two sessions of 192.
+    withBalance(autumn, 500);
+    expect(await tick()).toBe(2);
+    expect(autumn.check).toHaveBeenCalledTimes(2);
+    expect(await waiting()).toHaveLength(2);
+
+    // Credits to spare: a third session starts, and the fourth waits for one
+    // of the three to end.
+    withBalance(autumn, 50_000);
+    expect(await tick()).toBe(1);
+    expect(await waiting()).toHaveLength(1);
+    expect(await database.rows(`SELECT * FROM paid_session`)).toHaveLength(3);
+  });
+
   it("bills a logo lookup's Context.dev call at its reported credits", async () => {
     await queue("t1", {
       kind: "brand",
