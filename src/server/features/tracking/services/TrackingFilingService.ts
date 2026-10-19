@@ -1,3 +1,4 @@
+import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
@@ -73,6 +74,20 @@ async function suppression(
 }
 
 /**
+ * Who the note is filed under, as the CRM filed it: the contact's owner, else
+ * the workspace's first member. Null when it has nobody.
+ */
+async function noteAuthor(
+  organizationId: string,
+  contactId: string,
+): Promise<string | null> {
+  const found = await ContactRepository.findById(organizationId, contactId);
+  if (found?.ownerId) return found.ownerId;
+  const [first] = await AuthRepository.listMembers(organizationId);
+  return first?.userId ?? null;
+}
+
+/**
  * Claims the submission for the contact, then leaves the note and ties the
  * visitor to them. A caller that loses the claim (a second delivery of the
  * same submission) writes nothing, so the contact gets one note.
@@ -88,19 +103,22 @@ async function attach(
     contactId,
   );
   if (!claimed) return;
-  await ActivityRepository.insert({
-    organizationId,
-    type: "NOTE",
-    subject: `Submitted a form on ${submission.host}`,
-    body: `${submission.host}${submission.path}`,
-    occurredAt: new Date().toISOString(),
-    dueAt: null,
-    companyId: null,
-    contactId,
-    dealId: null,
-    createdById: null,
-    meta: { automated: true, source: "tracking" },
-  });
+  const author = await noteAuthor(organizationId, contactId);
+  if (author) {
+    await ActivityRepository.insert({
+      organizationId,
+      type: "NOTE",
+      subject: `Submitted a form on ${submission.host}`,
+      body: `${submission.host}${submission.path}`,
+      occurredAt: new Date().toISOString(),
+      dueAt: null,
+      companyId: null,
+      contactId,
+      dealId: null,
+      createdById: author,
+      meta: { automated: true, source: "tracking" },
+    });
+  }
   await TrackingEventRepository.identifyVisitor(
     organizationId,
     submission.visitorId,
