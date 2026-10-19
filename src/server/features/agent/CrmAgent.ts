@@ -85,6 +85,11 @@ const INTERRUPTED_TURN_NOTICE =
 const GONE_REPLY =
   "This conversation no longer exists. Start a new one from the record.";
 
+// A research task's or a run's session is cleared this long after it has
+// reported back for good: its transcript is read by nobody (the audit is in
+// agent_event), and the wait lets the turn's own writes and billing land.
+const FORGET_AFTER_SECONDS = 5 * 60;
+
 /**
  * The research agent's Durable Object, on Think. One instance per research
  * session (a task the dispatcher started) or per person's conversation about
@@ -455,9 +460,23 @@ export class CrmAgent extends Think {
   override async onSubmissionStatus(
     submission: ThinkSubmissionInspection,
   ): Promise<void> {
-    await withPgClient(() =>
+    const done = await withPgClient(() =>
       endSubmission(this.name, submission, this.messages),
     );
+    if (done) {
+      await this.schedule(FORGET_AFTER_SECONDS, "forgetSession", undefined, {
+        idempotent: true,
+      });
+    }
+  }
+
+  /**
+   * Deletes everything this session stored (Think's messages, submissions
+   * and streams, the budget), in its own alarm: a research task's or a run's,
+   * once it has reported back for good.
+   */
+  async forgetSession(): Promise<void> {
+    await this.destroy();
   }
 
   // Each chat socket closes SOCKET_LIFETIME_SECONDS after it connects and the
