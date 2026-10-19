@@ -114,7 +114,7 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
     // CrmAgent.beforeStep: past its tokens, the session writes up.
     prepareStep: () => tokenLimitStep(storage, { kind: "research", system }),
     onStepFinish: (step) => {
-      addTokens(storage, step.usage);
+      addTokens(storage, "research", step.usage);
       return recordEvent(session, "step.completed", {
         finishReason: step.finishReason,
       });

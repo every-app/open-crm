@@ -12,12 +12,13 @@ import type { AgentSession, ChatSession } from "./session";
 // profiles) costs 2, a quick web question 1 and a deep one 2, and checking an
 // X handle nothing, so a budget of 4 buys two lookups or four quick questions.
 //
-// Tokens are capped as the CRM capped its agents' sessions (TOKEN_LIMITS),
-// counted as its runtime counted them: the provider's usage, added up across
-// the session's turns and checked before each model call, so the call that
-// crosses a limit finishes. Past them, a research session or a chat writes up
-// what it has with no more tools, and a team agent's run fails, as the CRM's
-// runs did. Running out of research budget is a normal ending too.
+// Tokens are capped as the CRM capped its agents' sessions (TOKEN_LIMITS):
+// added up across the session's turns and checked before each model call, so
+// the call that crosses a limit finishes. A research session or a run counts
+// all the provider reports, as the CRM's runtime did; a chat counts less
+// (chatCounted). Past its limits a research session or a chat writes up what
+// it has with no more tools, and a team agent's run fails, as the CRM's runs
+// did. Running out of research budget is a normal ending too.
 
 /** What a lookup costs: a brand, a person, a page extraction, a profile search. */
 export const BILLABLE_CALL_UNITS = 2;
@@ -105,15 +106,44 @@ const tokenUse = z
 const TOKENS_SPENT =
   "The token budget for this session is spent. Call no more tools: write up what you already have, as you would when the research budget runs out.";
 
-/** Adds a step's tokens to the session's. */
+type StepUsage = Pick<
+  LanguageModelUsage,
+  "inputTokens" | "inputTokenDetails" | "outputTokens" | "outputTokenDetails"
+>;
+
+/**
+ * What a chat's step counts against its limits: the input the provider didn't
+ * serve from cache, and the visible output without reasoning, each the total
+ * when the provider doesn't say. The CRM sized its limits for its default
+ * model; a person's chat here reasons at "max" and re-sends its instructions,
+ * tools and transcript every step, so counted in full a normal chat would run
+ * out within a handful of turns. Each step's maxOutputTokens and the step
+ * limit bound the reasoning.
+ */
+function chatCounted(usage: StepUsage): Tokens {
+  return {
+    input: usage.inputTokenDetails.noCacheTokens ?? usage.inputTokens ?? 0,
+    output: usage.outputTokenDetails.textTokens ?? usage.outputTokens ?? 0,
+  };
+}
+
+/**
+ * Adds a step's tokens to its session's: all of them for a research session
+ * or a run, as the CRM's runtime counted, and a chat's as chatCounted says.
+ */
 export function addTokens(
   storage: SessionStorage,
-  usage: Pick<LanguageModelUsage, "inputTokens" | "outputTokens">,
+  kind: AgentSession["kind"],
+  usage: StepUsage,
 ): void {
+  const step =
+    kind === "chat"
+      ? chatCounted(usage)
+      : { input: usage.inputTokens ?? 0, output: usage.outputTokens ?? 0 };
   const used = tokenUse.parse(storage.get(TOKENS_KEY));
   storage.put(TOKENS_KEY, {
-    input: used.input + (usage.inputTokens ?? 0),
-    output: used.output + (usage.outputTokens ?? 0),
+    input: used.input + step.input,
+    output: used.output + step.output,
   });
 }
 

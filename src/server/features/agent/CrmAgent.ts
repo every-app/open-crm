@@ -391,7 +391,7 @@ export class CrmAgent extends Think {
     this.meter.record(costUsd);
     const session = this.turnSession;
     if (!session) return;
-    addTokens(this.ctx.storage.kv, step.usage);
+    addTokens(this.ctx.storage.kv, session.kind, step.usage);
     await withPgClient(() => recordStep(session, step, costUsd));
   }
 

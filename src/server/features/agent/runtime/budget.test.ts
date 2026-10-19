@@ -21,16 +21,31 @@ function sessionStorage() {
 
 type Storage = ReturnType<typeof sessionStorage>;
 
-/** A step's usage: `input` tokens read, 5 written. */
-function usageOf(input: number) {
+/** A step's usage, of which `cached` input was served from cache. */
+function usageOf({
+  input,
+  cached = 0,
+  output = 5,
+  reasoning = 0,
+}: {
+  input: number;
+  cached?: number;
+  output?: number;
+  reasoning?: number;
+}) {
   return {
-    inputTokens: { total: input, noCache: input, cacheRead: 0, cacheWrite: 0 },
-    outputTokens: { total: 5, text: 5, reasoning: 0 },
+    inputTokens: {
+      total: input,
+      noCache: input - cached,
+      cacheRead: cached,
+      cacheWrite: 0,
+    },
+    outputTokens: { total: output, text: output - reasoning, reasoning },
   };
 }
 
-/** A model whose first step reads `input` tokens and calls a tool, then answers. */
-function model(input: number) {
+/** A model whose first step calls a tool with `usage`, then answers. */
+function model(usage: ReturnType<typeof usageOf>) {
   return new MockLanguageModelV3({
     doGenerate: [
       {
@@ -43,13 +58,13 @@ function model(input: number) {
           },
         ],
         finishReason: { unified: "tool-calls", raw: undefined },
-        usage: usageOf(input),
+        usage,
         warnings: [],
       },
       {
         content: [{ type: "text", text: "Here is what I have." }],
         finishReason: { unified: "stop", raw: undefined },
-        usage: usageOf(10),
+        usage: usageOf({ input: 10 }),
         warnings: [],
       },
     ],
@@ -74,7 +89,7 @@ function turn(
     tools,
     stopWhen: stepCountIs(5),
     prepareStep: () => tokenLimitStep(storage, { kind, system }),
-    onStepFinish: (step) => addTokens(storage, step.usage),
+    onStepFinish: (step) => addTokens(storage, kind, step.usage),
   });
 }
 
@@ -82,14 +97,23 @@ const toolsOf = (stub: MockLanguageModelV3, call: number) =>
   stub.doGenerateCalls[call]?.tools ?? [];
 
 describe("a session's token limits", () => {
-  it("count a chat's tokens across its turns: past 500,000 it writes up with no tools, then answers a new message with a notice", async () => {
+  it("count a chat's uncached input and visible output across its turns: past 500,000 it writes up with no tools, then answers a new message with a notice", async () => {
     const storage = sessionStorage();
-    const first = model(300_000);
+    // Past both limits in full, but most of its input came from cache and
+    // nearly all its output was reasoning.
+    const first = model(
+      usageOf({
+        input: 600_000,
+        cached: 500_000,
+        output: 60_000,
+        reasoning: 59_000,
+      }),
+    );
     await turn(storage, first, "chat");
     expect(toolsOf(first, 1)).not.toEqual([]);
     expect(spentChatReply(storage, "RECORD")).toBeNull();
 
-    const second = model(250_000);
+    const second = model(usageOf({ input: 450_000 }));
     await turn(storage, second, "chat");
     expect(toolsOf(second, 1)).toEqual([]);
     expect(JSON.stringify(second.doGenerateCalls[1]?.prompt)).toContain(
@@ -100,9 +124,9 @@ describe("a session's token limits", () => {
     );
   });
 
-  it("fail a run's next model call past its 500,000 input tokens, in the CRM's words", async () => {
+  it("count all a run reads, cached or not: past 500,000 its next model call fails, in the CRM's words", async () => {
     const storage = sessionStorage();
-    const run = model(600_000);
+    const run = model(usageOf({ input: 600_000, cached: 590_000 }));
     await expect(turn(storage, run, "run")).rejects.toThrow(
       "The session reached its configured input token limit.",
     );
