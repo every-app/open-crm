@@ -44,7 +44,10 @@ import {
   useListSelection,
 } from "@/client/features/records/listSearch";
 import { usePrefetchRecord } from "@/client/features/records/recordQueries";
-import { useRecordStack } from "@/client/features/records/recordStack";
+import {
+  useNewForm,
+  useRecordStack,
+} from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listCompanies } from "@/serverFunctions/companies";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -73,7 +76,7 @@ export function CompaniesPage() {
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useNewForm();
   const [importing, setImporting] = useState(false);
 
   const anchorRef = useSelectionAnchor();
@@ -242,10 +245,8 @@ export function CompaniesPage() {
       {creating ? (
         <CreateCompanyDialog
           onClose={() => setCreating(false)}
-          onCreated={(company) => {
-            setCreating(false);
-            openCompany(company.id);
-          }}
+          // Opening the record it made closes the form, in its place in history.
+          onCreated={(company) => openCompany(company.id)}
         />
       ) : null}
     </div>

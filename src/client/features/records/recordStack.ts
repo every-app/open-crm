@@ -23,8 +23,10 @@ import { RECORD_KINDS, type RecordRef } from "@/shared/records";
 //   k                      the quick switcher (⌘K)
 //   closeDeal, closeStage  the reason a deal closing as lost or unqualified
 //                          asks for
-// They replace the history entry rather than add one, and opening or
-// closing a record closes them all.
+//   new                    a list's New company, contact or deal form
+// They replace the history entry rather than add one, but for the New form,
+// which adds one so Back closes it; opening or closing a record closes them
+// all.
 
 // Every sheet has Overview, Activity and Agent; a company's sheet adds
 // Contacts and Deals, a contact's Deals and a deal's Contacts.
@@ -112,6 +114,7 @@ export const appSearchSchema = z.object({
   manageFields: z.enum(RECORD_KINDS).optional().catch(undefined),
   manageField: textParam,
   k: z.boolean().optional().catch(undefined),
+  new: z.boolean().optional().catch(undefined),
   closeDeal: textParam,
   closeStage: z
     .enum(DEAL_STAGES)
@@ -135,6 +138,7 @@ const PANELS_CLOSED = {
   manageFields: undefined,
   manageField: undefined,
   k: undefined,
+  new: undefined,
   closeDeal: undefined,
   closeStage: undefined,
 } satisfies Omit<Record<keyof AppSearch, undefined>, "record">;
@@ -162,7 +166,7 @@ export function useSetAppSearch() {
 
 /** The open sheets, and the ways to open, go back and close them. */
 export function useRecordStack() {
-  const { record } = useAppSearch();
+  const { record, new: creating } = useAppSearch();
   const navigate = useNavigate();
   const stack = parseStack(record);
 
@@ -187,8 +191,13 @@ export function useRecordStack() {
     top: stack.at(-1),
     /** RecordLink's search: `ref` opened on top of the open sheets. */
     openSearch: (ref: RecordRef) => searchFor(withOnTop(ref)),
-    /** Opens `ref` over the page, or on top of the open sheets. */
-    open: (ref: RecordRef) => write(withOnTop(ref), stack.length > 0),
+    /**
+     * Opens `ref` over the page, or on top of the open sheets. The first
+     * sheet adds a history entry, or takes the New form's (the record it
+     * made).
+     */
+    open: (ref: RecordRef) =>
+      write(withOnTop(ref), stack.length > 0 || creating === true),
     /** Back to the sheet under the top one; with one sheet, closes it. */
     back: () => write(stack.slice(0, -1), true),
     close: () => write([], true),
@@ -215,6 +224,24 @@ export function useRecordTab() {
         add: undefined,
         timeline: undefined,
         emailThread: undefined,
+      }),
+  ] as const;
+}
+
+/**
+ * A list's New form: whether it's open, and opening or closing it. Opening
+ * adds a history entry, so Back closes it.
+ */
+export function useNewForm() {
+  const { new: open } = useAppSearch();
+  const navigate = useNavigate();
+  return [
+    open === true,
+    (next: boolean) =>
+      void navigate({
+        to: ".",
+        search: (prev) => ({ ...prev, new: next || undefined }),
+        replace: !next,
       }),
   ] as const;
 }

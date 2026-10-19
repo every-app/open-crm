@@ -45,7 +45,10 @@ import {
   useListSelection,
 } from "@/client/features/records/listSearch";
 import { usePrefetchRecord } from "@/client/features/records/recordQueries";
-import { useRecordStack } from "@/client/features/records/recordStack";
+import {
+  useNewForm,
+  useRecordStack,
+} from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listDeals } from "@/serverFunctions/deals";
 import { hasOrgPermission } from "@/shared/org-permissions";
@@ -74,7 +77,7 @@ export function DealsPage() {
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useNewForm();
   const [importing, setImporting] = useState(false);
 
   const anchorRef = useSelectionAnchor();
@@ -246,10 +249,8 @@ export function DealsPage() {
       {creating ? (
         <CreateDealDialog
           onClose={() => setCreating(false)}
-          onCreated={(deal) => {
-            setCreating(false);
-            openDeal(deal.id);
-          }}
+          // Opening the record it made closes the form, in its place in history.
+          onCreated={(deal) => openDeal(deal.id)}
         />
       ) : null}
     </div>
