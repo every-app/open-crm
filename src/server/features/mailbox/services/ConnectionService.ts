@@ -1,11 +1,9 @@
 import { ArchiveRepository } from "@/server/features/archive/repositories/ArchiveRepository";
+import { mailboxAddress } from "@/server/features/mailbox/providers/mailboxAddress";
 import {
   adminConsentUrl,
   refusalOf,
 } from "@/server/features/mailbox/adminConsent";
-import { primaryCalendar } from "@/server/features/mailbox/providers/calendar";
-import { gmailProfile } from "@/server/features/mailbox/providers/gmail";
-import { graphMe } from "@/server/features/mailbox/providers/outlook";
 import {
   AUTHORIZE_URL,
   CALLBACK_PATH,
@@ -203,30 +201,6 @@ async function completeConnect(
     sources,
   });
   return { ok: true };
-}
-
-/** The connected mailbox's address, lowercased; null when the provider won't say. */
-async function mailboxAddress(
-  provider: MailboxProvider,
-  accessToken: string,
-  sources: SyncSource[],
-): Promise<string | null> {
-  const budget = { calls: 2, deadline: Date.now() + 20_000 };
-  if (provider === "microsoft") {
-    const me = await graphMe(accessToken, budget);
-    if (me.outcome !== "ok") return null;
-    return (me.data.mail ?? me.data.userPrincipalName)?.toLowerCase() ?? null;
-  }
-  if (sources.includes("gmail")) {
-    const profile = await gmailProfile(accessToken, budget);
-    return profile.outcome === "ok"
-      ? (profile.data.emailAddress?.toLowerCase() ?? null)
-      : null;
-  }
-  const calendar = await primaryCalendar(accessToken, budget);
-  return calendar.outcome === "ok"
-    ? (calendar.data.id?.toLowerCase() ?? null)
-    : null;
 }
 
 type ConnectionRow = Awaited<

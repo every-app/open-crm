@@ -109,10 +109,10 @@ async function inventory(organizationId: string) {
 }
 
 async function revokeSlack(organizationId: string): Promise<number> {
-  const connection = await SlackRepository.getConnection(organizationId);
-  if (!connection) return 0;
+  const tokens = await SlackRepository.getTokens(organizationId);
+  if (!tokens) return 0;
   let revoked = 0;
-  for (const token of [connection.botToken, connection.userToken]) {
+  for (const token of [tokens.botToken, tokens.userToken]) {
     if (!token) continue;
     const reply = await slackCall(token, "auth.revoke");
     if (!reply.ok && !SLACK_GONE.has(reply.error ?? "")) {

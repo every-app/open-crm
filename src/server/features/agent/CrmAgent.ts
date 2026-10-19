@@ -1,4 +1,5 @@
 import { Think } from "@cloudflare/think";
+import { GONE_REPLY, INTERRUPTED_TURN_NOTICE } from "./runtime/replies";
 import type {
   ChatErrorContext,
   ChatRecoveryContext,
@@ -78,12 +79,6 @@ const COMPACT_AFTER_TOKENS = 120_000;
 const MAX_INPUT_TOKENS = 160_000;
 
 const ROLE_KEY = "crm-agent:role";
-
-const INTERRUPTED_TURN_NOTICE =
-  "That reply was cut off before it finished. Everything above is saved. Ask again, or tell me where to pick up.";
-
-const GONE_REPLY =
-  "This conversation no longer exists. Start a new one from the record.";
 
 // A research task's or a run's session is cleared this long after it has
 // reported back for good: its transcript is read by nobody (the audit is in
@@ -347,12 +342,9 @@ export class CrmAgent extends Think {
    * attempts in this object's storage; a person's turn gets CHAT_BUDGET.
    */
   private spender(session: AgentSession): Spend {
-    return sessionSpender(
-      this.ctx.storage.kv,
-      session.kind === "run"
-        ? RUN_LIMITS.budget
-        : (session.task?.budget ?? CHAT_BUDGET),
-    );
+    const budget =
+      session.kind === "run" ? RUN_LIMITS.budget : session.task?.budget;
+    return sessionSpender(this.ctx.storage.kv, budget ?? CHAT_BUDGET);
   }
 
   /**

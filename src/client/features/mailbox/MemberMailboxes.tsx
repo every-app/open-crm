@@ -35,7 +35,13 @@ function stateOf({ provider, connection }: Entry): ConnectionState {
   if (connection.sources.some((source) => source.status === "PAUSED")) {
     return "paused";
   }
-  return mailboxState({ provider, ready: true, setup: null, connection });
+  return mailboxState({
+    provider,
+    ready: true,
+    adminConsentUrl: null,
+    setup: null,
+    connection,
+  });
 }
 
 export function MemberMailboxes() {
