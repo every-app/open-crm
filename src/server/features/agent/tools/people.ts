@@ -180,7 +180,9 @@ export const peopleTools: ToolGroup = (context) => ({
       const research = await webResearchAccess();
       if (!research)
         return { ok: false as const, ...unavailable("web research") };
-      const charge = context.spend(BILLABLE_CALL_UNITS);
+      // A quick question costs 1 unit and a deep one a lookup's 2, as the
+      // CRM priced them.
+      const charge = context.spend(deep ? BILLABLE_CALL_UNITS : 1);
       if (!charge.ok) return { ok: false as const, reason: charge.reason };
       const answer = await asker(research)(question, {
         deep,

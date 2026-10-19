@@ -5,10 +5,7 @@ import {
   asker,
   webResearchAccess,
 } from "@/server/features/agent/lib/perplexity";
-import {
-  BILLABLE_CALL_UNITS,
-  type Spend,
-} from "@/server/features/agent/runtime/budget";
+import type { Spend } from "@/server/features/agent/runtime/budget";
 import { RECORD_KINDS } from "@/shared/records";
 import { AGENT_ACTION_TYPES, type AgentManifest } from "@/shared/team-agents";
 import { RunActions } from "./runActions";
@@ -140,7 +137,8 @@ export function runnerTools(context: RunnerContext): ToolSet {
               "Web search is not available on this install. Carry on with the CRM.",
           };
         }
-        const charge = context.spend(BILLABLE_CALL_UNITS);
+        // A quick question, priced as research_person prices one.
+        const charge = context.spend(1);
         if (!charge.ok) return { ok: false as const, reason: charge.reason };
         const answer = await asker(research)(question);
         return answer.ok

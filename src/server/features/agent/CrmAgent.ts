@@ -21,7 +21,6 @@ import {
   openRouterCostUsd,
   staticAssistantModel,
 } from "@/server/lib/chatAgent";
-import { AgentRunRepository } from "@/server/features/team-agents/repositories/AgentRunRepository";
 import { checkedSocketMessage } from "@/server/features/team-agents/runtime/answers";
 import {
   prepareBuilderTurn,
@@ -29,18 +28,23 @@ import {
   RUN_LIMITS,
   RUN_STOPPED_REPLY,
   runBrief,
-  withinRunInput,
 } from "@/server/features/team-agents/runtime/turns";
 import { CHAT_ROLE_HEADER } from "./agentRoutes";
 import { capabilityList, readCapabilities } from "./prompt/capabilities";
 import { AgentConversationRepository } from "./repositories/AgentConversationRepository";
-import { lastText, messageText, recordEvent } from "./runtime/audit";
+import {
+  lastText,
+  messageText,
+  recordEvent,
+  recordStep,
+} from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
 import {
   addTokens,
   renewBudget,
   sessionSpender,
-  writeUpStep,
+  spentChatReply,
+  tokenLimitStep,
   type Spend,
 } from "./runtime/budget";
 import {
@@ -101,8 +105,8 @@ export class CrmAgent extends Think {
     proactive: { maxInputTokens: MAX_INPUT_TOKENS },
   };
 
-  // The session and model, loaded at the start of each turn, and a research
-  // turn's system prompt.
+  // The session and model, loaded at the start of each turn, and the turn's
+  // system prompt.
   private turnSession: AgentSession | null = null;
   private modelChoice: ModelChoice | null = null;
   private turnSystem = "";
@@ -221,6 +225,12 @@ export class CrmAgent extends Think {
       if (!session) {
         return { model: staticAssistantModel(GONE_REPLY), activeTools: [] };
       }
+      // A chat past its tokens takes no more turns (runtime/budget.ts).
+      const spent =
+        session.kind === "chat" && !turn.continuation
+          ? spentChatReply(this.ctx.storage.kv, session.conversation.kind)
+          : null;
+      if (spent) return { model: staticAssistantModel(spent), activeTools: [] };
       this.modelChoice = {
         organizationId: session.organizationId,
         effort: effortFor(session.kind),
@@ -248,24 +258,24 @@ export class CrmAgent extends Think {
           system: prepared.system,
           tools: prepared.tools,
           maxSteps: RUN_LIMITS.maxSteps,
-          maxOutputTokens: RUN_LIMITS.maxOutputTokens,
-          stopWhen: withinRunInput,
+          maxOutputTokens: maxOutputTokens(session.kind),
         };
       }
       if (!turn.continuation) await this.openTurn(session);
       else if (session.kind === "chat") await this.continueTurn(session);
       if (session.kind === "chat" && session.conversation.kind === "BUILDER") {
-        const { system, tools, messages } = prepareBuilderTurn(session, {
+        const builder = prepareBuilderTurn(session, {
           thinkSystem: turn.system,
           messages: this.messages,
           spend: this.spender(session),
           sink: this.meter.sink,
         });
+        this.turnSystem = builder.system;
         return {
-          system,
-          tools,
+          system: builder.system,
+          tools: builder.tools,
           // What the person tagged and attached (team-agents/runtime/turns.ts).
-          messages: await messages(turn.messages),
+          messages: await builder.messages(turn.messages),
           maxOutputTokens: maxOutputTokens("chat"),
         };
       }
@@ -341,12 +351,17 @@ export class CrmAgent extends Think {
   }
 
   /**
-   * A research session whose tokens are spent writes up what it has, with no
-   * more tools (runtime/budget.ts).
+   * Before each model call, the session's token limits (runtime/budget.ts):
+   * past them a research session or a chat writes up what it has, and a run
+   * fails.
    */
   override beforeStep() {
-    if (this.turnSession?.kind !== "research") return undefined;
-    return writeUpStep(this.ctx.storage.kv, this.turnSystem);
+    const kind = this.turnSession?.kind;
+    if (!kind) return undefined;
+    return tokenLimitStep(this.ctx.storage.kv, {
+      kind,
+      system: this.turnSystem,
+    });
   }
 
   /** The chat's person's gateway role, as their socket connected with it. */
@@ -376,28 +391,8 @@ export class CrmAgent extends Think {
     this.meter.record(costUsd);
     const session = this.turnSession;
     if (!session) return;
-    if (session.kind === "research") addTokens(this.ctx.storage.kv, step.usage);
-    await withPgClient(async () => {
-      await recordEvent(session, "step.completed", {
-        stepNumber: step.stepNumber,
-        finishReason: step.finishReason,
-        inputTokens: step.usage.inputTokens ?? null,
-        outputTokens: step.usage.outputTokens ?? null,
-        costUsd,
-      });
-      // A run carries its own tokens and cost, for the runs drawer.
-      if (session.kind === "run") {
-        await AgentRunRepository.addUsage(
-          session.organizationId,
-          session.run.id,
-          {
-            inputTokens: step.usage.inputTokens ?? 0,
-            outputTokens: step.usage.outputTokens ?? 0,
-            costUsd: costUsd ?? 0,
-          },
-        );
-      }
-    });
+    addTokens(this.ctx.storage.kv, session.kind, step.usage);
+    await withPgClient(() => recordStep(session, step, costUsd));
   }
 
   override async onChatResponse(result: ChatResponseResult): Promise<void> {

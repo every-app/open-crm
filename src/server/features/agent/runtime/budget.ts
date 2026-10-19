@@ -1,14 +1,26 @@
 import type { LanguageModelUsage } from "ai";
 import { z } from "zod";
+import type { AgentSession, ChatSession } from "./session";
 
-// The research budget, ported from the CRM's lib/focus.ts. A unit is one
-// metered vendor call's share, not one credit: every billable lookup (a brand,
-// a person, a page extraction) costs 2, so a session with a budget of 4 can
-// make two of them. Beside it, a research session's tokens are capped, as the
-// CRM capped its agent's sessions. Running out of either is a normal ending,
-// not a failure. Both are kept in the session's own storage, so they outlive
-// the Durable Object's memory and carry over to a retried attempt.
+// A session's two budgets, both kept in its own storage, so they outlive the
+// Durable Object's memory and carry over to a retried attempt.
+//
+// The research budget, ported from the CRM's lib/focus.ts, is how many paid
+// lookups a session may make before it writes up. Units aren't money (each
+// vendor call is billed at its real cost): they price calls as the CRM did.
+// A lookup (a brand, a person, a page extraction, a search for someone's
+// profiles) costs 2, a quick web question 1 and a deep one 2, and checking an
+// X handle nothing, so a budget of 4 buys two lookups or four quick questions.
+//
+// Tokens are capped as the CRM capped its agents' sessions (TOKEN_LIMITS):
+// added up across the session's turns and checked before each model call, so
+// the call that crosses a limit finishes. A research session or a run counts
+// all the provider reports, as the CRM's runtime did; a chat counts less
+// (chatCounted). Past its limits a research session or a chat writes up what
+// it has with no more tools, and a team agent's run fails, as the CRM's runs
+// did. Running out of research budget is a normal ending too.
 
+/** What a lookup costs: a brand, a person, a page extraction, a profile search. */
 export const BILLABLE_CALL_UNITS = 2;
 
 type BudgetState = { spent: number; budget: number; exhausted: boolean };
@@ -76,11 +88,16 @@ export function renewBudget(storage: SessionStorage, budget: number): void {
   storage.put(BUDGET_KEY, { spent: 0, budget, exhausted: false });
 }
 
+type Tokens = { input: number; output: number };
+
 /**
- * What a research session may read and write, across its turns and attempts:
- * the CRM's limits on its agent's sessions (agent.ts).
+ * The CRM's token limits: its agent's on every session, research and chats
+ * alike (agent.ts), and its runner's on each run (agent_runner/agent.ts).
  */
-const SESSION_TOKENS = { input: 500_000, output: 50_000 };
+const TOKEN_LIMITS = {
+  session: { input: 500_000, output: 50_000 },
+  run: { input: 500_000, output: 40_000 },
+} satisfies Record<string, Tokens>;
 
 const tokenUse = z
   .object({ input: z.number(), output: z.number() })
@@ -89,33 +106,94 @@ const tokenUse = z
 const TOKENS_SPENT =
   "The token budget for this session is spent. Call no more tools: write up what you already have, as you would when the research budget runs out.";
 
-/** Adds a step's tokens to the research session's. */
-export function addTokens(
-  storage: SessionStorage,
-  usage: Pick<LanguageModelUsage, "inputTokens" | "outputTokens">,
-): void {
-  const used = tokenUse.parse(storage.get(TOKENS_KEY));
-  storage.put(TOKENS_KEY, {
-    input: used.input + (usage.inputTokens ?? 0),
-    output: used.output + (usage.outputTokens ?? 0),
-  });
+type StepUsage = Pick<
+  LanguageModelUsage,
+  "inputTokens" | "inputTokenDetails" | "outputTokens" | "outputTokenDetails"
+>;
+
+/**
+ * What a chat's step counts against its limits: the input the provider didn't
+ * serve from cache, and the visible output without reasoning, each the total
+ * when the provider doesn't say. The CRM sized its limits for its default
+ * model; a person's chat here reasons at "max" and re-sends its instructions,
+ * tools and transcript every step, so counted in full a normal chat would run
+ * out within a handful of turns. Each step's maxOutputTokens and the step
+ * limit bound the reasoning.
+ */
+function chatCounted(usage: StepUsage): Tokens {
+  return {
+    input: usage.inputTokenDetails.noCacheTokens ?? usage.inputTokens ?? 0,
+    output: usage.outputTokenDetails.textTokens ?? usage.outputTokens ?? 0,
+  };
 }
 
 /**
- * The step a research session takes once its tokens are spent: no tools, and
- * the instruction to write up what it has, so it ends as running out of
- * research budget ends it, not with an error. Undefined while tokens remain.
+ * Adds a step's tokens to its session's: all of them for a research session
+ * or a run, as the CRM's runtime counted, and a chat's as chatCounted says.
  */
-export function writeUpStep(
+export function addTokens(
   storage: SessionStorage,
-  system: string,
-): { activeTools: string[]; system: string } | undefined {
+  kind: AgentSession["kind"],
+  usage: StepUsage,
+): void {
+  const step =
+    kind === "chat"
+      ? chatCounted(usage)
+      : { input: usage.inputTokens ?? 0, output: usage.outputTokens ?? 0 };
   const used = tokenUse.parse(storage.get(TOKENS_KEY));
-  if (
-    used.input < SESSION_TOKENS.input &&
-    used.output < SESSION_TOKENS.output
-  ) {
+  storage.put(TOKENS_KEY, {
+    input: used.input + step.input,
+    output: used.output + step.output,
+  });
+}
+
+/** The limit the session's tokens have reached, input first, or null. */
+function reached(
+  storage: SessionStorage,
+  limit: Tokens,
+): "input" | "output" | null {
+  const used = tokenUse.parse(storage.get(TOKENS_KEY));
+  if (used.input >= limit.input) return "input";
+  if (used.output >= limit.output) return "output";
+  return null;
+}
+
+/**
+ * What a chat answers a person's new message with once its tokens are spent,
+ * in place of a turn; null while they remain.
+ */
+export function spentChatReply(
+  storage: SessionStorage,
+  kind: ChatSession["conversation"]["kind"],
+): string | null {
+  if (!reached(storage, TOKEN_LIMITS.session)) return null;
+  return kind === "BUILDER"
+    ? "This chat has hit its token limit. Start a new chat."
+    : "This conversation has hit its token limit. Start a new conversation.";
+}
+
+/**
+ * A session's next model call, within its token limits. A research session
+ * or a chat whose tokens are spent takes a step with no tools and the
+ * instruction to write up what it has, so it ends as running out of research
+ * budget ends it, not with an error. A run that has spent its tokens fails
+ * the call instead, in the words the CRM's runtime failed an unattended
+ * session with (SESSION_TOKEN_LIMIT_REACHED), so the run ends FAILED, as
+ * TURN_FAILED. Undefined while tokens remain.
+ */
+export function tokenLimitStep(
+  storage: SessionStorage,
+  turn: { kind: AgentSession["kind"]; system: string },
+): { activeTools: string[]; system: string } | undefined {
+  if (turn.kind === "run") {
+    const limit = reached(storage, TOKEN_LIMITS.run);
+    if (limit) {
+      throw new Error(
+        `The session reached its configured ${limit} token limit.`,
+      );
+    }
     return undefined;
   }
-  return { activeTools: [], system: `${system}\n\n${TOKENS_SPENT}` };
+  if (!reached(storage, TOKEN_LIMITS.session)) return undefined;
+  return { activeTools: [], system: `${turn.system}\n\n${TOKENS_SPENT}` };
 }

@@ -105,7 +105,7 @@ async function contactPreamble(
     opened.kind ? `Task: **${opened.kind}**.` : "",
     opened.reason ? `Why now: ${opened.reason}` : "",
     opened.budget
-      ? `Budget: **${opened.budget}** units (a vendor call costs 2). Spend them where they matter.`
+      ? `Budget: **${opened.budget}** units (a lookup costs 2, a quick web question 1). Spend them where they matter.`
       : "",
     fieldBackfillLine(opened),
     "",
@@ -166,7 +166,7 @@ async function companyPreamble(
     opened.kind ? `Task: **${opened.kind}**.` : "",
     opened.reason ? `Why now: ${opened.reason}` : "",
     opened.budget
-      ? `Budget: **${opened.budget}** units (a vendor call costs 2). Spend them where they matter.`
+      ? `Budget: **${opened.budget}** units (a lookup costs 2, a quick web question 1). Spend them where they matter.`
       : "",
     fieldBackfillLine(opened),
     "",
@@ -276,7 +276,8 @@ function workspacePreamble(
       : "There is no profile of us yet.",
     "",
     `Read ${site} with \`web_fetch\` — the home page, and the pricing or product`,
-    "page if there is one. Then call `write_workspace_profile`.",
+    "page if there is one — and search the web only if the site does not say who",
+    "the customer is. Then call `write_workspace_profile`.",
     "",
     "**Every other session opens with what you write here**, in front of the",
     "record a rep is asking about, so it has to be short and it has to be",

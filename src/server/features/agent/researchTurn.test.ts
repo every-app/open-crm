@@ -30,7 +30,7 @@ import { capabilityList } from "./prompt/capabilities";
 import type { LeasedTask } from "./repositories/AgentQueueRepository";
 import { recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
-import { addTokens, budgetSpender, writeUpStep } from "./runtime/budget";
+import { addTokens, budgetSpender, tokenLimitStep } from "./runtime/budget";
 import { reportResearch } from "./runtime/research";
 import { loadAgentSession } from "./runtime/session";
 import { MAX_STEPS, prepareTurn } from "./runtime/turn";
@@ -112,9 +112,9 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
     tools,
     stopWhen: stepCountIs(MAX_STEPS),
     // CrmAgent.beforeStep: past its tokens, the session writes up.
-    prepareStep: () => writeUpStep(storage, system),
+    prepareStep: () => tokenLimitStep(storage, { kind: "research", system }),
     onStepFinish: (step) => {
-      addTokens(storage, step.usage);
+      addTokens(storage, "research", step.usage);
       return recordEvent(session, "step.completed", {
         finishReason: step.finishReason,
       });
@@ -151,10 +151,14 @@ describe("a research session", () => {
     expect(started).toBe(1);
 
     // The model was briefed on our own business, by this organization's data,
-    // and could search the web as the CRM's agent could.
+    // and could search the web as the CRM's agent could, when the site
+    // doesn't say who the customer is.
     const [firstCall] = stub.doGenerateCalls;
     expect(JSON.stringify(firstCall?.prompt)).toContain(
       "You are writing the profile of **the company you work for** — Acme (acme.test)",
+    );
+    expect(JSON.stringify(firstCall?.prompt)).toContain(
+      "search the web only if the site does not say who",
     );
     expect(firstCall?.tools).toContainEqual(
       expect.objectContaining({ type: "provider", name: "web_search" }),

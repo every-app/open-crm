@@ -1,4 +1,6 @@
+import type { StepContext } from "@cloudflare/think";
 import type { UIMessage } from "ai";
+import { AgentRunRepository } from "@/server/features/team-agents/repositories/AgentRunRepository";
 import { AgentEventRepository } from "../repositories/AgentEventRepository";
 import type { AgentSession } from "./session";
 import { capToolOutput } from "./toolOutput";
@@ -33,6 +35,30 @@ export async function recordEvent(
       reason: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/**
+ * A finished step: its event, and on a team agent's run, its tokens and cost
+ * for the runs drawer.
+ */
+export async function recordStep(
+  session: AgentSession,
+  step: StepContext,
+  costUsd: number,
+): Promise<void> {
+  await recordEvent(session, "step.completed", {
+    stepNumber: step.stepNumber,
+    finishReason: step.finishReason,
+    inputTokens: step.usage.inputTokens ?? null,
+    outputTokens: step.usage.outputTokens ?? null,
+    costUsd,
+  });
+  if (session.kind !== "run") return;
+  await AgentRunRepository.addUsage(session.organizationId, session.run.id, {
+    inputTokens: step.usage.inputTokens ?? 0,
+    outputTokens: step.usage.outputTokens ?? 0,
+    costUsd,
+  });
 }
 
 /** A message's visible text: its text parts, without reasoning or tools. */

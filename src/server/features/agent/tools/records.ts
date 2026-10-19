@@ -55,7 +55,7 @@ export const recordTools: ToolGroup = (context) => ({
         .max(20)
         .default(4)
         .describe(
-          "Research units the next run may spend (a vendor call costs 2).",
+          "Research units the next run may spend (a lookup costs 2, a quick web question 1).",
         ),
     }),
     execute: async ({ contactId, days, reason, budget }) => {
