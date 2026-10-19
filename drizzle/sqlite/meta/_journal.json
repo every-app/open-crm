@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1792187388471,
+      "when": 1792431279939,
       "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1792277236643,
-      "tag": "0001_parity",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1792302251970,
-      "tag": "0002_fantastic_meteorite",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1792345612401,
-      "tag": "0003_thick_eternals",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1792391384725,
-      "tag": "0004_cold_frog_thor",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1792426878257,
-      "tag": "0005_lethal_liz_osborn",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1792428566916,
-      "tag": "0006_fuzzy_mesmero",
       "breakpoints": true
     }
   ]

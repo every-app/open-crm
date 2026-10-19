@@ -20,9 +20,7 @@ const localDatabaseId = typeof databaseId === "string" ? databaseId : "";
 
 export default defineConfig({
   dialect: "sqlite",
-  // The raw SQLite barrel (not ../schema, the provider-aware one, which imports
-  // cloudflare:workers and can't load under drizzle-kit's node runtime).
-  schema: "./src/db/d1/schema.ts",
+  schema: "./src/db/schema.ts",
   out: "./drizzle/sqlite",
   dbCredentials: {
     url: localD1Path(process.cwd(), localDatabaseId),

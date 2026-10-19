@@ -20,17 +20,6 @@ const CONTRACTING = /\bDROP\s+(TABLE|COLUMN)\b|\bRENAME\b/i;
 const MARKED = /^--\s*everyapp:contract\s+\S+/m;
 const REBUILDING = /\bDROP\s+TABLE\b|__new_/i;
 
-// Written before the first release, so no deployed code read what they drop:
-// two workspace columns, then the paid_session table and another workspace
-// column.
-const UNMARKED_CONTRACTS = new Set([
-  "drizzle/sqlite/0001_parity.sql",
-  "drizzle/sqlite/0006_fuzzy_mesmero.sql",
-]);
-
-// Drops a table no other table references, so nothing cascades from it.
-const LEAF_DROPS = new Set(["drizzle/sqlite/0006_fuzzy_mesmero.sql"]);
-
 const MIGRATIONS = readdirSync(DIR)
   .filter((file) => file.endsWith(".sql"))
   .map((file) => `${DIR}/${file}`);
@@ -45,7 +34,7 @@ function withoutComments(sql: string): string {
 describe("migrations", () => {
   it.each(MIGRATIONS)("%s only expands the schema", (path) => {
     const sql = readFileSync(path, "utf8");
-    if (MARKED.test(sql) || UNMARKED_CONTRACTS.has(path)) return;
+    if (MARKED.test(sql)) return;
     expect(
       withoutComments(sql).match(CONTRACTING)?.[0] ?? null,
       `${path} drops or renames: mark it "-- everyapp:contract <release>" once no live code uses what it removes`,
@@ -53,7 +42,6 @@ describe("migrations", () => {
   });
 
   it.each(MIGRATIONS)("%s rebuilds no table", (path) => {
-    if (LEAF_DROPS.has(path)) return;
     expect(
       withoutComments(readFileSync(path, "utf8")).match(REBUILDING)?.[0] ??
         null,
