@@ -46,6 +46,14 @@ export default defineConfig((ctx) => {
     crons: ["* * * * *"],
     secrets: CRM_SECRETS,
   });
+  // A shared deploy serves every organization from Postgres. Built on D1 it
+  // would move them all onto an empty database: refuse before the deploy
+  // migrates or uploads anything.
+  if ("EVERYAPP_SHARED" in worker.env && "DB" in worker.env) {
+    throw new Error(
+      "This deploy is shared, which runs on Postgres: deploy it with `pnpm deploy:everyapp:first-party` (OPEN_CRM_DATABASE=postgres).",
+    );
+  }
   return {
     worker: {
       ...worker,
