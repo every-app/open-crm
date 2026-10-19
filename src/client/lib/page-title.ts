@@ -3,9 +3,9 @@
 // the manifest's (everyapp.config.ts).
 
 /** The tab's title on a page without a name of its own. */
-export const PRODUCT_NAME = "CRM";
+export const PRODUCT_NAME = "OpenCRM";
 
-/** A route's `head`: its page's title in the tab, as "Companies · CRM". */
+/** A route's `head`: its page's title in the tab, as "Companies · OpenCRM". */
 export function pageHead(name: string) {
   return { meta: [{ title: `${name} · ${PRODUCT_NAME}` }] };
 }

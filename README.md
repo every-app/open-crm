@@ -1,4 +1,4 @@
-# Open CRM
+# OpenCRM
 
 An open-source CRM kept up to date by a research agent, running on an
 [Every App](https://everyapp.com) gateway. Ported from

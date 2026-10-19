@@ -1,5 +1,5 @@
 /**
- * Open CRM on an Every App gateway. The gateway signs people in and decides
+ * OpenCRM on an Every App gateway. The gateway signs people in and decides
  * who may open the CRM, serves its agent tools on the gateway's one MCP
  * connector, and holds the model (OpenRouter) and Context.dev keys and the
  * Google and Microsoft OAuth clients for mail capture, so a deploy needs no
@@ -10,7 +10,7 @@
  */
 export default {
   id: "crm",
-  name: "CRM",
+  name: "OpenCRM",
   description:
     "Companies, contacts and deals, kept up to date by a research agent.",
   resources: {

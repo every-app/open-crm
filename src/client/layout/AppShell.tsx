@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { PRODUCT_NAME } from "@/client/lib/page-title";
 import { Link } from "@tanstack/react-router";
 import { Sidebar } from "@/client/components/Sidebar";
 import {
@@ -32,7 +33,7 @@ function MobileTopBar({ workspaceName }: { workspaceName: string | null }) {
     <div className="flex shrink-0 items-center gap-1 border-b border-border bg-card px-2 py-1.5 md:hidden">
       <SidebarTrigger aria-label="Toggle sidebar" />
       <Link to="/" className="ml-1 truncate font-semibold text-foreground">
-        {workspaceName ?? "CRM"}
+        {workspaceName ?? PRODUCT_NAME}
       </Link>
     </div>
   );

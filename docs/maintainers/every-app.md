@@ -1,4 +1,4 @@
-# Open CRM on an Every App gateway
+# OpenCRM on an Every App gateway
 
 The CRM runs only behind an [Every App](https://everyapp.com) gateway. The gateway does what each deployment would otherwise set up for itself:
 

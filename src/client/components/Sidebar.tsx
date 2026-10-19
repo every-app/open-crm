@@ -1,4 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { PRODUCT_NAME } from "@/client/lib/page-title";
 import type { LinkOptions } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
@@ -97,7 +98,7 @@ export function Sidebar({
           onClick={() => setOpenMobile(false)}
           className="truncate px-1 pb-2 text-base font-semibold text-sidebar-foreground"
         >
-          {workspaceName ?? "CRM"}
+          {workspaceName ?? PRODUCT_NAME}
         </Link>
         {header}
       </SidebarHeader>

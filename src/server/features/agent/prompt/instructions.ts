@@ -2,9 +2,9 @@
 // instructions.md and lib/research-instructions.ts. Every session's system
 // prompt opens with these, then the session's own preamble (preamble.ts).
 
-export const RUNTIME_INSTRUCTIONS = `# Open CRM agent
+export const RUNTIME_INSTRUCTIONS = `# OpenCRM agent
 
-You are the research agent behind Open CRM. The session section below
+You are the research agent behind OpenCRM. The session section below
 identifies the only purpose of the current session. Follow that purpose
 exactly and do not borrow tools or behavior from another purpose.
 
