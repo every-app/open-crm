@@ -16,6 +16,8 @@ Register these redirect URIs on each client, on the CRM's own host:
 - Google: `https://<crm host>/integrations/google/callback`, scopes `gmail.readonly` and `calendar.readonly`.
 - Microsoft: `https://<crm host>/integrations/microsoft/callback`, scopes `offline_access User.Read Mail.Read`, registered for accounts in any organization and personal accounts (the gateway completes the `common` endpoint only).
 
+Microsoft 365 organizations that let only admins consent (Microsoft's default for `Mail.Read`, and for unverified publishers) send members to an approval page they come back from as `access_denied`; their page then links Microsoft's admin consent for their address's tenant (`adminConsent.ts`).
+
 Gmail's read scope is restricted. An **Internal** consent screen (mailboxes in the operator's own Google Workspace) needs no review; an **External** one needs Google's verification and a yearly security assessment before anyone else's mailbox can connect. A member may untick Gmail or Calendar on Google's consent screen: the CRM keeps what was granted and syncs only those sources.
 
 In local dev, put a client of your own in `.dev.vars` under the same names; the SDK calls the token endpoint directly with it.

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { TriangleAlert } from "lucide-react";
+import { ExternalLink, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { QueryState } from "@/client/components/QueryState";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/client/components/SettingsSection";
 import {
   Alert,
+  AlertAction,
   AlertDescription,
   AlertTitle,
 } from "@/client/components/ui/alert";
@@ -93,6 +94,25 @@ export function MailboxConnectionPage({
                   <AlertDescription>
                     {connectErrorCopy(provider, error)}
                   </AlertDescription>
+                  {error === "access_denied" && entry.adminConsentUrl ? (
+                    <AlertAction>
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        nativeButton={false}
+                        render={
+                          <a
+                            href={entry.adminConsentUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          />
+                        }
+                      >
+                        Grant admin consent
+                        <ExternalLink data-icon="inline-end" aria-hidden />
+                      </Button>
+                    </AlertAction>
+                  ) : null}
                 </Alert>
               ) : null}
               {entry.connection ? (
