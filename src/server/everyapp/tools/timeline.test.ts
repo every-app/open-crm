@@ -204,6 +204,9 @@ describe("timeline tools", () => {
       await failure("get_email_thread", { threadId: "thr_1" }, { as: bo }),
     ).toBe("No email thread with id thr_1.");
     expect(
+      await failure("get_meeting", { meetingId: "evt_1" }, { as: bo }),
+    ).toBe("No meeting with id evt_1.");
+    expect(
       await failure("update_activity", { id: "act_mail", body: "x" }),
     ).toBe(
       "Only notes, calls, emails, meetings and tasks a person logged can be changed or deleted.",
