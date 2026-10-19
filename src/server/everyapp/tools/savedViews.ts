@@ -239,8 +239,19 @@ export const savedViewTools = {
       })
       .strict(),
     output: viewOutput,
-    handler: async (input, context) =>
-      SavedViewService.update(context.organizationId, context.userId, {
+    handler: async (input, context) => {
+      const view = await SavedViewService.getOwned(
+        context.organizationId,
+        context.userId,
+        input.id,
+      );
+      if (view.entity !== input.entity) {
+        throw new AppError(
+          "VALIDATION_ERROR",
+          `That view is of ${ENTITY_NOUNS[view.entity].many}, not ${ENTITY_NOUNS[input.entity].many}.`,
+        );
+      }
+      return SavedViewService.update(context.organizationId, context.userId, {
         id: input.id,
         name: input.name,
         shared: input.shared,
@@ -251,7 +262,8 @@ export const savedViewTools = {
               input.filters,
             )
           : undefined,
-      }),
+      });
+    },
   }),
 
   delete_saved_view: crmTool({

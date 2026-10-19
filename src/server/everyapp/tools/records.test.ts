@@ -262,7 +262,7 @@ describe("record tools", () => {
 });
 
 describe("saved view tools", () => {
-  it("saved views: a list's filters saved under a name, the owner by email", async () => {
+  it("saved views: a list's filters saved under a name, the owner by email, changed only on the caller's own view of that list", async () => {
     const view = await call("create_saved_view", {
       entity: "COMPANY",
       name: "Mine",
@@ -279,6 +279,29 @@ describe("saved view tools", () => {
     expect(
       await call("list_saved_views", { entity: "COMPANY" }, { as: bo }),
     ).toEqual({ views: [] });
+
+    // Only onto the caller's own view, of the list it filters.
+    expect(
+      await failure("update_saved_view", {
+        id: view.id,
+        entity: "DEAL",
+        filters: { stages: ["DEMO_BOOKED"] },
+      }),
+    ).toBe("That view is of companies, not deals.");
+    expect(
+      await failure(
+        "update_saved_view",
+        { id: view.id, entity: "COMPANY", name: "Theirs" },
+        { as: bo },
+      ),
+    ).toBe("You have no such saved view.");
+    expect(
+      await call("update_saved_view", {
+        id: view.id,
+        entity: "COMPANY",
+        name: "Acme, mine",
+      }),
+    ).toMatchObject({ name: "Acme, mine", filters: { owner: ["user_a"] } });
 
     // The companies' and contacts' own filters, as their lists' URLs keep them.
     expect(
