@@ -6,8 +6,8 @@
  */
 export type CreditFeature = "crm_agent" | "company_data";
 
-// The credits are one balance with OpenSEO's, so the breakdown also shows
-// OpenSEO's usage: its labels are here as OpenSEO names them.
+// The credits are one balance with OpenSEO's on Every App, so the breakdown
+// also shows OpenSEO's usage: its labels are here as OpenSEO names them.
 const CREDIT_FEATURE_LABELS: Record<string, string> = {
   crm_agent: "CRM Agent",
   company_data: "Company Data",

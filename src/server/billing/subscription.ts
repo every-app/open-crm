@@ -11,7 +11,7 @@ import { autumn, AUTUMN_TRACK_RETRY_OPTIONS } from "./autumn";
 // OpenSEO's organization billing (its src/server/billing/subscription.ts):
 // the Autumn customer, the credit gate, and after-the-fact deductions. The
 // Autumn customer id is the gateway organization id, the same customer
-// OpenSEO bills.
+// OpenSEO's first party on Every App bills.
 
 /** Whose credits: the organization, and the person acting, when there is one. */
 export type BillingCustomer = {
