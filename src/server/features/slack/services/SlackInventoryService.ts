@@ -95,7 +95,10 @@ type JoinOutcome =
 /**
  * Puts the app in a channel: a public one it joins itself; a private one it
  * is invited to with the installer's token, or, without that grant, the
- * channel is marked as waiting on someone inside to invite it.
+ * channel is marked as waiting on someone inside to invite it. When Slack
+ * describes the channel otherwise than the inventory did, the rest of the
+ * inventory may be out of date too, so it is read again once the join is
+ * written, as the CRM's classifyChannel did.
  */
 async function joinChannel(
   context: Context,
@@ -121,43 +124,51 @@ async function joinChannel(
     : live.error === "channel_not_found"
       ? { isPrivate: true, isMember: false }
       : { isPrivate: channel.isPrivate, isMember: channel.isMember };
-  if (state.isMember) {
+  const changed =
+    state.isPrivate !== channel.isPrivate ||
+    state.isMember !== channel.isMember;
+  try {
+    if (state.isMember) {
+      await SlackRepository.updateChannel(organizationId, slackChannelId, {
+        ...state,
+        classifiedAt: new Date().toISOString(),
+      });
+      return { outcome: "already" };
+    }
+    if (state.isPrivate && !connection.userToken) {
+      await SlackRepository.updateChannel(organizationId, slackChannelId, {
+        ...state,
+        inviteRequestedAt: new Date().toISOString(),
+      });
+      return { outcome: "asked" };
+    }
+    const reply =
+      state.isPrivate && connection.userToken
+        ? connection.botUserId
+          ? await slackCall(connection.userToken, "conversations.invite", {
+              body: { channel: slackChannelId, users: connection.botUserId },
+            })
+          : { ok: false, error: "unknown_bot_user" }
+        : await slackCall(bot, "conversations.join", {
+            body: { channel: slackChannelId },
+          });
+    if (!reply.ok && reply.error !== "already_in_channel") {
+      return {
+        outcome: "failed",
+        reason: explainSlackError(reply.error ?? "rejected"),
+      };
+    }
     await SlackRepository.updateChannel(organizationId, slackChannelId, {
-      ...state,
+      isPrivate: state.isPrivate,
+      isMember: true,
+      inviteRequestedAt: null,
       classifiedAt: new Date().toISOString(),
     });
-    return { outcome: "already" };
+    return { outcome: reply.ok ? "joined" : "already" };
+  } finally {
+    // After the join's own write, so the read can't put back what it saw before.
+    if (changed) startSync(organizationId);
   }
-  if (state.isPrivate && !connection.userToken) {
-    await SlackRepository.updateChannel(organizationId, slackChannelId, {
-      ...state,
-      inviteRequestedAt: new Date().toISOString(),
-    });
-    return { outcome: "asked" };
-  }
-  const reply =
-    state.isPrivate && connection.userToken
-      ? connection.botUserId
-        ? await slackCall(connection.userToken, "conversations.invite", {
-            body: { channel: slackChannelId, users: connection.botUserId },
-          })
-        : { ok: false, error: "unknown_bot_user" }
-      : await slackCall(bot, "conversations.join", {
-          body: { channel: slackChannelId },
-        });
-  if (!reply.ok && reply.error !== "already_in_channel") {
-    return {
-      outcome: "failed",
-      reason: explainSlackError(reply.error ?? "rejected"),
-    };
-  }
-  await SlackRepository.updateChannel(organizationId, slackChannelId, {
-    isPrivate: state.isPrivate,
-    isMember: true,
-    inviteRequestedAt: null,
-    classifiedAt: new Date().toISOString(),
-  });
-  return { outcome: reply.ok ? "joined" : "already" };
 }
 
 const createdChannel = z.object({
