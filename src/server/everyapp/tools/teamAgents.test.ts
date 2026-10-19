@@ -222,5 +222,11 @@ describe("team agent tools", () => {
     expect(
       await failure("list_team_agent_activity", { agentId }, { as: bo }),
     ).toBe("The requested record was not found.");
+    // As long a name and description as the CRM allowed.
+    const name = "N".repeat(120);
+    const description = "D".repeat(500);
+    expect(
+      await call("rename_team_agent", { agentId, name, description }),
+    ).toMatchObject({ name, description });
   });
 });

@@ -4,6 +4,13 @@ import { CAPTURE_KINDS, FEEDBACK_RATINGS } from "@/shared/team-agents";
 const id = z.string().trim().min(1).max(128);
 const requestId = z.uuid();
 
+/**
+ * The longest name and description a person gives an agent, as the CRM's
+ * agents.update and New agent took them (its builder's drafts stay shorter).
+ */
+export const AGENT_NAME_MAX = 120;
+export const AGENT_DESCRIPTION_MAX = 500;
+
 export const agentIdSchema = z.object({ agentId: id });
 
 export const agentVersionSchema = z.object({ agentId: id, versionId: id });

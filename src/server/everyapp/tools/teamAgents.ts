@@ -3,7 +3,11 @@ import { crmTool, pageInput, pageOf } from "@/server/everyapp/crm-tool";
 import { TeamAgentService } from "@/server/features/team-agents/services/TeamAgentService";
 import { AppError } from "@/server/lib/errors";
 import { TEAM_AGENT_STATUSES, TRIGGER_TYPES } from "@/shared/team-agents";
-import { agentTransitionSchema } from "@/types/schemas/team-agents";
+import {
+  AGENT_DESCRIPTION_MAX,
+  AGENT_NAME_MAX,
+  agentTransitionSchema,
+} from "@/types/schemas/team-agents";
 
 // Team agents for AI clients: see them, their versions, files and audit log;
 // rename, pause, resume, archive, restore and delete them (their runs are in
@@ -245,8 +249,13 @@ export const teamAgentTools = {
     input: z
       .object({
         agentId,
-        name: z.string().trim().min(1).max(100),
-        description: z.string().trim().max(320).nullable().optional(),
+        name: z.string().trim().min(1).max(AGENT_NAME_MAX),
+        description: z
+          .string()
+          .trim()
+          .max(AGENT_DESCRIPTION_MAX)
+          .nullable()
+          .optional(),
       })
       .strict(),
     output: z.object({

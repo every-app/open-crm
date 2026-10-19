@@ -28,6 +28,7 @@ import {
 } from "@/client/components/ui/select";
 import { slackChannelsQueryOptions } from "@/client/features/slack/slackQueries";
 import { SLACK_RESOURCE, slackChannelResourceId } from "@/shared/team-agents";
+import { AGENT_NAME_MAX } from "@/types/schemas/team-agents";
 import type { TaggedResource } from "./TagPicker";
 import { CREATE_AGENT_PREFIX } from "./teamAgentCopy";
 import { useStartChat } from "./useStartChat";
@@ -47,7 +48,7 @@ const PERMISSIONS = [
 type Permission = (typeof PERMISSIONS)[number]["id"];
 
 const briefSchema = z.object({
-  name: z.string().trim().min(1, "Give the agent a name.").max(120),
+  name: z.string().trim().min(1, "Give the agent a name.").max(AGENT_NAME_MAX),
   job: z.string().trim().min(1, "Say what the agent should do.").max(20_000),
   channelId: z.string(),
   allowed: z.array(z.enum(["post", "mention", "thread", "history"])),
@@ -147,7 +148,7 @@ export function NewAgentDialog() {
                 <field.TextField
                   label="Name"
                   autoComplete="off"
-                  maxLength={120}
+                  maxLength={AGENT_NAME_MAX}
                 />
               )}
             </form.AppField>
