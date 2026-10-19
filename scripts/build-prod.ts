@@ -1,7 +1,6 @@
 /**
  * The production builds `everyapp deploy` makes, with stand-in deploy
- * inputs: a fork (D1, one organization) and the first party (Postgres
- * through Hyperdrive, shared by every organization). It checks that both
+ * inputs: on D1, and on Postgres through Hyperdrive. It checks that both
  * build. Nothing it builds can be deployed: the identity key is made here
  * and thrown away, and the build output is removed afterwards.
  *
@@ -21,17 +20,16 @@ const NO_ID = "00000000000000000000000000000000";
 
 const SHAPES = [
   {
-    name: "fork",
+    name: "D1 Worker",
     env: {},
     inputs: {
       resources: { d1: { DB: { name: "every-check-crm", id: NO_ID } } },
     },
   },
   {
-    name: "first party",
+    name: "Postgres Worker",
     env: { OPEN_CRM_DATABASE: "postgres" },
     inputs: {
-      shared: true,
       resources: { hyperdrive: { HYPERDRIVE: { id: NO_ID } } },
     },
   },

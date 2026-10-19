@@ -10,8 +10,8 @@ import {
 } from "@/types/schemas/settings";
 
 /**
- * The model the agent runs on. It isn't chosen in the app: Luna, or a
- * self-hosted copy's OPENROUTER_MODEL.
+ * The model the agent runs on. It isn't chosen in the app: Luna, or the
+ * deployment's OPENROUTER_MODEL.
  */
 export const getAgentModel = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)

@@ -22,16 +22,16 @@ import { setAutomaticResearch } from "@/serverFunctions/settings";
 const MODEL_SETTING = "OPENROUTER_MODEL";
 
 /**
- * Settings → General: whether the research agent researches on its own, and
- * on a self-hosted copy the model it thinks with, where to change it
- * (OPENROUTER_MODEL), and whether the gateway holds the key that reaches it.
+ * Settings → General: whether the research agent researches on its own, the
+ * model it thinks with, where to change it (OPENROUTER_MODEL), and whether
+ * the gateway holds the key that reaches it.
  */
-export function ResearchAgentSection({ selfHosted }: { selfHosted: boolean }) {
+export function ResearchAgentSection() {
   return (
     <SettingsSection title="Research agent">
       <SettingsCard>
         <AutomaticResearchRow />
-        {selfHosted ? <ModelRows /> : null}
+        <ModelRows />
       </SettingsCard>
     </SettingsSection>
   );

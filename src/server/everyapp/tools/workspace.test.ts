@@ -8,7 +8,7 @@ const { testDb } = await vi.hoisted(async () => {
   return { testDb: await createSqliteTestDb() };
 });
 vi.mock("cloudflare:workers", () => ({
-  env: { DATABASE_PROVIDER: "d1", DEPLOYMENT_TIER: "fork" },
+  env: { DATABASE_PROVIDER: "d1" },
   waitUntil: vi.fn(),
 }));
 vi.mock("@/db", () => ({ db: testDb.db }));

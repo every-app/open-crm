@@ -3,19 +3,13 @@
 
 declare namespace Cloudflare {
   interface Env {
-    // Set by `everyapp deploy` for a fork: the CRM is pinned to that
-    // organization. Unset on a first-party deployment, where the organization
-    // comes from each request's identity.
+    // Set by `everyapp deploy`: the CRM is pinned to that organization. Unset
+    // under `everyapp dev`.
     EVERY_APP_ORG_ID?: string;
     // The gateway's origin, for the account menu's "Sign out on Every App".
     GATEWAY_URL?: string;
-    // first_party or fork (src/server/lib/deployment-tier.ts), derived from
-    // EVERY_APP_ORG_ID when unset.
-    DEPLOYMENT_TIER?: string;
-    // "off" holds a first-party deployment's scheduled research.
-    FIRST_PARTY_SCHEDULED_RESEARCH?: string;
-    // The first-party shape's database (everyapp.config.ts): "postgres" with a
-    // HYPERDRIVE binding; D1 otherwise.
+    // The database (everyapp.config.ts): "postgres" with a HYPERDRIVE
+    // binding; D1 otherwise.
     DATABASE_PROVIDER?: "d1" | "postgres";
     HYPERDRIVE?: {
       connectionString: string;

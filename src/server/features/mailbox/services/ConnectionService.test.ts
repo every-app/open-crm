@@ -19,7 +19,6 @@ vi.mock("cloudflare:workers", () => ({
       return testDb.modules.workers.env.DATABASE_PROVIDER;
     },
     EVERY_APP_GATEWAY: gateway.binding,
-    EVERYAPP_SHARED: "1",
   },
   waitUntil: () => {},
 }));
@@ -372,11 +371,11 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await database.rows(`SELECT id FROM mailbox_sync`)).toEqual([]);
     });
 
-    it("leaves Google's grant while another organization's connection uses the same account, which would lose it too", async () => {
-      // Ana's Google account, connected in both organizations (the gateway's
-      // one client), and Bo's own in org_b.
-      const anaInB = { organizationId: "org_b", userId: "user_a" };
-      for (const member of [ANA, anaInB]) {
+    it("leaves Google's grant while another member's connection uses the same account, which would lose it too", async () => {
+      // A shared inbox both Ana and Bo connected (the gateway's one client),
+      // and Bo's own account in org_b.
+      const boInA = { organizationId: "org_a", userId: "user_b" };
+      for (const member of [ANA, boInA]) {
         await seedMailbox({
           ...member,
           provider: "google",
@@ -405,13 +404,13 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           `SELECT organization_id, user_id FROM mailbox_connection ORDER BY user_id`,
         ),
       ).toEqual([
-        { organization_id: "org_b", user_id: "user_a" },
+        { organization_id: "org_a", user_id: "user_b" },
         { organization_id: "org_b", user_id: "user_b" },
       ]);
 
       // The account's last connection withdraws the grant; Bo's own account
       // doesn't hold it back.
-      await ConnectionService.disconnect(anaInB, "google");
+      await ConnectionService.disconnect(boInA, "google");
       expect(revoked).toHaveLength(1);
     });
   });

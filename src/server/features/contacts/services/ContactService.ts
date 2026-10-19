@@ -17,7 +17,6 @@ import {
   runBulk,
 } from "@/server/features/records/recordRules";
 import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
-import { requireCredits } from "@/server/billing/credits";
 import { AppError, UserFacingError } from "@/server/lib/errors";
 import { normalizeEmail } from "@/shared/domain";
 import type {
@@ -341,15 +340,9 @@ async function purgeContact(organizationId: string, id: string) {
 
 /**
  * A person asked the agent to look at the contact again. True when it was
- * queued; false when the agent is already on it. Refused when the workspace
- * is out of credits (hosted billing).
+ * queued; false when the agent is already on it.
  */
 async function enrichContact(organizationId: string, id: string) {
-  await requireCredits({ organizationId });
-  return requestEnrichment(organizationId, id);
-}
-
-async function requestEnrichment(organizationId: string, id: string) {
   const found = await requireContact(organizationId, id);
   const queued = await AgentTaskService.contactCreated(
     organizationId,
@@ -411,8 +404,7 @@ async function bulkArchive(
 }
 
 async function bulkEnrich(organizationId: string, ids: string[]) {
-  await requireCredits({ organizationId });
-  return runBulk(ids, (id) => requestEnrichment(organizationId, id));
+  return runBulk(ids, (id) => enrichContact(organizationId, id));
 }
 
 function bulkRestore(organizationId: string, ids: string[]) {

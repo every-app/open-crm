@@ -1,6 +1,4 @@
 import { getAgentByName } from "agents";
-import { laneCreditCheck } from "@/server/billing/credits";
-import { scheduledResearchEnabled } from "@/server/lib/deployment-tier";
 import { getOpenRouterFetch } from "@/server/lib/openrouter";
 import { hasContextAccess } from "@/server/lib/provider-access";
 import { runResearchLane, runVisibleLane, type Defer } from "./dispatch";
@@ -39,46 +37,26 @@ export async function runScheduledWork(
   const signal = AbortSignal.timeout(DISPATCH.sweep.timeoutMs);
   defer(sweepAllBlankFacts(signal));
   await reconcileStaleTasks();
-  const askedForOnly = !scheduledResearchEnabled(env);
-  // Where usage is billed, organizations out of credits wait.
-  const credits = laneCreditCheck(env);
   const lanes: { lane: LaneName; run: Promise<number> }[] = [
-    { lane: "visible", run: runVisibleLane({ signal, defer, credits }) },
-    {
-      lane: "runs",
-      // Team agents' runs: their schedules are unattended spending, held
-      // with the scheduled research.
-      run: runTeamAgentLane(env, {
-        signal,
-        defer,
-        holdUnattended: askedForOnly,
-        credits,
-      }),
-    },
+    { lane: "visible", run: runVisibleLane({ signal, defer }) },
+    // Team agents' runs.
+    { lane: "runs", run: runTeamAgentLane(env, { signal, defer }) },
     {
       lane: "research",
       run: runResearchLane({
         signal,
         defer,
-        askedForOnly,
-        credits,
         // Without the gateway's binding (or, in dev, a key) no session can run.
         modelConfigured: modelConfigured(env),
         start: (task) => startResearchSession(env, task),
       }),
     },
+    // The enrichment sweep: work to queue from each organization's records.
+    {
+      lane: "sweep",
+      run: runEnrichmentSweep({ signal, contextReady: hasContextAccess }),
+    },
   ];
-  // The enrichment sweep: its free passes always, and the research it queues
-  // held with the scheduled research.
-  lanes.push({
-    lane: "sweep",
-    run: runEnrichmentSweep({
-      signal,
-      askedForOnly,
-      credits,
-      contextReady: hasContextAccess,
-    }),
-  });
   const passes = await Promise.all(
     lanes.map(async ({ lane, run }) => {
       try {
@@ -96,10 +74,10 @@ export async function runScheduledWork(
   const failed = passes.find((pass) => pass.failure !== null);
   if (failed?.failure) throw failed.failure.error;
   if (passes.some((pass) => pass.handled > 0)) {
-    console.log("[agent] dispatched", {
-      ...Object.fromEntries(passes.map((pass) => [pass.lane, pass.handled])),
-      askedForOnly,
-    });
+    console.log(
+      "[agent] dispatched",
+      Object.fromEntries(passes.map((pass) => [pass.lane, pass.handled])),
+    );
   }
 }
 

@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  AgentAvailability,
-  DeploymentTier,
-} from "@/shared/agent-availability";
+import type { AgentAvailability } from "@/shared/agent-availability";
 
-// Setup is a self-hosted copy's: the hosted CRM runs on Every App's gateway,
-// so its checklist offers no command and no .dev.vars hint, even in local
-// development, while a fork's says where each missing key goes.
 vi.mock("@/server/features/agent/services/AgentAvailabilityService", () => ({
   AgentAvailabilityService: { forOrganization: vi.fn() },
 }));
@@ -15,7 +9,7 @@ vi.mock("@/server/features/mailbox/providers/oauth", () => ({
   clientStatus: vi.fn(),
 }));
 vi.mock("@/server/features/slack/services/SlackService", () => ({
-  SlackService: { clientReady: vi.fn(), isConnected: vi.fn() },
+  SlackService: { isConnected: vi.fn() },
 }));
 vi.mock("@/server/features/setup/repositories/SetupRepository", () => ({
   SetupRepository: { progress: vi.fn() },
@@ -28,36 +22,23 @@ import { SlackService } from "@/server/features/slack/services/SlackService";
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 import { SetupService } from "./SetupService";
 
-const keysMissing = (tier: DeploymentTier): AgentAvailability => ({
+const keysMissing: AgentAvailability = {
   model: "missing",
   modelRefusal: null,
   context: false,
-  outOfCredits: false,
   scheduledResearch: true,
-  tier,
-});
+};
 
 describe("SetupService.checklist", () => {
   beforeEach(() => {
     // `everyapp dev`.
     vi.mocked(getOptionalEnvValue).mockResolvedValue("1");
     vi.mocked(AgentAvailabilityService.forOrganization).mockResolvedValue(
-      keysMissing("fork"),
+      keysMissing,
     );
   });
 
-  it("shows the hosted CRM no setup, even in local development", async () => {
-    vi.mocked(AgentAvailabilityService.forOrganization).mockResolvedValue(
-      keysMissing("first_party"),
-    );
-    const { items } = await SetupService.checklist("org_a", true);
-    expect(items.map(({ note, command }) => ({ note, command }))).toEqual([
-      { note: null, command: null },
-      { note: null, command: null },
-    ]);
-  });
-
-  it("tells a self-hosted copy where each missing key goes", async () => {
+  it("tells local development where each missing key goes", async () => {
     const { items } = await SetupService.checklist("org_a", true);
     expect(items.map((item) => item.note)).toEqual([
       "In local development, put OPENROUTER_API_KEY in .dev.vars.",
@@ -76,16 +57,15 @@ describe("SetupService.getStarted", () => {
       team: false,
     });
     vi.mocked(clientStatus).mockResolvedValue({ ready: false, clientId: null });
-    vi.mocked(SlackService.clientReady).mockResolvedValue(false);
     vi.mocked(SlackService.isConnected).mockResolvedValue(false);
   });
 
-  // A new fork's gateway is connected before the agent has asked the model
+  // A new gateway is connected before the agent has asked the model
   // anything, so "unchecked" isn't proof of a key.
-  it("counts a fork's model step done only once the model has answered", async () => {
+  it("counts the model step done only once the model has answered", async () => {
     const modelStep = async (model: AgentAvailability["model"]) => {
       vi.mocked(AgentAvailabilityService.forOrganization).mockResolvedValue({
-        ...keysMissing("fork"),
+        ...keysMissing,
         model,
       });
       const { steps } = await SetupService.getStarted("org_a", "u_a", true);

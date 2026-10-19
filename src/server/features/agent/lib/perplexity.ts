@@ -1,7 +1,5 @@
 import { generateText } from "ai";
 import { z } from "zod";
-import { reportSpend } from "@/server/billing/spendSink";
-import { openRouterCostUsd } from "@/server/lib/chatAgent";
 import {
   getOpenRouterFetch,
   openRouterProvider,
@@ -13,8 +11,6 @@ import { getWorkersEnv } from "@/server/lib/runtime-env";
 // lib/perplexity.ts. The CRM called Perplexity with its own key; here the call
 // goes to the same models through the Every App gateway's OpenRouter proxy,
 // which holds the key and counts the call against the session's organization.
-// Each search reports its OpenRouter cost (usage accounting) to the session's
-// running total (billing/spendSink.ts).
 // An answer is only as good as its citations, so they are kept whichever way
 // they come back: as OpenRouter's url_citation annotations (the AI SDK's
 // sources) or as Perplexity's own citations list.
@@ -68,28 +64,19 @@ export function asker(research: typeof fetch): Ask {
       const result = await generateText({
         model: openRouterProvider(research)(
           options.deep ? DEEP_RESEARCH_MODEL : WEB_RESEARCH_MODEL,
-          {
-            usage: { include: true },
-            ...(options.domains
-              ? {
-                  extraBody: {
-                    plugins: [{ id: "web", include_domains: options.domains }],
-                  },
-                }
-              : {}),
-          },
+          options.domains
+            ? {
+                extraBody: {
+                  plugins: [{ id: "web", include_domains: options.domains }],
+                },
+              }
+            : {},
         ),
         system: options.system,
         prompt: question,
         // A failed search is reported, not paid for again.
         maxRetries: 0,
         abortSignal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-      reportSpend({
-        provider: "openrouter",
-        creditFeature: "crm_agent",
-        operation: "web_research",
-        costUsd: openRouterCostUsd(result),
       });
       const text = result.text.trim();
       if (!text) return { ok: false, reason: "Empty answer." };

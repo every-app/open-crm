@@ -43,6 +43,13 @@
       "when": 1792426878257,
       "tag": "0005_lethal_liz_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792428566916,
+      "tag": "0006_fuzzy_mesmero",
+      "breakpoints": true
     }
   ]
 }

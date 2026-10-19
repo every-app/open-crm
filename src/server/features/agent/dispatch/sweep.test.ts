@@ -181,21 +181,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
     });
 
-    it("queues nothing for an organization out of credits, and only its own records for the next", async () => {
-      await database.exec(
-        `UPDATE workspace SET website = 'a.test' WHERE organization_id = 'org_a';
-         INSERT INTO company (id, organization_id, name, domain) VALUES ('acme', 'org_a', 'Acme', 'acme.test');
-         INSERT INTO contact (id, organization_id, first_name, github_url, company_id) VALUES
-           ('ana', 'org_a', 'Ana', 'https://github.com/ana', 'acme'), ('bo', 'org_b', 'Bo', NULL, NULL);`,
-      );
-      await runEnrichmentSweep({
-        contextReady: ready,
-        credits: async (organizationId) => organizationId !== "org_a",
-      });
-      expect(await queued("org_a")).toEqual([]);
-      expect(await queued("org_b")).toEqual(["identify contact:bo"]);
-    });
-
     it("passes over the research of records held for a person, but fetches their favicons", async () => {
       await database.exec(
         `INSERT INTO company (id, organization_id, name, domain, research_held_at) VALUES ('held', 'org_a', 'held.icon.test', 'held.icon.test', '${ago(HOUR)}');
@@ -228,7 +213,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await runEnrichmentSweep({ contextReady: ready })).toBe(1);
     });
 
-    it("fetches the favicon of each company with a domain and no icon, out of credits or with research held, and tries it once a day", async () => {
+    it("fetches the favicon of each company with a domain and no icon, with research held too, and tries it once a day", async () => {
       await database.exec(
         `INSERT INTO company (id, organization_id, name, domain, icon_url) VALUES
            ('found', 'org_a', 'Found', 'found.icon.test', NULL),
@@ -239,10 +224,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       const icons = async () =>
         database.rows(`SELECT id, icon_url FROM company ORDER BY id`);
 
-      await runEnrichmentSweep({
-        contextReady: ready,
-        credits: async () => false,
-      });
+      await runEnrichmentSweep({ contextReady: ready });
       expect(await icons()).toEqual([
         { id: "found", icon_url: copyOf("found/icon") },
         { id: "iconed", icon_url: "/api/images/org_a/i.png" },
@@ -251,9 +233,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
       await database.exec(
         `INSERT INTO company (id, organization_id, name, domain) VALUES ('held', 'org_a', 'Held', 'held.icon.test');
-         UPDATE workspace SET enrichment_swept_at = NULL;`,
+         DELETE FROM agent_task;
+         UPDATE workspace SET enrichment_swept_at = NULL, research_automatically = false;`,
       );
-      await runEnrichmentSweep({ contextReady: ready, askedForOnly: true });
+      await runEnrichmentSweep({ contextReady: ready });
       expect(
         await database.rows(`SELECT icon_url FROM company WHERE id = 'held'`),
       ).toEqual([{ icon_url: copyOf("held/icon") }]);

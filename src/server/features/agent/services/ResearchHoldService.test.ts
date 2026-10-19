@@ -17,16 +17,7 @@ vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
 vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
-// The first-party deployment, which bills: Enrich asks for credits.
-const { autumn } = await vi.hoisted(async () => ({
-  autumn: (await import("@/server/billing/autumnTestSupport")).autumnMock(),
-}));
-vi.mock("@/server/billing/autumn", () => ({
-  autumn,
-  AUTUMN_TRACK_RETRY_OPTIONS: {},
-}));
 
-import { withBalance } from "@/server/billing/autumnTestSupport";
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import { ContactService } from "@/server/features/contacts/services/ContactService";
 import { ImportService } from "@/server/features/imports/services/ImportService";
@@ -47,7 +38,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
     beforeEach(async () => {
       testDb.use(dialect);
-      withBalance(autumn, 500);
       await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
       await database.seedTwoOrganizations();
     });

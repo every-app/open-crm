@@ -24,16 +24,7 @@ vi.mock("@/server/lib/provider-access", () => ({
   getContextFetch: vi.fn(async () => null),
   hasContextAccess: vi.fn(async () => false),
 }));
-// The first-party deployment, which bills.
-const { autumn } = await vi.hoisted(async () => ({
-  autumn: (await import("@/server/billing/autumnTestSupport")).autumnMock(),
-}));
-vi.mock("@/server/billing/autumn", () => ({
-  autumn,
-  AUTUMN_TRACK_RETRY_OPTIONS: {},
-}));
 
-import { withBalance } from "@/server/billing/autumnTestSupport";
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import { runResearchLane, runVisibleLane } from "./dispatch";
 import { DISPATCH } from "./dispatch/config";
@@ -77,7 +68,6 @@ async function row(table: string, id: string) {
 
 describe("the dispatcher", () => {
   beforeEach(async () => {
-    withBalance(autumn, 500);
     // Company sites (favicons) answer nothing unless a test says otherwise.
     vi.stubGlobal(
       "fetch",
@@ -153,7 +143,6 @@ describe("the dispatcher", () => {
     const started = await runResearchLane({
       start,
       modelConfigured: true,
-      askedForOnly: false,
       defer,
     });
     expect(started).toBe(1);
@@ -194,7 +183,6 @@ describe("the dispatcher", () => {
     await runResearchLane({
       start,
       modelConfigured: true,
-      askedForOnly: false,
       defer,
     });
     const started = start.mock.calls.map(([task]) => task.organizationId);
@@ -213,7 +201,6 @@ describe("the dispatcher", () => {
     await runResearchLane({
       start: async () => ({ sessionId: "task.session" }),
       modelConfigured: true,
-      askedForOnly: false,
       defer,
     });
     const session = await loadAgentSession(sessionName("task", "org_a", "t1"));
@@ -251,7 +238,6 @@ describe("the dispatcher", () => {
     await runResearchLane({
       start,
       modelConfigured: false,
-      askedForOnly: false,
       defer,
     });
     expect(start).not.toHaveBeenCalled();
@@ -275,7 +261,6 @@ describe("the dispatcher", () => {
         throw new Error("Durable Object unavailable");
       },
       modelConfigured: true,
-      askedForOnly: false,
       defer,
     });
     expect(await row("contact", "c1")).toMatchObject({

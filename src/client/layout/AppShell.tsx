@@ -11,19 +11,16 @@ export function AppLayout({
   children,
   workspaceName,
   sidebarHeader,
-  banner,
 }: {
   children: React.ReactNode;
   workspaceName: string | null;
   sidebarHeader?: React.ReactNode;
-  banner?: React.ReactNode;
 }) {
   return (
     <SidebarProvider className="h-[100dvh] min-h-0 overflow-hidden">
       <Sidebar workspaceName={workspaceName} header={sidebarHeader} />
       <SidebarInset className="min-h-0 overflow-hidden md:!m-0 md:!mt-2 md:!rounded-none md:!rounded-tl-lg md:border-l md:border-t md:border-sidebar-border md:!shadow-none">
         <MobileTopBar workspaceName={workspaceName} />
-        {banner}
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>
       </SidebarInset>
     </SidebarProvider>

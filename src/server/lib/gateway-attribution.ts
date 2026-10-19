@@ -4,10 +4,9 @@ import type { EveryAppUser, GatewayCallFor } from "@every-app/sdk/server";
 import { decodeJwt } from "jose";
 
 // Whom the CRM's calls through the Every App gateway are for. The gateway
-// counts each Context or OpenRouter call against an organization, and a
-// first-party deployment serves every organization from one Worker
-// (EVERYAPP_SHARED=1), so every call has to say whose it is. The SDK takes
-// that as `for` (packages/sdk/README.md, "Whom a call is for"):
+// counts each Context or OpenRouter call against an organization, so every
+// call says whose it is. The SDK takes that as `for` (packages/sdk/README.md,
+// "Whom a call is for"):
 //
 // - While the CRM serves a request the gateway forwarded, the request's
 //   signed identity is forwarded with the call (`for: request`), so the call
@@ -17,12 +16,9 @@ import { decodeJwt } from "jose";
 //   organization that owns it with forOrganization(), which sends it as
 //   `x-everyapp-org` (`for: { background: true, organizationId }`).
 //
-// The CRM's organization id is the gateway's in both shapes (first party and
-// fork), so a named organization goes to the gateway as it is. A named
-// organization inside a request must be the request's, or the call is refused
-// here before it leaves. A call that says nobody's throws the SDK's
-// AttributionError in a shared Worker, so a path this misses fails closed
-// instead of spending without an organization.
+// The CRM's organization id is the gateway's, so a named organization goes to
+// the gateway as it is. A named organization inside a request must be the
+// request's, or the call is refused here before it leaves.
 
 interface ServedRequest {
   request: Request;
@@ -85,7 +81,7 @@ export function forOrganization<T>(organizationId: string, fn: () => T): T {
  * identity is good, else the named organization (`organizationId`, or the
  * forOrganization scope), else, for work a request started that outlived
  * its identity, the request's organization. Undefined when nothing names
- * one, which a shared Worker's SDK refuses.
+ * one.
  */
 export function gatewayCallFor(
   _env: object,

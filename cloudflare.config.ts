@@ -17,27 +17,10 @@ const CRM_SECRETS = [
   // Raises GitHub's rate limit when the agent matches people to GitHub
   // profiles. Any classic token with no scopes will do.
   "GITHUB_TOKEN",
-  // The OpenRouter model the agent runs on, for a self-hosted copy that
-  // wants another than GPT-6 Luna (src/server/lib/openrouter.ts). The key
-  // itself, OPENROUTER_API_KEY, is the gateway's.
+  // The OpenRouter model the agent runs on, for a deployment that wants
+  // another than GPT-6 Luna (src/server/lib/openrouter.ts). The key itself,
+  // OPENROUTER_API_KEY, is the gateway's.
   "OPENROUTER_MODEL",
-  // Overrides the deployment shape (src/server/lib/deployment-tier.ts). Its
-  // use is local: `DEPLOYMENT_TIER=fork` in .dev.vars shows a fork's setup
-  // commands, since `everyapp dev` pins no organization.
-  "DEPLOYMENT_TIER",
-  // First party only: `off` holds the unattended work every organization's
-  // agent would spend on (the enrichment sweep, scheduled research, team
-  // agents' schedules and events) at once (src/server/lib/deployment-tier.ts).
-  "FIRST_PARTY_SCHEDULED_RESEARCH",
-  // First party only: Autumn, which bills the hosted CRM's usage on
-  // OpenSEO's account (src/server/billing, docs/maintainers/billing.md).
-  // This breaks "keys live in the gateway" on purpose, until the gateway's
-  // wallet can bill for the apps; forks never set it.
-  "AUTUMN_SECRET_KEY",
-  // Local dev only, in .dev.vars: BILLING=on bills a local run as the first
-  // party does, and AUTUMN_DEV_STUB=free|paid|low|out stands in for Autumn.
-  "BILLING",
-  "AUTUMN_DEV_STUB",
   // Set only while an operator erases an organization: it signs the erasure
   // requests (docs/maintainers/runbooks/erase-organization.md).
   "ERASURE_SECRET",
@@ -53,14 +36,6 @@ export default defineConfig((ctx) => {
     crons: ["* * * * *"],
     secrets: CRM_SECRETS,
   });
-  // A shared deploy serves every organization from Postgres. Built on D1 it
-  // would move them all onto an empty database: refuse before the deploy
-  // migrates or uploads anything.
-  if ("EVERYAPP_SHARED" in worker.env && "DB" in worker.env) {
-    throw new Error(
-      "This deploy is shared, which runs on Postgres: deploy it with `pnpm deploy:everyapp:first-party` (OPEN_CRM_DATABASE=postgres).",
-    );
-  }
   return {
     worker: {
       ...worker,

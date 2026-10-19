@@ -14,8 +14,6 @@ const { databases, current } = await vi.hoisted(async () => {
     },
     current: {
       dialect: "sqlite" as "sqlite" | "postgres",
-      // Unset: the first-party deployment, which bills.
-      env: {} as Record<string, string>,
     },
   };
 });
@@ -24,20 +22,7 @@ vi.mock("cloudflare:workers", () => ({
     get DATABASE_PROVIDER() {
       return current.dialect === "postgres" ? "postgres" : "d1";
     },
-    get DEPLOYMENT_TIER() {
-      return current.env.DEPLOYMENT_TIER;
-    },
-    get EVERYAPP_DEV() {
-      return current.env.EVERYAPP_DEV;
-    },
   },
-}));
-const { autumn } = await vi.hoisted(async () => ({
-  autumn: (await import("@/server/billing/autumnTestSupport")).autumnMock(),
-}));
-vi.mock("@/server/billing/autumn", () => ({
-  autumn,
-  AUTUMN_TRACK_RETRY_OPTIONS: {},
 }));
 vi.mock("@/db", () => ({
   get db() {
@@ -50,7 +35,6 @@ vi.mock("@/db/runBatch", () => ({
 }));
 
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
-import { withBalance } from "@/server/billing/autumnTestSupport";
 import { toClientError } from "@/server/lib/errors";
 import { companyListSchema } from "@/types/schemas/companies";
 import { CompanyDirectoryService } from "./CompanyDirectoryService";
@@ -64,8 +48,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     const database = databases[dialect];
     beforeEach(async () => {
       current.dialect = dialect;
-      current.env = {};
-      withBalance(autumn, 500);
       await database.exec(
         `DELETE FROM agent_event; DELETE FROM agent_task; DELETE FROM activity; DELETE FROM deal; DELETE FROM contact; DELETE FROM company; DELETE FROM workspace; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
       );
@@ -296,34 +278,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         iconUrl: null,
         queued: true,
       });
-    });
-
-    it("refuses Enrich now when the workspace is out of credits", async () => {
-      const acme = await create(A, "Acme", "acme.com");
-      withBalance(autumn, 0);
-
-      for (const attempt of [
-        CompanyService.enrichCompany(A, acme.id),
-        CompanyService.bulkEnrich(A, [acme.id]),
-      ]) {
-        await expect(attempt).rejects.toMatchObject({
-          code: "INSUFFICIENT_CREDITS",
-        });
-      }
-    });
-
-    it.each([
-      ["a fork", { DEPLOYMENT_TIER: "fork" }],
-      ["a local run", { EVERYAPP_DEV: "1" }],
-    ])("never asks Autumn on %s", async (_name, env) => {
-      current.env = env;
-      const acme = await create(A, "Acme", "acme.com");
-
-      await expect(CompanyService.enrichCompany(A, acme.id)).resolves.toEqual(
-        expect.objectContaining({ id: acme.id }),
-      );
-      expect(autumn.check).not.toHaveBeenCalled();
-      expect(autumn.customers.getOrCreate).not.toHaveBeenCalled();
     });
 
     it("keeps every company of one organization out of another's reach", async () => {

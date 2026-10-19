@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Erasing an organization on both backends: its rows, its people who belong
-// nowhere else, its grants, its agents' Durable Objects and its R2 objects
-// go; another organization keeps everything, a shared member included.
+// Erasing an organization on both backends: its rows, its people, its
+// grants, its agents' Durable Objects and its R2 objects go; another
+// organization keeps everything.
 const { testDb, objects, destroyed } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -71,12 +71,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     });
 
     it("lists, then erases, everything of the organization and nothing of another's", async () => {
-      // Cy is a member of both organizations; Ana only of org_a.
       await database.exec(`
-        INSERT INTO "user" (id, name, email, email_verified) VALUES ('user_c', 'Cy', 'cy@c.test', true);
-        INSERT INTO member (id, organization_id, user_id, role, created_at) VALUES
-          ('m_ca', 'org_a', 'user_c', 'member', '2026-01-01T00:00:00.000Z'),
-          ('m_cb', 'org_b', 'user_c', 'member', '2026-01-01T00:00:00.000Z');
         INSERT INTO company (id, organization_id, name) VALUES ('co_a', 'org_a', 'Acme'), ('co_b', 'org_b', 'Other');
         INSERT INTO deal (id, organization_id, name, company_id, owner_id) VALUES ('d_a', 'org_a', 'Pilot', 'co_a', 'user_a');
         INSERT INTO agent_task (id, organization_id, kind, reason, due_at, session_id) VALUES ('t_a', 'org_a', 'identify', 'r', '2026-01-01T00:00:00.000Z', '${TASK}');
@@ -113,17 +108,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         sessions: 2,
         objects: 2,
       });
-      expect(
-        listed.members.map(({ userId, erasedWithIt }) => ({
-          userId,
-          erasedWithIt,
-        })),
-      ).toEqual(
-        expect.arrayContaining([
-          { userId: "user_a", erasedWithIt: true },
-          { userId: "user_c", erasedWithIt: false },
-        ]),
-      );
+      expect(listed.members.map(({ userId }) => userId)).toEqual(["user_a"]);
       // A dry run changes nothing.
       expect(await database.rows("SELECT id FROM company")).toHaveLength(2);
 
@@ -156,7 +141,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
       expect(await database.rows(`SELECT id FROM "user" ORDER BY id`)).toEqual([
         { id: "user_b" },
-        { id: "user_c" },
       ]);
       expect(await database.rows("SELECT id FROM company")).toEqual([
         { id: "co_b" },

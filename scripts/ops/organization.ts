@@ -12,7 +12,7 @@ async function findOrganization(db: Database, selector: string) {
     ? `o.id in (select m.organization_id from member m join "user" u on u.id = m.user_id where lower(u.email) = lower(${literal(selector)}))`
     : `o.id = ${literal(selector)}`;
   const found = await db.query(
-    `select o.id, o.name, w.website, w.onboarded_at, w.model_refused_at, w.model_answered_at, w.credits_depleted_at, w.enrichment_swept_at
+    `select o.id, o.name, w.website, w.onboarded_at, w.model_refused_at, w.model_answered_at, w.enrichment_swept_at
      from organization o left join workspace w on w.organization_id = o.id
      where ${where} order by o.id`,
   );

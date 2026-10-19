@@ -52,7 +52,7 @@ const openAboutARecord = (organizationId: string) =>
 
 /**
  * Open tasks due by `now`, most urgent first, and how many there are. With
- * `minPriority` (a first-party deployment holding scheduled research), the
+ * `minPriority` (the organization turned off Research automatically), the
  * research below it is left out: it runs only when a person asks.
  */
 async function due(

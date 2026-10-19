@@ -7,7 +7,6 @@ import {
   inArray,
   isNotNull,
   isNull,
-  notExists,
   type Column,
 } from "drizzle-orm";
 import { db } from "@/db";
@@ -17,15 +16,12 @@ import {
   activity,
   agentAction,
   agentConversation,
-  agentDefinition,
   agentEvent,
   agentRun,
   agentTask,
   agentTrigger,
-  agentVersion,
   calendarAttendee,
   contactFact,
-  deal,
   emailMessage,
   fieldValue,
   formSubmission,
@@ -40,8 +36,8 @@ import {
 import { idChunks } from "@/server/features/records/recordRules";
 
 // The database side of erasing one organization (OrganizationErasureService).
-// Every function takes the organization and touches only its rows, but the
-// last, which deletes the people who belonged to no other organization.
+// Every function takes the organization and touches only its rows and its
+// members.
 
 /** Every table with an `organization_id`, from the schema itself. */
 function organizationTables() {
@@ -74,24 +70,17 @@ async function organizationExists(organizationId: string) {
   return row !== undefined;
 }
 
-/** The organization's members, with how many other organizations each is in. */
+/** The organization's members. */
 async function members(organizationId: string) {
-  const others = db
-    .select({ userId: member.userId, value: count().as("value") })
-    .from(member)
-    .groupBy(member.userId)
-    .as("others");
   return db
     .select({
       userId: member.userId,
       email: user.email,
       role: member.role,
       lastSeenAt: member.lastSeenAt,
-      memberships: others.value,
     })
     .from(member)
     .innerJoin(user, eq(user.id, member.userId))
-    .innerJoin(others, eq(others.userId, member.userId))
     .where(eq(member.organizationId, organizationId));
 }
 
@@ -217,53 +206,18 @@ async function deleteHeavyBatch(organizationId: string, limit: number) {
 
 /**
  * Deletes the organization, which cascades to every row of it, and in the
- * same batch the users who were members of no other organization, unless
- * another organization's deal or agent still names them: how many went, and
- * how many were kept for that.
+ * same batch its members' users: a deployment serves one organization, so
+ * nobody else names them. How many users went.
  */
 async function deleteOrganization(organizationId: string) {
-  // Its members who are in no other organization.
-  const users = (await members(organizationId))
-    .filter((one) => one.memberships === 1)
-    .map((one) => one.userId);
-  const orphan = (ids: string[]) =>
-    and(
-      inArray(user.id, ids),
-      notExists(
-        db
-          .select({ id: member.id })
-          .from(member)
-          .where(eq(member.userId, user.id)),
-      ),
-      notExists(
-        db.select({ id: deal.id }).from(deal).where(eq(deal.ownerId, user.id)),
-      ),
-      notExists(
-        db
-          .select({ id: agentDefinition.id })
-          .from(agentDefinition)
-          .where(eq(agentDefinition.createdById, user.id)),
-      ),
-      notExists(
-        db
-          .select({ id: agentVersion.id })
-          .from(agentVersion)
-          .where(eq(agentVersion.createdById, user.id)),
-      ),
-    );
+  const users = (await members(organizationId)).map((one) => one.userId);
   await runBatch((tx) => [
     tx.delete(organization).where(eq(organization.id, organizationId)),
-    ...idChunks(users).map((ids) => tx.delete(user).where(orphan(ids))),
+    ...idChunks(users).map((ids) =>
+      tx.delete(user).where(inArray(user.id, ids)),
+    ),
   ]);
-  let remaining = 0;
-  for (const ids of idChunks(users)) {
-    const [row] = await db
-      .select({ value: count() })
-      .from(user)
-      .where(inArray(user.id, ids));
-    remaining += row?.value ?? 0;
-  }
-  return { erased: users.length - remaining, kept: remaining };
+  return users.length;
 }
 
 export const ErasureRepository = {

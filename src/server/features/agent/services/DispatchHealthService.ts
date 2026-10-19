@@ -10,8 +10,8 @@ import { AgentAvailabilityService } from "./AgentAvailabilityService";
 // (/internal/crm/dispatch-health): unhealthy when a lane has stopped running
 // or work sits overdue. Here it is one organization's view: when each lane of
 // the minute cron last ran (the deployment's, no organization's data), and
-// the organization's own backlog in each. Work held on purpose (no credits,
-// no model, scheduled research off) is waiting, not overdue.
+// the organization's own backlog in each. Work held on purpose (no model,
+// scheduled research off) is waiting, not overdue.
 
 const MINUTE_MS = 60_000;
 
@@ -45,14 +45,11 @@ async function forOrganization(organizationId: string) {
       lastFailedAt: row?.failedAt ?? null,
     };
   };
-  const visibleHeld: TaskHold = hold.outOfCredits ? "credits" : null;
-  const researchHeld: TaskHold = hold.outOfCredits
-    ? "credits"
-    : hold.paused
-      ? "setup"
-      : hold.minPriority !== null
-        ? "schedule"
-        : null;
+  const researchHeld: TaskHold = hold.paused
+    ? "setup"
+    : hold.minPriority !== null
+      ? "schedule"
+      : null;
   const visible = await DispatchHealthRepository.taskBacklog(
     organizationId,
     { only: DIRECT_KINDS },
@@ -74,19 +71,11 @@ async function forOrganization(organizationId: string) {
     window.failedSince,
   );
   const lanes = {
-    visible: {
-      ...lastRan("visible"),
-      ...visible,
-      overdue: visibleHeld ? 0 : visible.overdue,
-      held: visibleHeld,
-    },
+    visible: { ...lastRan("visible"), ...visible },
     research: {
       ...lastRan("research"),
       ...research,
-      overdue:
-        researchHeld === "credits" || researchHeld === "setup"
-          ? 0
-          : research.overdue,
+      overdue: researchHeld === "setup" ? 0 : research.overdue,
       held: researchHeld,
     },
     // CRM events and the team agents' runs. A queued run may rightly wait

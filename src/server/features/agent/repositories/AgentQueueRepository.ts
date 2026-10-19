@@ -20,7 +20,6 @@ import { db } from "@/db";
 import { agentTask, workspace } from "@/db/schema";
 import {
   ASKED_FOR_PRIORITY,
-  FREE_KINDS,
   MAX_ATTEMPTS,
   RETIRED_OUTCOME,
 } from "@/shared/agent-tasks";
@@ -73,13 +72,6 @@ const modelRefusedSince = (since: string) =>
   sql`exists (select 1 from ${workspace} where ${workspace.organizationId} = ${agentTask.organizationId} and ${workspace.modelRefusedAt} >= ${since} and (${workspace.modelAnsweredAt} is null or ${workspace.modelAnsweredAt} < ${workspace.modelRefusedAt}))`;
 
 /**
- * The task's organization was confirmed out of usage credits at or after
- * `since` (hosted billing, billing/creditReading.ts).
- */
-const outOfCreditsSince = (since: string) =>
-  sql`exists (select 1 from ${workspace} where ${workspace.organizationId} = ${agentTask.organizationId} and ${workspace.creditsDepletedAt} >= ${since})`;
-
-/**
  * The task's organization turned off Research automatically (Settings →
  * General), so only work a person asked for runs.
  */
@@ -108,13 +100,9 @@ const researchHeldByOrganization = () =>
  * that each row is still unleased, so of two dispatchers that picked the same
  * candidates only one gets each row back. Every claim counts an attempt.
  *
- * Work below what a person asked for waits where scheduled research is held:
- * everyone's with `minPriority` (a first-party deployment's switch), and an
- * organization's own once it turned off Research automatically. `heldSince`
- * leaves the tasks of organizations whose model the gateway refused since
- * then: they wait until the model is set up. `creditsHeldSince` leaves those
- * of organizations out of credits since then, but for work that costs
- * nothing (FREE_KINDS).
+ * Work below what a person asked for waits once its organization turned off
+ * Research automatically. `heldSince` leaves the tasks of organizations whose
+ * model the gateway refused since then: they wait until the model is set up.
  */
 async function claimDue(input: {
   limit: number;
@@ -123,9 +111,7 @@ async function claimDue(input: {
   organizationId?: string;
   perOrganization?: number;
   skipOrganizations?: readonly string[];
-  minPriority?: number;
   heldSince?: string;
-  creditsHeldSince?: string;
 }): Promise<LeasedTask[]> {
   const now = new Date().toISOString();
   const until = new Date(Date.now() + input.leaseMs).toISOString();
@@ -157,9 +143,6 @@ async function claimDue(input: {
         input.skipOrganizations?.length
           ? notInArray(agentTask.organizationId, [...input.skipOrganizations])
           : undefined,
-        input.minPriority === undefined
-          ? undefined
-          : gte(agentTask.priority, input.minPriority),
         or(
           gte(agentTask.priority, ASKED_FOR_PRIORITY),
           not(researchHeldByOrganization()),
@@ -167,12 +150,6 @@ async function claimDue(input: {
         input.heldSince === undefined
           ? undefined
           : sql`not ${modelRefusedSince(input.heldSince)}`,
-        input.creditsHeldSince === undefined
-          ? undefined
-          : or(
-              inArray(agentTask.kind, [...FREE_KINDS]),
-              sql`not ${outOfCreditsSince(input.creditsHeldSince)}`,
-            ),
       ),
     )
     .as("ranked");

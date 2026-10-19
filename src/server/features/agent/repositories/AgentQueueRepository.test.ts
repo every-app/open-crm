@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import {
-  ASKED_FOR_PRIORITY,
-  DIRECT_KINDS,
-  MAX_ATTEMPTS,
-  PRIORITY,
-} from "@/shared/agent-tasks";
+import { DIRECT_KINDS, MAX_ATTEMPTS, PRIORITY } from "@/shared/agent-tasks";
 
 // The dispatcher's lease is a conditional update on leased_until (no SKIP
 // LOCKED on D1): both backends must agree on who gets a row.
@@ -33,10 +28,6 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import {
-  CreditReadingRepository,
-  creditsHeldSince,
-} from "@/server/billing/creditReading";
 import { AgentQueueRepository, type TaskLane } from "./AgentQueueRepository";
 
 const VISIBLE: TaskLane = { only: DIRECT_KINDS };
@@ -87,8 +78,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       extra: {
         organizationId?: string;
         perOrganization?: number;
-        minPriority?: number;
-        creditsHeldSince?: string;
       } = {},
     ) =>
       AgentQueueRepository.claimDue({
@@ -187,30 +176,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       const profile = await queue({ kind: "company-profile" });
       expect((await claim(VISIBLE)).map((task) => task.id)).toEqual([brand]);
       expect((await claim(RESEARCH)).map((task) => task.id)).toEqual([profile]);
-    });
-
-    it("holds scheduled research when only asked-for work may run", async () => {
-      await queue({ kind: "recheck", priority: PRIORITY.recheck });
-      const asked = await queue({
-        kind: "workspace-profile",
-        priority: PRIORITY.workspace,
-      });
-      const claimed = await claim(RESEARCH, {
-        minPriority: ASKED_FOR_PRIORITY,
-      });
-      expect(claimed.map((task) => task.id)).toEqual([asked]);
-    });
-
-    it("holds the work of an organization out of credits, and only its", async () => {
-      await queue({ organizationId: "org_a" });
-      const other = await queue({ organizationId: "org_b" });
-      await CreditReadingRepository.note("org_a", true);
-
-      const claimed = await claim(RESEARCH, {
-        creditsHeldSince: creditsHeldSince(),
-      });
-      expect(claimed.map((task) => task.id)).toEqual([other]);
-      expect(await CreditReadingRepository.held("org_b")).toBe(false);
     });
 
     it("serves one organization's queue to its poke, and no one else's", async () => {

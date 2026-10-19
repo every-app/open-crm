@@ -43,6 +43,13 @@
       "when": 1792426879192,
       "tag": "0005_known_ares",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792428567883,
+      "tag": "0006_concerned_major_mapleleaf",
+      "breakpoints": true
     }
   ]
 }

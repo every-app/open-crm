@@ -1,4 +1,3 @@
-import type { CreditCheck } from "@/server/billing/credits";
 import { imageStorageReady } from "@/server/lib/images";
 import { PRIORITY } from "@/shared/agent-tasks";
 import { AgentSweepRepository } from "../repositories/AgentSweepRepository";
@@ -21,7 +20,7 @@ import { runLimited } from "./pool";
 // - contacts never successfully researched: identify (a day apart).
 //
 // Two passes cost nothing, so the sweep does them itself, as the CRM's
-// backfill did, whatever the organization's credits: the favicon of each
+// backfill did: the favicon of each
 // company with a domain and no icon (BackfillService.sweepFavicons), and a
 // copy in R2 of each logo or icon still at its source URL because its copy
 // failed (ImageMirrorService). The CRM's 25 of each a run, after the research
@@ -35,31 +34,27 @@ import { runLimited } from "./pool";
 // The CRM swept when someone signed in, at most every five minutes. The port
 // has no sign-in of its own, so the minute cron takes a few organizations a
 // tick, each at most every five minutes. What it queues is scheduled
-// research: held with it (FIRST_PARTY_SCHEDULED_RESEARCH, `askedForOnly`),
-// and an organization out of credits, or one that turned off Research
-// automatically, gets none. Records whose research waits for a person
+// research: an organization that turned off Research automatically gets
+// none. Records whose research waits for a person
 // (ResearchHoldService) are passed over, but for their favicons.
 
 /** Sweeps the organizations due one; how many it swept. */
 export async function runEnrichmentSweep(options: {
   contextReady: () => Promise<boolean>;
-  /** Scheduled research is held: only the free passes run. */
-  askedForOnly?: boolean;
-  credits?: CreditCheck;
   signal?: AbortSignal;
 }): Promise<number> {
   const { everyMs, organizations, pictures } = DISPATCH.enrichment;
   const due = await AgentSweepRepository.claimDue(organizations, everyMs);
   if (due.length === 0) return 0;
-  const researching = options.askedForOnly
-    ? []
-    : due.filter((organization) => organization.researchAutomatically);
+  const researching = due.filter(
+    (organization) => organization.researchAutomatically,
+  );
   if (researching.length > 0) {
     const contextReady = await options.contextReady();
     for (const { organizationId } of researching) {
       if (options.signal?.aborted) break;
       try {
-        await sweepOrganization(organizationId, contextReady, options.credits);
+        await sweepOrganization(organizationId, contextReady);
       } catch (error) {
         console.error(
           "[agent] enrichment sweep failed",
@@ -147,7 +142,6 @@ async function fetchPictures(
 async function sweepOrganization(
   organizationId: string,
   contextReady: boolean,
-  credits: CreditCheck | undefined,
 ): Promise<void> {
   const limits = DISPATCH.enrichment;
   const now = Date.now();
@@ -197,8 +191,6 @@ async function sweepOrganization(
   ) {
     return;
   }
-  if (credits && !(await credits(organizationId))) return;
-
   if (website) {
     await AgentTaskService.workspaceChanged(
       organizationId,

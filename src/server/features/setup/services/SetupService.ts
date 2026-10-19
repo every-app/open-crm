@@ -7,8 +7,8 @@ import type { AgentAvailability } from "@/shared/agent-availability";
 
 // The gateway's keys for the agent, as General's settings rows show them:
 // whether each is there and, while it isn't, how it gets there. Nothing here
-// is ever a key: the gateway holds them all, and on a fork an owner or admin
-// sets each with one command.
+// is ever a key: the gateway holds them all, and an owner or admin sets each
+// with one command.
 
 /** Set up, being found out (the gateway is connected, nothing asked yet), or not. */
 type SetupState = "done" | "checking" | "missing";
@@ -50,21 +50,19 @@ type SetupItem = {
   id: KeySpec["id"];
   state: SetupState;
   note: string | null;
-  /** The command that sets it up: on a fork, for owners and admins. */
+  /** The command that sets it up, for owners and admins. */
   command: string | null;
 };
 
 /**
- * The gateway's keys for the organization. Commands are shown on a fork, where
- * the organization runs its own gateway, and only to those who `canManage`;
- * on the first-party deployment Every App runs the gateway.
+ * The gateway's keys for the organization, which runs its own gateway.
+ * Commands are shown only to those who `canManage`.
  */
 async function checklist(
   organizationId: string,
   canManage: boolean,
 ): Promise<{
   items: SetupItem[];
-  tier: AgentAvailability["tier"];
   /** `everyapp dev`: the keys come from .dev.vars, not a gateway. */
   local: boolean;
 }> {
@@ -73,18 +71,16 @@ async function checklist(
     getOptionalEnvValue("EVERYAPP_DEV"),
   ]);
   const local = Boolean(dev);
-  // Only a fork's own gateway takes keys: the hosted CRM runs on Every App's,
-  // so it shows no setup at all, even in local development. A fork's keys go
-  // in .dev.vars locally (each item's note says so), else by command.
-  const fork = availability.tier === "fork";
-  const showCommands = canManage && fork && !local;
+  // The keys go in .dev.vars locally (each item's note says so), else by
+  // command.
+  const showCommands = canManage && !local;
   const items = KEYS.map((spec): SetupItem => {
     const state = spec.check(availability);
     return {
       id: spec.id,
       state,
       note:
-        state === "done" || !fork
+        state === "done"
           ? null
           : (spec.note?.(availability) ??
             (local && state === "missing"
@@ -96,7 +92,7 @@ async function checklist(
           : null,
     };
   });
-  return { items, tier: availability.tier, local };
+  return { items, local };
 }
 
 /** Get started's steps, in the order they are worth doing. */
@@ -112,42 +108,38 @@ type GetStartedStep =
 
 /**
  * Overview's Get started card: the steps this person can take, and which are
- * done. Owners and admins also get the workspace's steps and, where the
- * organization runs its own gateway, the gateway's keys. A step whose
- * gateway piece is missing on Every App's own gateway is left out: nobody
- * here could finish it.
+ * done. Owners and admins, who run the organization's gateway, also get the
+ * workspace's steps and the gateway's keys. For a member, a step whose
+ * gateway piece is missing is left out: they couldn't finish it.
  */
 async function getStarted(
   organizationId: string,
   userId: string,
   canManage: boolean,
 ): Promise<{ steps: { id: GetStartedStep; done: boolean }[] }> {
-  const [done, availability, google, microsoft, slackReady, slack] =
-    await Promise.all([
-      SetupRepository.progress(organizationId, userId),
-      AgentAvailabilityService.forOrganization(organizationId),
-      clientStatus("google"),
-      clientStatus("microsoft"),
-      SlackService.clientReady(),
-      SlackService.isConnected(organizationId),
-    ]);
-  const ownGateway = canManage && availability.tier === "fork";
+  const [done, availability, google, microsoft, slack] = await Promise.all([
+    SetupRepository.progress(organizationId, userId),
+    AgentAvailabilityService.forOrganization(organizationId),
+    clientStatus("google"),
+    clientStatus("microsoft"),
+    SlackService.isConnected(organizationId),
+  ]);
   const steps: ({ id: GetStartedStep; done: boolean } | false)[] = [
-    // Done once the model has answered: a new fork's gateway is connected
-    // before anyone knows whether it holds a key ("unchecked").
-    ownGateway && { id: "model", done: availability.model === "ready" },
-    ownGateway && { id: "context", done: availability.context },
+    // Done once the model has answered: a new gateway is connected before
+    // anyone knows whether it holds a key ("unchecked").
+    canManage && { id: "model", done: availability.model === "ready" },
+    canManage && { id: "context", done: availability.context },
     { id: "companies", done: done.companies },
-    (google.ready || microsoft.ready || ownGateway) && {
+    (google.ready || microsoft.ready || canManage) && {
       id: "inbox",
       done: done.inbox,
     },
-    (availability.model !== "missing" || ownGateway) && {
+    (availability.model !== "missing" || canManage) && {
       id: "agent",
       done: done.agent,
     },
     canManage && { id: "tracking", done: done.tracking },
-    canManage && (slackReady || ownGateway) && { id: "slack", done: slack },
+    canManage && { id: "slack", done: slack },
     canManage && { id: "team", done: done.team },
   ];
   return { steps: steps.filter((step) => step !== false) };

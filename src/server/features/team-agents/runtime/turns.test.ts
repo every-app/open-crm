@@ -52,7 +52,6 @@ function turn(messages: UIMessage[]) {
     thinkSystem: "",
     messages,
     spend: FREE,
-    sink: () => {},
   });
 }
 
@@ -283,7 +282,7 @@ describe("a builder chat's turn", () => {
     ]);
   });
 
-  it("searches the web at OpenRouter, inside the model call that bills it, on Parallel's engine", async () => {
+  it("searches the web at OpenRouter, inside the model call that pays for it, on Parallel's engine", async () => {
     const sent: unknown[][] = [];
     const gateway: typeof fetch = async (_url, init) => {
       const body = requestBody.parse(

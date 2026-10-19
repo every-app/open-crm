@@ -16,15 +16,13 @@ import type { EnsuredUserContext } from "./types";
 const ROLES = new Set(["owner", "admin", "member"]);
 
 // The Every App gateway signs in the person, checks they may open the CRM,
-// and signs their identity onto every request it forwards. Two shapes, one
-// path (docs/maintainers/every-app.md):
+// and signs their identity onto every request it forwards
+// (docs/maintainers/every-app.md). The deploy pins the CRM to its
+// organization (EVERY_APP_ORG_ID), and a token for any other organization is
+// refused. `everyapp dev` pins none: its local gateway signs in its seeded
+// owner only.
 //
-// - EVERY_APP_ORG_ID set (a fork: a self-hosted gateway's CRM, or one
-//   organization's own copy): a token for any other organization is refused.
-// - EVERY_APP_ORG_ID unset (first party, one Worker for every organization):
-//   any organization the gateway lets in.
-//
-// Either way the token's organization is the CRM's organization, created on
+// The token's organization is the CRM's organization, created on
 // first use with the same id, so each organization's records stay its own,
 // and the organization and role come from the signed token on this request,
 // never from a member row: when the gateway removes a member, it stops
@@ -64,7 +62,7 @@ export async function resolveEveryAppUserContext(
   user: EveryAppUser,
 ): Promise<EnsuredUserContext> {
   const pinnedOrganizationId = env.EVERY_APP_ORG_ID;
-  // The deploy pins a fork to its organization. The audience already names
+  // The deploy pins the CRM to its organization. The audience already names
   // this app; this keeps another organization's install of it out.
   if (pinnedOrganizationId && user.orgId !== pinnedOrganizationId) {
     throw new AppError("UNAUTHENTICATED");

@@ -3,7 +3,6 @@ import { AgentActionRepository } from "@/server/features/team-agents/repositorie
 import { AuditRepository } from "@/server/features/team-agents/repositories/AuditRepository";
 import { z } from "zod";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
-import { backgroundCredits, requireCredits } from "@/server/billing/credits";
 import { AppError } from "@/server/lib/errors";
 import { sessionName } from "@/server/features/agent/sessionName";
 import { ACTIVE_RUN_STATUSES, type TriggerType } from "@/shared/team-agents";
@@ -27,14 +26,11 @@ const RUN_ERRORS = {
     code: "CANCELLED",
     message: "Stopped by a person before it finished.",
   },
-  credits: { message: "Skipped: the workspace is out of credits." },
 } as const;
 
 /**
  * Queues a run, once per idempotency key: the shared path of a person's
- * request, a due schedule and a matched event. Null when a schedule's or an
- * event's run finds the workspace out of credits (the trigger's run is
- * skipped, and the skip audited).
+ * request, a due schedule and a matched event.
  */
 async function queueRun(input: {
   organizationId: string;
@@ -46,7 +42,7 @@ async function queueRun(input: {
   idempotencyKey: string;
   runInput: unknown;
   requestedSummary: string;
-}): Promise<{ id: string; created: boolean } | null> {
+}): Promise<{ id: string; created: boolean }> {
   const { organizationId, agentId } = input;
   const existing = await AgentRunRepository.findByKey(
     organizationId,
@@ -57,18 +53,6 @@ async function queueRun(input: {
       throw new AppError("CONFLICT", "That run request was already used.");
     }
     return { id: existing.id, created: false };
-  }
-  if (!input.initiatedById && !(await backgroundCredits(organizationId))) {
-    await AuditRepository.audit({
-      organizationId,
-      agentId,
-      versionId: input.versionId,
-      actorType: "SYSTEM",
-      type: "run.skipped",
-      summary: RUN_ERRORS.credits.message,
-      requestId: input.idempotencyKey,
-    });
-    return null;
   }
   const run = await AgentRunRepository.insertIfAbsent({
     organizationId,
@@ -129,7 +113,6 @@ async function runNow(
   if (await AgentRunRepository.hasActiveRun(context.organizationId, agent.id)) {
     throw new AppError("TEAM_AGENT_BUSY");
   }
-  await requireCredits({ organizationId: context.organizationId });
   const run = await queueRun({
     organizationId: context.organizationId,
     agentId: agent.id,
@@ -141,7 +124,6 @@ async function runNow(
     runInput: null,
     requestedSummary: "Requested a manual run",
   });
-  if (!run) throw new AppError("INSUFFICIENT_CREDITS");
   return { id: run.id };
 }
 
@@ -171,7 +153,6 @@ async function retryRun(
   ) {
     throw new AppError("TEAM_AGENT_BUSY");
   }
-  if (!replay) await requireCredits({ organizationId: context.organizationId });
   const run = await queueRun({
     organizationId: context.organizationId,
     agentId: agent.id,
@@ -183,7 +164,6 @@ async function retryRun(
     runInput: previous.input,
     requestedSummary: "Retried a run",
   });
-  if (!run) throw new AppError("INSUFFICIENT_CREDITS");
   return { id: run.id };
 }
 

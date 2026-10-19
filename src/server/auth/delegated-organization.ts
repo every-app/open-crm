@@ -3,8 +3,8 @@ import { SyncStateRepository } from "@/server/features/mailbox/repositories/Sync
 import { toHex } from "./org-slug";
 
 // Each Every App organization is a CRM organization with the same id, so its
-// records and everything under them are scoped by it, as OpenSEO scopes
-// hosted organizations. The slug hex-encodes the id: gateway ids are
+// records and everything under them are scoped by it, as OpenSEO scopes its
+// organizations. The slug hex-encodes the id: gateway ids are
 // mixed-case, and slugify alone would fold two of them into one slug.
 function getEveryAppOrganizationSlug(organizationId: string) {
   return `everyapp-${toHex(organizationId)}`;

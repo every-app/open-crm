@@ -137,9 +137,9 @@ export function idChunks(ids: string[]): string[][] {
  * Of `ids`, the records the agent is on (`queued`: an open, due task that
  * can run, shown as "Queued" until the agent marks the record itself) and
  * those whose research, due or booked for later, waits for the model to be
- * set up (`waiting`). A task
- * a first-party deployment holds to work a person asked for is neither: the
- * record reads as not researched, and "Re-enrich" runs it.
+ * set up (`waiting`). A task held because the organization turned off
+ * Research automatically is neither: the record reads as not researched, and
+ * "Re-enrich" runs it.
  */
 export async function recordAgentStates(
   organizationId: string,

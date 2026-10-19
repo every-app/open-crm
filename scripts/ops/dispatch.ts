@@ -6,7 +6,7 @@ import { int, literal, type Database } from "./db.ts";
 // has stalled), the organizations with the most work waiting (overdue: due
 // five minutes ago and not taken), what the dispatcher gave up on in the
 // last day, team agent runs, and mailbox checks. An organization's work may
-// wait on purpose, so its model refusal and credit hold are shown beside it.
+// wait on purpose, so its model refusal is shown beside it.
 
 const MINUTE_MS = 60_000;
 const STALE_MS = 5 * MINUTE_MS;
@@ -29,10 +29,10 @@ export async function dispatchHealth(db: Database) {
       db.query(
         `select t.organization_id, ${int("count(*)")} as due,
            ${int(`sum(case when t.due_at <= ${overdueBefore} and (t.leased_until is null or t.leased_until <= ${now}) then 1 else 0 end)`)} as overdue,
-           min(t.due_at) as oldest_due_at, w.model_refused_at, w.model_answered_at, w.credits_depleted_at
+           min(t.due_at) as oldest_due_at, w.model_refused_at, w.model_answered_at
          from agent_task t left join workspace w on w.organization_id = t.organization_id
          where t.finished_at is null and t.due_at <= ${now} and t.attempts < ${MAX_ATTEMPTS}
-         group by t.organization_id, w.model_refused_at, w.model_answered_at, w.credits_depleted_at
+         group by t.organization_id, w.model_refused_at, w.model_answered_at
          order by overdue desc, due desc, t.organization_id limit 20`,
       ),
       db.query(

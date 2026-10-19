@@ -103,7 +103,7 @@ async function companyCreated(
 /**
  * A person added a company, or gave one a new domain: as companyCreated, and
  * its favicon at once, as the CRM fetched it then (companies.service.ts). The
- * favicon is free, so it waits for neither the queue, credits nor Research
+ * favicon is free, so it waits for neither the queue nor Research
  * automatically.
  */
 async function companyAddedByPerson(
@@ -163,7 +163,7 @@ async function workspaceChanged(
 /**
  * A contact was added (or a person asked to identify one: `required`, which
  * also puts it with the work people asked for, so it runs even where the
- * organization or a first-party deployment holds its scheduled research).
+ * organization turned off Research automatically).
  */
 async function contactCreated(
   organizationId: string,
@@ -365,10 +365,9 @@ type ImportedRecords = {
  * adds. Everything that needs the model (a company's profile, identifying a
  * contact, the custom fields the agent fills) is booked at the lowest
  * priority but rechecks, one record every IMPORT_RESEARCH_SPACING_MS after
- * any earlier import's bookings. Where the organization (Research
- * automatically off) or a first-party deployment holds scheduled research,
- * that research waits for a person to ask, as all scheduled research does
- * there. An import with research off queues none (ResearchHoldService).
+ * any earlier import's bookings. Where the organization turned off Research
+ * automatically, that research waits for a person to ask, as all scheduled
+ * research does there. An import with research off queues none (ResearchHoldService).
  */
 async function recordsImported(
   organizationId: string,

@@ -16,7 +16,6 @@ import { createCompactFunction } from "agents/experimental/memory/utils";
 import { generateText } from "ai";
 import { z } from "zod";
 import { withPgClient } from "@/db";
-import { SessionMeter } from "@/server/billing/meter";
 import {
   openRouterCostUsd,
   staticAssistantModel,
@@ -82,7 +81,7 @@ const ROLE_KEY = "crm-agent:role";
 
 // A research task's or a run's session is cleared this long after it has
 // reported back for good: its transcript is read by nobody (the audit is in
-// agent_event), and the wait lets the turn's own writes and billing land.
+// agent_event), and the wait lets the turn's own writes land.
 const FORGET_AFTER_SECONDS = 5 * 60;
 
 /**
@@ -110,9 +109,6 @@ export class CrmAgent extends Think {
   private turnSession: AgentSession | null = null;
   private modelChoice: ModelChoice | null = null;
   private turnSystem = "";
-
-  // Hosted billing: what the session spends (server/billing/meter.ts).
-  private readonly meter = new SessionMeter((p) => this.ctx.waitUntil(p));
 
   // An answer to the agent's open question is checked before Think takes it
   // (team-agents/runtime/answers.ts). Think installs its chat protocol's
@@ -147,7 +143,6 @@ export class CrmAgent extends Think {
               "low",
             );
             const result = await generateText({ model, prompt });
-            this.meter.record(openRouterCostUsd(result));
             return result.text;
           },
         }),
@@ -235,16 +230,10 @@ export class CrmAgent extends Think {
         organizationId: session.organizationId,
         effort: effortFor(session.kind),
       };
-      // Out of credits, or every chat slot taken: the meter's reply instead.
-      const refusal = await this.meter.admit(session);
-      if (refusal) {
-        return { model: staticAssistantModel(refusal), activeTools: [] };
-      }
       if (session.kind === "run") {
         const prepared = await prepareRunTurn(session, {
           thinkSystem: turn.system,
           spend: this.spender(session),
-          sink: this.meter.sink,
         });
         if (!prepared) {
           return {
@@ -267,7 +256,6 @@ export class CrmAgent extends Think {
           thinkSystem: turn.system,
           messages: this.messages,
           spend: this.spender(session),
-          sink: this.meter.sink,
         });
         this.turnSystem = builder.system;
         return {
@@ -284,7 +272,6 @@ export class CrmAgent extends Think {
         capabilities: capabilityList(install),
         spend: this.spender(session),
         role: this.chatRole(),
-        sink: this.meter.sink,
         egress: sessionEgress(this.ctx.storage.kv),
       });
       this.turnSystem = system;
@@ -388,7 +375,6 @@ export class CrmAgent extends Think {
 
   override async onStepFinish(step: StepContext): Promise<void> {
     const costUsd = openRouterCostUsd(step);
-    this.meter.record(costUsd);
     const session = this.turnSession;
     if (!session) return;
     addTokens(this.ctx.storage.kv, session.kind, step.usage);
@@ -402,7 +388,6 @@ export class CrmAgent extends Think {
   }
 
   override async onChatResponse(result: ChatResponseResult): Promise<void> {
-    this.meter.flush();
     const session = this.turnSession;
     if (!session) return;
     await withPgClient(async () => {
@@ -442,8 +427,6 @@ export class CrmAgent extends Think {
       { name: this.name, stage: context?.stage },
       error,
     );
-    // A stopped or failed turn still consumed what it consumed.
-    this.meter.flush();
     const session = this.turnSession;
     if (session) {
       this.ctx.waitUntil(

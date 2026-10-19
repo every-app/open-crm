@@ -18,14 +18,13 @@ vi.mock("cloudflare:workers", () => ({
       return testDb.modules.workers.env.DATABASE_PROVIDER;
     },
     EVERY_APP_GATEWAY: gateway.binding,
-    EVERYAPP_SHARED: "1",
   },
   waitUntil: () => {},
 }));
 vi.mock("@/db", () => testDb.modules.db);
 vi.mock("@/db/runBatch", () => testDb.modules.runBatch);
 vi.mock("@/db/schema", () => testDb.modules.schema);
-// The dispatcher's background lane isn't under test (and would ask Autumn).
+// The dispatcher's background lane isn't under test.
 vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
 import { CaptureRepository } from "@/server/features/activities/repositories/CaptureRepository";

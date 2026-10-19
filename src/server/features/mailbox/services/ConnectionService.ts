@@ -21,7 +21,6 @@ import {
 } from "@/server/features/mailbox/repositories/SyncStateRepository";
 import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSyncService";
 import { MatchService } from "@/server/features/mailbox/services/MatchService";
-import { deploymentTierFor } from "@/server/lib/deployment-tier";
 import { AppError } from "@/server/lib/errors";
 import { codeChallenge, randomToken } from "@/server/lib/pkce";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
@@ -241,7 +240,7 @@ export function connectionView(
 /**
  * Settings → Connections for the member: each provider, whether this
  * gateway offers it, and the member's own connection with each source's
- * sync. Owners and admins of a fork also get what to set on the gateway.
+ * sync. Owners and admins also get what to set on the gateway.
  */
 async function status(
   member: Member & { role: string; userEmail: string },
@@ -257,11 +256,9 @@ async function status(
   // `everyapp dev` has no gateway: the developer's own client goes in
   // .dev.vars under the gateway's names.
   const local = Boolean((env as { EVERYAPP_DEV?: string }).EVERYAPP_DEV);
-  // Only a fork's own gateway holds clients its people set up; the hosted
-  // CRM's are Every App's.
+  // Owners and admins operate the gateway too, so they set its clients.
   const showSetup =
-    deploymentTierFor(env) === "fork" &&
-    (local || hasOrgPermission(member.role, { workspace: ["manage"] }));
+    local || hasOrgPermission(member.role, { workspace: ["manage"] });
 
   const providers = MAILBOX_PROVIDERS.map((provider, index) => {
     const connection = connections.find((row) => row.provider === provider);
@@ -406,9 +403,9 @@ async function suppressDomain(
 /**
  * Stops capture and forgets the member's tokens; what was captured stays.
  * Google's grant is withdrawn at Google first (refusing to forget a grant
- * Google still honours), unless another connection uses that Google account:
- * withdrawing a token ends the account's whole grant to the gateway's client,
- * which every organization shares, so it would end theirs too. Microsoft has
+ * Google still honours), unless another member's connection uses that Google
+ * account: withdrawing a token ends the account's whole grant to the
+ * gateway's client, so it would end theirs too. Microsoft has
  * no way to withdraw consent from here, which the page tells the member.
  */
 async function disconnect(member: Member, provider: MailboxProvider) {

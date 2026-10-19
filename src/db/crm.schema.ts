@@ -31,9 +31,7 @@ import { organization, user } from "./auth.schema";
 import { isoNow, timestamp } from "./columns";
 
 // Every CRM table hangs off `organization_id` (cascade), as every OpenSEO
-// product table does: one database serves every organization on a
-// first-party deployment, and a fork's one organization alike. Repositories
-// filter by it on every read and write.
+// product table does. Repositories filter by it on every read and write.
 //
 // Deleting a record follows its foreign keys into other tables (deleting
 // the rows, or setting the key to null), so each such key also has an
@@ -70,9 +68,6 @@ export const workspace = sqliteTable("workspace", {
   modelRefusedAt: timestamp("model_refused_at"),
   modelRefusal: text("model_refusal"),
   modelAnsweredAt: timestamp("model_answered_at"),
-  // When Autumn last confirmed the organization out of usage credits (hosted
-  // billing, src/server/billing/creditReading.ts); null once it has credits.
-  creditsDepletedAt: timestamp("credits_depleted_at"),
   // When the enrichment sweep last looked over the organization's records
   // (src/server/features/agent/dispatch/sweep.ts).
   enrichmentSweptAt: timestamp("enrichment_swept_at"),

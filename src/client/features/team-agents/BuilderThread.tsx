@@ -36,7 +36,6 @@ import {
 } from "./DraftCards";
 import { teamAgentKeys } from "./teamAgentQueries";
 import { CREATE_AGENT_PREFIX } from "./teamAgentCopy";
-import { useOutOfCreditsReplies } from "@/client/features/billing/OutOfCreditsDialog";
 
 type Chat = Awaited<ReturnType<typeof getBuilderChat>>;
 
@@ -89,8 +88,6 @@ export function BuilderThread({
     messages,
     status,
   );
-  // A turn refused for credits opens the out-of-credits dialog.
-  useOutOfCreditsReplies(messages, status);
 
   useEffect(() => {
     onWorkingChange(busy);

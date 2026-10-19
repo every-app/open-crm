@@ -22,16 +22,7 @@ vi.mock("@/server/features/team-agents/runtime/poke", () => ({
   pokeEvents: vi.fn(),
   pokeRuns: vi.fn(),
 }));
-// The first-party deployment, which bills: the organization has credits.
-const { autumn } = await vi.hoisted(async () => ({
-  autumn: (await import("@/server/billing/autumnTestSupport")).autumnMock(),
-}));
-vi.mock("@/server/billing/autumn", () => ({
-  autumn,
-  AUTUMN_TRACK_RETRY_OPTIONS: {},
-}));
 
-import { withBalance } from "@/server/billing/autumnTestSupport";
 import { DealRepository } from "@/server/features/deals/repositories/DealRepository";
 import { DealService } from "@/server/features/deals/services/DealService";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
@@ -59,7 +50,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
     beforeEach(async () => {
       testDb.use(dialect);
-      withBalance(autumn, 500);
       await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
       await database.seedTwoOrganizations();
       await database.exec(`
@@ -79,7 +69,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           "SELECT reason FROM agent_task WHERE kind = 'agent-event' ORDER BY reason",
         )
       ).map((row) => reasonRow.parse(row).reason);
-    const tick = () => TriggerService.queueEventRuns({ held: false });
+    const tick = () => TriggerService.queueEventRuns();
 
     it("turns an event written with its record into one run of each live agent listening", async () => {
       const watching = await live(stageWatcher);
@@ -159,20 +149,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         "deal.opened",
         "deal.stage.changed",
       ]);
-    });
-
-    it("closes events without runs where the deployment holds unattended runs", async () => {
-      await live(stageWatcher);
-      await DealService.setStage(
-        "org_a",
-        { id: "renewal", stage: "CONTRACT_SENT" },
-        "user_a",
-      );
-
-      expect(await TriggerService.queueEventRuns({ held: true })).toBe(0);
-      // Closed, not kept to run later.
-      expect(await tick()).toBe(0);
-      expect(await runs()).toBe(0);
     });
   });
 }

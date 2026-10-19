@@ -11,8 +11,8 @@ import {
 import { Button } from "@/client/components/ui/button";
 
 /**
- * Asks before an action that cannot be undone: a delete, or one that spends
- * credits. Render it only while it is open. `onConfirm` does not close it, so
+ * Asks before an action that cannot be undone, or one that sets off a lot of
+ * the agent's work. Render it only while it is open. `onConfirm` does not close it, so
  * the caller closes it right away or when the mutation settles. While
  * `pending`, Cancel and Escape do nothing.
  */

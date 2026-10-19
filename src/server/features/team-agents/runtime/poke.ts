@@ -1,7 +1,5 @@
 import { env, waitUntil } from "cloudflare:workers";
-import { laneCreditCheck } from "@/server/billing/credits";
 import { collapsingByKey } from "@/server/features/agent/dispatch/pool";
-import { scheduledResearchEnabled } from "@/server/lib/deployment-tier";
 import { TriggerService } from "../services/TriggerService";
 
 // A run a person asked for (or a CRM event queued) starts now rather than on
@@ -11,18 +9,11 @@ import { TriggerService } from "../services/TriggerService";
 // has a run to start, not with every record service that can emit an event.
 const runLaneFor = collapsingByKey(async (organizationId) => {
   const { runTeamAgentLane } = await import("./dispatch");
-  await runTeamAgentLane(env, {
-    organizationId,
-    defer: waitUntil,
-    credits: laneCreditCheck(env),
-  });
+  await runTeamAgentLane(env, { organizationId, defer: waitUntil });
 });
 
 const eventsFor = collapsingByKey(async (organizationId) => {
-  const queued = await TriggerService.queueEventRuns({
-    organizationId,
-    held: !scheduledResearchEnabled(env),
-  });
+  const queued = await TriggerService.queueEventRuns({ organizationId });
   if (queued > 0) await runLaneFor(organizationId);
 });
 

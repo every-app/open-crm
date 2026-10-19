@@ -6,7 +6,6 @@ import {
   integer,
   jsonb,
   pgTable,
-  primaryKey,
   text,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -88,27 +87,6 @@ export const dispatcherLane = pgTable("dispatcher_lane", {
   ranAt: timestamp("ran_at").notNull(),
   failedAt: timestamp("failed_at"),
 });
-
-/**
- * The paid agent sessions each organization has running, where usage is
- * billed: a few chat turns, research sessions and team agent runs at once
- * (src/server/billing/paidSessions.ts). A session holds a numbered slot until
- * it ends, or until its lease runs out; the slot number in the key keeps the
- * count exact on both backends.
- */
-export const paidSession = pgTable(
-  "paid_session",
-  {
-    organizationId: organizationId(),
-    kind: text("kind").notNull(),
-    slot: integer("slot").notNull(),
-    sessionId: text("session_id").notNull(),
-    leasedUntil: timestamp("leased_until").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.organizationId, table.kind, table.slot] }),
-  ],
-);
 
 /** What the agent did, step by step, for the Agent tab and the audit. */
 export const agentEvent = pgTable(

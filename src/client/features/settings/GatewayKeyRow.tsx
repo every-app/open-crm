@@ -37,12 +37,9 @@ export function GatewayKeyRow({
   }
 
   const status = STATUS[item.state];
-  // Who sets it, for a member of a fork; an owner or admin gets the command.
+  // Who sets it, for a member; an owner or admin gets the command.
   const fallback =
-    item.state === "missing" &&
-    !checklist.local &&
-    checklist.tier === "fork" &&
-    !canManage
+    item.state === "missing" && !checklist.local && !canManage
       ? "An owner or an admin sets it up."
       : null;
 

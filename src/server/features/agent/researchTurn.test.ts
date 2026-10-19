@@ -97,7 +97,6 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
       () => {},
     ),
     role: null,
-    sink: () => {},
   });
   // The session's own storage, where CrmAgent keeps its tokens.
   const stored = new Map<string, unknown>();
@@ -145,7 +144,6 @@ describe("a research session", () => {
     const started = await runResearchLane({
       start: (task) => runSession(task, stub),
       modelConfigured: true,
-      askedForOnly: true,
       defer: vi.fn(),
     });
     expect(started).toBe(1);
@@ -229,7 +227,6 @@ describe("a research session", () => {
     await runResearchLane({
       start: (task) => runSession(task, stub),
       modelConfigured: true,
-      askedForOnly: true,
       defer: vi.fn(),
     });
 

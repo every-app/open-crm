@@ -12,7 +12,6 @@ import {
   RUNTIME_INSTRUCTIONS,
   CHAT_TITLE_INSTRUCTION,
 } from "@/server/features/agent/prompt/instructions";
-import type { SpendSink } from "@/server/billing/spendSink";
 import type { Spend } from "@/server/features/agent/runtime/budget";
 import type {
   ChatSession,
@@ -60,7 +59,7 @@ export const RUN_STOPPED_REPLY =
  */
 export async function prepareRunTurn(
   session: RunSession,
-  input: { thinkSystem: string; spend: Spend; sink: SpendSink },
+  input: { thinkSystem: string; spend: Spend },
 ): Promise<{ system: string; tools: ToolSet } | null> {
   const run = await AgentRunRepository.findWithVersion(
     session.organizationId,
@@ -86,7 +85,6 @@ export async function prepareRunTurn(
       manifest: manifest.data,
       spend: input.spend,
     }),
-    input.sink,
   );
   return { system, tools };
 }
@@ -269,7 +267,6 @@ export function prepareBuilderTurn(
     thinkSystem: string;
     messages: readonly UIMessage[];
     spend: Spend;
-    sink: SpendSink;
   },
 ): {
   system: string;
@@ -332,7 +329,6 @@ export function prepareBuilderTurn(
         spend: input.spend,
       },
     }),
-    input.sink,
   );
   return {
     system,
