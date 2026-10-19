@@ -3,12 +3,12 @@ import { db } from "@/db";
 import { workspace } from "@/db/schema";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 
-// The organization's last confirmed "out of credits", kept on its workspace
-// row as the model's refusal is (AgentAvailabilityRepository): the minute
-// cron holds its paid background work for a while instead of asking Autumn
-// for every task every minute, and the agent's screens say why it waits.
-// Only depletion is kept. A positive reading never admits work: every start
-// asks Autumn (credits.ts).
+// The organization's last confirmed "out of credits" (a balance short of what
+// a chat turn may cost, credits.ts), kept on its workspace row as the model's
+// refusal is (AgentAvailabilityRepository): the minute cron holds its paid
+// background work for a while instead of asking Autumn for every task every
+// minute, and the agent's screens say why it waits. Only "out" is kept. A
+// reading with credits never admits work: every start asks Autumn.
 
 /** How long a confirmed "out of credits" holds background work. */
 const CREDITS_RECHECK_MS = 5 * 60_000;
@@ -28,8 +28,8 @@ async function held(organizationId: string): Promise<boolean> {
 }
 
 /** What Autumn just said: out of credits, or not. */
-async function note(organizationId: string, depleted: boolean): Promise<void> {
-  if (depleted) {
+async function note(organizationId: string, out: boolean): Promise<void> {
+  if (out) {
     // Kept even for an organization nobody has opened the CRM in yet.
     await WorkspaceRepository.getOrCreate(organizationId);
     await db

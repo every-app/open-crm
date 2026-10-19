@@ -61,7 +61,7 @@ export class SessionMeter {
     let monthlyRemaining: number | null = null;
     if (kind === "chat") {
       const reading = await chatCredits(organizationId);
-      if (reading.depleted) return true;
+      if (!reading.enough) return true;
       monthlyRemaining = reading.monthlyRemaining;
     }
     this.turn = {

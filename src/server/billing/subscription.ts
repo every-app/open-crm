@@ -98,26 +98,32 @@ export async function getUsageCreditsRemaining(customerId: string): Promise<{
   };
 }
 
-/**
- * The credit gate. A /check reading ≤ 0 is not trusted on its own: Autumn
- * has served a stale balance transiently (minutes after a free→paid
- * upgrade), and a false refusal locks the customer out. When the check reads
- * depleted, confirm against the full customer object — a separate Autumn
- * read path — and refuse only when both agree. A disagreement means Autumn
- * served inconsistent balances: the work proceeds on the confirmed reading
- * and the inconsistency is logged at error level.
- */
-export async function checkUsageCreditsDepleted(
-  customer: BillingCustomer,
-): Promise<{ depleted: boolean; monthlyRemaining: number }> {
-  const check = await getUsageCreditsRemaining(customer.organizationId);
-  if (check.monthlyRemaining + check.topupRemaining > 0) {
-    return { depleted: false, monthlyRemaining: check.monthlyRemaining };
-  }
+/** An organization's usage credits: monthly, then top-up. */
+export type UsageCredits = { monthlyRemaining: number; topupRemaining: number };
 
-  // No try/catch: if this second read fails while the first said depleted,
-  // the whole gate errors rather than guessing — the work fails generically
-  // and retryably instead of refusing with a possibly-false paywall.
+export const totalCredits = (credits: UsageCredits) =>
+  credits.monthlyRemaining + credits.topupRemaining;
+
+/**
+ * The credit gate's reading, for work that needs `required` credits. A
+ * /check reading short of it is not trusted on its own: Autumn has served a
+ * stale balance transiently (minutes after a free→paid upgrade), and a false
+ * refusal locks the customer out. When the check reads short, confirm
+ * against the full customer object — a separate Autumn read path — and go by
+ * the check only when both read short. A disagreement means Autumn served
+ * inconsistent balances: the work proceeds on the confirmed reading and the
+ * inconsistency is logged at error level.
+ */
+export async function checkUsageCredits(
+  customer: BillingCustomer,
+  required: number,
+): Promise<UsageCredits> {
+  const check = await getUsageCreditsRemaining(customer.organizationId);
+  if (totalCredits(check) >= required) return check;
+
+  // No try/catch: if this second read fails while the first read short, the
+  // whole gate errors rather than guessing — the work fails generically and
+  // retryably instead of refusing with a possibly-false paywall.
   const full = await autumn.customers.getOrCreate({
     customerId: customer.organizationId,
     email: customer.userEmail ?? undefined,
@@ -129,15 +135,15 @@ export async function checkUsageCreditsDepleted(
       full.balances[AUTUMN_SEO_DATA_TOPUP_BALANCE_FEATURE_ID]?.remaining ?? 0,
   };
 
-  if (confirmed.monthlyRemaining + confirmed.topupRemaining > 0) {
+  if (totalCredits(confirmed) >= required) {
     console.error(
-      "billing.credits-gate disagreement: /check read depleted but the " +
-        "customer object shows credits; proceeding on the customer reading",
-      { organizationId: customer.organizationId, check, confirmed },
+      "billing.credits-gate disagreement: /check read short but the " +
+        "customer object shows enough credits; proceeding on the customer reading",
+      { organizationId: customer.organizationId, check, confirmed, required },
     );
-    return { depleted: false, monthlyRemaining: confirmed.monthlyRemaining };
+    return confirmed;
   }
-  return { depleted: true, monthlyRemaining: check.monthlyRemaining };
+  return check;
 }
 
 /**

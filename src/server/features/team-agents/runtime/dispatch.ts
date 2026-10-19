@@ -4,6 +4,7 @@ import { RunSettlement } from "@/server/features/team-agents/services/RunSettlem
 import { RunQueueRepository } from "@/server/features/team-agents/repositories/RunQueueRepository";
 import { getAgentByName } from "agents";
 import type { CreditCheck } from "@/server/billing/credits";
+import { sessionEstimate } from "@/server/billing/estimates";
 import { settledWithin } from "@/server/features/agent/dispatch/pool";
 import type { CrmAgent } from "@/server/features/agent/CrmAgent";
 import { sessionName } from "@/server/features/agent/sessionName";
@@ -14,6 +15,7 @@ import { AGENT_ACTION_TYPES, agentManifest } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import { MODEL_UNAVAILABLE } from "../services/RunSettlement";
 import { TriggerService } from "../services/TriggerService";
+import { RUN_LIMITS } from "./turns";
 
 // The team agents' lane of the minute cron, ported from the CRM's
 // drainAgentRuns: it settles runs that overran or never got going, queues
@@ -22,7 +24,8 @@ import { TriggerService } from "../services/TriggerService";
 // (`run.<organization>.<run id>`). A person's "Run now", and the runs a
 // record write's events queued, poke it for their organization at once. A
 // run that can't run (no model on the gateway, Slack not connected, the
-// workspace out of credits) fails with the reason instead of waiting. The
+// workspace out of credits) fails with the reason instead of waiting; one
+// the workspace's credits can cover only later waits. The
 // per-minute scans are a few indexed queries whatever the number of
 // organizations.
 
@@ -36,6 +39,9 @@ const RUNS = {
   deliveryLeaseMs: 5 * MINUTE_MS,
   startTimeoutMs: MINUTE_MS,
 } as const;
+
+/** What a run may cost, where usage is billed (billing/estimates.ts). */
+const RUN_ESTIMATE = sessionEstimate(RUN_LIMITS.budget);
 
 type Defer = (work: Promise<unknown>) => void;
 
@@ -158,6 +164,11 @@ async function start(
       blocked.code,
       blocked.message,
     );
+    return false;
+  }
+  // Where usage is billed, a run waits in the queue while what the
+  // organization's balance has left this tick can't cover it.
+  if (credits && !(await credits(run.organizationId, RUN_ESTIMATE))) {
     return false;
   }
   // The run records the model it ran on, for its history.

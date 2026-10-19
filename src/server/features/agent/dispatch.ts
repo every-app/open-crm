@@ -1,5 +1,6 @@
 import { creditsHeldSince } from "@/server/billing/creditReading";
 import type { CreditCheck } from "@/server/billing/credits";
+import { taskEstimate } from "@/server/billing/estimates";
 import { billResearchSpend } from "@/server/billing/researchSpend";
 import { withSpendSink, type ProviderSpend } from "@/server/billing/spendSink";
 import { forOrganization } from "@/server/lib/gateway-attribution";
@@ -42,9 +43,10 @@ import { runPortrait } from "./visible/portrait";
 //
 // Every gateway call is the task's organization's (forOrganization). A task
 // that fails is retried when its lease runs out, up to MAX_ATTEMPTS, then
-// retired by the stale-task sweep. Where usage is billed, both lanes leave an
-// organization out of credits waiting (`credits`, billing/credits.ts), but for
-// work that costs nothing (FREE_KINDS).
+// retired by the stale-task sweep. Where usage is billed, both lanes admit
+// paid work task by task against what the organization's balance has left
+// (`credits`, billing/credits.ts); work that costs nothing (FREE_KINDS)
+// always goes.
 
 /** Work that outlives the call that started it (ctx.waitUntil). */
 export type Defer = (work: Promise<unknown>) => void;
@@ -228,9 +230,10 @@ export async function runResearchLane(options: {
 const COSTS_NOTHING = new Set<string>(FREE_KINDS);
 
 /**
- * The leased tasks whose organizations have credits to pay for them, or that
- * cost nothing. The others go back to the queue, their attempts uncounted, to
- * wait for credits.
+ * The leased tasks this tick admits: each paid one against what its
+ * organization's balance has left (billing/credits.ts). Work that costs
+ * nothing always goes. The others go back to the queue, their attempts
+ * uncounted, to wait.
  */
 async function withCredits(
   tasks: LeasedTask[],
@@ -239,9 +242,11 @@ async function withCredits(
   if (!credits) return tasks;
   const funded: LeasedTask[] = [];
   for (const task of tasks) {
-    if (COSTS_NOTHING.has(task.kind) || (await credits(task.organizationId))) {
-      funded.push(task);
-    } else await AgentTaskRepository.release(task.organizationId, task.id);
+    const admitted =
+      COSTS_NOTHING.has(task.kind) ||
+      (await credits(task.organizationId, taskEstimate(task)));
+    if (admitted) funded.push(task);
+    else await AgentTaskRepository.release(task.organizationId, task.id);
   }
   return funded;
 }

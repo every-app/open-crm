@@ -10,6 +10,7 @@ import {
 import { creditFeatureLabel } from "@/shared/billing-credit-features";
 import { autumn } from "./autumn";
 import { CreditReadingRepository } from "./creditReading";
+import { AGENT_MINIMUM_CREDITS } from "./estimates";
 import type { BillingCustomer } from "./subscription";
 
 // What Settings → Billing shows, ported from OpenSEO's billing-account.ts and
@@ -59,7 +60,10 @@ export async function getOrganizationBillingAccount(
   // Credits bought lift a hold on the agent's work at once, rather than when
   // the hold lapses (creditReading.ts). Only ever lifts: this one read never
   // confirms an organization out of credits.
-  if ((monthly?.remaining ?? 0) + (topUp?.remaining ?? 0) > 0) {
+  if (
+    (monthly?.remaining ?? 0) + (topUp?.remaining ?? 0) >=
+    AGENT_MINIMUM_CREDITS
+  ) {
     await CreditReadingRepository.note(customer.organizationId, false);
   }
 
