@@ -1,9 +1,10 @@
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 
 // Whether the CRM may fetch a URL a model asked for (team agents' web_fetch).
-// The Worker's global_fetch_strictly_public flag already keeps every fetch off
-// private addresses; this refuses, before anything is fetched, what the flag
-// lets through or can't be tested by:
+// The Worker's global_fetch_strictly_public flag only sends a fetch to the
+// Worker's own zone through Cloudflare's front door, not straight to its
+// origin; it checks no address, and nothing here resolves a name. This
+// refuses, before anything is fetched:
 //
 // - anything but https, and a URL carrying credentials;
 // - an IP address for a host (a page is fetched by its name, and https to an

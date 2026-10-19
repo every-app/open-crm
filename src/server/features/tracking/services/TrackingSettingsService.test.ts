@@ -152,5 +152,28 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    it("never fetches an address, typed or redirected to", async () => {
+      await readySite(A, "acme.com");
+      expect(
+        await TrackingSettingsService.verify(A, "https://127.0.0.1/"),
+      ).toEqual({
+        status: "unreachable",
+        host: "127.0.0.1",
+        detail: "That is not a public web address.",
+      });
+      fetchMock.mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://169.254.169.254/latest" },
+        }),
+      );
+      expect(await TrackingSettingsService.verify(A, "acme.com")).toEqual({
+        status: "unreachable",
+        host: "169.254.169.254",
+        detail: "That is not a public web address.",
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 }
