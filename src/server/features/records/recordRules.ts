@@ -9,7 +9,7 @@ import {
   taskHold,
 } from "@/server/features/agent/services/AgentAvailabilityService";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
-import { AppError, asAppError } from "@/server/lib/errors";
+import { UserFacingError, asAppError } from "@/server/lib/errors";
 import type { FieldEntity } from "@/shared/crm-enums";
 import type { BulkResult } from "@/types/schemas/records";
 
@@ -38,9 +38,9 @@ export async function assertOwner(
 ): Promise<void> {
   if (!ownerId) return;
   if (!(await AuthRepository.isMember(organizationId, ownerId))) {
-    throw new AppError(
+    throw new UserFacingError(
       "VALIDATION_ERROR",
-      "That owner is not a member of this organization.",
+      "That owner does not work here any more.",
     );
   }
 }
@@ -82,7 +82,8 @@ export function isUniqueViolation(error: unknown): boolean {
 
 /**
  * Runs `act` for each record in turn. One record failing doesn't stop the
- * rest; the first failure's code says why.
+ * rest; the first failure says why: its code, and its words when they were
+ * written for people (a UserFacingError's), never an internal error's.
  */
 export async function runBulk(
   ids: string[],
@@ -90,7 +91,7 @@ export async function runBulk(
 ): Promise<BulkResult> {
   const unique = [...new Set(ids)];
   let succeeded = 0;
-  let error: BulkResult["error"] = null;
+  let first: Pick<BulkResult, "error" | "message"> | null = null;
   for (const id of unique) {
     try {
       await act(id);
@@ -98,14 +99,18 @@ export async function runBulk(
     } catch (cause) {
       const appError = asAppError(cause);
       if (!appError) console.error("[records] bulk action failed", cause);
-      error ??= appError?.code ?? "INTERNAL_ERROR";
+      first ??= {
+        error: appError?.code ?? "INTERNAL_ERROR",
+        message: appError instanceof UserFacingError ? appError.message : null,
+      };
     }
   }
   return {
     requested: unique.length,
     succeeded,
     failed: unique.length - succeeded,
-    error,
+    error: first?.error ?? null,
+    message: first?.message ?? null,
   };
 }
 
@@ -119,6 +124,7 @@ export function bulkOutcome(requested: number, succeeded: number): BulkResult {
     succeeded,
     failed: requested - succeeded,
     error: succeeded < requested ? "NOT_FOUND" : null,
+    message: null,
   };
 }
 

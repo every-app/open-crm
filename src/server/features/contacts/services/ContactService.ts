@@ -311,7 +311,7 @@ async function restoreContact(organizationId: string, id: string) {
 async function purgeContact(organizationId: string, id: string) {
   const found = await requireContact(organizationId, id);
   if (!found.archivedAt) {
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "Only an archived contact can be deleted forever. Archive them first.",
     );
@@ -323,7 +323,7 @@ async function purgeContact(organizationId: string, id: string) {
     new Date().toISOString(),
   );
   if (purged.length === 0) {
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "The contact was restored before they could be deleted.",
     );

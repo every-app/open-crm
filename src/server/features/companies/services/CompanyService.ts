@@ -274,7 +274,7 @@ async function restoreCompany(organizationId: string, id: string) {
 async function purgeCompany(organizationId: string, id: string) {
   const found = await requireCompany(organizationId, id);
   if (!found.archivedAt) {
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "Only an archived company can be deleted forever. Archive it first.",
     );
@@ -286,7 +286,7 @@ async function purgeCompany(organizationId: string, id: string) {
     new Date().toISOString(),
   );
   if (purged.length === 0) {
-    throw new AppError(
+    throw new UserFacingError(
       "CONFLICT",
       "The company was restored before it could be deleted.",
     );

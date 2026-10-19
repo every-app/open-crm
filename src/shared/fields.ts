@@ -211,7 +211,9 @@ function parseText(
     default:
       return raw.length <= TEXT_MAX[type]
         ? { ok: true, value: raw }
-        : fail(`${label} is too long.`);
+        : fail(
+            `${label} takes at most ${TEXT_MAX[type].toLocaleString("en-US")} characters.`,
+          );
   }
 }
 
