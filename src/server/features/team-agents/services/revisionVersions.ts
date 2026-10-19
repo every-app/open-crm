@@ -1,6 +1,7 @@
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { AppError } from "@/server/lib/errors";
+import { hasOrgPermission } from "@/shared/org-permissions";
 import {
   AGENT_ACTION_TYPES,
   slackDestinationOf,
@@ -178,7 +179,9 @@ export async function joinMovedChannel(
   if (
     !before ||
     moved?.kind !== "channel" ||
-    moved.id === slackDestinationOf(before)?.id
+    moved.id === slackDestinationOf(before)?.id ||
+    // Joining is an owner's or admin's (SlackInventoryService.joinChannel).
+    !hasOrgPermission(context.role, { connection: ["manage"] })
   ) {
     return;
   }
@@ -287,7 +290,7 @@ async function saveForReview(
   }
   const [existing, slack, capture] = await Promise.all([
     BuilderRepository.describeRecords(organizationId, parsed.data.resources),
-    SlackInventoryService.builderInventory(organizationId),
+    SlackInventoryService.builderInventory(organizationId, context.role),
     BuilderToolService.captureConnections(organizationId),
   ]);
   const labels = new Map(

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Connecting Slack through the gateway's OAuth client: only an owner or admin,
 // only with a state minted for them, and the tokens stay on the server,
 // encrypted. Then the people and channel inventory, matched by exact email,
-// per organization.
+// per organization, whose channels only an owner or admin joins or creates.
 const { database, gateway } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return {
@@ -165,6 +165,36 @@ describe("SlackService", () => {
       botToken: "xoxb-bot-secret",
       userToken: "xoxp-user-secret",
     });
+  });
+
+  it("leaves joining and creating channels, and the private ones the app isn't in, to owners and admins", async () => {
+    const state = await startedState();
+    await SlackService.completeConnect(owner, {
+      ...web,
+      code: "c",
+      state,
+      error: null,
+    });
+    await backgroundReads();
+    await database.exec(
+      `INSERT INTO slack_channel (id, organization_id, slack_channel_id, name, is_private, is_member) VALUES ('ch_p', 'org_a', 'CP', 'leadership', 1, 0);`,
+    );
+    const names = async (context: typeof owner) =>
+      (await SlackInventoryService.channels(context, { offset: 0 })).rows.map(
+        (row) => row.name,
+      );
+
+    expect(await names(owner)).toEqual(["sales", "leadership"]);
+    expect(await names(member)).toEqual(["sales"]);
+    await expect(
+      SlackInventoryService.joinChannel(member, "C1"),
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      SlackInventoryService.createChannel(member, {
+        name: "deals",
+        isPrivate: false,
+      }),
+    ).rejects.toThrow("FORBIDDEN");
   });
 
   it("matches members to Slack users by exact email and keeps the inventory per organization", async () => {

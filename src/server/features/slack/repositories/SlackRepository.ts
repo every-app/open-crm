@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, or, sql } from "drizzle-orm";
 import { chunk, omit } from "remeda";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
@@ -146,10 +146,19 @@ const channelColumns = () => ({
   inviteRequestedAt: slackChannel.inviteRequestedAt,
 });
 
-/** Available channels, the ones the app is in first, then by name. */
+/**
+ * Available channels, the ones the app is in first, then by name. Without
+ * `installerPrivate`, private channels the app isn't in are left out: only
+ * the installer's token sees those.
+ */
 async function listChannels(
   organizationId: string,
-  input: { query?: string; limit: number; offset: number },
+  input: {
+    query?: string;
+    limit: number;
+    offset: number;
+    installerPrivate: boolean;
+  },
 ) {
   const needle = input.query?.trim().toLowerCase();
   return db
@@ -159,6 +168,12 @@ async function listChannels(
       and(
         eq(slackChannel.organizationId, organizationId),
         eq(slackChannel.available, true),
+        input.installerPrivate
+          ? undefined
+          : or(
+              eq(slackChannel.isPrivate, false),
+              eq(slackChannel.isMember, true),
+            ),
         needle
           ? sql`lower(${slackChannel.name}) like ${`%${needle}%`}`
           : undefined,

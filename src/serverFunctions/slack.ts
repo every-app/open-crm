@@ -11,7 +11,9 @@ import {
 } from "@/types/schemas/slack";
 
 // Settings → Connections → Slack. Connecting and disconnecting are an owner's
-// or admin's, from their own browser; the rest any member may see.
+// or admin's, from their own browser, and so are joining and creating
+// channels (SlackInventoryService); members see the channels without the
+// private ones only the installer's token lists.
 
 export const getSlackStatus = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
