@@ -22,12 +22,12 @@ import {
 import {
   AssistantMessage,
   asksForAgent,
-  buildProgress,
   Feedback,
   hasText,
   UserMessage,
 } from "./BuilderMessages";
 import { AgentCodeWorkspace } from "./AgentCodeWorkspace";
+import { buildProgress } from "./builderSteps";
 import {
   BuilderFailureCard,
   BuildingAgentCard,

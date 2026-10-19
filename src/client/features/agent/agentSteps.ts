@@ -82,6 +82,11 @@ const outcomeSchema = z
   .nullable()
   .catch(null);
 
+/** The error a tool that threw came back with, or null. */
+export function toolError(output: unknown): string | null {
+  return outcomeSchema.parse(output)?.error ?? null;
+}
+
 function sourcesOf(outcome: z.infer<typeof outcomeSchema>): Source[] {
   if (!outcome) return [];
   const urls = new Set(

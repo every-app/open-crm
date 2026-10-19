@@ -8,6 +8,7 @@ import {
 } from "react";
 import { ArrowUp, Bot, Paperclip, Square, X } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "cn";
 import {
   InputGroup,
   InputGroupAddon,
@@ -15,13 +16,14 @@ import {
   InputGroupTextarea,
 } from "@/client/components/ui/input-group";
 import { Toggle } from "@/client/components/ui/toggle";
+import { isEnter } from "@/client/lib/keyboard";
 import { uploadBuilderAttachment } from "@/serverFunctions/teamAgents";
 import {
   builderCommandType,
   consumeBuilderCommand,
 } from "@/shared/builder-command";
 import { PREVIEWABLE_IMAGE_TYPES } from "@/shared/team-agents";
-import { TagPicker, tagText, type TaggedResource } from "./TagPicker";
+import { ResourcePicture, TagPicker, type TaggedResource } from "./TagPicker";
 import { CREATE_AGENT_PREFIX } from "./teamAgentCopy";
 
 type Attachment = {
@@ -169,7 +171,7 @@ export function BuilderComposer({
   }
 
   function handleKey(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (isEnter(event) && !event.shiftKey) {
       event.preventDefault();
       void submit();
     }
@@ -182,7 +184,8 @@ export function BuilderComposer({
           {tags.map((tag) => (
             <Chip
               key={`${tag.kind}:${tag.id}`}
-              label={tagText(tag.label)}
+              label={tag.label}
+              thumbnail={<ResourcePicture resource={tag} />}
               onRemove={() =>
                 setTags((current) => current.filter((entry) => entry !== tag))
               }
@@ -192,7 +195,11 @@ export function BuilderComposer({
             <Chip
               key={`${file.name}:${index}`}
               label={`${file.name} · ${formatBytes(file.size)}`}
-              thumbnail={<FileThumbnail file={file} />}
+              thumbnail={
+                PREVIEWABLE_IMAGE_TYPES.has(file.type.toLowerCase()) ? (
+                  <FileThumbnail file={file} />
+                ) : undefined
+              }
               onRemove={() =>
                 setFiles((current) => current.filter((entry) => entry !== file))
               }
@@ -292,7 +299,6 @@ export function BuilderComposer({
 function FileThumbnail({ file }: { file: File }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (!PREVIEWABLE_IMAGE_TYPES.has(file.type.toLowerCase())) return undefined;
     const next = URL.createObjectURL(file);
     setUrl(next);
     return () => URL.revokeObjectURL(next);
@@ -312,7 +318,12 @@ function Chip({
   onRemove: () => void;
 }) {
   return (
-    <span className="inline-flex h-6 max-w-60 items-center gap-1 rounded-md border border-border bg-muted/50 pr-1 pl-2 text-xs has-[img]:pl-1">
+    <span
+      className={cn(
+        "inline-flex h-7 max-w-60 items-center gap-1.5 rounded-md border border-border bg-muted/50 pr-1.5 text-xs",
+        thumbnail ? "pl-1" : "pl-2",
+      )}
+    >
       {thumbnail}
       <span className="truncate">{label}</span>
       <button

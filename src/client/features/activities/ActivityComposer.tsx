@@ -15,6 +15,7 @@ import {
   ACTIVITY_PRESENTATION,
   endOfLocalDay,
 } from "@/client/features/activities/activityFormat";
+import { isEnter } from "@/client/lib/keyboard";
 import type { RecordRef } from "@/shared/records";
 import {
   COMPOSABLE_TYPES,
@@ -82,10 +83,7 @@ export function ActivityComposer({ record }: { record: RecordRef }) {
                 aria-label="What happened"
                 className="min-h-16"
                 onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" &&
-                    (event.metaKey || event.ctrlKey)
-                  ) {
+                  if (isEnter(event) && (event.metaKey || event.ctrlKey)) {
                     event.preventDefault();
                     event.currentTarget.form?.requestSubmit();
                   }
