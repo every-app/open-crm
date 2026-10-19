@@ -110,7 +110,14 @@ const detailsOutput = z.object({
   linkedinUrl: z.string().nullable(),
   twitterUrl: z.string().nullable(),
   githubUrl: z.string().nullable(),
-  company: companyOutput,
+  company: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      domain: z.string().nullable(),
+      industry: z.string().nullable(),
+    })
+    .nullable(),
   primaryContactOfCompany: z.boolean(),
   owner: personOutput.nullable(),
   enrichment,

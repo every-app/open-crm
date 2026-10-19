@@ -49,6 +49,7 @@ describe("record tools", () => {
             domain: "acme.com",
             industry: "Software",
             owner: { email: ana.email },
+            queued: true,
           },
         ],
       });
@@ -57,12 +58,16 @@ describe("record tools", () => {
     const jo = await idFrom("create_contact", {
       firstName: "Jo",
       email: "jo@acme.com",
+      phone: "+1 555 0100",
     });
     await call("set_primary_contact", { companyId: id, contactId: jo });
     expect(await call("get_company", { id })).toMatchObject({
       owner: { name: "Ana", email: ana.email },
-      primaryContact: { id: jo, name: "Jo" },
+      primaryContact: { id: jo, name: "Jo", phone: "+1 555 0100" },
       contacts: [{ id: jo, name: "Jo" }],
+    });
+    expect(await call("get_contact", { id: jo })).toMatchObject({
+      company: { id, industry: "Software" },
     });
 
     expect(await failure("get_company", { id }, { as: bo })).toBe(

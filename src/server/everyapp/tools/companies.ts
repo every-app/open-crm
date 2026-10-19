@@ -75,6 +75,7 @@ const summaryOutput = z.object({
   openDeals: z.number(),
   lastActivityAt: z.string().nullable(),
   enrichment,
+  queued: z.boolean().describe("The research agent has work on it due now."),
   source: sourceOutput,
   createdAt: z.string(),
   archivedAt: z.string().nullable(),
@@ -134,6 +135,7 @@ const detailsOutput = z.object({
       id: z.string(),
       name: z.string(),
       email: z.string().nullable(),
+      phone: z.string().nullable(),
       title: z.string().nullable(),
     })
     .nullable(),
