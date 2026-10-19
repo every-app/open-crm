@@ -55,7 +55,9 @@ async function list(context: Context) {
     TriggerRepository.enabledTriggers(context.organizationId, ids),
   ]);
   return rows.map((row) => {
-    const own = triggers.filter((trigger) => trigger.agentId === row.id);
+    const own = triggers
+      .filter((trigger) => trigger.agentId === row.id)
+      .map(({ type, name, nextRunAt }) => ({ type, name, nextRunAt }));
     return {
       id: row.id,
       name: row.name,
@@ -64,9 +66,8 @@ async function list(context: Context) {
       createdBy: row.createdByName,
       updatedAt: row.updatedAt,
       runCount: runs.get(row.id) ?? 0,
-      trigger: own[0]
-        ? { type: own[0].type, name: own[0].name, nextRunAt: own[0].nextRunAt }
-        : null,
+      trigger: own[0] ?? null,
+      triggers: own,
     };
   });
 }

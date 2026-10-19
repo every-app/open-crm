@@ -124,13 +124,15 @@ export const teamAgentTools = {
           status: z.enum(TEAM_AGENT_STATUSES),
           createdBy: z.string(),
           runCount: z.number(),
-          trigger: z
-            .object({
-              type: z.enum(TRIGGER_TYPES),
-              name: z.string(),
-              nextRunAt: z.string().nullable(),
-            })
-            .nullable(),
+          triggers: z
+            .array(
+              z.object({
+                type: z.enum(TRIGGER_TYPES),
+                name: z.string(),
+                nextRunAt: z.string().nullable(),
+              }),
+            )
+            .describe("Its enabled triggers."),
           updatedAt: z.string(),
         }),
       ),
