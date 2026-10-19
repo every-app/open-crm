@@ -196,6 +196,21 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
     });
 
+    it("counts every deal deleting a company forever takes, archived ones too", async () => {
+      const acme = await create(A, "Acme", "acme.com");
+      // The last row is another organization's, naming Acme: not Acme's.
+      await database.exec(`
+        INSERT INTO deal (id, organization_id, name, company_id, owner_id) VALUES ('d1', 'org_a', 'Renewal', '${acme.id}', 'user_a');
+        INSERT INTO deal (id, organization_id, name, company_id, owner_id, archived_at) VALUES ('d2', 'org_a', 'Dead', '${acme.id}', 'user_a', '2026-10-01T00:00:00.000Z');
+        INSERT INTO deal (id, organization_id, name, company_id, owner_id) VALUES ('d3', 'org_b', 'Theirs', '${acme.id}', 'user_b');
+      `);
+
+      expect(await CompanyService.getCompany(A, acme.id)).toMatchObject({
+        deals: [{ id: "d1" }],
+        dealCount: 2,
+      });
+    });
+
     it("purges only an archived company, with the agent's rows, and restamps its contacts", async () => {
       const acme = await create(A, "Acme", "acme.com");
       const other = await create(A, "Other", "other.com");
