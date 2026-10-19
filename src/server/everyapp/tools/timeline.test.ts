@@ -139,13 +139,22 @@ describe("timeline tools", () => {
     );
   });
 
-  it("captured mail: a timeline's thread and meeting ids open their messages and attendees, and can't be edited", async () => {
+  it("captured mail: a timeline's thread and meeting ids open their messages, invite and attendees and the records they're filed on, and can't be edited", async () => {
     const at = "2026-10-01T10:00:00.000Z";
+    const jo = await idFrom("create_contact", {
+      firstName: "Jo",
+      lastName: "Park",
+      companyId,
+    });
+    const filedOn = {
+      company: { id: companyId, name: "Acme" },
+      contact: { id: jo, name: "Jo Park" },
+    };
     await testDb.exec(`
-      INSERT INTO email_thread (id, organization_id, root_message_id, subject, company_id, first_message_at, last_message_at, message_count) VALUES ('thr_1', 'org_a', '<root@acme.test>', 'Pilot terms', '${companyId}', '${at}', '${at}', 1);
+      INSERT INTO email_thread (id, organization_id, root_message_id, subject, company_id, contact_id, first_message_at, last_message_at, message_count) VALUES ('thr_1', 'org_a', '<root@acme.test>', 'Pilot terms', '${companyId}', '${jo}', '${at}', '${at}', 1);
       INSERT INTO email_message (id, organization_id, thread_id, rfc_message_id, direction, from_email, from_name, recipients, subject, snippet, body, sent_at) VALUES ('msg_1', 'org_a', 'thr_1', '<root@acme.test>', 'INBOUND', 'jo@acme.test', 'Jo', '[{"email":"ana@a.test","name":"Ana","kind":"to"}]', 'Pilot terms', 'Looks good', 'Looks good to us.', '${at}');
       INSERT INTO activity (id, organization_id, type, subject, body, occurred_at, company_id, created_by_id, email_thread_id) VALUES ('act_mail', 'org_a', 'EMAIL', 'Pilot terms', 'Looks good', '${at}', '${companyId}', 'user_a', 'thr_1');
-      INSERT INTO calendar_event (id, organization_id, ical_uid, original_start_time, title, starts_at, ends_at, status, company_id) VALUES ('evt_1', 'org_a', 'uid-1', '${at}', 'Pilot kickoff', '${at}', '2026-10-01T11:00:00.000Z', 'confirmed', '${companyId}');
+      INSERT INTO calendar_event (id, organization_id, ical_uid, original_start_time, title, description, starts_at, ends_at, status, organizer_email, company_id, contact_id) VALUES ('evt_1', 'org_a', 'uid-1', '${at}', 'Pilot kickoff', 'Agenda: the pilot terms', '${at}', '2026-10-01T11:00:00.000Z', 'confirmed', 'jo@acme.test', '${companyId}', '${jo}');
       INSERT INTO calendar_attendee (id, organization_id, event_id, email, name, response_status, is_organizer) VALUES ('att_1', 'org_a', 'evt_1', 'jo@acme.test', 'Jo', 'accepted', 1);
       INSERT INTO activity (id, organization_id, type, subject, occurred_at, company_id, created_by_id, calendar_event_id) VALUES ('act_meet', 'org_a', 'MEETING', 'Pilot kickoff', '${at}', '${companyId}', 'user_a', 'evt_1');
     `);
@@ -161,6 +170,7 @@ describe("timeline tools", () => {
     ).toEqual({
       id: "thr_1",
       subject: "Pilot terms",
+      ...filedOn,
       messageCount: 1,
       messages: [
         {
@@ -183,6 +193,9 @@ describe("timeline tools", () => {
       await call("get_meeting", { meetingId: meeting?.meeting?.meetingId }),
     ).toMatchObject({
       title: "Pilot kickoff",
+      description: "Agenda: the pilot terms",
+      organizerEmail: "jo@acme.test",
+      ...filedOn,
       attendees: [
         { email: "jo@acme.test", response: "accepted", organizer: true },
       ],
