@@ -1,10 +1,24 @@
 import { hashKey, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { activityKeys } from "@/client/features/activities/activityQueries";
-import { companyKeys } from "@/client/features/companies/companyQueries";
-import { contactKeys } from "@/client/features/contacts/contactQueries";
+import {
+  companyKeys,
+  companyQueryOptions,
+} from "@/client/features/companies/companyQueries";
+import {
+  contactKeys,
+  contactQueryOptions,
+} from "@/client/features/contacts/contactQueries";
 import { dashboardKeys } from "@/client/features/dashboard/dashboardQueries";
-import { dealKeys } from "@/client/features/deals/dealQueries";
+import {
+  dealKeys,
+  dealQueryOptions,
+} from "@/client/features/deals/dealQueries";
+import {
+  ENTITY_OF_KIND,
+  recordFieldsQueryOptions,
+} from "@/client/features/fields/fieldQueries";
 import { searchKeys } from "@/client/features/search/searchQueries";
+import type { RecordRef } from "@/shared/records";
 
 // Companies, contacts and deals show on each other's lists and sheets (a
 // contact's company, a company's people and pipeline, a deal's contacts), in
@@ -50,5 +64,25 @@ export function useInvalidateRecords() {
     if (!record) return rest;
     void rest;
     return queryClient.invalidateQueries({ queryKey: record });
+  };
+}
+
+/**
+ * Starts loading what a record's sheet opens on, the record and its custom
+ * fields, as a row is hovered: by the click, the sheet has them.
+ */
+export function usePrefetchRecord() {
+  const queryClient = useQueryClient();
+  return ({ kind, id }: RecordRef) => {
+    if (kind === "company") {
+      void queryClient.prefetchQuery(companyQueryOptions(id));
+    } else if (kind === "contact") {
+      void queryClient.prefetchQuery(contactQueryOptions(id));
+    } else {
+      void queryClient.prefetchQuery(dealQueryOptions(id));
+    }
+    void queryClient.prefetchQuery(
+      recordFieldsQueryOptions(ENTITY_OF_KIND[kind], id),
+    );
   };
 }

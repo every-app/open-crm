@@ -44,6 +44,7 @@ import {
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
+import { usePrefetchRecord } from "@/client/features/records/recordQueries";
 import { useRecordStack } from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listDeals } from "@/serverFunctions/deals";
@@ -65,6 +66,7 @@ export function DealsPage() {
   const openDeal = (id: string) => open({ kind: "deal", id });
 
   const input = dealListInput(search);
+  const prefetchRecord = usePrefetchRecord();
   const query = useQuery(dealListQueryOptions(input));
   const filters = dealFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
@@ -229,6 +231,9 @@ export function DealsPage() {
             />
           }
           onRowClick={(row) => openDeal(row.original.id)}
+          onRowHover={(row) =>
+            prefetchRecord({ kind: "deal", id: row.original.id })
+          }
           activeRowId={findLast(stack, (ref) => ref.kind === "deal")?.id}
         />
       </div>

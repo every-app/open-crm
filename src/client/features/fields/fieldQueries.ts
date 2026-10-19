@@ -8,6 +8,14 @@ import {
   listFields,
 } from "@/serverFunctions/fields";
 import type { FieldEntity } from "@/shared/crm-enums";
+import type { RecordKind } from "@/shared/records";
+
+/** Whose custom fields a kind of record has. */
+export const ENTITY_OF_KIND: Record<RecordKind, FieldEntity> = {
+  company: "COMPANY",
+  contact: "CONTACT",
+  deal: "DEAL",
+};
 
 /**
  * Every fields query of an entity starts with this key: a change to a field

@@ -43,6 +43,7 @@ import {
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
+import { usePrefetchRecord } from "@/client/features/records/recordQueries";
 import { useRecordStack } from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listCompanies } from "@/serverFunctions/companies";
@@ -64,6 +65,7 @@ export function CompaniesPage() {
   const openCompany = (id: string) => open({ kind: "company", id });
 
   const input = companyListInput(search);
+  const prefetchRecord = usePrefetchRecord();
   const query = useQuery(companyListQueryOptions(input));
   const filters = companyFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
@@ -225,6 +227,9 @@ export function CompaniesPage() {
             />
           }
           onRowClick={(row) => openCompany(row.original.id)}
+          onRowHover={(row) =>
+            prefetchRecord({ kind: "company", id: row.original.id })
+          }
           activeRowId={findLast(stack, (ref) => ref.kind === "company")?.id}
         />
       </div>

@@ -183,6 +183,7 @@ export function DataTable<TData>({
   toolbar,
   footer,
   onRowClick,
+  onRowHover,
   activeRowId,
   scrollClassName,
   renderExpandedRow,
@@ -200,6 +201,8 @@ export function DataTable<TData>({
     row: Row<TData>,
     event: MouseEvent<HTMLTableRowElement>,
   ) => void;
+  /** A row the pointer or the keyboard is on: to prefetch what a click opens. */
+  onRowHover?: (row: Row<TData>) => void;
   /** Highlights the row whose details are open. */
   activeRowId?: string;
   /** Caps the table height, for example `max-h-96`. The header stays in view while the rows scroll. */
@@ -306,6 +309,10 @@ export function DataTable<TData>({
                     onClick={
                       onRowClick ? (event) => onRowClick(row, event) : undefined
                     }
+                    onMouseEnter={
+                      onRowHover ? () => onRowHover(row) : undefined
+                    }
+                    onFocus={onRowHover ? () => onRowHover(row) : undefined}
                   >
                     {row.getVisibleCells().map((cell) => {
                       const meta = cell.column.columnDef.meta?.cellClassName;

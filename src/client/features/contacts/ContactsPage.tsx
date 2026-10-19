@@ -43,6 +43,7 @@ import {
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
+import { usePrefetchRecord } from "@/client/features/records/recordQueries";
 import { useRecordStack } from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listContacts } from "@/serverFunctions/contacts";
@@ -64,6 +65,7 @@ export function ContactsPage() {
   const openContact = (id: string) => open({ kind: "contact", id });
 
   const input = contactListInput(search);
+  const prefetchRecord = usePrefetchRecord();
   const query = useQuery(contactListQueryOptions(input));
   const filters = useContactFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
@@ -225,6 +227,9 @@ export function ContactsPage() {
             />
           }
           onRowClick={(row) => openContact(row.original.id)}
+          onRowHover={(row) =>
+            prefetchRecord({ kind: "contact", id: row.original.id })
+          }
           activeRowId={findLast(stack, (ref) => ref.kind === "contact")?.id}
         />
       </div>
