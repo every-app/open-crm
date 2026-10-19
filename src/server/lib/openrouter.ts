@@ -6,7 +6,7 @@ import {
 import {
   createOpenRouter,
   type LanguageModelV3,
-  type OpenRouterProvider,
+  type OpenRouterChatSettings,
 } from "@openrouter/ai-sdk-provider";
 import { wrapLanguageModel } from "ai";
 import { gatewayCallFor } from "@/server/lib/gateway-attribution";
@@ -100,15 +100,33 @@ export function getOpenRouterFetch(
   }
 }
 
-/** The OpenRouter provider over a gateway fetch. */
-export function openRouterProvider(
-  gatewayFetch: typeof fetch,
-): OpenRouterProvider {
-  return createOpenRouter({
+/**
+ * How every model call is routed, whatever else it asks: only to providers
+ * that keep no copy of the prompt (OpenRouter's Zero Data Retention
+ * endpoints) and collect no data from it, since prompts carry captured mail.
+ * Every model the CRM calls has such endpoints: GPT-6 Luna on Azure, MiniMax
+ * M3 on Together, Sonar on Perplexity.
+ */
+const PRIVATE_ROUTING = { data_collection: "deny", zdr: true } as const;
+
+/**
+ * OpenRouter's chat models over a gateway fetch: `modelId` with `settings`,
+ * routed as PRIVATE_ROUTING says.
+ */
+export function openRouterProvider(gatewayFetch: typeof fetch) {
+  const openrouter = createOpenRouter({
     apiKey: "gateway-managed",
     baseURL: GATEWAY_BASE_URL,
     fetch: gatewayFetch,
   });
+  return (
+    modelId: string,
+    settings: OpenRouterChatSettings = {},
+  ): LanguageModelV3 =>
+    openrouter.chat(modelId, {
+      ...settings,
+      provider: { ...settings.provider, ...PRIVATE_ROUTING },
+    });
 }
 
 /**
@@ -143,7 +161,7 @@ export function buildAgentModel(
 }
 
 function openRouterModel(
-  openrouter: OpenRouterProvider,
+  openrouter: ReturnType<typeof openRouterProvider>,
   model: string,
   effort: ReasoningEffort,
 ): LanguageModelV3 {
@@ -158,7 +176,6 @@ function openRouterModel(
       reasoning: { effort: effort === "low" ? "low" : "medium" },
       provider: {
         order: ["together", "atlas-cloud/fp8"],
-        zdr: true,
         allow_fallbacks: true,
       },
     });

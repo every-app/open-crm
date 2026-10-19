@@ -1,9 +1,11 @@
+import type { LanguageModelV3 } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 // As OpenSEO's openrouter.test.ts: where OpenRouter would reject OpenAI, the
-// agent's calls go to MiniMax M3 instead.
+// agent's calls go to MiniMax M3 instead. Whichever model answers, the call
+// asks for providers that keep and collect nothing.
 
 const completion = () =>
   Response.json({
@@ -21,30 +23,47 @@ beforeEach(() => {
   vi.resetModules();
 });
 
-async function requestedModel(trace: () => Promise<Response>) {
-  vi.spyOn(globalThis, "fetch").mockImplementationOnce(trace);
+const requestBody = z.object({
+  model: z.string(),
+  provider: z.record(z.string(), z.unknown()),
+});
+
+/** What the gateway was sent for one call to `model`. */
+async function sent(model: (gatewayFetch: typeof fetch) => LanguageModelV3) {
   const gatewayFetch = vi.fn<typeof fetch>(async () => completion());
-  const { buildAgentModel, DEFAULT_AGENT_MODEL } = await import("./openrouter");
-  await generateText({
-    model: buildAgentModel(gatewayFetch, DEFAULT_AGENT_MODEL, "max"),
-    prompt: "hi",
-  });
-  const body = z
-    .object({ model: z.string() })
-    .parse(JSON.parse(z.string().parse(gatewayFetch.mock.calls[0]?.[1]?.body)));
-  return body.model;
+  await generateText({ model: model(gatewayFetch), prompt: "hi" });
+  return requestBody.parse(
+    JSON.parse(z.string().parse(gatewayFetch.mock.calls[0]?.[1]?.body)),
+  );
 }
+
+async function requestedAgentCall(trace: () => Promise<Response>) {
+  vi.spyOn(globalThis, "fetch").mockImplementationOnce(trace);
+  const { buildAgentModel, DEFAULT_AGENT_MODEL } = await import("./openrouter");
+  return sent((gatewayFetch) =>
+    buildAgentModel(gatewayFetch, DEFAULT_AGENT_MODEL, "max"),
+  );
+}
+
+const PRIVATE = { data_collection: "deny", zdr: true };
 
 it("sends OpenAI calls to MiniMax M3 from a country where OpenAI is blocked", async () => {
   expect(
-    await requestedModel(async () => new Response("colo=HKG\nloc=HK\n")),
-  ).toBe("minimax/minimax-m3");
+    await requestedAgentCall(async () => new Response("colo=HKG\nloc=HK\n")),
+  ).toEqual({
+    model: "minimax/minimax-m3",
+    provider: {
+      order: ["together", "atlas-cloud/fp8"],
+      allow_fallbacks: true,
+      ...PRIVATE,
+    },
+  });
 });
 
 it("stays on OpenAI when the country lookup fails", async () => {
   expect(
-    await requestedModel(async () => {
+    await requestedAgentCall(async () => {
       throw new Error("offline");
     }),
-  ).toBe("openai/gpt-6-luna");
+  ).toEqual({ model: "openai/gpt-6-luna", provider: PRIVATE });
 });
