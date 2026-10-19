@@ -193,7 +193,10 @@ export function AssistantMessage({
   );
 }
 
-/** One tool call in a reply: the builder's own in its words, else a step. */
+/**
+ * One tool call in a reply: the builder's own in its words, one refused
+ * before it ran with its error, else a step.
+ */
 function BuilderStep({
   part,
   live,
