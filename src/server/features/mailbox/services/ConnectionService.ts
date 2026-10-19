@@ -20,6 +20,7 @@ import { deploymentTierFor } from "@/server/lib/deployment-tier";
 import { AppError } from "@/server/lib/errors";
 import { codeChallenge, randomToken } from "@/server/lib/pkce";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
+import { requireTokenKey } from "@/server/lib/tokenCrypto";
 import { normalizeDomain } from "@/shared/domain";
 import {
   grantedSources,
@@ -65,6 +66,8 @@ async function startConnect(
       `${LABEL[provider]} isn't set up on this Every App gateway.`,
     );
   }
+  // Its tokens are stored encrypted: no key, no consent screen to sit through.
+  await requireTokenKey();
   const codeVerifier = randomToken();
   const state = await ConnectionRepository.createState({
     ...member,
@@ -86,12 +89,12 @@ async function startConnect(
     params.set("include_granted_scopes", "true");
     // Google only sends a refresh token with a consent screen: ask for one
     // unless the member's connection already holds one.
-    const existing = await ConnectionRepository.findWithTokens(
+    const existing = await ConnectionRepository.find(
       member.organizationId,
       member.userId,
       provider,
     );
-    if (!existing?.refreshToken) params.set("prompt", "consent");
+    if (!existing?.hasRefreshToken) params.set("prompt", "consent");
   } else {
     params.set("response_mode", "query");
     params.set("prompt", "select_account");
@@ -161,7 +164,7 @@ async function completeConnect(
     return { ok: false, error: "email_doesn't_match" };
   }
 
-  const previous = await ConnectionRepository.findWithTokens(
+  const previous = await ConnectionRepository.find(
     member.organizationId,
     member.userId,
     provider,

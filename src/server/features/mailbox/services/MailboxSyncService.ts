@@ -107,7 +107,7 @@ async function runClaimed(row: SyncRow, budget: CallBudget): Promise<void> {
     if (result.status === "UNAUTHORIZED") {
       // The access token was refused before it expired: the next check
       // refreshes it, and a refused refresh asks the member to reconnect.
-      const connection = await ConnectionRepository.findWithTokens(
+      const connection = await ConnectionRepository.find(
         organizationId,
         userId,
         provider,

@@ -4,8 +4,9 @@ import { SlackInventoryService } from "@/server/features/slack/services/SlackInv
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Connecting Slack through the gateway's OAuth client: only an owner or admin,
-// only with a state minted for them, and the tokens stay on the server. Then
-// the people and channel inventory, matched by exact email, per organization.
+// only with a state minted for them, and the tokens stay on the server,
+// encrypted. Then the people and channel inventory, matched by exact email,
+// per organization.
 const { database, gateway } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return {
@@ -27,6 +28,7 @@ vi.mock("@every-app/sdk/server", () => ({
   integrationFetch: () => gateway.exchange,
 }));
 
+import { SlackRepository } from "../repositories/SlackRepository";
 import { SlackService } from "./SlackService";
 
 const owner = { organizationId: "org_a", userId: "user_a", role: "owner" };
@@ -155,6 +157,13 @@ describe("SlackService", () => {
     expect(JSON.stringify(status)).not.toContain("secret");
     expect(await SlackService.status(outsider)).toMatchObject({
       connected: false,
+    });
+    expect(
+      JSON.stringify(await database.rows(`SELECT * FROM slack_connection`)),
+    ).not.toContain("secret");
+    expect(await SlackRepository.getTokens("org_a")).toEqual({
+      botToken: "xoxb-bot-secret",
+      userToken: "xoxp-user-secret",
     });
   });
 

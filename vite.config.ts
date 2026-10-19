@@ -19,6 +19,8 @@ export default defineConfig(({ mode }) => {
         include: ["src/**/*.test.ts"],
         restoreMocks: true,
         clearMocks: true,
+        // The key connection tokens are encrypted under, as a deploy sets it.
+        env: { TOKEN_ENCRYPTION_KEY: "test-token-encryption-key-0123456789" },
       },
     };
   }

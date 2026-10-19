@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { vi } from "vitest";
 
 // Connecting a mailbox on both backends: the single-use state is a
@@ -33,6 +33,7 @@ import {
   stubProviders,
 } from "@/server/features/mailbox/mailboxTestSupport";
 import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
+import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { forOrganization } from "@/server/lib/gateway-attribution";
 import { ConnectionService } from "./ConnectionService";
 
@@ -205,6 +206,18 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
     });
 
+    it("refuses to start a connect without the key its tokens are encrypted under", async () => {
+      vi.stubEnv("TOKEN_ENCRYPTION_KEY", "");
+      onTestFinished(() => {
+        vi.unstubAllEnvs();
+      });
+
+      await expect(
+        ConnectionService.startConnect(ANA, "google", ORIGIN),
+      ).rejects.toThrow("TOKEN_ENCRYPTION_KEY");
+      expect(await database.rows(`SELECT id FROM oauth_state`)).toEqual([]);
+    });
+
     it("learns an Outlook mailbox's address from Graph", async () => {
       stubProviders({
         "graph.microsoft.com/v1.0/me": () => ({
@@ -235,12 +248,15 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         "offline_access User.Read Mail.Read",
       );
       expect(
-        await database.rows(
-          `SELECT account_email, refresh_token FROM mailbox_connection`,
+        await ConnectionRepository.findWithTokens(
+          BO.organizationId,
+          BO.userId,
+          "microsoft",
         ),
-      ).toEqual([
-        { account_email: "bo@contoso.com", refresh_token: "refresh-1" },
-      ]);
+      ).toMatchObject({
+        accountEmail: "bo@contoso.com",
+        refreshToken: "refresh-1",
+      });
       expect(
         await database.rows(`SELECT source, auto_create FROM mailbox_sync`),
       ).toEqual([

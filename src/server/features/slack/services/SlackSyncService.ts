@@ -4,6 +4,7 @@ import { slackCall, slackPage, SlackError } from "../lib/slackApi";
 import {
   SlackRepository,
   type SlackConnectionRow,
+  type SlackTokens,
 } from "../repositories/SlackRepository";
 
 // Reading the connected Slack workspace into the CRM's inventory, ported from
@@ -78,8 +79,13 @@ async function runSync(
   saved: unknown,
   keep: (progress: Progress) => Promise<unknown>,
 ): Promise<SyncRun> {
-  const connection = await SlackRepository.getConnection(organizationId);
-  if (!connection) return { done: true, outcome: "Slack is not connected." };
+  const [connection, tokens] = await Promise.all([
+    SlackRepository.getConnection(organizationId),
+    SlackRepository.getTokens(organizationId),
+  ]);
+  if (!connection || !tokens) {
+    return { done: true, outcome: "Slack is not connected." };
+  }
   const now = new Date().toISOString();
   const parsed = progressSchema.safeParse(saved);
   let progress: Progress =
@@ -97,13 +103,10 @@ async function runSync(
   const until = Date.now() + RUN_MS;
   try {
     do {
-      const next = await readPage(
-        organizationId,
-        connection,
-        members,
-        progress,
-      );
-      if (!next) return await finish(organizationId, connection, progress);
+      const next = await readPage(organizationId, tokens, members, progress);
+      if (!next) {
+        return await finish(organizationId, connection, tokens, progress);
+      }
       progress = next;
       await keep(progress);
     } while (Date.now() < until);
@@ -115,7 +118,7 @@ async function runSync(
     if (slackTrouble(error.code)) throw error;
     // As in the CRM, the installer's own channels are only ever extra.
     if (progress.step === "installer-channels") {
-      return finish(organizationId, connection, progress);
+      return finish(organizationId, connection, tokens, progress);
     }
     const moved = await connectionMoved(organizationId, connection);
     if (moved) return moved;
@@ -166,18 +169,13 @@ function resumeLater(): SyncRun {
 /** Reads and writes the page `progress` points at; where to go on, or null at the end. */
 async function readPage(
   organizationId: string,
-  connection: SlackConnectionRow,
+  tokens: SlackTokens,
   members: Members,
   progress: Progress,
 ): Promise<Progress | null> {
   const { step, cursor } = progress;
   if (step === "people") {
-    const page = await slackPage(
-      connection.botToken,
-      "users.list",
-      PEOPLE,
-      cursor,
-    );
+    const page = await slackPage(tokens.botToken, "users.list", PEOPLE, cursor);
     await SlackRepository.saveMatches(
       organizationId,
       matchesOn(page.items, members),
@@ -187,9 +185,9 @@ async function readPage(
     return { ...progress, step: "channels", cursor: "" };
   }
   const installer = step === "installer-channels";
-  const token = installer ? connection.userToken : connection.botToken;
+  const token = installer ? tokens.userToken : tokens.botToken;
   if (!token) return null;
-  const canInviteItself = Boolean(connection.userToken);
+  const canInviteItself = Boolean(tokens.userToken);
   const page = await slackPage(token, "conversations.list", CHANNELS, cursor);
   await SlackRepository.saveChannels(
     organizationId,
@@ -213,7 +211,7 @@ async function readPage(
     installer ? progress.startedAt : null,
   );
   if (page.next) return { ...progress, cursor: page.next };
-  if (installer || !connection.userToken) return null;
+  if (installer || !tokens.userToken) return null;
   return { ...progress, step: "installer-channels", cursor: "" };
 }
 
@@ -264,6 +262,7 @@ async function saveUnmatched(
 async function finish(
   organizationId: string,
   connection: SlackConnectionRow,
+  tokens: SlackTokens,
   progress: Progress,
 ): Promise<SyncRun> {
   const moved = await connectionMoved(organizationId, connection);
@@ -273,7 +272,7 @@ async function finish(
     progress.startedAt,
   );
   // Display-only: a failed lookup keeps the name read last time.
-  const name = await appName(connection.botToken).catch(() => null);
+  const name = await appName(tokens.botToken).catch(() => null);
   await SlackRepository.markSync(organizationId, {
     syncedAt: new Date().toISOString(),
     syncError: null,

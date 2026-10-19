@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
-import { chunk } from "remeda";
+import { chunk, omit } from "remeda";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
 import {
@@ -10,10 +10,12 @@ import {
   slackOauthState,
   user,
 } from "@/db/schema";
+import { decryptToken, encryptToken } from "@/server/lib/tokenCrypto";
 
 // The organization's Slack connection, its channel inventory and the
-// member ↔ Slack user matches. The connection row holds the tokens: only the
-// Slack service reads them, to call Slack on the server.
+// member ↔ Slack user matches. The connection row holds the tokens,
+// encrypted (server/lib/tokenCrypto.ts): only `getTokens` reads them, for
+// the Slack services to call Slack on the server.
 
 const CHANNEL_CHUNK = 10;
 
@@ -21,13 +23,37 @@ export type SlackConnectionRow = NonNullable<
   Awaited<ReturnType<typeof getConnection>>
 >;
 
+export type SlackTokens = { botToken: string; userToken: string | null };
+
+/** The connection, without its tokens: whether the installer's is held. */
 async function getConnection(organizationId: string) {
   const [row] = await db
     .select()
     .from(slackConnection)
     .where(eq(slackConnection.organizationId, organizationId))
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+  return {
+    ...omit(row, ["botToken", "userToken"]),
+    hasUserToken: Boolean(row.userToken),
+  };
+}
+
+/** The bot's token and the installer's, decrypted (server only). */
+async function getTokens(organizationId: string): Promise<SlackTokens | null> {
+  const [row] = await db
+    .select({
+      botToken: slackConnection.botToken,
+      userToken: slackConnection.userToken,
+    })
+    .from(slackConnection)
+    .where(eq(slackConnection.organizationId, organizationId))
+    .limit(1);
+  if (!row) return null;
+  return {
+    botToken: await decryptToken(row.botToken),
+    userToken: row.userToken && (await decryptToken(row.userToken)),
+  };
 }
 
 /** Saves the workspace a connect returned, replacing any earlier one. */
@@ -46,6 +72,8 @@ async function saveConnection(input: {
   const now = new Date().toISOString();
   const values = {
     ...input,
+    botToken: await encryptToken(input.botToken),
+    userToken: input.userToken && (await encryptToken(input.userToken)),
     connectedAt: now,
     syncStartedAt: null,
     syncedAt: null,
@@ -386,6 +414,7 @@ async function consumeState(
 
 export const SlackRepository = {
   getConnection,
+  getTokens,
   saveConnection,
   deleteConnection,
   markSync,

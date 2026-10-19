@@ -40,6 +40,12 @@ async function requireConnection(
   return connection;
 }
 
+async function requireTokens(organizationId: string) {
+  const tokens = await SlackRepository.getTokens(organizationId);
+  if (!tokens) throw new AppError("SLACK_UNAVAILABLE");
+  return tokens;
+}
+
 const channelInfo = z
   .object({
     channel: z
@@ -67,7 +73,7 @@ async function channels(
     offset: input.offset,
   });
   return {
-    canInviteItself: Boolean(connection.userToken),
+    canInviteItself: connection.hasUserToken,
     sync: syncState(connection),
     rows: rows.slice(0, CHANNEL_PAGE).map(pickerChannel),
     nextOffset: rows.length > CHANNEL_PAGE ? input.offset + CHANNEL_PAGE : null,
@@ -111,7 +117,7 @@ async function joinChannel(
     slackChannelId,
   );
   if (!channel) throw new AppError("NOT_FOUND");
-  const bot = connection.botToken;
+  const { botToken: bot, userToken } = await requireTokens(organizationId);
   const live = await slackCall(bot, "conversations.info", {
     query: { channel: slackChannelId },
   });
@@ -135,7 +141,7 @@ async function joinChannel(
       });
       return { outcome: "already" };
     }
-    if (state.isPrivate && !connection.userToken) {
+    if (state.isPrivate && !userToken) {
       await SlackRepository.updateChannel(organizationId, slackChannelId, {
         ...state,
         inviteRequestedAt: new Date().toISOString(),
@@ -143,9 +149,9 @@ async function joinChannel(
       return { outcome: "asked" };
     }
     const reply =
-      state.isPrivate && connection.userToken
+      state.isPrivate && userToken
         ? connection.botUserId
-          ? await slackCall(connection.userToken, "conversations.invite", {
+          ? await slackCall(userToken, "conversations.invite", {
               body: { channel: slackChannelId, users: connection.botUserId },
             })
           : { ok: false, error: "unknown_bot_user" }
@@ -184,13 +190,11 @@ async function createChannel(
   | { created: false; reason: string }
 > {
   const { organizationId } = context;
-  const connection = await requireConnection(organizationId);
+  const { botToken, userToken } = await requireTokens(organizationId);
   if (await SlackRepository.findChannelByName(organizationId, input.name)) {
     return { created: false, reason: explainSlackError("name_taken") };
   }
-  const token = input.isPrivate
-    ? connection.userToken
-    : (connection.userToken ?? connection.botToken);
+  const token = input.isPrivate ? userToken : (userToken ?? botToken);
   if (!token) {
     return { created: false, reason: explainSlackError("no_user_grant") };
   }
@@ -205,7 +209,7 @@ async function createChannel(
     };
   }
   const { channel } = parsed.data;
-  const madeByBot = token === connection.botToken;
+  const madeByBot = token === botToken;
   await SlackRepository.upsertChannel(organizationId, {
     slackChannelId: channel.id,
     name: channel.name,

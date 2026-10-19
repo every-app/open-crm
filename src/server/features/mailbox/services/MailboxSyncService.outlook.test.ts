@@ -35,6 +35,7 @@ import {
   stubProviders,
 } from "@/server/features/mailbox/mailboxTestSupport";
 import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
+import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { MailboxSyncService } from "./MailboxSyncService";
 
 const GRAPH = "graph.microsoft.com/v1.0/me";
@@ -165,9 +166,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
     });
 
-    it("keeps the refresh token Microsoft rotates", async () => {
+    it("keeps the refresh token Microsoft rotates, encrypted, from a row stored before tokens were", async () => {
       await database.exec(
-        `UPDATE mailbox_connection SET access_token_expires_at = '2000-01-01T00:00:00.000Z'`,
+        `UPDATE mailbox_connection SET access_token = 'stored-access', refresh_token = 'stored-refresh', access_token_expires_at = '2000-01-01T00:00:00.000Z'`,
       );
       gateway.answerTokens(() =>
         json({
@@ -185,11 +186,18 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(gateway.tokenCalls[0]?.form.get("refresh_token")).toBe(
         "stored-refresh",
       );
+      const stored = JSON.stringify(
+        await database.rows(`SELECT * FROM mailbox_connection`),
+      );
+      expect(stored).not.toContain("access-2");
+      expect(stored).not.toContain("refresh-2");
       expect(
-        await database.rows(
-          `SELECT access_token, refresh_token FROM mailbox_connection`,
+        await ConnectionRepository.findWithTokens(
+          "org_b",
+          "user_b",
+          "microsoft",
         ),
-      ).toEqual([{ access_token: "access-2", refresh_token: "refresh-2" }]);
+      ).toMatchObject({ accessToken: "access-2", refreshToken: "refresh-2" });
     });
   });
 }

@@ -2,6 +2,7 @@ import { and, eq, gt, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { mailboxConnection, oauthState } from "@/db/schema";
 import { randomToken } from "@/server/lib/pkce";
+import { decryptToken, encryptToken } from "@/server/lib/tokenCrypto";
 import {
   grantedSources,
   type MailboxProvider,
@@ -9,8 +10,9 @@ import {
 } from "@/shared/mailbox";
 
 // A member's mailbox connections and the single-use states of the connects
-// they start. Tokens are read only by the token service; nothing here hands
-// them to a caller that returns them to a client.
+// they start. Tokens are stored encrypted (server/lib/tokenCrypto.ts) and
+// read only by the token service and a disconnect; nothing here hands them to
+// a caller that returns them to a client.
 
 /** A pending connect's state, valid for `ttlMs`; abandoned ones are swept. */
 async function createState(input: {
@@ -101,7 +103,20 @@ async function listForUser(organizationId: string, userId: string) {
   }));
 }
 
-/** The member's connection to `provider`, tokens included (server only). */
+/**
+ * The member's connection to `provider`, without its tokens: what a connect
+ * reads, so one still works when the stored tokens can't be decrypted.
+ */
+async function find(
+  organizationId: string,
+  userId: string,
+  provider: MailboxProvider,
+) {
+  const rows = await listForUser(organizationId, userId);
+  return rows.find((row) => row.provider === provider) ?? null;
+}
+
+/** The member's connection to `provider`, tokens decrypted (server only). */
 async function findWithTokens(
   organizationId: string,
   userId: string,
@@ -118,7 +133,12 @@ async function findWithTokens(
       ),
     )
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+  return {
+    ...row,
+    accessToken: row.accessToken && (await decryptToken(row.accessToken)),
+    refreshToken: row.refreshToken && (await decryptToken(row.refreshToken)),
+  };
 }
 
 /**
@@ -164,10 +184,19 @@ async function upsert(input: {
   refreshToken: string | null;
 }) {
   const now = new Date().toISOString();
+  const accessToken = await encryptToken(input.accessToken);
+  const refreshToken =
+    input.refreshToken && (await encryptToken(input.refreshToken));
   const keep = sql`case when ${mailboxConnection.accountEmail} = ${input.accountEmail} then ${mailboxConnection.refreshToken} else null end`;
   await db
     .insert(mailboxConnection)
-    .values({ ...input, id: crypto.randomUUID(), status: "ACTIVE" })
+    .values({
+      ...input,
+      accessToken,
+      refreshToken,
+      id: crypto.randomUUID(),
+      status: "ACTIVE",
+    })
     .onConflictDoUpdate({
       target: [
         mailboxConnection.organizationId,
@@ -177,9 +206,9 @@ async function upsert(input: {
       set: {
         accountEmail: input.accountEmail,
         scopes: input.scopes,
-        accessToken: input.accessToken,
+        accessToken,
         accessTokenExpiresAt: input.accessTokenExpiresAt,
-        refreshToken: input.refreshToken ?? keep,
+        refreshToken: refreshToken ?? keep,
         status: "ACTIVE",
         updatedAt: now,
       },
@@ -190,7 +219,9 @@ async function upsert(input: {
  * Stores a refreshed access token, and the refresh token when the provider
  * rotated it (Microsoft always does), only if the stored refresh token is
  * still the one used: a concurrent refresh that landed first keeps its newer
- * tokens. False when it lost.
+ * tokens. False when it lost. Encrypted with a fresh IV each time, a token
+ * can't be matched in SQL: the update is conditional on the stored value it
+ * read, once that decrypts to the token used.
  */
 async function storeRefreshed(input: {
   organizationId: string;
@@ -200,20 +231,33 @@ async function storeRefreshed(input: {
   accessTokenExpiresAt: string;
   refreshToken: string | null;
 }): Promise<boolean> {
+  const connection = and(
+    eq(mailboxConnection.organizationId, input.organizationId),
+    eq(mailboxConnection.id, input.id),
+  );
+  const [stored] = await db
+    .select({ refreshToken: mailboxConnection.refreshToken })
+    .from(mailboxConnection)
+    .where(connection)
+    .limit(1);
+  if (
+    !stored?.refreshToken ||
+    (await decryptToken(stored.refreshToken)) !== input.usedRefreshToken
+  ) {
+    return false;
+  }
   const rows = await db
     .update(mailboxConnection)
     .set({
-      accessToken: input.accessToken,
+      accessToken: await encryptToken(input.accessToken),
       accessTokenExpiresAt: input.accessTokenExpiresAt,
-      refreshToken: input.refreshToken ?? input.usedRefreshToken,
+      refreshToken: await encryptToken(
+        input.refreshToken ?? input.usedRefreshToken,
+      ),
       updatedAt: new Date().toISOString(),
     })
     .where(
-      and(
-        eq(mailboxConnection.organizationId, input.organizationId),
-        eq(mailboxConnection.id, input.id),
-        eq(mailboxConnection.refreshToken, input.usedRefreshToken),
-      ),
+      and(connection, eq(mailboxConnection.refreshToken, stored.refreshToken)),
     )
     .returning({ id: mailboxConnection.id });
   return rows.length > 0;
@@ -294,6 +338,7 @@ export const ConnectionRepository = {
   createState,
   consumeState,
   listForUser,
+  find,
   findWithTokens,
   accountConnectedElsewhere,
   upsert,

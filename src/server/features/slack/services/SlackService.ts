@@ -11,6 +11,7 @@ import { isForkDeployment } from "@/server/lib/deployment-tier";
 import { AppError } from "@/server/lib/errors";
 import { gatewayCallFor } from "@/server/lib/gateway-attribution";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
+import { requireTokenKey } from "@/server/lib/tokenCrypto";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import {
   missingSlackScopes,
@@ -33,9 +34,9 @@ import { SlackInventoryService, syncState } from "./SlackInventoryService";
 // auth slack-*, apps/api/src/slack, the agent's slack-*.ts). Owners and
 // admins connect it through the Every App gateway's `slack` OAuth client: the
 // gateway completes Slack's token endpoint with its client, and the CRM keeps
-// the tokens Slack issues in its own database and calls Slack's API with
-// them. Tokens never leave this module's callers on the server: no client,
-// log, model or MCP tool sees one.
+// the tokens Slack issues in its own database, encrypted, and calls Slack's
+// API with them. Tokens never leave this module's callers on the server: no
+// client, log, model or MCP tool sees one.
 
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
@@ -113,7 +114,7 @@ async function status(context: Context) {
     connectedAt: connection.connectedAt,
     scopes,
     missing: missingSlackScopes(scopes).map((entry) => entry.scope),
-    canInviteItself: Boolean(connection.userToken),
+    canInviteItself: connection.hasUserToken,
     sync: syncState(connection),
     syncedAt: connection.syncedAt,
     syncError: connection.syncError,
@@ -171,6 +172,8 @@ async function startConnect(
       "The gateway holds no Slack OAuth client.",
     );
   }
+  // Its tokens are stored encrypted: no key, no approval to sit through.
+  await requireTokenKey();
   const state = await SlackRepository.insertState(
     context.organizationId,
     context.userId,
@@ -322,9 +325,9 @@ async function postMessage(
   clientMessageId: string,
   beforePost: () => Promise<void>,
 ): Promise<{ channel: string; ts: string }> {
-  const connection = await SlackRepository.getConnection(organizationId);
-  if (!connection) throw new SlackError("not_connected");
-  const token = connection.botToken;
+  const tokens = await SlackRepository.getTokens(organizationId);
+  if (!tokens) throw new SlackError("not_connected");
+  const token = tokens.botToken;
   let channel = destination.id;
   if (destination.kind === "user") {
     const opened = openedConversation.safeParse(
