@@ -2,7 +2,7 @@
 
 `scripts/erase-organization.ts` lists, then erases, everything one organization holds in a CRM deployment: every row of it, its people, its agents' Durable Objects, its R2 objects, and its Google and Slack grants. It is modelled on OpenSEO's `scripts/erase-user-data.ts` and its GDPR erasure runbook.
 
-The work happens in the CRM's Worker, which holds the database (D1 or Postgres), the `CRM_AGENT` Durable Objects, the R2 bucket and the tokens. The script calls one public route, `POST /internal/erase-organization` (`src/server/features/erasure`), signing each request with `ERASURE_SECRET`. While that secret is unset, the route answers 404.
+The work happens in the CRM's Worker, which holds the database, the `CRM_AGENT` Durable Objects, the R2 bucket and the tokens. The script calls one public route, `POST /internal/erase-organization` (`src/server/features/erasure`), signing each request with `ERASURE_SECRET`. While that secret is unset, the route answers 404.
 
 ## Before you start
 
@@ -56,4 +56,4 @@ Every step can run again, so after a failure, fix what the error says (Google no
 ## What it can't reach
 
 - An agent session whose rows were already deleted (a purged record's research, for instance) has no name left to find its Durable Object by.
-- Workers logs and database backups (D1 Time Travel, Postgres point-in-time recovery) expire under their own retention.
+- Workers logs and database backups (D1 Time Travel) expire under their own retention.

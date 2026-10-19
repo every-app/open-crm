@@ -48,17 +48,6 @@ pnpm dev
 
 `everyapp dev` applies the D1 migrations to a local database in `.cloudflare/state`, then starts a gateway-lite on `http://crm.localhost:8787` with a seeded owner (`dev@everyapp.localhost` in `dev-org`) and the real identity checks. With no gateway binding locally, the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from `.dev.vars`.
 
-The Postgres shape runs locally too, against a local Postgres:
-
-```bash
-POSTGRES_DATABASE_URL=postgres://<user>:<password>@localhost:5432/<database> pnpm db:migrate:pg
-# .dev.vars:
-# CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgres://<user>:<password>@localhost:5432/<database>
-OPEN_CRM_DATABASE=postgres pnpm dev
-```
-
-`everyapp dev` applies no migrations in this shape (it only migrates D1), hence the first step. The local Hyperdrive refuses a connection string without a password, even when the database itself doesn't ask for one. When a `.dev.vars` exists, the SDK reads the connection string from it alone, not from the environment.
-
 ## Deploy it
 
 To the gateway in your Cloudflare account:
@@ -69,8 +58,6 @@ pnpm deploy:everyapp
 
 `everyapp deploy` registers the app, creates its D1 database and R2 bucket, builds the Worker, checks the schema has no migration drift, migrates D1 after a restore point, uploads, and binds it to the gateway. The gateway holds the provider keys for every app (`everyapp secret set OPENROUTER_API_KEY --for gateway`, and `CONTEXT_API_KEY`). The CRM's one optional setting of its own is `GITHUB_TOKEN` (`everyapp secret set GITHUB_TOKEN`).
 
-With `OPEN_CRM_DATABASE=postgres`, `everyapp.config.ts` declares Postgres (`database.provider`), a `HYPERDRIVE` binding and the Postgres migrations instead of D1: the deploy creates the Hyperdrive config from `POSTGRES_DATABASE_URL` in `.everyapp/secrets.env` and runs `drizzle-kit migrate` with `drizzle/pg.config.ts` before it uploads.
-
 ## Database
 
-One schema in two dialects: SQLite (`src/db/*.schema.ts`) and Postgres (`src/db/pg/*.schema.ts`), kept structurally identical by `src/db/schema-parity.test.ts`. `pnpm db:generate` writes both migration sets (`drizzle/sqlite`, `drizzle/pg`). D1 has no interactive transactions and no row locks, so the code has none on either backend: atomic multi-statement writes go through `runBatch`, and exclusivity comes from unique (often partial) indexes and conditional updates. Tests run repositories against real SQLite and, where the dialect matters, Postgres (PGlite): `src/server/testing/testDb.ts`.
+D1, with the schema in `src/db/*.schema.ts`; `pnpm db:generate` writes its migrations (`drizzle/sqlite`). D1 has no interactive transactions and no row locks, so the code has none: atomic multi-statement writes go through `runBatch`, and exclusivity comes from unique (often partial) indexes and conditional updates. Tests run repositories against real SQLite (libSQL, in memory, with every migration applied): `src/server/testing/testDb.ts`.

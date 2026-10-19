@@ -17,4 +17,4 @@ The first tagged release.
 - The Slack app no longer needs `channels:history`, `groups:history`, `conversations.connect:write` or `links:write`.
 - Settings → General → Research automatically, on by default.
 
-**Migrations:** everything in `drizzle/sqlite` (D1) or `drizzle/pg` (Postgres), which the deploy applies after taking a restore point.
+**Migrations:** everything in `drizzle/sqlite`, which the deploy applies after taking a restore point.

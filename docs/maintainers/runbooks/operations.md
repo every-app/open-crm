@@ -12,9 +12,8 @@
 
 Where they read:
 
-- A fork's D1 by default, through `everyapp db query`, with your Cloudflare login in the gateway's account.
+- The deployed D1 by default, through `everyapp db query`, with your Cloudflare login in the gateway's account.
 - With `--local`, the database `pnpm dev` uses.
-- With `--postgres`, the first party's, at `POSTGRES_DATABASE_URL` from the environment or `.everyapp/secrets.env`, where the first-party deploy reads it.
 
 `/health/dispatch` shows one organization's queue; `pnpm ops dispatch` is the deployment's.
 

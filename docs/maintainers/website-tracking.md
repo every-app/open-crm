@@ -58,8 +58,8 @@ treats them (`packages/perimeter` in the Every App repo):
 A public hit carries no identity. The organization comes only from the site
 id, `cmp_` plus 64 random bits. It is unique in `tracking_site` and minted
 once the site has an allowed domain. Nothing else in the request names an
-organization. On a fork (`EVERY_APP_ORG_ID` set), a site id belonging to any
-other organization is refused. Rotating the id is the kill switch for a
+organization. A site id belonging to any organization but the one the deploy
+pins (`EVERY_APP_ORG_ID`) is refused. Rotating the id is the kill switch for a
 stolen snippet: the old id stops resolving at once, and its tracker script
 empties within the 5-minute cache.
 
