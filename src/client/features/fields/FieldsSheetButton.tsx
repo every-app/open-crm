@@ -9,6 +9,7 @@ import {
   SheetTitle,
 } from "@/client/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/client/components/ui/tabs";
+import { FieldDetails } from "@/client/features/fields/FieldDetails";
 import { FieldEditor } from "@/client/features/fields/FieldEditor";
 import {
   ENTITY_OF_KIND,
@@ -105,6 +106,10 @@ function FieldsSheetBody({ entity }: { entity: FieldEntity }) {
         onDone={() => edit(undefined)}
       />
     );
+  }
+  // Everyone else reads it.
+  if (field) {
+    return <FieldDetails field={field} onDone={() => edit(undefined)} />;
   }
 
   return (

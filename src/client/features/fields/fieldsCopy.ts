@@ -39,6 +39,7 @@ export const ALL_FILLED = "Nothing left to fill";
 export const SHEET_PLACEMENT = "Show on the sheet";
 export const TABLE_PLACEMENT = "Offer as a column";
 export const FILTER_PLACEMENT = "Offer as a filter";
+export const REQUIRED_LABEL = "Required";
 
 /** The record fields every entity has, which the sheet lists but can't change. */
 export const STANDARD_FIELDS = {
