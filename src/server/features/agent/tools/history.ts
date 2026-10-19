@@ -4,10 +4,13 @@ import { AgentAccountRepository } from "../repositories/AgentAccountRepository";
 import { AgentHistoryRepository } from "../repositories/AgentHistoryRepository";
 import { AgentDealRepository } from "../repositories/AgentDealRepository";
 import type { ToolGroup } from "./context";
+import { labelCaptured } from "./untrusted";
 
 // The free CRM reads, ported from the CRM's read_crm_history,
 // read_company_history and read_deal_history. Every read hands back the ids
 // of the neighbouring records, so the agent never has to ask a rep for one.
+// Captured mail and meetings come back in the envelope that marks an
+// outsider's text.
 
 /** The research agent reads everything the CRM captured. */
 const ALL_SOURCES = { email: true, calendar: true };
@@ -33,6 +36,7 @@ export const historyTools: ToolGroup = (context) => ({
       );
       if (!history)
         return { found: false as const, reason: "No such contact." };
+      const read = labelCaptured(history);
       const evidence =
         history.stats.emails === 0 && history.stats.meetings === 0
           ? "We have never actually spoken to this person. Nothing here is evidence of anything."
@@ -40,7 +44,7 @@ export const historyTools: ToolGroup = (context) => ({
       const reach = history.contact.company
         ? ` Their company is \`${history.contact.company.id}\` — read_company_history or enrich_company take that id directly.`
         : " They are not attached to a company; search_crm will find one by name or domain if the question needs it.";
-      return { found: true as const, ...history, note: evidence + reach };
+      return { found: true as const, ...read, note: evidence + reach };
     },
   }),
 
@@ -70,7 +74,7 @@ export const historyTools: ToolGroup = (context) => ({
         return { found: false as const, reason: "No such company." };
       return {
         found: true as const,
-        ...history,
+        ...labelCaptured(history),
         note:
           history.people.length === 0
             ? "We have no contacts on file at this company, so there is nobody here to research yet."
@@ -90,7 +94,7 @@ export const historyTools: ToolGroup = (context) => ({
         { threads: threadCount, ...ALL_SOURCES },
       );
       if (!history) return { found: false as const, reason: "No such deal." };
-      return { found: true as const, ...history };
+      return { found: true as const, ...labelCaptured(history) };
     },
   }),
 });

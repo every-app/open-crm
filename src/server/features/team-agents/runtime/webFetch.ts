@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { untrusted } from "@/server/features/agent/tools/untrusted";
 import { refusedUrl } from "@/server/lib/publicUrl";
 
 // Reading a public page: the CRM's web_fetch (eve's built-in, which its chat
@@ -10,8 +11,9 @@ import { refusedUrl } from "@/server/lib/publicUrl";
 // followed but handed back, so the URL it names is checked like any other
 // before it is fetched. The page's head comes back within the agent's
 // per-string tool output budget (runtime/toolOutput.ts) rather than eve's
-// 50 KB, since every result is re-sent on each later step. Free: nothing
-// goes through the gateway.
+// 50 KB, since every result is re-sent on each later step, inside the
+// envelope that marks it as an outsider's text (agent/tools/untrusted.ts).
+// Free: nothing goes through the gateway.
 
 /** The most of a page read: past it, its head is all that comes back. */
 const MAX_READ_BYTES = 256 * 1024;
@@ -283,7 +285,7 @@ async function readPage(input: PageInput) {
       read: true as const,
       url: url.toString(),
       contentType: type,
-      content: content.slice(0, MAX_CHARS),
+      content: untrusted(content.slice(0, MAX_CHARS), "web page"),
       truncated: head.more || content.length > MAX_CHARS,
     };
   } catch (error) {

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // A version reads the organization's captured email and meetings only when it
 // grants them, only on the records in its scope, never another
-// organization's, and nothing a member deleted from their synced data.
+// organization's, and nothing a member deleted from their synced data. What
+// it reads comes back as an outsider's text.
 const { testDb } = await vi.hoisted(async () => {
   const { createDualDialectTestDb } =
     await import("@/server/testing/dualDialectTestDb");
@@ -103,7 +104,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     it("reads only the sources the version grants", async () => {
       const email = await run([EMAIL]);
       const mail = await email.read("contact", "paula");
-      expect(mail).toContain(MAIL_TEXT);
+      expect(mail).toContain(
+        `<untrusted-data source=\\"email\\">\\n${MAIL_TEXT}`,
+      );
       expect(mail).not.toContain(MEETING_TITLE);
 
       const calendar = await run([CALENDAR]);

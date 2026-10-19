@@ -6,6 +6,10 @@ import {
   webResearchAccess,
 } from "@/server/features/agent/lib/perplexity";
 import type { Spend } from "@/server/features/agent/runtime/budget";
+import {
+  labelCaptured,
+  untrusted,
+} from "@/server/features/agent/tools/untrusted";
 import { RECORD_KINDS } from "@/shared/records";
 import { AGENT_ACTION_TYPES, type AgentManifest } from "@/shared/team-agents";
 import { RunActions } from "./runActions";
@@ -74,7 +78,10 @@ export function runnerTools(context: RunnerContext): ToolSet {
         kind: z.enum(RECORD_KINDS),
         id: z.string().min(1),
       }),
-      execute: (input) => RunActions.readRecord(organizationId, runId, input),
+      execute: async (input) => {
+        const read = await RunActions.readRecord(organizationId, runId, input);
+        return read.found ? labelCaptured(read) : read;
+      },
     }),
 
     ...(firstType
@@ -141,9 +148,12 @@ export function runnerTools(context: RunnerContext): ToolSet {
         const charge = context.spend(1);
         if (!charge.ok) return { ok: false as const, reason: charge.reason };
         const answer = await asker(research)(question);
-        return answer.ok
-          ? { ok: true as const, ...answer.data }
-          : { ok: false as const, reason: answer.reason };
+        if (!answer.ok) return { ok: false as const, reason: answer.reason };
+        return {
+          ok: true as const,
+          text: untrusted(answer.data.text, "web search"),
+          citations: answer.data.citations,
+        };
       },
     }),
 

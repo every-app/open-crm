@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Reading a page, as the CRM's chat did with web_fetch: an https page comes
-// back as markdown with its links followable; anything that isn't a public
-// name (a private or local address, the Every App gateway and the app hosts
-// under it) is refused before a request leaves; and a redirect is handed
-// back rather than followed, so the URL it names is checked too.
+// back as markdown with its links followable, inside the envelope that marks
+// an outsider's text; anything that isn't a public name (a private or local
+// address, the Every App gateway and the app hosts under it) is refused
+// before a request leaves; and a redirect is handed back rather than
+// followed, so the URL it names is checked too.
 vi.mock("cloudflare:workers", () => ({
   env: { EVERYAPP_IDENTITY_ISSUER: "https://gateway.example.test" },
 }));
@@ -30,7 +31,7 @@ describe("web_fetch", () => {
       url: "https://acme.test/pricing",
       contentType: "text/html; charset=utf-8",
       content:
-        "Acme pricing\n\n# Pricing\nPlans for every team & budget.\n\n- Starter\n- Pro\n[See Pro](https://acme.test/plans/pro)",
+        '<untrusted-data source="web page">\nAcme pricing\n\n# Pricing\nPlans for every team & budget.\n\n- Starter\n- Pro\n[See Pro](https://acme.test/plans/pro)\n</untrusted-data>',
       truncated: false,
     });
   });
@@ -46,7 +47,8 @@ describe("web_fetch", () => {
     );
     expect(await read("https://acme.test/pricing")).toMatchObject({
       read: true,
-      content: "Pricing\nyx",
+      content:
+        '<untrusted-data source="web page">\nPricing\nyx\n</untrusted-data>',
       truncated: true,
     });
   });
