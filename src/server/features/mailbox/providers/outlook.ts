@@ -11,7 +11,12 @@ import {
   type IncomingMessage,
 } from "@/server/features/mailbox/services/CaptureService";
 import { budgetLeft, mailboxGet, type MailboxResult } from "./mailboxApi";
-import { failureOf, type SyncJob, type SyncResult } from "./syncJob";
+import {
+  createFiler,
+  failureOf,
+  type SyncJob,
+  type SyncResult,
+} from "./syncJob";
 
 // Outlook through Microsoft Graph, read-only and forward-only, ported from
 // the CRM's graph.client.ts and outlook-sync.service.ts. Graph has no
@@ -139,6 +144,7 @@ export async function syncOutlook(job: SyncJob): Promise<SyncResult> {
 
   let furthest = from;
   let seen = 0;
+  const filer = createFiler(job);
   let page: MailboxResult<z.infer<typeof pageSchema>> = await mailboxGet(
     `${BASE}/messages`,
     accessToken,
@@ -159,6 +165,7 @@ export async function syncOutlook(job: SyncJob): Promise<SyncResult> {
     );
     for (const message of messages) {
       seen += 1;
+      const before = furthest.toISOString();
       const receivedAt = message.receivedDateTime
         ? new Date(message.receivedDateTime)
         : null;
@@ -174,10 +181,8 @@ export async function syncOutlook(job: SyncJob): Promise<SyncResult> {
       }
       const parsed = parseGraphMessage(message);
       if (parsed) {
-        await CaptureService.storeMessage(
-          job.capture,
-          parsed,
-          await job.context(),
+        await filer.file(message.id, before, async () =>
+          CaptureService.storeMessage(job.capture, parsed, await job.context()),
         );
       }
     }
@@ -188,8 +193,10 @@ export async function syncOutlook(job: SyncJob): Promise<SyncResult> {
     if (!nextLink.startsWith("https://graph.microsoft.com/")) break;
     page = await mailboxGet(nextLink, accessToken, pageSchema, budget);
   }
-  if (page.outcome !== "ok") return failureOf(page, furthest.toISOString());
-  return { status: "IDLE", cursor: furthest.toISOString() };
+  if (page.outcome !== "ok") {
+    return failureOf(page, filer.place(furthest.toISOString()));
+  }
+  return filer.end(furthest.toISOString());
 }
 
 function addressOf(entry: GraphAddress | null | undefined): Participant | null {

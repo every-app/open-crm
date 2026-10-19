@@ -13,7 +13,12 @@ import {
   type IncomingMessage,
 } from "@/server/features/mailbox/services/CaptureService";
 import { budgetLeft, mailboxGet } from "./mailboxApi";
-import { failureOf, type SyncJob, type SyncResult } from "./syncJob";
+import {
+  createFiler,
+  failureOf,
+  type SyncJob,
+  type SyncResult,
+} from "./syncJob";
 
 // Gmail, read-only and forward-only, ported from the CRM's gmail.client.ts,
 // gmail-mime.ts and gmail-sync.service.ts. The first check records the
@@ -142,12 +147,13 @@ export async function syncGmail(job: SyncJob): Promise<SyncResult> {
   let cursor = start;
   let fetched = 0;
   const seen = new Set<string>();
+  const filer = createFiler(job);
   for (const entry of entries) {
     for (const added of entry.messagesAdded ?? []) {
       const id = added.message?.id;
       if (!id || stored.has(id) || seen.has(id)) continue;
       if (fetched >= MAX_MESSAGES_PER_CHECK || !budgetLeft(budget)) {
-        return { status: "IDLE", cursor };
+        return filer.end(cursor);
       }
       seen.add(id);
       fetched += 1;
@@ -160,25 +166,22 @@ export async function syncGmail(job: SyncJob): Promise<SyncResult> {
       );
       // Deleted since it arrived: nothing to file.
       if (message.outcome === "cursor-invalid") continue;
-      if (message.outcome !== "ok") return failureOf(message, cursor);
+      if (message.outcome !== "ok") {
+        return failureOf(message, filer.place(cursor));
+      }
       const parsed = parseGmailMessage(message.data);
       if (parsed) {
-        await CaptureService.storeMessage(
-          job.capture,
-          parsed,
-          await job.context(),
+        await filer.file(id, cursor, async () =>
+          CaptureService.storeMessage(job.capture, parsed, await job.context()),
         );
       }
     }
     if (entry.id) cursor = entry.id;
   }
   // A history longer than a page continues from its last record next time.
-  return {
-    status: "IDLE",
-    cursor: history.data.nextPageToken
-      ? cursor
-      : (history.data.historyId ?? cursor),
-  };
+  return filer.end(
+    history.data.nextPageToken ? cursor : (history.data.historyId ?? cursor),
+  );
 }
 
 function header(
