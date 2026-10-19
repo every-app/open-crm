@@ -114,7 +114,7 @@ describe("workspace tools", () => {
     });
     const at = "2026-10-01T10:00:00.000Z";
     await testDb.exec(`
-      INSERT INTO tracked_visitor (id, organization_id, contact_id, first_source, first_touch_at, last_source, last_touch_at) VALUES ('vis_1', 'org_a', '${jo}', 'google', '${at}', 'google', '${at}');
+      INSERT INTO tracked_visitor (id, organization_id, contact_id, first_source, first_referrer, first_touch_at, last_source, last_touch_at) VALUES ('vis_1', 'org_a', '${jo}', 'google', 'https://www.google.com/', '${at}', 'google', '${at}');
       INSERT INTO tracked_event (id, organization_id, visitor_id, type, host, path, occurred_at) VALUES ('ev_1', 'org_a', 'vis_1', 'page_view', 'www.example.test', '/pricing', '${at}');
       INSERT INTO form_submission (id, organization_id, visitor_id, contact_id, host, path, email, fields, dedupe_key, filed_at, created_at) VALUES ('sub_1', 'org_a', 'vis_1', '${jo}', 'www.example.test', '/contact', 'jo@acme.test', '{}', 'key_1', '${at}', '${at}');
     `);
@@ -122,7 +122,7 @@ describe("workspace tools", () => {
       identified: true,
       views: 1,
       pages: [{ host: "www.example.test", path: "/pricing", views: 1 }],
-      firstTouch: { source: "google" },
+      firstTouch: { source: "google", referrer: "https://www.google.com/" },
       submissions: [
         {
           host: "www.example.test",
