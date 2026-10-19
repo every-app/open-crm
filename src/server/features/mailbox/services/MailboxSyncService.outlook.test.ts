@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { format } from "node:util";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 // Outlook capture at the minute cron's entry point, on both backends, with
 // Microsoft Graph and the gateway faked at the network boundary.
@@ -39,6 +40,19 @@ import { ConnectionRepository } from "@/server/features/mailbox/repositories/Con
 import { MailboxSyncService } from "./MailboxSyncService";
 
 const GRAPH = "graph.microsoft.com/v1.0/me";
+
+/** A trigger that fails every write of a refresh token. */
+const REFUSE_TOKEN_WRITES = {
+  sqlite: {
+    create: `CREATE TRIGGER refuse_token_write BEFORE UPDATE OF refresh_token ON mailbox_connection BEGIN SELECT RAISE(ABORT, 'refused'); END;`,
+    drop: `DROP TRIGGER refuse_token_write;`,
+  },
+  postgres: {
+    create: `CREATE FUNCTION refuse_token_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$;
+      CREATE TRIGGER refuse_token_write BEFORE UPDATE OF refresh_token ON mailbox_connection FOR EACH ROW EXECUTE FUNCTION refuse_token_write();`,
+    drop: `DROP TRIGGER refuse_token_write ON mailbox_connection; DROP FUNCTION refuse_token_write();`,
+  },
+};
 const NEXT_PAGE =
   "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page2";
 
@@ -198,6 +212,30 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           "microsoft",
         ),
       ).toMatchObject({ accessToken: "access-2", refreshToken: "refresh-2" });
+    });
+
+    it("logs a check that failed to store its tokens without the query or its parameters", async () => {
+      await database.exec(
+        `UPDATE mailbox_connection SET access_token_expires_at = '2000-01-01T00:00:00.000Z'`,
+      );
+      gateway.answerTokens(() =>
+        json({ access_token: "access-2", refresh_token: "refresh-2" }),
+      );
+      stubProviders({});
+      await database.exec(REFUSE_TOKEN_WRITES[dialect].create);
+      onTestFinished(() => database.exec(REFUSE_TOKEN_WRITES[dialect].drop));
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await MailboxSyncService.runDue();
+      // The database's own code says what failed.
+      const code: unknown = expect.any(String);
+      expect(logged).toHaveBeenCalledWith(
+        "[mailbox] check failed",
+        expect.objectContaining({ source: "outlook", code }),
+      );
+      const output = logged.mock.calls.map((call) => format(...call)).join();
+      expect(output).not.toContain("Failed query");
+      expect(output).not.toContain("enc:v1:");
     });
   });
 }

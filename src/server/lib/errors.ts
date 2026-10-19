@@ -30,6 +30,28 @@ export function asAppError(error: unknown): AppError | null {
   return null;
 }
 
+/**
+ * What a log line may say of an error: its name and code. A database error's
+ * message quotes the query's parameters (tokens among them), and so may its
+ * cause's, so neither message is logged.
+ */
+export function loggableError(error: unknown): {
+  error: string;
+  code?: string;
+} {
+  if (!(error instanceof Error)) return { error: typeof error };
+  const code = codeOf(error) ?? codeOf(error.cause);
+  return code ? { error: error.name, code } : { error: error.name };
+}
+
+/** An AppError's code, a driver's (Postgres's SQLSTATE, libSQL's), or the SQLite code D1 ends its message with. */
+function codeOf(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const code: unknown = Reflect.get(error, "code");
+  if (typeof code === "string" || typeof code === "number") return String(code);
+  return /\bSQLITE_[A-Z_]+\b/.exec(error.message)?.[0];
+}
+
 // The client receives the code, and a UserFacingError's message with it.
 // Any other message can carry internal detail, so the client maps its code
 // to its own copy and the full message stays in the server logs.

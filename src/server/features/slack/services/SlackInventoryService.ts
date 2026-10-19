@@ -2,7 +2,7 @@ import { waitUntil } from "cloudflare:workers";
 import { z } from "zod";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
-import { AppError } from "@/server/lib/errors";
+import { AppError, loggableError } from "@/server/lib/errors";
 import {
   SlackRepository,
   type SlackConnectionRow,
@@ -232,11 +232,10 @@ async function refresh(context: Context) {
 function startSync(organizationId: string): void {
   waitUntil(
     queueSync(organizationId, false).catch((error: unknown) => {
-      console.error(
-        "[slack] could not queue a sync",
-        { organizationId },
-        error,
-      );
+      console.error("[slack] could not queue a sync", {
+        organizationId,
+        ...loggableError(error),
+      });
     }),
   );
 }

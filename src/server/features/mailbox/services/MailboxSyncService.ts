@@ -16,6 +16,7 @@ import {
 } from "@/server/features/mailbox/repositories/SyncStateRepository";
 import { MatchService } from "@/server/features/mailbox/services/MatchService";
 import { TokenService } from "@/server/features/mailbox/services/TokenService";
+import { loggableError, UserFacingError } from "@/server/lib/errors";
 import { forOrganization } from "@/server/lib/gateway-attribution";
 import {
   MAILBOX_PROVIDERS,
@@ -127,15 +128,20 @@ async function runClaimed(row: SyncRow, budget: CallBudget): Promise<void> {
     }
     await SyncStateRepository.settle(organizationId, row.id, result);
   } catch (error) {
+    // A failed write's message would quote the tokens it was storing.
     console.error("[mailbox] check failed", {
       organizationId,
       userId,
       source: row.source,
-      error: error instanceof Error ? error.message : String(error),
+      ...loggableError(error),
     });
     await SyncStateRepository.settle(organizationId, row.id, {
       status: "FAILED",
-      reason: "The check stopped on an unexpected error; the next one retries.",
+      // A missing or changed TOKEN_ENCRYPTION_KEY says so (tokenCrypto.ts).
+      reason:
+        error instanceof UserFacingError
+          ? error.message
+          : "The check stopped on an unexpected error; the next one retries.",
     }).catch(() => {});
   }
 }

@@ -1,6 +1,7 @@
 import { getEveryAppUser } from "@every-app/sdk/server";
 import { env } from "cloudflare:workers";
 import { resolveUserContextFromHeaders } from "@/middleware/ensure-user/resolve";
+import { loggableError } from "@/server/lib/errors";
 import { SlackService } from "../services/SlackService";
 
 // Slack's redirect back to the CRM after an owner or admin approved the
@@ -47,7 +48,8 @@ export async function handleSlackCallback(request: Request): Promise<Response> {
     });
     return back(outcome);
   } catch (error) {
-    console.error("[slack] connect failed", error);
+    // A failed write's message would quote the tokens it was storing.
+    console.error("[slack] connect failed", loggableError(error));
     return back("failed");
   }
 }

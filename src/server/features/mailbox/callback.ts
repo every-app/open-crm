@@ -1,5 +1,6 @@
 import { resolveUserContextFromHeaders } from "@/middleware/ensure-user/resolve";
 import { ConnectionService } from "@/server/features/mailbox/services/ConnectionService";
+import { loggableError } from "@/server/lib/errors";
 import type { MailboxProvider } from "@/shared/mailbox";
 
 // Google and Microsoft send the member back here after consent, under the
@@ -20,18 +21,26 @@ export async function handleConnectCallback(
       status: 401,
     });
   }
-  const outcome = await ConnectionService.completeConnect(
-    member,
-    provider,
-    new URL(request.url),
-  );
-  const back = new URLSearchParams(
-    outcome.ok ? { connected: "1" } : { error: outcome.error },
-  );
+  let back: Record<string, string>;
+  try {
+    const outcome = await ConnectionService.completeConnect(
+      member,
+      provider,
+      new URL(request.url),
+    );
+    back = outcome.ok ? { connected: "1" } : { error: outcome.error };
+  } catch (error) {
+    // A failed write's message would quote the tokens it was storing.
+    console.error("[mailbox] connect failed", {
+      provider,
+      ...loggableError(error),
+    });
+    back = { error: "exchange_failed" };
+  }
   return new Response(null, {
     status: 303,
     headers: {
-      location: `/settings/connections/${provider}?${back.toString()}`,
+      location: `/settings/connections/${provider}?${new URLSearchParams(back).toString()}`,
     },
   });
 }
