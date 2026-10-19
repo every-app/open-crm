@@ -23,6 +23,7 @@ Open CRM is the open-source CRM from [trycompai/crm](https://github.com/trycompa
 ## Database
 
 - One schema, two dialects: SQLite (`src/db/*.schema.ts`, D1 for forks and local dev) and Postgres (`src/db/pg/*.schema.ts`, Hyperdrive for the first party). Change both together; `src/db/schema-parity.test.ts` fails when they drift. Then run `pnpm db:generate` for both migration sets.
+- Change tables additively: new tables, new nullable or defaulted columns, new indexes. Changing a column's type, nullability or default makes drizzle rebuild the SQLite table, and on D1 the rebuild's `DROP TABLE` fires every `ON DELETE cascade` into it, deleting rows in the tables that reference it. Drop or rename a column or table only a release after the last code that read it, in a migration marked `-- everyapp:contract <release>`. `src/db/release-migrations.test.ts` refuses both otherwise ([database.md](docs/maintainers/database.md)).
 - Import `db` from `@/db` and tables from `@/db/schema`. Never import the dialect clients directly.
 - There are no interactive transactions and no locks on D1. Atomic multi-statement writes go through `runBatch` (`@/db/runBatch`); exclusivity comes from unique (often partial) indexes and conditional writes (`UPDATE ... WHERE <expected state> RETURNING`). Never call `db.batch` or `db.transaction` directly.
 - Drizzle's SQLite `onConflictDoNothing({ where })` emits invalid SQL for partial indexes; use `onConflictDoUpdate({ targetWhere })` (see `AgentTaskRepository.insertIfAbsent`).
