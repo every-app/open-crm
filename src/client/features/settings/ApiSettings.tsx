@@ -11,11 +11,11 @@ import { Button } from "@/client/components/ui/button";
 import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 
 /**
- * Settings → API Keys: where personal access tokens are made (Tokens on the
- * Every App gateway, which only owners and admins can open) and the MCP
- * endpoint agents connect to: the gateway's, which takes OAuth or a token,
- * or this app's own when the gateway's address isn't known. The CRM keeps
- * no keys of its own.
+ * Settings → API Keys: for owners and admins, where personal access tokens
+ * are made (Tokens on the Every App gateway, which only they can open); for
+ * everyone, the MCP endpoint agents connect to: the gateway's, which takes
+ * OAuth or a token, or this app's own when the gateway's address isn't
+ * known. The CRM keeps no keys of its own.
  */
 export function ApiSettings() {
   const { data: account } = useQuery(everyAppAccountQueryOptions());
@@ -33,16 +33,13 @@ export function ApiSettings() {
   return (
     <SettingsPage title="API Keys">
       <SettingsCard>
-        <SettingsRow
-          label="Personal access tokens"
-          description={
-            canManage ? undefined : "Only an owner or an admin can make them."
-          }
-        >
-          {canManage && tokensUrl ? (
-            <OpenLink href={tokensUrl}>Open Tokens on Every App</OpenLink>
-          ) : null}
-        </SettingsRow>
+        {canManage ? (
+          <SettingsRow label="Personal access tokens">
+            {tokensUrl ? (
+              <OpenLink href={tokensUrl}>Open Tokens on Every App</OpenLink>
+            ) : null}
+          </SettingsRow>
+        ) : null}
         <SettingsRow label="MCP endpoint">
           {mcpUrl ? (
             <div className="flex max-w-full items-center gap-2">
