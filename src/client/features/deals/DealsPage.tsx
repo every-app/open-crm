@@ -130,8 +130,9 @@ export function DealsPage() {
   );
 
   return (
-    <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-7xl space-y-4">
+    <div className="flex h-full flex-col overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
+      {/* The rows scroll inside the table's card, under its header. */}
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
           title="Deals"
           actions={
@@ -234,6 +235,7 @@ export function DealsPage() {
           onRowHover={(row) =>
             prefetchRecord({ kind: "deal", id: row.original.id })
           }
+          scrollClassName="min-h-0 flex-1"
           activeRowId={findLast(stack, (ref) => ref.kind === "deal")?.id}
         />
       </div>

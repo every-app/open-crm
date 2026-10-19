@@ -148,6 +148,11 @@ function SelectionCheckbox<TData>({
   );
 }
 
+// A sticky header draws its rule as a shadow: a collapsed table's borders
+// scroll away with the rows.
+const STICKY_HEADER =
+  "sticky top-0 z-10 bg-card [&_tr]:border-0 [&_tr]:shadow-[inset_0_-1px_0_var(--color-border)]";
+
 /** The frame around the rows, for table components that pass it through. */
 type DataTableFrameProps = {
   /** The first load: shows skeleton rows under the real headers. */
@@ -205,7 +210,11 @@ export function DataTable<TData>({
   onRowHover?: (row: Row<TData>) => void;
   /** Highlights the row whose details are open. */
   activeRowId?: string;
-  /** Caps the table height, for example `max-h-96`. The header stays in view while the rows scroll. */
+  /**
+   * Caps the table height, for example `max-h-96`, or with `min-h-0 flex-1`
+   * fits the card to a flex column's height. The header stays in view while
+   * the rows scroll, and so do the toolbar and footer.
+   */
   scrollClassName?: string;
   /** Details shown in a full-width row under an expanded row. */
   renderExpandedRow?: (row: Row<TData>) => ReactNode;
@@ -216,7 +225,9 @@ export function DataTable<TData>({
   const noRows = !isLoading && rows.length === 0;
 
   return (
-    <TableCard>
+    <TableCard
+      className={scrollClassName ? "flex min-h-0 flex-col" : undefined}
+    >
       {toolbar}
       {error ? <div className="p-4">{error}</div> : null}
       {error && noRows ? null : (
@@ -229,9 +240,7 @@ export function DataTable<TData>({
           {/* An empty table is its empty state alone. */}
           {noRows ? null : (
             <TableHeader
-              className={
-                scrollClassName ? "sticky top-0 z-10 bg-card" : undefined
-              }
+              className={scrollClassName ? STICKY_HEADER : undefined}
             >
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
