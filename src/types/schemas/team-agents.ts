@@ -99,6 +99,18 @@ export const uploadAttachmentSchema = attachmentContent.extend({
   conversationId: id,
 });
 
+const storedImage = z.string().startsWith("/api/images/").max(500).nullable();
+
+/**
+ * A tag's picture: our copies of its logo or photo (src/server/lib/images.ts),
+ * never a vendor's URL.
+ */
+export const tagPictureSchema = z.object({
+  url: storedImage,
+  darkUrl: storedImage,
+  tone: z.string().max(20).nullable(),
+});
+
 /**
  * A chat started from Chat home, with its first message and the records and
  * files that message carries. The client picks the chat's id, once per
@@ -113,6 +125,7 @@ export const startBuilderChatSchema = z.object({
         kind: z.enum(["company", "contact", "deal", "integration"]),
         id,
         label: z.string().trim().min(1).max(160),
+        picture: tagPictureSchema.optional(),
       }),
     )
     .max(20),

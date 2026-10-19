@@ -26,12 +26,12 @@ import { builderResourcesQueryOptions } from "./teamAgentQueries";
 
 type Resource = Awaited<ReturnType<typeof searchBuilderResources>>[number];
 
-/** A record or integration a message is tagged with. */
-export type TaggedResource = Pick<Resource, "kind" | "id" | "label">;
-
-/** A tag as a message shows it: a Slack channel by its own name. */
-export const tagText = (label: string) =>
-  label.startsWith("#") ? label : `@${label}`;
+/**
+ * A record or integration a message is tagged with, and the picture its chip
+ * shows (the CRM's builder resource and its imageUrl).
+ */
+export type TaggedResource = Pick<Resource, "kind" | "id" | "label"> &
+  Partial<Pick<Resource, "picture">>;
 
 const INTEGRATION_ICONS: Record<string, LucideIcon> = {
   [CAPTURE_GRANTS.email.resource.id]: Mail,
@@ -39,22 +39,17 @@ const INTEGRATION_ICONS: Record<string, LucideIcon> = {
 };
 
 /** A record's logo or photo, or an integration's icon. */
-function ResourcePicture({ resource }: { resource: Resource }) {
+export function ResourcePicture({ resource }: { resource: TaggedResource }) {
+  const { picture } = resource;
   if (resource.kind === "contact") {
-    return (
-      <PersonAvatar
-        src={resource.picture.url}
-        name={resource.label}
-        size="sm"
-      />
-    );
+    return <PersonAvatar src={picture?.url} name={resource.label} size="sm" />;
   }
   if (resource.kind !== "integration") {
     return (
       <EntityLogo
-        src={resource.picture.url}
-        darkSrc={resource.picture.darkUrl}
-        tone={resource.picture.tone}
+        src={picture?.url}
+        darkSrc={picture?.darkUrl}
+        tone={picture?.tone}
         name={resource.label}
         size="sm"
       />
@@ -128,6 +123,7 @@ export function TagPicker({
                   kind: resource.kind,
                   id: resource.id,
                   label: resource.label,
+                  picture: resource.picture,
                 });
                 setOpen(false);
                 setQuery("");

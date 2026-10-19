@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // message and files in one call that leaves nothing behind when it fails and
 // starts no second chat when retried; a chat is working only while its own
 // agent says a turn is answering, whatever its timestamps suggest; the tag
-// picker starts from the most recently active records, offers captured email
-// and meetings only once someone here has connected them, and never shows
-// another organization's.
+// picker starts from the most recently active records, pictures them only
+// with our copies of their logos and photos, offers captured email and
+// meetings only once someone here has connected them, and never shows another
+// organization's.
 const { testDb, answering, asked, stored, kept, handed } = await vi.hoisted(
   async () => {
     const { createDualDialectTestDb } =
@@ -174,6 +175,27 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
       expect(await records("")).toEqual(["Cobalt", "Acme", "Bolt"]);
       expect(await records("ac")).toEqual(["Acme"]);
+    });
+
+    it("pictures a tag with our copy of its logo or photo, never one still at the vendor's URL", async () => {
+      await database.exec(`
+        INSERT INTO company (id, organization_id, name, icon_url, icon_dark_url) VALUES
+          ('acme', 'org_a', 'Acme', '/api/images/org_a/companies/acme/iconUrl-1.png', 'https://cdn.vendor.test/acme-dark.png'),
+          ('bolt', 'org_a', 'Bolt', 'https://cdn.vendor.test/bolt.png', NULL);
+        INSERT INTO contact (id, organization_id, first_name, image_url) VALUES
+          ('ana', 'org_a', 'Ana', '/api/images/org_a/contacts/ana/photo-1.jpg');
+      `);
+      const pictures = Object.fromEntries(
+        (await BuilderResourceService.search(owner, "")).map((resource) => [
+          resource.label,
+          resource.picture.url,
+        ]),
+      );
+      expect(pictures).toEqual({
+        Acme: "/api/images/org_a/companies/acme/iconUrl-1.png",
+        Bolt: null,
+        Ana: "/api/images/org_a/contacts/ana/photo-1.jpg",
+      });
     });
 
     it("offers the Slack channels that match what's typed, and hands the builder the one tagged", async () => {

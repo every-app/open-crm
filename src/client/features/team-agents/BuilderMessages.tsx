@@ -12,6 +12,7 @@ import {
   consumeBuilderCommand,
 } from "@/shared/builder-command";
 import { PREVIEWABLE_IMAGE_TYPES } from "@/shared/team-agents";
+import { tagPictureSchema } from "@/types/schemas/team-agents";
 import {
   dealListsOf,
   DealListSkeleton,
@@ -20,7 +21,7 @@ import {
   withoutTables,
 } from "./DealListResult";
 import { builderStep } from "./builderSteps";
-import { tagText } from "./TagPicker";
+import { ResourcePicture } from "./TagPicker";
 import { teamAgentKeys } from "./teamAgentQueries";
 
 // A builder chat's messages, as the CRM's builder chat draws them: the
@@ -32,7 +33,16 @@ type Part = UIMessage["parts"][number];
 
 const extras = z
   .object({
-    resources: z.array(z.object({ label: z.string() })).catch([]),
+    resources: z
+      .array(
+        z.object({
+          kind: z.enum(["company", "contact", "deal", "integration"]),
+          id: z.string(),
+          label: z.string(),
+          picture: tagPictureSchema.optional().catch(undefined),
+        }),
+      )
+      .catch([]),
     attachments: z
       .array(
         z.object({
@@ -98,10 +108,11 @@ export function UserMessage({
             ) : null}
             {resources.map((resource) => (
               <span
-                key={resource.label}
-                className="rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground"
+                key={`${resource.kind}:${resource.id}`}
+                className="inline-flex items-center gap-1 rounded-md border border-border py-0.5 pr-1.5 pl-0.5 text-xs text-muted-foreground"
               >
-                {tagText(resource.label)}
+                <ResourcePicture resource={resource} />
+                {resource.label}
               </span>
             ))}
             {attachments.map((file) => {
