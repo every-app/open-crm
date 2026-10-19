@@ -1,11 +1,7 @@
-import {
-  useMutation,
-  useQueryClient,
-  type QueryClient,
-} from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { companyKeys } from "@/client/features/companies/companyQueries";
 import { contactKeys } from "@/client/features/contacts/contactQueries";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
@@ -27,17 +23,6 @@ import type {
 type ContactPatch = Omit<UpdateContactInput, "id">;
 
 /**
- * Refetches contacts and companies: a contact's writes show on companies too
- * (their people, counts and primary contact).
- */
-export function invalidateContacts(queryClient: QueryClient) {
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: contactKeys.all }),
-    queryClient.invalidateQueries({ queryKey: companyKeys.all }),
-  ]);
-}
-
-/**
  * Copy for a failed contact write. A taken email's comes from the server,
  * which names the contact who has it.
  */
@@ -55,18 +40,18 @@ export function contactErrorMessage(
   return getStandardErrorMessage(error);
 }
 
-/** Everything a contact's sheet changes, each refetching what it shows. */
+/** Everything a contact's sheet changes, each refetching what it shows on. */
 export function useContactMutations(
   contactId: string,
   { onPurged }: { onPurged: () => void },
 ) {
-  const queryClient = useQueryClient();
-  const invalidate = () => invalidateContacts(queryClient);
+  const invalidate = useInvalidateRecords();
+  const record = contactKeys.detail(contactId);
 
   const update = useMutation({
     mutationFn: (patch: ContactPatch) =>
       updateContact({ data: { id: contactId, ...patch } }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate({ record }),
     onError: (error, patch) =>
       toast.error(
         contactErrorMessage(error, "email" in patch ? "email" : undefined),
@@ -94,16 +79,7 @@ export function useContactMutations(
     onSuccess: async (contact) => {
       toast.success(`${contact.name} was deleted forever.`);
       onPurged();
-      // The closing sheet still shows the contact: everything else refetches,
-      // and its own query is left to expire rather than read a 404.
-      const gone = contactKeys.detail(contactId).join("/");
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: contactKeys.all,
-          predicate: (query) => query.queryKey.join("/") !== gone,
-        }),
-        queryClient.invalidateQueries({ queryKey: companyKeys.all }),
-      ]);
+      await invalidate({ gone: record });
     },
   });
 
@@ -134,12 +110,12 @@ export function useContactMutations(
           ? "Added to the record."
           : "Dismissed. It won't be suggested again.",
       );
-      await invalidate();
+      await invalidate({ record });
     },
     onError: async (error) => {
       toast.error(contactErrorMessage(error, "fact"));
       // Someone else settled it: show what the record says now.
-      await invalidate();
+      await invalidate({ record });
     },
   });
 

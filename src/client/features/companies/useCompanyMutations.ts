@@ -1,6 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { companyKeys } from "@/client/features/companies/companyQueries";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
@@ -28,19 +29,18 @@ export function companyErrorMessage(error: unknown, about?: "domain"): string {
   return getStandardErrorMessage(error);
 }
 
-/** Everything a company's sheet changes, each invalidating the companies. */
+/** Everything a company's sheet changes, each refetching what it shows on. */
 export function useCompanyMutations(
   companyId: string,
   { onPurged }: { onPurged: () => void },
 ) {
-  const queryClient = useQueryClient();
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: companyKeys.all });
+  const invalidate = useInvalidateRecords();
+  const record = companyKeys.detail(companyId);
 
   const update = useMutation({
     mutationFn: (patch: CompanyPatch) =>
       updateCompany({ data: { id: companyId, ...patch } }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate({ record }),
     onError: (error, patch) =>
       toast.error(
         companyErrorMessage(error, "domain" in patch ? "domain" : undefined),
@@ -68,13 +68,7 @@ export function useCompanyMutations(
     onSuccess: async (company) => {
       toast.success(`${company.name} was deleted forever.`);
       onPurged();
-      // The closing sheet still shows the company: everything else refetches,
-      // and its own query is left to expire rather than read a 404.
-      const gone = companyKeys.detail(companyId).join("/");
-      await queryClient.invalidateQueries({
-        queryKey: companyKeys.all,
-        predicate: (query) => query.queryKey.join("/") !== gone,
-      });
+      await invalidate({ gone: record });
     },
   });
 
@@ -89,7 +83,7 @@ export function useCompanyMutations(
   const setPrimary = useMutation({
     mutationFn: (contactId: string | null) =>
       setPrimaryContact({ data: { companyId, contactId } }),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate(),
   });
 
   return { update, archive, restore, purge, enrich, setPrimary };

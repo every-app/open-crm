@@ -1,5 +1,5 @@
 import { revalidateLogic } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
 import { FormDialog } from "@/client/components/FormDialog";
@@ -7,15 +7,13 @@ import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/client/components/ui/field";
 import { fullName } from "@/client/features/companies/companyFormat";
-import {
-  contactErrorMessage,
-  invalidateContacts,
-} from "@/client/features/contacts/useContactMutations";
+import { contactErrorMessage } from "@/client/features/contacts/useContactMutations";
 import {
   CompanyPicker,
   type CompanyOption,
 } from "@/client/features/records/CompanyPicker";
 import { ownerIdOf, useOwnerOptions } from "@/client/features/records/owners";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
@@ -70,7 +68,7 @@ export function CreateContactDialog({
   onClose: () => void;
   onCreated: (contact: { id: string }) => void;
 }) {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateRecords();
   const owners = useOwnerOptions();
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
@@ -88,7 +86,7 @@ export function CreateContactDialog({
     meta: { errorToast: false },
     onSuccess: async (contact) => {
       toast.success(`${fullName(contact)} added.`);
-      await invalidateContacts(queryClient);
+      await invalidate();
       onCreated(contact);
     },
   });

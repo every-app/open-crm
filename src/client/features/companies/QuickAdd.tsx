@@ -1,17 +1,14 @@
 import type { ReactNode } from "react";
 import { revalidateLogic } from "@tanstack/react-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
 import { everyAppAccountQueryOptions } from "@/client/components/Sidebar";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
-import {
-  contactErrorMessage,
-  invalidateContacts,
-} from "@/client/features/contacts/useContactMutations";
+import { contactErrorMessage } from "@/client/features/contacts/useContactMutations";
 import { parseAmount } from "@/client/features/deals/dealFormat";
-import { useInvalidateDeals } from "@/client/features/deals/useDealMutations";
+import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
@@ -80,7 +77,7 @@ export function QuickAddContact({
   company: QuickAddCompany;
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateRecords();
   const create = useMutation({
     mutationFn: (values: z.infer<typeof contactSchema>) =>
       createContact({
@@ -96,7 +93,7 @@ export function QuickAddContact({
     // A taken email shows on the field itself.
     meta: { errorToast: false },
     onSuccess: async (contact) => {
-      await invalidateContacts(queryClient);
+      await invalidate();
       toast.success(`${contact.firstName} added.`);
       onDone();
     },
@@ -198,7 +195,7 @@ export function QuickAddDeal({
   onDone: () => void;
 }) {
   const account = useQuery(everyAppAccountQueryOptions());
-  const invalidate = useInvalidateDeals();
+  const invalidate = useInvalidateRecords();
   const owner = company.ownerId ?? account.data?.userId ?? null;
   const create = useMutation({
     mutationFn: (values: z.infer<typeof dealSchema> & { ownerId: string }) =>
