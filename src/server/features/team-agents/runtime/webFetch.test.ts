@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-// A team agent reading a page, as the CRM's chat did with web_fetch: an https
-// page comes back as markdown with its links followable; anything that isn't
-// a public name (a private or local address, the Every App gateway and the
-// app hosts under it) is refused before a request leaves; and a redirect is
-// handed back rather than followed, so the URL it names is checked too.
+// Reading a page, as the CRM's chat did with web_fetch: an https page comes
+// back as markdown with its links followable; anything that isn't a public
+// name (a private or local address, the Every App gateway and the app hosts
+// under it) is refused before a request leaves; and a redirect is handed
+// back rather than followed, so the URL it names is checked too.
 vi.mock("cloudflare:workers", () => ({
   env: { EVERYAPP_IDENTITY_ISSUER: "https://gateway.example.test" },
 }));
@@ -32,6 +32,22 @@ describe("web_fetch", () => {
       content:
         "Acme pricing\n\n# Pricing\nPlans for every team & budget.\n\n- Starter\n- Pro\n[See Pro](https://acme.test/plans/pro)",
       truncated: false,
+    });
+  });
+
+  it("reads a page's first 256 KB in one pass, however broken its markup", async () => {
+    // Unclosed links, comments and scripts: what the regular expressions it
+    // replaced took minutes over, each searching to the end of the page.
+    const broken = '<a href="/x">x <!-- <script>'.repeat(40_000);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(`<p>Pricing</p><a href="/y">y${broken}`, {
+        headers: { "content-type": "text/html" },
+      }),
+    );
+    expect(await read("https://acme.test/pricing")).toMatchObject({
+      read: true,
+      content: "Pricing\nyx",
+      truncated: true,
     });
   });
 
