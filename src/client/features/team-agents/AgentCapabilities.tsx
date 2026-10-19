@@ -289,7 +289,8 @@ function LivesIn({
     <SettingsSection
       title={<ReviewLabel label="Lives in" inReview={inReview} />}
       action={
-        canManage && isChannel && channels.data ? (
+        // Creating and joining channels are an owner's or admin's.
+        isChannel && channels.data?.canManage ? (
           <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
             Create a channel
           </Button>
@@ -312,7 +313,9 @@ function LivesIn({
                 : undefined
             }
             onRequest={
-              canManage ? (channel) => join.mutate(channel.id) : undefined
+              channels.data.canManage
+                ? (channel) => join.mutate(channel.id)
+                : undefined
             }
           />
         ) : channels.isError ? (

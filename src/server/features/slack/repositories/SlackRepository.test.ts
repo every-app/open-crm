@@ -3,7 +3,8 @@ import type { runBatch } from "@/db/runBatch";
 
 // A read of Slack writes its channels a page at a time (SlackSyncService): an
 // upsert that keeps what the same read already wrote, then everything it
-// didn't see marked unavailable. Conflict clauses, so both backends.
+// didn't see marked unavailable. Conflict clauses, so both backends. Members'
+// lists leave out the private channels only the installer's token sees.
 const { databases, current } = await vi.hoisted(async () => {
   const { createPgTestDb, createSqliteTestDb } =
     await import("@/server/testing/testDb");
@@ -42,11 +43,12 @@ const channel = (slackChannelId: string, isMember: boolean) => ({
   isMember,
 });
 
-const listed = async (organizationId: string) =>
+const listed = async (organizationId: string, installerPrivate = true) =>
   (
     await SlackRepository.listChannels(organizationId, {
       limit: 10,
       offset: 0,
+      installerPrivate,
     })
   ).map((row) => [row.slackChannelId, row.isMember]);
 
@@ -86,6 +88,23 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         ["PRIVATE", false],
       ]);
       expect(await listed("org_b")).toEqual([["THEIRS", false]]);
+    });
+
+    it("lists a private channel the app isn't in only when asked to", async () => {
+      await SlackRepository.saveChannels(
+        "org_a",
+        [
+          { ...channel("INSIDE", true), isPrivate: true },
+          { ...channel("OUTSIDE", false), isPrivate: true },
+        ],
+        null,
+      );
+
+      expect(await listed("org_a", false)).toEqual([
+        ["INSIDE", true],
+        ["GONE", false],
+      ]);
+      expect(await listed("org_a", true)).toContainEqual(["OUTSIDE", false]);
     });
   });
 }

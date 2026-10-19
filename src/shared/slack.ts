@@ -2,7 +2,9 @@
 // bot scopes are what the app's bot holds; the user scopes are the
 // installer's, and let the app create private channels and invite itself
 // into them. The settings page shows each grant in plain words, and which
-// ones Slack held back.
+// ones Slack held back. The CRM's `channels:history`, `groups:history`,
+// `conversations.connect:write` and `links:write` are left out: nothing here
+// reads messages, sends Slack Connect invitations or unfurls links.
 
 type SlackScopeGroup = "people" | "read" | "send" | "change";
 
@@ -36,18 +38,6 @@ const SLACK_SCOPES: readonly SlackScope[] = [
     scope: "groups:read",
     group: "read",
     grant: "See private channels it has been added to",
-    sensitive: false,
-  },
-  {
-    scope: "channels:history",
-    group: "read",
-    grant: "Read messages in public channels it has been added to",
-    sensitive: true,
-  },
-  {
-    scope: "groups:history",
-    group: "read",
-    grant: "Read messages in private channels it has been added to",
     sensitive: false,
   },
   {
@@ -98,18 +88,6 @@ const SLACK_SCOPES: readonly SlackScope[] = [
     grant: "Invite people to a private channel",
     sensitive: true,
   },
-  {
-    scope: "conversations.connect:write",
-    group: "change",
-    grant: "Send and accept Slack Connect invitations",
-    sensitive: true,
-  },
-  {
-    scope: "links:write",
-    group: "send",
-    grant: "Show a preview under a link it posts",
-    sensitive: false,
-  },
 ];
 
 /** The bot scopes the authorize URL asks for (`scope`). */
@@ -159,13 +137,12 @@ export const SLACK_SCOPE_GROUPS: ReadonlyArray<{
     id: "read",
     label: "Channels it can read",
     summary:
-      "Names and topics of public channels, and the messages in any channel it has been added to.",
+      "Names and topics of public channels, and private channels it has been added to.",
   },
   {
     id: "send",
     label: "Messages it can send",
-    summary:
-      "Post as the app, open a direct message, and preview a link it posts.",
+    summary: "Post as the app and open a direct message.",
   },
   {
     id: "change",

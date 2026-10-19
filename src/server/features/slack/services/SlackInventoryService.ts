@@ -1,8 +1,10 @@
 import { waitUntil } from "cloudflare:workers";
 import { z } from "zod";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
+import { requireOrgPermission } from "@/server/auth/org-gate";
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
-import { AppError } from "@/server/lib/errors";
+import { AppError, loggableError } from "@/server/lib/errors";
+import { hasOrgPermission } from "@/shared/org-permissions";
 import {
   SlackRepository,
   type SlackConnectionRow,
@@ -14,7 +16,9 @@ import { explainSlackError, slackCall } from "../lib/slackApi";
 // (joining and creating them), and which members are which Slack users,
 // matched by exact email. The agent builder pins destinations to this
 // inventory. Reading it from Slack is a task the dispatcher leases and
-// retries, as in the CRM (SlackSyncService).
+// retries, as in the CRM (SlackSyncService). Joining and creating channels,
+// which can act with the installer's token, are an owner's or admin's, and
+// only they see the private channels that token lists and the app isn't in.
 
 type Context = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 
@@ -40,6 +44,16 @@ async function requireConnection(
   return connection;
 }
 
+async function requireTokens(organizationId: string) {
+  const tokens = await SlackRepository.getTokens(organizationId);
+  if (!tokens) throw new AppError("SLACK_UNAVAILABLE");
+  return tokens;
+}
+
+function canManage(role: string): boolean {
+  return hasOrgPermission(role, { connection: ["manage"] });
+}
+
 const channelInfo = z
   .object({
     channel: z
@@ -55,19 +69,22 @@ const INVENTORY_STALE_MS = 15 * 60_000;
 
 const CHANNEL_PAGE = 50;
 
-/** A page of the channels the app can reach. */
+/** A page of the channels the app can reach, as the caller may see them. */
 async function channels(
   context: Context,
   input: { query?: string; offset: number },
 ) {
   const connection = await requireConnection(context.organizationId);
+  const manage = canManage(context.role);
   const rows = await SlackRepository.listChannels(context.organizationId, {
     query: input.query,
     limit: CHANNEL_PAGE + 1,
     offset: input.offset,
+    installerPrivate: manage,
   });
   return {
-    canInviteItself: Boolean(connection.userToken),
+    canManage: manage,
+    canInviteItself: connection.hasUserToken,
     sync: syncState(connection),
     rows: rows.slice(0, CHANNEL_PAGE).map(pickerChannel),
     nextOffset: rows.length > CHANNEL_PAGE ? input.offset + CHANNEL_PAGE : null,
@@ -104,6 +121,7 @@ async function joinChannel(
   context: Context,
   slackChannelId: string,
 ): Promise<JoinOutcome> {
+  requireOrgPermission(context, { connection: ["manage"] });
   const { organizationId } = context;
   const connection = await requireConnection(organizationId);
   const channel = await SlackRepository.findChannel(
@@ -111,7 +129,7 @@ async function joinChannel(
     slackChannelId,
   );
   if (!channel) throw new AppError("NOT_FOUND");
-  const bot = connection.botToken;
+  const { botToken: bot, userToken } = await requireTokens(organizationId);
   const live = await slackCall(bot, "conversations.info", {
     query: { channel: slackChannelId },
   });
@@ -135,7 +153,7 @@ async function joinChannel(
       });
       return { outcome: "already" };
     }
-    if (state.isPrivate && !connection.userToken) {
+    if (state.isPrivate && !userToken) {
       await SlackRepository.updateChannel(organizationId, slackChannelId, {
         ...state,
         inviteRequestedAt: new Date().toISOString(),
@@ -143,9 +161,9 @@ async function joinChannel(
       return { outcome: "asked" };
     }
     const reply =
-      state.isPrivate && connection.userToken
+      state.isPrivate && userToken
         ? connection.botUserId
-          ? await slackCall(connection.userToken, "conversations.invite", {
+          ? await slackCall(userToken, "conversations.invite", {
               body: { channel: slackChannelId, users: connection.botUserId },
             })
           : { ok: false, error: "unknown_bot_user" }
@@ -183,14 +201,13 @@ async function createChannel(
   | { created: true; channel: { id: string; name: string } }
   | { created: false; reason: string }
 > {
+  requireOrgPermission(context, { connection: ["manage"] });
   const { organizationId } = context;
-  const connection = await requireConnection(organizationId);
+  const { botToken, userToken } = await requireTokens(organizationId);
   if (await SlackRepository.findChannelByName(organizationId, input.name)) {
     return { created: false, reason: explainSlackError("name_taken") };
   }
-  const token = input.isPrivate
-    ? connection.userToken
-    : (connection.userToken ?? connection.botToken);
+  const token = input.isPrivate ? userToken : (userToken ?? botToken);
   if (!token) {
     return { created: false, reason: explainSlackError("no_user_grant") };
   }
@@ -205,7 +222,7 @@ async function createChannel(
     };
   }
   const { channel } = parsed.data;
-  const madeByBot = token === connection.botToken;
+  const madeByBot = token === botToken;
   await SlackRepository.upsertChannel(organizationId, {
     slackChannelId: channel.id,
     name: channel.name,
@@ -228,11 +245,10 @@ async function refresh(context: Context) {
 function startSync(organizationId: string): void {
   waitUntil(
     queueSync(organizationId, false).catch((error: unknown) => {
-      console.error(
-        "[slack] could not queue a sync",
-        { organizationId },
-        error,
-      );
+      console.error("[slack] could not queue a sync", {
+        organizationId,
+        ...loggableError(error),
+      });
     }),
   );
 }
@@ -294,9 +310,11 @@ async function matches(context: Context) {
 /**
  * What the agent builder may pin a Slack destination to: whether Slack is
  * connected, the channels the app can reach, and members matched to a Slack
- * user. An inventory older than a quarter of an hour is read again.
+ * user. An inventory older than a quarter of an hour is read again. Without
+ * an owner's or admin's `role` (a builder chat carries none), the private
+ * channels the app isn't in are left out, as members' lists leave them out.
  */
-async function builderInventory(organizationId: string) {
+async function builderInventory(organizationId: string, role?: string) {
   const connection = await SlackRepository.getConnection(organizationId);
   if (!connection) {
     return { connected: false, channels: [], people: [] };
@@ -307,7 +325,11 @@ async function builderInventory(organizationId: string) {
       Date.now() - Date.parse(connection.syncedAt) > INVENTORY_STALE_MS);
   if (stale) startSync(organizationId);
   const [channelRows, people] = await Promise.all([
-    SlackRepository.listChannels(organizationId, { limit: 100, offset: 0 }),
+    SlackRepository.listChannels(organizationId, {
+      limit: 100,
+      offset: 0,
+      installerPrivate: role !== undefined && canManage(role),
+    }),
     SlackRepository.listMatches(organizationId),
   ]);
   return {

@@ -8,8 +8,12 @@ import manifest from "./everyapp.config.ts";
 // here: in dev the Cloudflare Vite plugin hides this file's imports from the
 // Worker.
 
-/** The CRM's own settings (`everyapp secret set`), all optional. */
+/** The CRM's own settings (`everyapp secret set`), all optional but one. */
 const CRM_SECRETS = [
+  // Required before anyone connects mail, a calendar or Slack: the key their
+  // tokens are encrypted under, 32 or more random characters
+  // (src/server/lib/tokenCrypto.ts). Changing it means connecting again.
+  "TOKEN_ENCRYPTION_KEY",
   // Raises GitHub's rate limit when the agent matches people to GitHub
   // profiles. Any classic token with no scopes will do.
   "GITHUB_TOKEN",

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { vi } from "vitest";
 
 // Connecting a mailbox on both backends: the single-use state is a
@@ -33,6 +33,7 @@ import {
   stubProviders,
 } from "@/server/features/mailbox/mailboxTestSupport";
 import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
+import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { forOrganization } from "@/server/lib/gateway-attribution";
 import { ConnectionService } from "./ConnectionService";
 
@@ -58,6 +59,22 @@ async function challengeOf(verifier: string) {
   return Buffer.from(digest).toString("base64url");
 }
 
+/** The provider sending `member` back to the callback with `query`. */
+const connect = async (
+  member: typeof ANA,
+  provider: "google" | "microsoft",
+  query: Record<string, string>,
+) =>
+  forOrganization(member.organizationId, () =>
+    ConnectionService.completeConnect(
+      member,
+      provider,
+      new URL(
+        `${ORIGIN}/integrations/${provider}/callback?${new URLSearchParams(query).toString()}`,
+      ),
+    ),
+  );
+
 for (const dialect of ["sqlite", "postgres"] as const) {
   describe(`ConnectionService (${dialect})`, () => {
     const database = testDb.use(dialect);
@@ -70,21 +87,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
       await database.seedTwoOrganizations();
     });
-
-    const connect = async (
-      member: typeof ANA,
-      provider: "google" | "microsoft",
-      query: Record<string, string>,
-    ) =>
-      forOrganization(member.organizationId, () =>
-        ConnectionService.completeConnect(
-          member,
-          provider,
-          new URL(
-            `${ORIGIN}/integrations/${provider}/callback?${new URLSearchParams(query).toString()}`,
-          ),
-        ),
-      );
 
     it("sends the member to Google with the gateway's client, PKCE and a stored state", async () => {
       const { url } = await ConnectionService.startConnect(
@@ -205,6 +207,62 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
     });
 
+    it("refuses to start a connect without the key its tokens are encrypted under", async () => {
+      vi.stubEnv("TOKEN_ENCRYPTION_KEY", "");
+      onTestFinished(() => {
+        vi.unstubAllEnvs();
+      });
+
+      await expect(
+        ConnectionService.startConnect(ANA, "google", ORIGIN),
+      ).rejects.toThrow("TOKEN_ENCRYPTION_KEY");
+      expect(await database.rows(`SELECT id FROM oauth_state`)).toEqual([]);
+    });
+
+    it("offers a Microsoft member's organization its admin consent when it refused theirs", async () => {
+      const state = async () =>
+        new URL(
+          (await ConnectionService.startConnect(BO, "microsoft", ORIGIN)).url,
+        ).searchParams.get("state") ?? "";
+      gateway.answerTokens(() =>
+        json(
+          {
+            error: "invalid_grant",
+            error_description:
+              "AADSTS65001: The user or administrator has not consented to use the application.",
+          },
+          400,
+        ),
+      );
+
+      expect(
+        await connect(BO, "microsoft", {
+          state: await state(),
+          error: "consent_required",
+        }),
+      ).toEqual({ ok: false, error: "access_denied" });
+      expect(
+        await connect(BO, "microsoft", { state: await state(), code: "c" }),
+      ).toEqual({ ok: false, error: "access_denied" });
+      const { providers } = await ConnectionService.status(
+        { ...BO, role: "member" },
+        ORIGIN,
+      );
+      const consent = new URL(
+        providers.find((entry) => entry.provider === "microsoft")
+          ?.adminConsentUrl ?? "",
+      );
+      expect(`${consent.origin}${consent.pathname}`).toBe(
+        "https://login.microsoftonline.com/contoso.com/v2.0/adminconsent",
+      );
+      expect(Object.fromEntries(consent.searchParams)).toEqual({
+        client_id: "client-microsoft-365",
+        scope:
+          "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read",
+        redirect_uri: `${ORIGIN}/integrations/microsoft/callback`,
+      });
+    });
+
     it("learns an Outlook mailbox's address from Graph", async () => {
       stubProviders({
         "graph.microsoft.com/v1.0/me": () => ({
@@ -235,12 +293,15 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         "offline_access User.Read Mail.Read",
       );
       expect(
-        await database.rows(
-          `SELECT account_email, refresh_token FROM mailbox_connection`,
+        await ConnectionRepository.findWithTokens(
+          BO.organizationId,
+          BO.userId,
+          "microsoft",
         ),
-      ).toEqual([
-        { account_email: "bo@contoso.com", refresh_token: "refresh-1" },
-      ]);
+      ).toMatchObject({
+        accountEmail: "bo@contoso.com",
+        refreshToken: "refresh-1",
+      });
       expect(
         await database.rows(`SELECT source, auto_create FROM mailbox_sync`),
       ).toEqual([

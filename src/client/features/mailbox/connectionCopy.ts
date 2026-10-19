@@ -65,7 +65,11 @@ export function connectErrorCopy(
   const name = COPY[provider].name;
   switch (error) {
     case "access_denied":
-      return `You didn't give ${name} access.`;
+      // Microsoft sends a member whose organization lets only an admin
+      // consent back as a decline too (adminConsent.ts).
+      return provider === "microsoft"
+        ? "You didn't give Microsoft access, or a Microsoft 365 admin has to approve the CRM first."
+        : `You didn't give ${name} access.`;
     case "scope_not_granted":
       return provider === "google"
         ? "Google didn't grant access to Gmail or Calendar. Connect again and leave at least one of them ticked."

@@ -45,6 +45,8 @@ export function SlackChannels({ appName }: { appName: string | null }) {
   const first = channels.data?.pages[0];
   const rows = channels.data?.pages.flatMap((page) => page.rows) ?? [];
   const canInviteItself = first?.canInviteItself ?? false;
+  // Adding the app to a channel is an owner's or admin's.
+  const canManage = first?.canManage ?? false;
   const subject = appName ?? "The app";
   const object = appName ?? "the app";
   const invalidate = () =>
@@ -122,8 +124,8 @@ export function SlackChannels({ appName }: { appName: string | null }) {
           channels={rows}
           canInviteItself={canInviteItself}
           pending={join.isPending}
-          onAdd={(channel) => join.mutate(channel.id)}
-          onRequest={setAsking}
+          onAdd={canManage ? (channel) => join.mutate(channel.id) : undefined}
+          onRequest={canManage ? setAsking : undefined}
           empty={
             refreshing ? (
               <p className="px-4 py-4 text-sm text-muted-foreground">

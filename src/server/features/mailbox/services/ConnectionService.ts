@@ -1,4 +1,8 @@
 import { ArchiveRepository } from "@/server/features/archive/repositories/ArchiveRepository";
+import {
+  adminConsentUrl,
+  refusalOf,
+} from "@/server/features/mailbox/adminConsent";
 import { primaryCalendar } from "@/server/features/mailbox/providers/calendar";
 import { gmailProfile } from "@/server/features/mailbox/providers/gmail";
 import { graphMe } from "@/server/features/mailbox/providers/outlook";
@@ -20,6 +24,7 @@ import { deploymentTierFor } from "@/server/lib/deployment-tier";
 import { AppError } from "@/server/lib/errors";
 import { codeChallenge, randomToken } from "@/server/lib/pkce";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
+import { requireTokenKey } from "@/server/lib/tokenCrypto";
 import { normalizeDomain } from "@/shared/domain";
 import {
   grantedSources,
@@ -65,6 +70,8 @@ async function startConnect(
       `${LABEL[provider]} isn't set up on this Every App gateway.`,
     );
   }
+  // Its tokens are stored encrypted: no key, no consent screen to sit through.
+  await requireTokenKey();
   const codeVerifier = randomToken();
   const state = await ConnectionRepository.createState({
     ...member,
@@ -86,12 +93,12 @@ async function startConnect(
     params.set("include_granted_scopes", "true");
     // Google only sends a refresh token with a consent screen: ask for one
     // unless the member's connection already holds one.
-    const existing = await ConnectionRepository.findWithTokens(
+    const existing = await ConnectionRepository.find(
       member.organizationId,
       member.userId,
       provider,
     );
-    if (!existing?.refreshToken) params.set("prompt", "consent");
+    if (!existing?.hasRefreshToken) params.set("prompt", "consent");
   } else {
     params.set("response_mode", "query");
     params.set("prompt", "select_account");
@@ -121,8 +128,7 @@ async function completeConnect(
   if (providerError) {
     return {
       ok: false,
-      error:
-        providerError === "access_denied" ? "access_denied" : "exchange_failed",
+      error: refusalOf(provider, providerError, query.get("error_description")),
     };
   }
   const code = query.get("code");
@@ -140,7 +146,7 @@ async function completeConnect(
       provider,
       reason: exchanged.reason,
     });
-    return { ok: false, error: "exchange_failed" };
+    return { ok: false, error: refusalOf(provider, null, exchanged.reason) };
   }
   const { tokens } = exchanged;
   // Google returns the scopes granted (a member may untick one); an omitted
@@ -161,7 +167,7 @@ async function completeConnect(
     return { ok: false, error: "email_doesn't_match" };
   }
 
-  const previous = await ConnectionRepository.findWithTokens(
+  const previous = await ConnectionRepository.find(
     member.organizationId,
     member.userId,
     provider,
@@ -224,7 +230,10 @@ async function mailboxAddress(
  * gateway offers it, and the member's own connection with each source's
  * sync. Owners and admins of a fork also get what to set on the gateway.
  */
-async function status(member: Member & { role: string }, origin: string) {
+async function status(
+  member: Member & { role: string; userEmail: string },
+  origin: string,
+) {
   const [connections, rows, clients] = await Promise.all([
     ConnectionRepository.listForUser(member.organizationId, member.userId),
     SyncStateRepository.listForUser(member.organizationId, member.userId),
@@ -244,9 +253,16 @@ async function status(member: Member & { role: string }, origin: string) {
   const providers = MAILBOX_PROVIDERS.map((provider, index) => {
     const connection = connections.find((row) => row.provider === provider);
     const granted = new Set(grantedSources(provider, connection?.scopes));
+    const clientId = clients[index]?.clientId;
     return {
       provider,
       ready: clients[index]?.ready ?? false,
+      // Where an admin consents for the member's organization, for when only
+      // an admin may (adminConsent.ts).
+      adminConsentUrl:
+        provider === "microsoft" && clientId
+          ? adminConsentUrl({ clientId, origin, email: member.userEmail })
+          : null,
       setup: showSetup
         ? {
             command: local

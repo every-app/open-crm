@@ -139,7 +139,7 @@ export const slackTools = {
 
   join_slack_channel: crmTool({
     description:
-      "Put the CRM's app in a Slack channel, so agents can post there. A public channel it joins itself; a private one it is invited to when Slack allows, else `asked`: someone in the channel must /invite the app (get_slack_status gives its name).",
+      "Put the CRM's app in a Slack channel, so agents can post there (owners and admins only). A public channel it joins itself; a private one it is invited to when Slack allows, else `asked`: someone in the channel must /invite the app (get_slack_status gives its name).",
     risk: "write",
     input: z.object({ channelId }).strict(),
     output: z.object({
@@ -157,7 +157,7 @@ export const slackTools = {
 
   create_slack_channel: crmTool({
     description:
-      "Create a Slack channel with the CRM's app in it. A private one needs the installer's permission, which get_slack_status's canInviteItself says it has.",
+      "Create a Slack channel with the CRM's app in it (owners and admins only). A private one needs the installer's permission, which get_slack_status's canInviteItself says it has.",
     risk: "write",
     input: z
       .object({
