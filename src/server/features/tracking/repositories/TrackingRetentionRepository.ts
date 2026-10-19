@@ -2,6 +2,7 @@ import { and, asc, count, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
 import {
+  formSubmission,
   trackedEvent,
   trackedPageDaily,
   trackedVisitor,
@@ -84,6 +85,24 @@ async function rollUpAndDeleteBefore(cutoff: string, limit: number) {
   return size;
 }
 
+/** Deletes up to `limit` form submissions made before `cutoff`; how many went. */
+async function deleteSubmissionsBefore(cutoff: string, limit: number) {
+  const removed = await db
+    .delete(formSubmission)
+    .where(
+      inArray(
+        formSubmission.id,
+        db
+          .select({ id: formSubmission.id })
+          .from(formSubmission)
+          .where(lt(formSubmission.createdAt, cutoff))
+          .limit(limit),
+      ),
+    )
+    .returning({ id: formSubmission.id });
+  return removed.length;
+}
+
 /**
  * Visitors no contact points at any more (theirs was deleted) and with no
  * events left to show; up to `limit` of them.
@@ -133,6 +152,7 @@ async function deleteExpiredCounters(now: string, limit: number) {
 
 export const TrackingRetentionRepository = {
   rollUpAndDeleteBefore,
+  deleteSubmissionsBefore,
   deleteOrphanVisitors,
   deleteExpiredCounters,
 };

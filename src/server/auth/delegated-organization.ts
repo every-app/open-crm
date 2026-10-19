@@ -1,4 +1,5 @@
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
+import { SyncStateRepository } from "@/server/features/mailbox/repositories/SyncStateRepository";
 import { toHex } from "./org-slug";
 
 // Each Every App organization is a CRM organization with the same id, so its
@@ -14,9 +15,11 @@ function getEveryAppOrganizationName(organizationId: string) {
 }
 
 // What this isolate has already written, so a request makes no writes once
-// its user, organization and role are known: membership → role. Values, not
-// promises: Workers can't share a pending database call across requests. A
-// role change at the gateway writes again, so the member row follows it.
+// its user, organization and role are known that day: membership → role and
+// day. Values, not promises: Workers can't share a pending database call
+// across requests. A role change at the gateway writes again, so the member
+// row follows it, and so does a new day, so the row says when the member was
+// last seen.
 const ensuredMemberships = new Map<string, string>();
 const MAX_ENSURED_MEMBERSHIPS = 5_000;
 
@@ -26,18 +29,24 @@ export async function ensureEveryAppMembership(input: {
   role: string;
 }) {
   const key = JSON.stringify([input.organizationId, input.userId]);
-  if (ensuredMemberships.get(key) === input.role) return input.organizationId;
+  const seenAt = new Date().toISOString();
+  const ensured = `${input.role} ${seenAt.slice(0, 10)}`;
+  if (ensuredMemberships.get(key) === ensured) return input.organizationId;
 
   await AuthRepository.ensureOrganization({
     id: input.organizationId,
     name: getEveryAppOrganizationName(input.organizationId),
     slug: getEveryAppOrganizationSlug(input.organizationId),
   });
-  await AuthRepository.upsertMember(input);
+  // The day's first sighting: mailbox syncs paused while the member was away
+  // (MemberMailboxService.pauseUnseen) carry on.
+  if (await AuthRepository.upsertMember({ ...input, seenAt })) {
+    await SyncStateRepository.resume(input.organizationId, input.userId);
+  }
 
   if (ensuredMemberships.size >= MAX_ENSURED_MEMBERSHIPS) {
     ensuredMemberships.clear();
   }
-  ensuredMemberships.set(key, input.role);
+  ensuredMemberships.set(key, ensured);
   return input.organizationId;
 }

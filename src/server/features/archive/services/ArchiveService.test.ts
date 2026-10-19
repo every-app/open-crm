@@ -85,6 +85,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           ('e_deal', 'org_a', 's', NULL, 'd_old', NULL, 'note', '{}', '${daysAgo(50)}'),
           ('e_contact', 'org_a', 's', NULL, NULL, 'p_old', 'note', '{}', '${daysAgo(50)}'),
           ('e_live', 'org_a', 's', 'c_live', NULL, NULL, 'note', '{}', '${daysAgo(50)}');
+        INSERT INTO form_submission (id, organization_id, contact_id, host, path, email, fields, dedupe_key) VALUES
+          ('f_filed', 'org_a', 'p_old', 'acme.test', '/contact', 'ana@old.test', '{}', 'k1'),
+          ('f_unfiled', 'org_a', NULL, 'acme.test', '/contact', 'ana@old.test', '{}', 'k2'),
+          ('f_live', 'org_a', 'p_live', 'acme.test', '/contact', 'bo@live.test', '{}', 'k3');
       `);
 
       expect(await ArchiveService.purgeExpiredArchives("org_a")).toEqual({
@@ -100,6 +104,8 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await ids("contact")).toEqual(["p_live"]);
       expect(await ids("agent_task")).toEqual(["t_live"]);
       expect(await ids("agent_event")).toEqual(["e_live"]);
+      // The person's form submissions, filed under them or not.
+      expect(await ids("form_submission")).toEqual(["f_live"]);
       expect(
         await database.rows(
           "SELECT organization_id, email, reason FROM suppressed_contact",

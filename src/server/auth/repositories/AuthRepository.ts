@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { member, organization, user } from "@/db/schema";
 
@@ -29,12 +29,17 @@ async function ensureOrganization(input: OrganizationInput) {
 // belongs to an organization (owner pickers, "is this a colleague"). It is
 // never the authorization fact: the signed identity on each request is
 // (ensure-user/everyApp.ts).
+//
+// It also notes when the member was last seen (`seenAt`, ISO), at most once a
+// day: a member already seen today with the same role writes nothing. True
+// when it wrote, so the day's first sighting is the one that says so.
 async function upsertMember(input: {
   organizationId: string;
   userId: string;
   role: string;
-}) {
-  await db
+  seenAt: string;
+}): Promise<boolean> {
+  const written = await db
     .insert(member)
     .values({
       id: crypto.randomUUID(),
@@ -42,11 +47,30 @@ async function upsertMember(input: {
       userId: input.userId,
       role: input.role,
       createdAt: new Date(),
+      lastSeenAt: input.seenAt,
     })
     .onConflictDoUpdate({
       target: [member.organizationId, member.userId],
-      set: { role: input.role },
-    });
+      set: { role: input.role, lastSeenAt: input.seenAt },
+      setWhere: or(
+        ne(member.role, input.role),
+        isNull(member.lastSeenAt),
+        lt(member.lastSeenAt, input.seenAt.slice(0, 10)),
+      ),
+    })
+    .returning({ id: member.id });
+  return written.length > 0;
+}
+
+/**
+ * Starts the clock on members the CRM has no sighting of (their rows predate
+ * it keeping them): they count as seen now.
+ */
+async function startUnseenClocks(now: string) {
+  await db
+    .update(member)
+    .set({ lastSeenAt: now })
+    .where(isNull(member.lastSeenAt));
 }
 
 /**
@@ -102,6 +126,7 @@ async function getUsers(userIds: string[]) {
 export const AuthRepository = {
   ensureOrganization,
   upsertMember,
+  startUnseenClocks,
   listMembers,
   isMember,
   getUsers,

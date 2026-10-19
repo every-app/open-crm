@@ -105,5 +105,8 @@ export default {
     { path: "/t/*", methods: ["GET"] },
     { path: "/t/e", methods: ["POST"] },
     { path: "/health", methods: ["GET"] },
+    // An operator erasing an organization, with requests signed by
+    // ERASURE_SECRET; 404 while it is unset (src/server/features/erasure).
+    { path: "/internal/erase-organization", methods: ["POST"] },
   ],
 } as const;

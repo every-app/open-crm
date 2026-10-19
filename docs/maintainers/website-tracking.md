@@ -102,7 +102,8 @@ follows (`src/shared/participants.ts`):
 - Machine and shared mailboxes are skipped.
 - Our own domains are skipped: the members' work domains and the workspace's
   website, as mail capture counts them.
-- Deleted (suppressed) addresses and suppressed domains are skipped.
+- Deleted (suppressed) addresses and suppressed domains are skipped, and
+  their submissions keep neither the address nor the fields.
 - At most 50 new contacts per organization per hour. Attaching a
   submission to an existing contact costs nothing.
 
@@ -120,5 +121,8 @@ once (`TrackingRetentionService`), in batches of 5,000 for up to 20 seconds:
    that deletes it. Visitors are added up per batch: one whose views of a
    page fall in two batches of a day counts twice. A run that runs out of
    time logs a warning and the next hour continues.
-2. Visitors whose contact is gone and who have no events left are deleted.
-3. Expired rate counters are deleted.
+2. Form submissions older than the same cutoff are deleted, filed or not.
+   Delete forever deletes a contact's submissions at once, with any sent
+   from their address.
+3. Visitors whose contact is gone and who have no events left are deleted.
+4. Expired rate counters are deleted.

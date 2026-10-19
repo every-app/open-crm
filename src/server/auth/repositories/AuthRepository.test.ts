@@ -28,6 +28,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         organizationId: "org_a",
         userId: "user_b",
         role: "member",
+        seenAt: new Date().toISOString(),
       });
 
       const members = await AuthRepository.listMembers("org_a");

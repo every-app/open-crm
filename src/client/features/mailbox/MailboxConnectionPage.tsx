@@ -148,7 +148,7 @@ function NotConnected({ status }: { status: ProviderStatus }) {
       }
       description={
         ready || setup
-          ? "Only conversations with companies in the CRM are stored."
+          ? "Only conversations with companies in the CRM are stored. Everyone in the workspace, their AI clients and the CRM's agents can read them."
           : undefined
       }
       action={

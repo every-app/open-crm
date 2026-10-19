@@ -11,8 +11,9 @@ import {
 //    into daily rows, and deletes the batch, atomically (clicks are not page
 //    views and are not rolled); a run out of time says so, and the next hour
 //    carries on;
-// 2. deletes visitors whose contact is gone and who have nothing left;
-// 3. deletes rate counters whose window has passed.
+// 2. deletes form submissions as old, filed or not;
+// 3. deletes visitors whose contact is gone and who have nothing left;
+// 4. deletes rate counters whose window has passed.
 //
 // The cutoff is a whole UTC day.
 
@@ -36,6 +37,9 @@ async function sweep(now: Date = new Date()) {
   const events = await sweepUntil(deadline, () =>
     TrackingRetentionRepository.rollUpAndDeleteBefore(cutoff, SWEEP_BATCH),
   );
+  const submissions = await sweepUntil(deadline, () =>
+    TrackingRetentionRepository.deleteSubmissionsBefore(cutoff, SWEEP_BATCH),
+  );
   const visitors = await sweepUntil(deadline, () =>
     TrackingRetentionRepository.deleteOrphanVisitors(cutoff, SWEEP_BATCH),
   );
@@ -55,6 +59,7 @@ async function sweep(now: Date = new Date()) {
     cutoff,
     events: events.removed,
     complete: events.complete,
+    submissions: submissions.removed,
     visitors: visitors.removed,
     counters: counters.removed,
   };

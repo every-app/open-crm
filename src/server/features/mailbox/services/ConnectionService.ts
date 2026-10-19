@@ -17,7 +17,10 @@ import {
 import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
 import { SyncedDataRepository } from "@/server/features/mailbox/repositories/SyncedDataRepository";
 import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
-import { SyncStateRepository } from "@/server/features/mailbox/repositories/SyncStateRepository";
+import {
+  SyncStateRepository,
+  type SyncRow,
+} from "@/server/features/mailbox/repositories/SyncStateRepository";
 import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSyncService";
 import { MatchService } from "@/server/features/mailbox/services/MatchService";
 import { deploymentTierFor } from "@/server/lib/deployment-tier";
@@ -45,7 +48,8 @@ import { hasOrgPermission } from "@/shared/org-permissions";
 // learns the mailbox's address, refuses one that isn't the address the
 // member signs in with, stores the member's tokens and starts the sources
 // the member granted. Everything here is the member's own, but suppressing a
-// domain, which is the organization's.
+// domain, which is the organization's; an owner or admin reaches another
+// member's connection through MemberMailboxService.memberFor.
 
 type Member = { organizationId: string; userId: string };
 
@@ -225,6 +229,41 @@ async function mailboxAddress(
     : null;
 }
 
+type ConnectionRow = Awaited<
+  ReturnType<typeof ConnectionRepository.listForUser>
+>[number];
+
+/** A connection as Settings → Connections shows it, each source's sync too. */
+export function connectionView(
+  connection: ConnectionRow,
+  rows: SyncRow[],
+  now: string,
+) {
+  const granted = new Set(
+    grantedSources(connection.provider, connection.scopes),
+  );
+  return {
+    accountEmail: connection.accountEmail,
+    needsReconnect: connection.status === "NEEDS_RECONNECT",
+    hasRefreshToken: connection.hasRefreshToken,
+    sources: SOURCES_BY_PROVIDER[connection.provider].map((source) => {
+      const row = rows.find((candidate) => candidate.source === source);
+      return {
+        source,
+        granted: granted.has(source),
+        status: row?.status ?? null,
+        syncing:
+          row?.status === "RUNNING" &&
+          row.leaseUntil !== null &&
+          row.leaseUntil > now,
+        lastSyncedAt: row?.lastSyncedAt ?? null,
+        lastError: row?.lastError ?? null,
+        autoCreate: row?.autoCreate ?? false,
+      };
+    }),
+  };
+}
+
 /**
  * Settings → Connections for the member: each provider, whether this
  * gateway offers it, and the member's own connection with each source's
@@ -252,7 +291,6 @@ async function status(
 
   const providers = MAILBOX_PROVIDERS.map((provider, index) => {
     const connection = connections.find((row) => row.provider === provider);
-    const granted = new Set(grantedSources(provider, connection?.scopes));
     const clientId = clients[index]?.clientId;
     return {
       provider,
@@ -272,28 +310,7 @@ async function status(
             redirectUri: redirectUri(origin, provider),
           }
         : null,
-      connection: connection
-        ? {
-            accountEmail: connection.accountEmail,
-            needsReconnect: connection.status === "NEEDS_RECONNECT",
-            hasRefreshToken: connection.hasRefreshToken,
-            sources: SOURCES_BY_PROVIDER[provider].map((source) => {
-              const row = rows.find((candidate) => candidate.source === source);
-              return {
-                source,
-                granted: granted.has(source),
-                status: row?.status ?? null,
-                syncing:
-                  row?.status === "RUNNING" &&
-                  row.leaseUntil !== null &&
-                  row.leaseUntil > now,
-                lastSyncedAt: row?.lastSyncedAt ?? null,
-                lastError: row?.lastError ?? null,
-                autoCreate: row?.autoCreate ?? false,
-              };
-            }),
-          }
-        : null,
+      connection: connection ? connectionView(connection, rows, now) : null,
     };
   });
   return { providers };

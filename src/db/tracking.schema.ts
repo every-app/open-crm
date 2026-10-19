@@ -199,8 +199,9 @@ export const trackingCounter = sqliteTable(
 );
 
 /**
- * A form submitted on the website. Every one is kept; filing it as a
- * contact is separate and may decline (`skipReason`).
+ * A form submitted on the website, kept for the retention window; filing it
+ * as a contact is separate and may decline (`skipReason`). One from a
+ * suppressed address or domain keeps neither the address nor the fields.
  */
 export const formSubmission = sqliteTable(
   "form_submission",
@@ -234,5 +235,7 @@ export const formSubmission = sqliteTable(
     ),
     // Led by the key, for deleting a contact (crm.schema.ts).
     index("form_submission_contact_idx").on(table.contactId),
+    // Retention sweeps every organization by age.
+    index("form_submission_created_idx").on(table.createdAt),
   ],
 );

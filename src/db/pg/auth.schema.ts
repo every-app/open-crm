@@ -51,6 +51,8 @@ export const member = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").default("member").notNull(),
     createdAt: timestampColumn("created_at").notNull(),
+    // When the CRM last saw the member, as ../auth.schema.ts says.
+    lastSeenAt: text("last_seen_at"),
   },
   (table) => [
     index("member_organizationId_idx").on(table.organizationId),

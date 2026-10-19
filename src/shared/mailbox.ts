@@ -23,12 +23,15 @@ export const PROVIDER_FOR_SOURCE = {
  * IDLE: waiting for its next check. RUNNING: a check holds its lease.
  * NEEDS_RECONNECT: the provider refused the grant; nothing runs until the
  * member connects again. FAILED: the last check failed; the next one retries.
+ * PAUSED: the CRM hasn't seen the member for 30 days; nothing runs until it
+ * does.
  */
 export const SYNC_STATUSES = [
   "IDLE",
   "RUNNING",
   "NEEDS_RECONNECT",
   "FAILED",
+  "PAUSED",
 ] as const;
 export type SyncStatus = (typeof SYNC_STATUSES)[number];
 

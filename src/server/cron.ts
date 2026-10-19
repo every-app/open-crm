@@ -4,6 +4,7 @@ import { AgentRetentionService } from "@/server/features/agent/services/AgentRet
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CurrencyService } from "@/server/features/currency/services/CurrencyService";
 import { TrackingRetentionService } from "@/server/features/tracking/services/TrackingRetentionService";
+import { MemberMailboxService } from "@/server/features/mailbox/services/MemberMailboxService";
 import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSyncService";
 
 // The Worker's one cron trigger fires every minute (cloudflare.config.ts);
@@ -17,10 +18,12 @@ import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSy
 // - at 04:00 UTC: the research agent's cleanup of finished tasks and agent
 //   events older than 30 days;
 // - at 05:00 UTC: the retention purge of records archived longer than their
-//   workspace keeps them, as the CRM ran it, and D1's query statistics
-//   (src/db/maintenance.ts);
+//   workspace keeps them, as the CRM ran it, D1's query statistics
+//   (src/db/maintenance.ts), and the pause of mailbox syncs whose member
+//   the CRM hasn't seen for 30 days;
 // - at minute 30 of every hour: website tracking's retention (roll up and
-//   delete events past the window, bounded per run, and expired counters).
+//   delete events past the window, bounded per run, old form submissions
+//   and expired counters).
 //
 // One job failing doesn't stop the others; the tick still reports failure.
 const AGENT_RETENTION_HOUR_UTC = 4;
@@ -48,6 +51,7 @@ export async function runCron(
         console.log("[archive] retention purge", totals);
       }),
       refreshStatistics(),
+      MemberMailboxService.pauseUnseen(at),
     );
   }
   if (at.getUTCMinutes() === TRACKING_RETENTION_MINUTE) {

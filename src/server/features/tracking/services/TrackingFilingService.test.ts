@@ -183,18 +183,22 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ]);
     });
 
-    it("never brings back a deleted contact's address or a suppressed domain", async () => {
+    it("never brings back a deleted contact's address or a suppressed domain, and keeps nothing they sent", async () => {
       await database.exec(
         `INSERT INTO suppressed_contact (organization_id, email) VALUES ('${A}', 'gone@northwind.example');
          INSERT INTO suppressed_domain (organization_id, domain) VALUES ('${A}', 'blocked.example');`,
       );
-      await submit({ email: "gone@northwind.example" });
-      await submit({ email: "someone@blocked.example" }, "visitor_0002");
+      await submit({ email: "gone@northwind.example", message: "Call me" });
+      await submit(
+        { email: "someone@blocked.example", message: "Call me" },
+        "visitor_0002",
+      );
       expect(await contacts()).toEqual([]);
       expect(await submissions()).toMatchObject([
-        { skip_reason: "This address was deleted by a person" },
-        { skip_reason: "This domain is suppressed" },
+        { email: null, skip_reason: "This address was deleted by a person" },
+        { email: null, skip_reason: "This domain is suppressed" },
       ]);
+      expect(JSON.stringify(await submissions())).not.toMatch(/Call me/);
     });
 
     it("keeps shared mailboxes and the organization's own addresses out", async () => {

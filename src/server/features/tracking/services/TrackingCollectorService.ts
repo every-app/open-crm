@@ -291,14 +291,24 @@ async function recordSubmission(
   const firstTouch = event.firstTouch
     ? classifyTouch(arriving(event.firstTouch), at)
     : lastTouch;
+  // A deleted person's address, or a suppressed domain, is never filed
+  // (TrackingFilingService), and nothing it sent is kept.
+  const suppressed = email
+    ? await TrackingEventRepository.suppression(
+        organizationId,
+        email,
+        email.slice(email.lastIndexOf("@") + 1),
+      )
+    : null;
+  const forget = Boolean(suppressed?.address || suppressed?.domain);
 
   const submission = await TrackingEventRepository.insertSubmission({
     organizationId,
     visitorId,
     host,
     path,
-    email,
-    fields,
+    email: forget ? null : email,
+    fields: forget ? {} : fields,
     firstTouch: stored(firstTouch),
     lastTouch: stored(lastTouch),
     dedupeKey: await dedupeKey({ host, path, email, at }),
