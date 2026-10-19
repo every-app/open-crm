@@ -19,6 +19,10 @@ import { queueCrmEvents } from "@/server/features/team-agents/repositories/CrmEv
 import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import { leaveOtherCompanies } from "@/server/features/contacts/repositories/ContactRelationsRepository";
 import {
+  fieldValueWrites,
+  type FieldWrite,
+} from "@/server/features/fields/repositories/FieldValueRepository";
+import {
   FILTER_OPTIONS_MAX,
   activityCondition,
   activityCounts,
@@ -341,16 +345,22 @@ type NewContact = {
 
 /**
  * Inserts the contact, lifting any suppression of its email and queueing the
- * CRM events its creation emits in the same batch. Throws a unique violation
- * when a live contact has the email.
+ * CRM events its creation emits in the same batch, with the custom field
+ * values it is created with. Throws a unique violation when a live contact
+ * has the email.
  */
-async function insert(values: NewContact, events: CrmEvent[] = []) {
+async function insert(
+  values: NewContact,
+  events: CrmEvent[] = [],
+  fields: FieldWrite[] = [],
+) {
   const id = crypto.randomUUID();
   const { email, organizationId } = values;
   await runBatch((tx) => [
     tx.insert(contact).values({ ...values, id }),
     ...(email ? [allowAgain(tx, organizationId, email)] : []),
     ...queueCrmEvents(tx, { organizationId, recordId: id, events }),
+    ...fieldValueWrites(tx, organizationId, "CONTACT", id, fields),
   ]);
   return id;
 }
@@ -362,10 +372,18 @@ type ContactPatch = Partial<
 /**
  * Changes the contact. A new email lifts its suppression; a new company
  * takes away the contact's primary claim on the company they left, so a
- * company never names someone who works elsewhere. Throws a unique
- * violation when a live contact already has the new email.
+ * company never names someone who works elsewhere; the custom field values
+ * given with the change are written in the same batch (the caller has
+ * checked the contact is the organization's: a value names its record by id
+ * alone). Throws a unique violation when a live contact already has the new
+ * email.
  */
-async function update(organizationId: string, id: string, patch: ContactPatch) {
+async function update(
+  organizationId: string,
+  id: string,
+  patch: ContactPatch,
+  fields: FieldWrite[] = [],
+) {
   const { email, companyId } = patch;
   await runBatch((tx) => [
     tx
@@ -376,6 +394,7 @@ async function update(organizationId: string, id: string, patch: ContactPatch) {
       ? []
       : [leaveOtherCompanies(tx, organizationId, [id], companyId)]),
     ...(email ? [allowAgain(tx, organizationId, email)] : []),
+    ...fieldValueWrites(tx, organizationId, "CONTACT", id, fields),
   ]);
   const [row] = await db
     .select({

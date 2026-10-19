@@ -138,6 +138,11 @@ async function createCompany(
 ) {
   const domain = domainOf(input.domain);
   await assertOwner(organizationId, input.ownerId);
+  const fields = await FieldValuesService.checkValues(
+    organizationId,
+    "COMPANY",
+    input.fields ?? {},
+  );
   const name = input.name.trim();
   let id: string;
   try {
@@ -150,6 +155,7 @@ async function createCompany(
         ownerId: input.ownerId ?? null,
       },
       [{ type: "company.created", data: { name, domain } }],
+      fields,
     );
   } catch (error) {
     const taken =
@@ -165,7 +171,12 @@ async function createCompany(
   console.log("[companies] created", { organizationId, companyId: id, domain });
   pokeEvents(organizationId);
   await AgentTaskService.companyAddedByPerson(organizationId, id);
-  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", id);
+  await FieldsService.queueFillForNewRecord(
+    organizationId,
+    "COMPANY",
+    id,
+    fields,
+  );
   return { id, name, domain };
 }
 
@@ -199,6 +210,14 @@ async function updateCompany(
     await assertOwner(organizationId, ownerId);
     patch.ownerId = ownerId;
   }
+  // Custom field values are written with the change, and only onto the
+  // organization's own company: a value names its record by id alone.
+  const fields = await FieldValuesService.checkValues(
+    organizationId,
+    "COMPANY",
+    input.fields ?? {},
+  );
+  if (fields.length > 0) await requireCompany(organizationId, id);
   let domainChanged = false;
   if (domain !== undefined) {
     patch.domain = domainOf(domain);
@@ -217,7 +236,7 @@ async function updateCompany(
   }
   let updated: Awaited<ReturnType<typeof CompanyRepository.update>>;
   try {
-    updated = await CompanyRepository.update(organizationId, id, patch);
+    updated = await CompanyRepository.update(organizationId, id, patch, fields);
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new UserFacingError(

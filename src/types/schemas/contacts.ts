@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RECORD_SOURCES } from "@/shared/crm-enums";
+import { fieldValuesSchema } from "@/types/schemas/fields";
 import {
   ACTIVITY_WINDOWS,
   SORT_DIRECTIONS,
@@ -61,6 +62,8 @@ export const createContactSchema = z.object({
   /** Null or left out: the company behind a work email, if any. */
   companyId: z.string().min(1).nullable().optional(),
   ownerId: z.string().min(1).nullable().optional(),
+  /** Custom field values by key, written with the record. */
+  fields: fieldValuesSchema.optional(),
 });
 
 export type CreateContactInput = z.infer<typeof createContactSchema>;
@@ -78,6 +81,8 @@ export const updateContactSchema = z.object({
   /** Null takes the contact off their company. */
   companyId: z.string().min(1).nullable().optional(),
   ownerId: z.string().min(1).nullable().optional(),
+  /** Custom field values by key, written with the record. */
+  fields: fieldValuesSchema.optional(),
 });
 
 export type UpdateContactInput = z.infer<typeof updateContactSchema>;

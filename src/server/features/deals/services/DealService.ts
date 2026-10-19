@@ -121,6 +121,11 @@ export type DealDetail = Awaited<ReturnType<typeof getDeal>>;
 async function createDeal(organizationId: string, input: CreateDealInput) {
   await requireCompany(organizationId, input.companyId);
   await assertOwner(organizationId, input.ownerId);
+  const fields = await FieldValuesService.checkValues(
+    organizationId,
+    "DEAL",
+    input.fields ?? {},
+  );
   const stage = input.stage ?? "DEMO_BOOKED";
   const currency =
     input.currency ??
@@ -153,10 +158,16 @@ async function createDeal(organizationId: string, input: CreateDealInput) {
       expectedCloseDate: closeDateOf(input.expectedCloseDate),
     },
     events,
+    fields,
   );
   console.log("[deals] created", { organizationId, dealId: row.id, stage });
   pokeEvents(organizationId);
-  await FieldsService.queueFillForNewRecord(organizationId, "DEAL", row.id);
+  await FieldsService.queueFillForNewRecord(
+    organizationId,
+    "DEAL",
+    row.id,
+    fields,
+  );
   return row;
 }
 
@@ -181,6 +192,14 @@ async function updateDeal(organizationId: string, input: UpdateDealInput) {
   if (input.expectedCloseDate !== undefined) {
     patch.expectedCloseDate = closeDateOf(input.expectedCloseDate);
   }
+  // Custom field values are written with the change, and only onto the
+  // organization's own deal: a value names its record by id alone.
+  const fields = await FieldValuesService.checkValues(
+    organizationId,
+    "DEAL",
+    input.fields ?? {},
+  );
+  if (fields.length > 0) await requireDeal(organizationId, id);
   if (input.amount !== undefined || input.currency !== undefined) {
     // The unchanged one of the two is read back, and the conversion frozen
     // again at today's rate.
@@ -198,7 +217,12 @@ async function updateDeal(organizationId: string, input: UpdateDealInput) {
       ),
     );
   }
-  const updated = await DealRepository.update(organizationId, id, patch);
+  const updated = await DealRepository.update(
+    organizationId,
+    id,
+    patch,
+    fields,
+  );
   if (!updated) notFound(id);
   return updated;
 }

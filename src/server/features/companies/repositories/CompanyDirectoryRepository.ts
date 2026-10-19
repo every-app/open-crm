@@ -2,6 +2,10 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
 import { company } from "@/db/schema";
+import {
+  fieldValueWrites,
+  type FieldWrite,
+} from "@/server/features/fields/repositories/FieldValueRepository";
 import { queueCrmEvents } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import type { NewCompany } from "./CompanyRepository";
@@ -28,17 +32,22 @@ async function findLive(organizationId: string, domain: string) {
 }
 
 /**
- * Adds the company and the CRM events its creation emits, in one batch: both
- * or neither. Throws a unique violation when a live company of the
- * organization already has its domain (company_organization_domain_active_uidx).
- * The new id.
+ * Adds the company with the CRM events its creation emits and the custom
+ * field values it is created with, in one batch: all or none. Throws a
+ * unique violation when a live company of the organization already has its
+ * domain (company_organization_domain_active_uidx). The new id.
  */
-async function create(values: NewCompany, events: CrmEvent[]) {
+async function create(
+  values: NewCompany,
+  events: CrmEvent[],
+  fields: FieldWrite[] = [],
+) {
   const { organizationId } = values;
   const id = crypto.randomUUID();
   await runBatch((tx) => [
     tx.insert(company).values({ ...values, id }),
     ...queueCrmEvents(tx, { organizationId, recordId: id, events }),
+    ...fieldValueWrites(tx, organizationId, "COMPANY", id, fields),
   ]);
   return id;
 }

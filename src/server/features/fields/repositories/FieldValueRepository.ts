@@ -183,47 +183,60 @@ async function listForRecords(
 }
 
 /**
- * Writes values onto one record, all or nothing: a value upserts its row
- * (one per field and record, field_value's unique indexes), null deletes it.
+ * The statements that write values onto one record, for a batch: a value
+ * upserts its row (one per field and record, field_value's unique indexes),
+ * null deletes it. A record's create or update puts them in its own batch,
+ * so the record and its values are written together.
  */
+export function fieldValueWrites(
+  tx: typeof db,
+  organizationId: string,
+  entity: FieldEntity,
+  recordId: string,
+  writes: FieldWrite[],
+) {
+  const record = records(entity);
+  const reference = recordReference(entity, recordId);
+  const now = new Date().toISOString();
+  return writes.map(({ fieldId, type, value }) => {
+    if (value === null) {
+      return tx
+        .delete(fieldValue)
+        .where(
+          and(
+            eq(fieldValue.organizationId, organizationId),
+            eq(fieldValue.fieldId, fieldId),
+            eq(record.valueRecordId, recordId),
+          ),
+        );
+    }
+    const columns = storedColumns(type, value);
+    return tx
+      .insert(fieldValue)
+      .values({
+        id: crypto.randomUUID(),
+        organizationId,
+        fieldId,
+        ...reference,
+        ...columns,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [fieldValue.fieldId, record.valueRecordId],
+        set: { ...columns, updatedAt: now },
+      });
+  });
+}
+
+/** Writes values onto one record, all or nothing (fieldValueWrites). */
 async function write(
   organizationId: string,
   entity: FieldEntity,
   recordId: string,
   writes: FieldWrite[],
 ): Promise<void> {
-  const record = records(entity);
-  const reference = recordReference(entity, recordId);
-  const now = new Date().toISOString();
   await runBatch((tx) =>
-    writes.map(({ fieldId, type, value }) => {
-      if (value === null) {
-        return tx
-          .delete(fieldValue)
-          .where(
-            and(
-              eq(fieldValue.organizationId, organizationId),
-              eq(fieldValue.fieldId, fieldId),
-              eq(record.valueRecordId, recordId),
-            ),
-          );
-      }
-      const columns = storedColumns(type, value);
-      return tx
-        .insert(fieldValue)
-        .values({
-          id: crypto.randomUUID(),
-          organizationId,
-          fieldId,
-          ...reference,
-          ...columns,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [fieldValue.fieldId, record.valueRecordId],
-          set: { ...columns, updatedAt: now },
-        });
-    }),
+    fieldValueWrites(tx, organizationId, entity, recordId, writes),
   );
 }
 
