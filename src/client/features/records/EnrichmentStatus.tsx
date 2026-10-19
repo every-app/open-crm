@@ -6,8 +6,11 @@ import { ENRICHMENT_STATUSES, type EnrichmentStatus } from "@/shared/crm-enums";
 // in the background, so lists and sheets poll while it works, and only then:
 // a record waiting for the agent's model to be set up isn't polled.
 
-/** How often a list or sheet refetches while the agent works on a record. */
-const ENRICHMENT_POLL_MS = 3_000;
+/**
+ * How often a list or sheet refetches while the agent works on a record.
+ * Each refetch runs the list's queries again, and D1 runs one at a time.
+ */
+const ENRICHMENT_POLL_MS = 10_000;
 
 type Tone = "neutral" | "info" | "success" | "error";
 
