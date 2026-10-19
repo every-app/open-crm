@@ -18,6 +18,8 @@ import {
 import { isEnter } from "@/client/lib/keyboard";
 import type { RecordRef } from "@/shared/records";
 import {
+  ACTIVITY_BODY_MAX,
+  ACTIVITY_SUBJECT_MAX,
   COMPOSABLE_TYPES,
   type ComposableType,
 } from "@/types/schemas/activities";
@@ -42,6 +44,11 @@ function isComposableType(value: unknown): value is ComposableType {
   return COMPOSABLE_TYPES.some((type) => type === value);
 }
 
+/** The most a task's text (its subject) or anything else's (its body) holds. */
+function textMax(type: ComposableType): number {
+  return type === "TASK" ? ACTIVITY_SUBJECT_MAX : ACTIVITY_BODY_MAX;
+}
+
 /**
  * Logs what happened on `record`: a note, call, email or meeting, or a task
  * with a due date. ⌘/Ctrl+Enter logs it; Escape clears the draft.
@@ -52,7 +59,7 @@ export function ActivityComposer({ record }: { record: RecordRef }) {
     defaultValues: { type: "NOTE" as ComposableType, text: "", due: "" },
     onSubmit: async ({ value, formApi }) => {
       const text = value.text.trim();
-      if (!text) return;
+      if (!text || text.length > textMax(value.type)) return;
       const isTask = value.type === "TASK";
       await create.mutateAsync({
         ...recordIds(record),
@@ -68,6 +75,7 @@ export function ActivityComposer({ record }: { record: RecordRef }) {
   const { type, text } = useStore(form.store, (state) => state.values);
   const submitting = useStore(form.store, (state) => state.isSubmitting);
   const isTask = type === "TASK";
+  const tooLong = text.trim().length > textMax(type);
 
   return (
     <form.AppForm>
@@ -145,17 +153,24 @@ export function ActivityComposer({ record }: { record: RecordRef }) {
               </form.Field>
             ) : null}
             {text.trim() ? (
-              <InputGroupButton
-                type="submit"
-                variant="default"
-                size="xs"
-                className="ml-auto"
-                pending={submitting}
-              >
-                {isTask
-                  ? "Add task"
-                  : `Log ${ACTIVITY_PRESENTATION[type].label.toLowerCase()}`}
-              </InputGroupButton>
+              <div className="ml-auto flex items-center gap-2">
+                {tooLong ? (
+                  <span className="text-xs text-destructive">
+                    {`At most ${textMax(type).toLocaleString("en-US")} characters.`}
+                  </span>
+                ) : null}
+                <InputGroupButton
+                  type="submit"
+                  variant="default"
+                  size="xs"
+                  disabled={tooLong}
+                  pending={submitting}
+                >
+                  {isTask
+                    ? "Add task"
+                    : `Log ${ACTIVITY_PRESENTATION[type].label.toLowerCase()}`}
+                </InputGroupButton>
+              </div>
             ) : null}
           </InputGroupAddon>
         </InputGroup>
