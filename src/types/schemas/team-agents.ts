@@ -6,7 +6,8 @@ const requestId = z.uuid();
 
 /**
  * The longest name and description a person gives an agent, as the CRM's
- * agents.update and New agent took them (its builder's drafts stay shorter).
+ * agents.update took them (and its New agent the name); its builder's drafts
+ * stay shorter.
  */
 export const AGENT_NAME_MAX = 120;
 export const AGENT_DESCRIPTION_MAX = 500;
