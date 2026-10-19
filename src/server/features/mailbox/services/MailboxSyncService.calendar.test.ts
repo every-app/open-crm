@@ -35,6 +35,10 @@ import {
   stubProviders,
 } from "@/server/features/mailbox/mailboxTestSupport";
 import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
+import {
+  CONTACTS_PER_HOUR,
+  hourWindow,
+} from "@/server/features/tracking/trackingRules";
 import { MailboxSyncService } from "./MailboxSyncService";
 
 const EVENTS = "www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -217,6 +221,28 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await database.rows(`SELECT domain FROM company`)).toEqual([
         { domain: "wayne.com" },
       ]);
+    });
+
+    it("adds no one once the organization's new people for the hour are used up", async () => {
+      const window = hourWindow(new Date());
+      await database.exec(
+        `INSERT INTO tracking_counter (organization_id, key, value, expires_at) VALUES ('org_a', 'calendar-contacts:${window.key}', ${CONTACTS_PER_HOUR}, '${window.expiresAt}')`,
+      );
+      stubProviders({
+        [EVENTS]: () => ({
+          items: [
+            event({
+              id: "spam",
+              guest: "kim@initech.com",
+              startsAt: daysFromNow(2),
+            }),
+          ],
+          nextSyncToken: "sync-1",
+        }),
+      });
+      await MailboxSyncService.runDue();
+      expect(await database.rows(`SELECT id FROM company`)).toEqual([]);
+      expect(await database.rows(`SELECT id FROM contact`)).toEqual([]);
     });
 
     it("re-reads the window when the sync token has expired", async () => {

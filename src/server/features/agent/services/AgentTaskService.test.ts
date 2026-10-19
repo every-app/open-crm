@@ -70,4 +70,17 @@ describe("a company a person adds", () => {
       ),
     ).toEqual([{ kind: "brand", finished_at: null }]);
   });
+
+  it("gets its favicon and no research where the workspace turned off Research automatically", async () => {
+    withBalance(autumn, 500);
+    await database.exec(
+      `INSERT INTO workspace (organization_id, name, research_automatically) VALUES ('org_a', 'A', false);`,
+    );
+    await AgentTaskService.companyAddedByPerson("org_a", "acme");
+    await Promise.all(deferred);
+
+    const [company] = await database.rows("SELECT icon_url FROM company");
+    expect(company?.icon_url).toMatch(/^\/api\/images\/org_a\//);
+    expect(await database.rows("SELECT kind FROM agent_task")).toEqual([]);
+  });
 });

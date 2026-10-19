@@ -196,6 +196,29 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await queued("org_b")).toEqual(["identify contact:bo"]);
     });
 
+    it("passes over the research of records held for a person, but fetches their favicons", async () => {
+      await database.exec(
+        `INSERT INTO company (id, organization_id, name, domain, research_held_at) VALUES ('held', 'org_a', 'held.icon.test', 'held.icon.test', '${ago(HOUR)}');
+         INSERT INTO contact (id, organization_id, first_name, github_url, company_id, research_held_at) VALUES ('waiting', 'org_a', 'Wes', 'https://github.com/wes', 'held', '${ago(HOUR)}');`,
+      );
+      await runEnrichmentSweep({ contextReady: ready });
+      expect(await queued()).toEqual([]);
+      expect(
+        await database.rows(`SELECT icon_url FROM company WHERE id = 'held'`),
+      ).toEqual([{ icon_url: copyOf("held/icon") }]);
+    });
+
+    it("queues nothing for an organization that turned off Research automatically", async () => {
+      await database.exec(
+        `UPDATE workspace SET website = 'a.test', research_automatically = false WHERE organization_id = 'org_a';
+         INSERT INTO company (id, organization_id, name, domain) VALUES ('acme', 'org_a', 'Acme', 'acme.test');
+         INSERT INTO contact (id, organization_id, first_name) VALUES ('ana', 'org_a', 'Ana'), ('bo', 'org_b', 'Bo');`,
+      );
+      await runEnrichmentSweep({ contextReady: ready });
+      expect(await queued("org_a")).toEqual([]);
+      expect(await queued("org_b")).toEqual(["identify contact:bo"]);
+    });
+
     it("sweeps each organization at most every five minutes", async () => {
       expect(await runEnrichmentSweep({ contextReady: ready })).toBe(2);
       expect(await runEnrichmentSweep({ contextReady: ready })).toBe(0);

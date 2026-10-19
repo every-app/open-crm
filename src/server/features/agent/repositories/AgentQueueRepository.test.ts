@@ -86,6 +86,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       lane: TaskLane = RESEARCH,
       extra: {
         organizationId?: string;
+        perOrganization?: number;
         minPriority?: number;
         creditsHeldSince?: string;
       } = {},
@@ -128,6 +129,42 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       const high = await queue({ priority: PRIORITY.workspace });
       const claimed = await claim();
       expect(claimed.map((task) => task.id)).toEqual([high, low]);
+    });
+
+    it("lets organizations take turns, none past its share", async () => {
+      const first = await queue({
+        priority: PRIORITY.requested,
+        dueAt: past(3000),
+      });
+      const second = await queue({
+        priority: PRIORITY.requested,
+        dueAt: past(2000),
+      });
+      await queue({ priority: PRIORITY.requested, dueAt: past(1000) });
+      const other = await queue({
+        organizationId: "org_b",
+        priority: PRIORITY.recheck,
+      });
+      const claimed = await claim(RESEARCH, { perOrganization: 2 });
+      expect(claimed.map((task) => task.id)).toEqual([first, other, second]);
+    });
+
+    it("holds the scheduled research of an organization that turned off Research automatically, not what a person asked for", async () => {
+      await database.exec(
+        `INSERT INTO workspace (organization_id, name, research_automatically) VALUES ('org_a', 'A', false)`,
+      );
+      await queue({ kind: "recheck", priority: PRIORITY.recheck });
+      const asked = await queue({
+        kind: "company-profile",
+        priority: PRIORITY.requested,
+      });
+      const elsewhere = await queue({
+        kind: "recheck",
+        priority: PRIORITY.recheck,
+        organizationId: "org_b",
+      });
+      const claimed = await claim();
+      expect(claimed.map((task) => task.id)).toEqual([asked, elsewhere]);
     });
 
     it("re-claims a row only once its lease runs out, until its attempts are spent", async () => {
