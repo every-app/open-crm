@@ -2,6 +2,7 @@ import type { SQL, SQLWrapper } from "drizzle-orm";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { FieldDefinitionRepository } from "@/server/features/fields/repositories/FieldDefinitionRepository";
 import { FieldFacetRepository } from "@/server/features/fields/repositories/FieldFacetRepository";
+import { FieldFilterRepository } from "@/server/features/fields/repositories/FieldFilterRepository";
 import {
   FieldValueRepository,
   storedValue,
@@ -222,7 +223,7 @@ async function filterConditions(
   return entries.flatMap(([key, filter]) => {
     const definition = byKey.get(key);
     const condition = definition
-      ? FieldValueRepository.filterCondition(entity, definition, filter)
+      ? FieldFilterRepository.filterCondition(entity, definition, filter)
       : null;
     return condition ? [condition] : [];
   });
