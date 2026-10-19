@@ -12,8 +12,9 @@ import {
 // 2. deletes those events, in bounded passes; a run that hits the ceiling
 //    says so, and the next hour carries on (a day rolled twice keeps its
 //    larger count, so the rerun never under-reports what was deleted);
-// 3. deletes visitors whose contact is gone and who have nothing left;
-// 4. deletes rate counters whose window has passed.
+// 3. deletes form submissions as old, filed or not;
+// 4. deletes visitors whose contact is gone and who have nothing left;
+// 5. deletes rate counters whose window has passed.
 //
 // The cutoff is a whole UTC day, so no calendar day is split across runs.
 
@@ -36,6 +37,9 @@ async function sweep(now: Date = new Date()) {
   const events = await sweepPasses(() =>
     TrackingRetentionRepository.deleteEventsBefore(cutoff, SWEEP_BATCH),
   );
+  const submissions = await sweepPasses(() =>
+    TrackingRetentionRepository.deleteSubmissionsBefore(cutoff, SWEEP_BATCH),
+  );
   const visitors = await sweepPasses(() =>
     TrackingRetentionRepository.deleteOrphanVisitors(cutoff, SWEEP_BATCH),
   );
@@ -55,6 +59,7 @@ async function sweep(now: Date = new Date()) {
     cutoff,
     events: events.removed,
     complete: events.complete,
+    submissions: submissions.removed,
     visitors: visitors.removed,
     counters: counters.removed,
   };

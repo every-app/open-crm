@@ -18,6 +18,7 @@ import {
   company,
   contact,
   deal,
+  formSubmission,
   suppressedContact,
 } from "@/db/schema";
 
@@ -30,6 +31,8 @@ import {
 // wins:
 // - the agent's queued work and journal about it (agent_task and agent_event
 //   carry record ids without foreign keys), a company's deals' included,
+// - a contact's website form submissions, filed under them or sent from
+//   their address (the database would only unlink them),
 // - a contact's address onto the suppression list, so captured mail never
 //   brings the person back.
 
@@ -151,6 +154,23 @@ async function purge(
     }
     return [
       ...agentRows,
+      tx
+        .delete(formSubmission)
+        .where(
+          and(
+            eq(formSubmission.organizationId, organizationId),
+            or(
+              inArray(formSubmission.contactId, purged),
+              inArray(
+                formSubmission.email,
+                tx
+                  .select({ email: sql<string>`lower(trim(${contact.email}))` })
+                  .from(contact)
+                  .where(expired(contact, organizationId, before, ids)),
+              ),
+            ),
+          ),
+        ),
       tx
         .insert(suppressedContact)
         .select((qb) =>

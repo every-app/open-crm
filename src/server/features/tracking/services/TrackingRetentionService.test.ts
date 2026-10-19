@@ -62,7 +62,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
          INSERT INTO contact (id, organization_id, first_name) VALUES ('c1', 'org_a', 'Jane');
          INSERT INTO tracked_visitor (organization_id, id, contact_id, last_seen) VALUES
            ('org_a', 'gone', NULL, '${OLD_DAY}T09:00:00.000Z'),
-           ('org_a', 'known', 'c1', '${OLD_DAY}T09:00:00.000Z');`,
+           ('org_a', 'known', 'c1', '${OLD_DAY}T09:00:00.000Z');
+         INSERT INTO form_submission (id, organization_id, contact_id, host, path, email, fields, dedupe_key, created_at) VALUES
+           ('f_old', 'org_a', 'c1', 'acme.com', '/contact', 'jane@x.test', '{}', 'k1', '${OLD_DAY}T09:00:00.000Z'),
+           ('f_new', 'org_b', NULL, 'acme.com', '/contact', 'bo@x.test', '{}', 'k2', '2026-07-19T00:00:00.000Z');`,
       );
 
       const totals = await TrackingRetentionService.sweep(NOW);
@@ -70,9 +73,13 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(totals).toMatchObject({
         events: 5,
         complete: true,
+        submissions: 1,
         visitors: 1,
         counters: 1,
       });
+      expect(await database.rows("SELECT id FROM form_submission")).toEqual([
+        { id: "f_new" },
+      ]);
       expect(
         await database.rows(
           "SELECT organization_id, day, views, visitors FROM tracked_page_daily ORDER BY organization_id",
