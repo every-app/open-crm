@@ -15,6 +15,7 @@ import {
   InputGroupTextarea,
 } from "@/client/components/ui/input-group";
 import { Toggle } from "@/client/components/ui/toggle";
+import { isEnter } from "@/client/lib/keyboard";
 import { uploadBuilderAttachment } from "@/serverFunctions/teamAgents";
 import {
   builderCommandType,
@@ -169,7 +170,7 @@ export function BuilderComposer({
   }
 
   function handleKey(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (isEnter(event) && !event.shiftKey) {
       event.preventDefault();
       void submit();
     }

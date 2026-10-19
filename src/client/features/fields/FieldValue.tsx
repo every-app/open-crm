@@ -16,6 +16,7 @@ import { Spinner } from "@/client/components/ui/spinner";
 import { Textarea } from "@/client/components/ui/textarea";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import { EmptyValue } from "@/client/features/records/cells";
+import { isEnter } from "@/client/lib/keyboard";
 import type { FieldType } from "@/shared/crm-enums";
 import {
   parseFieldValue,
@@ -285,7 +286,7 @@ function TextValue({ field, value, saving, onSave, labelId }: EditorProps) {
             {...shared}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              if (isEnter(event) && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 commit();
               }
@@ -300,7 +301,7 @@ function TextValue({ field, value, saving, onSave, labelId }: EditorProps) {
             inputMode={field.type === "NUMBER" ? "decimal" : undefined}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") {
+              if (isEnter(event)) {
                 event.preventDefault();
                 commit();
               }

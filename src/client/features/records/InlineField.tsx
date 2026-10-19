@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/client/components/ui/select";
 import { Textarea } from "@/client/components/ui/textarea";
+import { isEnter } from "@/client/lib/keyboard";
 
 // A record sheet's properties, each edited in place: click the value, type,
 // and Enter (or leaving the field) saves; Escape puts it back. A field saves
@@ -137,7 +138,7 @@ export function InlineField({
           onChange={(event) => field.setDraft(event.target.value)}
           onBlur={field.commit}
           onKeyDown={(event) => {
-            if (event.key === "Enter") {
+            if (isEnter(event)) {
               event.preventDefault();
               field.commit();
             }
@@ -196,7 +197,7 @@ export function InlineTextArea({
         onChange={(event) => field.setDraft(event.target.value)}
         onBlur={field.commit}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          if (isEnter(event) && (event.metaKey || event.ctrlKey)) {
             event.preventDefault();
             field.commit();
           }

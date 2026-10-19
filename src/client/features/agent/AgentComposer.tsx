@@ -6,6 +6,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/client/components/ui/input-group";
+import { isEnter } from "@/client/lib/keyboard";
 
 /**
  * Where a person writes to the agent (OpenSEO SAM's ChatComposer). Enter
@@ -38,7 +39,7 @@ export function AgentComposer({
   }
 
   function handleKey(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (isEnter(event) && !event.shiftKey) {
       event.preventDefault();
       submit();
     }

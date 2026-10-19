@@ -24,6 +24,7 @@ import {
   getErrorCode,
   getStandardErrorMessage,
 } from "@/client/lib/error-messages";
+import { isEnter } from "@/client/lib/keyboard";
 import type { SavedView } from "@/server/features/saved-views/services/SavedViewService";
 import {
   createSavedView,
@@ -340,7 +341,7 @@ function ManageViewRow({
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") rename();
+              if (isEnter(event)) rename();
               if (event.key === "Escape") setName(null);
             }}
           />
