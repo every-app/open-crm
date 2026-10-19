@@ -1,6 +1,6 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
-import { CompanyService } from "@/server/features/companies/services/CompanyService";
+import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactFactRepository } from "@/server/features/contacts/repositories/ContactFactRepository";
 import { ContactRelationsRepository } from "@/server/features/contacts/repositories/ContactRelationsRepository";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
@@ -10,6 +10,7 @@ import {
   assertOwner,
   blankToNull,
   bulkOutcome,
+  fieldWrites,
   isUniqueViolation,
   recordAgentStates,
   runBulk,
@@ -157,6 +158,7 @@ async function createContact(
   const ownerId = input.ownerId ?? null;
   await assertOwner(organizationId, ownerId);
   // Before the company: a refused contact leaves no company behind.
+  const fields = await fieldWrites(organizationId, "CONTACT", input.fields);
   if (email) {
     const existing = await ContactRepository.findLiveByEmail(
       organizationId,
@@ -174,7 +176,11 @@ async function createContact(
   const companyId =
     input.companyId ??
     (email
-      ? await CompanyService.companyForEmail(organizationId, email, ownerId)
+      ? await CompanyDirectoryService.companyForEmail(
+          organizationId,
+          email,
+          ownerId,
+        )
       : null);
   const firstName = input.firstName.trim();
   const lastName = blankToNull(input.lastName ?? "");
@@ -197,6 +203,7 @@ async function createContact(
           data: { firstName, lastName, email, companyId },
         },
       ],
+      fields,
     );
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -254,10 +261,11 @@ async function updateContact(
     if (companyId) await requireLiveCompany(organizationId, companyId);
     patch.companyId = companyId;
   }
+  const fields = await fieldWrites(organizationId, "CONTACT", input.fields, id);
   await requireContact(organizationId, id);
   try {
     return (
-      (await ContactRepository.update(organizationId, id, patch)) ??
+      (await ContactRepository.update(organizationId, id, patch, fields)) ??
       notFound(id)
     );
   } catch (error) {

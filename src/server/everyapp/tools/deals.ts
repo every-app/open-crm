@@ -7,12 +7,18 @@ import {
   pageSizeInput,
   personOutput,
   recordRefOutput,
+  reported,
+  reportedOutput,
 } from "@/server/everyapp/crm-tool";
 import {
   fieldColumnsOutput,
   fieldFiltersInput,
+  fieldValuesInput,
+  recordValues,
+  recordValuesOutput,
   resolveFieldFilters,
   userFieldsByEmail,
+  withMemberIds,
 } from "@/server/everyapp/tools/fieldFilters";
 import {
   DealService,
@@ -46,21 +52,6 @@ function day(value: string | null) {
   return value ? value.slice(0, 10) : null;
 }
 
-const reportedOutput = z
-  .object({ amount: z.number(), currency: z.string() })
-  .nullable()
-  .describe("The amount in the reporting currency, when a rate converts it.");
-
-/** The amount in the reporting currency, when a rate converted it. */
-function reported(
-  deal: { baseAmount: number | null; baseCurrency: string | null },
-  reportingCurrency: string,
-) {
-  return deal.baseAmount !== null && deal.baseCurrency === reportingCurrency
-    ? { amount: deal.baseAmount, currency: reportingCurrency }
-    : null;
-}
-
 const summaryOutput = z.object({
   id: z.string(),
   name: z.string(),
@@ -73,6 +64,7 @@ const summaryOutput = z.object({
   expectedCloseDate: z.string().nullable(),
   closedAt: z.string().nullable(),
   lastActivityAt: z.string().nullable(),
+  createdAt: z.string(),
   archivedAt: z.string().nullable(),
   fields: fieldColumnsOutput,
 });
@@ -111,6 +103,7 @@ const detailsOutput = z.object({
   exchangeRate: z.number().nullable(),
   exchangeRateAsOf: z.string().nullable(),
   expectedCloseDate: z.string().nullable(),
+  fields: recordValuesOutput,
   contacts: z.array(
     z.object({
       id: z.string(),
@@ -125,9 +118,13 @@ const detailsOutput = z.object({
   archivedAt: z.string().nullable(),
 });
 
-function details(deal: DealDetail): z.input<typeof detailsOutput> {
+function details(
+  deal: DealDetail,
+  fields: z.input<typeof recordValuesOutput>,
+): z.input<typeof detailsOutput> {
   return {
     ...deal,
+    fields,
     inReportingCurrency: reported(deal, deal.reportingCurrency),
     exchangeRate: deal.fxRate,
     exchangeRateAsOf: deal.fxRateAt,
@@ -273,34 +270,46 @@ export const dealTools = {
 
   get_deal: crmTool({
     description:
-      "One deal in full: its company, owner, stage and when it last moved, why it closed, its amount (and in the reporting currency), and the people on it with their roles.",
+      "One deal in full: its company, owner, stage and when it last moved, why it closed, its amount (and in the reporting currency), custom fields, and the people on it with their roles.",
     risk: "read",
     input: z.object({ id: dealId }).strict(),
     output: detailsOutput,
-    handler: async ({ id }, context) =>
-      details(await DealService.getDeal(context.organizationId, id)),
+    handler: async ({ id }, context) => {
+      const [deal, fields] = await Promise.all([
+        DealService.getDeal(context.organizationId, id),
+        recordValues(context.organizationId, "DEAL", id),
+      ]);
+      return details(deal, fields);
+    },
   }),
 
   create_deal: crmTool({
-    description: `Add a deal to a company. The owner defaults to you, the currency to the reporting currency, the stage to DEMO_BOOKED. ${STAGES_NOTE}`,
+    description: `Add a deal to a company, with its custom field values if given. The owner defaults to you, the currency to the reporting currency, the stage to DEMO_BOOKED. ${STAGES_NOTE}`,
     risk: "write",
     input: createDealSchema
       .omit({ ownerId: true })
-      .extend({ ...dealFields, ownerEmail: ownerEmail.optional() })
+      .extend({
+        ...dealFields,
+        ownerEmail: ownerEmail.optional(),
+        fields: fieldValuesInput,
+      })
       .strict(),
     output: recordRefOutput,
-    handler: async ({ ownerEmail: email, ...input }, context) =>
+    handler: async ({ ownerEmail: email, fields, ...input }, context) =>
       DealService.createDeal(context.organizationId, {
         ...input,
         ownerId: email
           ? await memberId(context.organizationId, email)
           : context.userId,
+        fields:
+          fields &&
+          (await withMemberIds(context.organizationId, "DEAL", fields)),
       }),
   }),
 
   update_deal: crmTool({
     description:
-      "Change a deal's details. Only the fields given change; null clears the amount, description or close date. A new amount or currency is converted at today's rate. Move its stage with set_deal_stage.",
+      "Change a deal's details and custom field values, in one write. Only what is given changes; null clears the amount, description or close date. A new amount or currency is converted at today's rate. Move its stage with set_deal_stage.",
     risk: "write",
     input: updateDealSchema
       .omit({ ownerId: true })
@@ -309,15 +318,19 @@ export const dealTools = {
         id: dealId,
         companyId: dealFields.companyId.optional(),
         ownerEmail: ownerEmail.optional(),
+        fields: fieldValuesInput,
       })
       .strict(),
     output: recordRefOutput,
-    handler: async ({ ownerEmail: email, ...input }, context) =>
+    handler: async ({ ownerEmail: email, fields, ...input }, context) =>
       DealService.updateDeal(context.organizationId, {
         ...input,
         ownerId: email
           ? await memberId(context.organizationId, email)
           : undefined,
+        fields:
+          fields &&
+          (await withMemberIds(context.organizationId, "DEAL", fields)),
       }),
   }),
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ENRICHMENT_STATUSES, RECORD_SOURCES } from "@/shared/crm-enums";
+import { fieldValuesSchema } from "@/types/schemas/fields";
 import {
   ACTIVITY_WINDOWS,
   SORT_DIRECTIONS,
@@ -49,6 +50,8 @@ export const createCompanySchema = z.object({
   // refuses anything else.
   domain: z.string().trim().max(255).optional(),
   ownerId: z.string().min(1).nullable().optional(),
+  /** Custom field values by key, written with the record. */
+  fields: fieldValuesSchema.optional(),
 });
 
 export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
@@ -70,6 +73,8 @@ export const updateCompanySchema = z.object({
   email: text(320),
   linkedinUrl: text(2048),
   ownerId: z.string().min(1).nullable().optional(),
+  /** Custom field values by key, written with the record. */
+  fields: fieldValuesSchema.optional(),
 });
 
 export type UpdateCompanyInput = z.infer<typeof updateCompanySchema>;

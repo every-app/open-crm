@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   calendarAttendee,
   calendarEvent,
+  company,
   contact,
   emailMessage,
   emailThread,
@@ -15,7 +16,8 @@ import { safeHostname } from "@/shared/safe-url";
 
 // What mail and calendar capture (src/server/features/mailbox) stored behind
 // an EMAIL or MEETING activity: a thread's messages and a meeting's
-// attendees, read when someone opens one on a timeline.
+// attendees, with the records each is filed on, read when someone opens one
+// on a timeline or an AI client asks (get_email_thread, get_meeting).
 
 const recipientSchema = z.object({
   email: z.string(),
@@ -97,7 +99,20 @@ function mailboxLink(
 
 const OUTLOOK_HOSTS = /^outlook\.(office365|office|live)\.com$/;
 
-/** One of the organization's email threads with its messages, oldest first. */
+/** The company and contact a thread or meeting is filed on, if any. */
+const filedOn = {
+  company: { id: company.id, name: company.name },
+  contact: {
+    id: contact.id,
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+  },
+};
+
+/**
+ * One of the organization's email threads with the company and contact it
+ * is filed on, and its messages, oldest first.
+ */
 async function thread(organizationId: string, threadId: string) {
   const [found] = await db
     .select({
@@ -106,8 +121,23 @@ async function thread(organizationId: string, threadId: string) {
       messageCount: emailThread.messageCount,
       firstMessageAt: emailThread.firstMessageAt,
       lastMessageAt: emailThread.lastMessageAt,
+      ...filedOn,
     })
     .from(emailThread)
+    .leftJoin(
+      company,
+      and(
+        eq(company.id, emailThread.companyId),
+        eq(company.organizationId, organizationId),
+      ),
+    )
+    .leftJoin(
+      contact,
+      and(
+        eq(contact.id, emailThread.contactId),
+        eq(contact.organizationId, organizationId),
+      ),
+    )
     .where(
       and(
         eq(emailThread.organizationId, organizationId),
@@ -155,20 +185,40 @@ async function thread(organizationId: string, threadId: string) {
   };
 }
 
-/** One of the organization's meetings with its attendees, organizer first. */
+/**
+ * One of the organization's meetings with what the invite says, the company
+ * and contact it is filed on, and its attendees, organizer first.
+ */
 async function meeting(organizationId: string, eventId: string) {
   const [found] = await db
     .select({
       id: calendarEvent.id,
       title: calendarEvent.title,
+      description: calendarEvent.description,
       location: calendarEvent.location,
       conferenceUrl: calendarEvent.conferenceUrl,
       startsAt: calendarEvent.startsAt,
       endsAt: calendarEvent.endsAt,
       isAllDay: calendarEvent.isAllDay,
       status: calendarEvent.status,
+      organizerEmail: calendarEvent.organizerEmail,
+      ...filedOn,
     })
     .from(calendarEvent)
+    .leftJoin(
+      company,
+      and(
+        eq(company.id, calendarEvent.companyId),
+        eq(company.organizationId, organizationId),
+      ),
+    )
+    .leftJoin(
+      contact,
+      and(
+        eq(contact.id, calendarEvent.contactId),
+        eq(contact.organizationId, organizationId),
+      ),
+    )
     .where(
       and(
         eq(calendarEvent.organizationId, organizationId),

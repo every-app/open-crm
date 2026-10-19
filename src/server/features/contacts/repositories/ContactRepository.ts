@@ -18,6 +18,8 @@ import type { RecordSource } from "@/shared/crm-enums";
 import { queueCrmEvents } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import { leaveOtherCompanies } from "@/server/features/contacts/repositories/ContactRelationsRepository";
+import { fieldValueWrites } from "@/server/features/fields/repositories/FieldValueRepository";
+import type { FieldWrite } from "@/server/features/fields/repositories/FieldValueRepository";
 import {
   FILTER_OPTIONS_MAX,
   activityCondition,
@@ -25,6 +27,7 @@ import {
   anyOfCondition,
   archivedCondition,
   countsByValue,
+  ownerColumns,
   ownerCondition,
   pageWindow,
   searchCondition,
@@ -85,13 +88,6 @@ const companyJoin = and(
   eq(company.id, contact.companyId),
   eq(company.organizationId, contact.organizationId),
 );
-
-const owner = {
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  image: user.image,
-};
 
 const companySummary = {
   id: company.id,
@@ -254,7 +250,7 @@ async function list(
         createdAt: contact.createdAt,
         archivedAt: contact.archivedAt,
         company: companySummary,
-        owner,
+        owner: ownerColumns,
       })
       .from(contact)
       .leftJoin(company, companyJoin)
@@ -277,7 +273,7 @@ async function findById(organizationId: string, id: string) {
   const [row] = await db
     .select({
       contact,
-      owner,
+      owner: ownerColumns,
       company: {
         ...companySummary,
         industry: company.industry,
@@ -341,16 +337,22 @@ type NewContact = {
 
 /**
  * Inserts the contact, lifting any suppression of its email and queueing the
- * CRM events its creation emits in the same batch. Throws a unique violation
- * when a live contact has the email.
+ * CRM events its creation emits in the same batch, with the custom field
+ * values it is created with. Throws a unique violation when a live contact
+ * has the email.
  */
-async function insert(values: NewContact, events: CrmEvent[] = []) {
+async function insert(
+  values: NewContact,
+  events: CrmEvent[] = [],
+  fields: FieldWrite[] = [],
+) {
   const id = crypto.randomUUID();
   const { email, organizationId } = values;
   await runBatch((tx) => [
     tx.insert(contact).values({ ...values, id }),
     ...(email ? [allowAgain(tx, organizationId, email)] : []),
     ...queueCrmEvents(tx, { organizationId, recordId: id, events }),
+    ...fieldValueWrites(tx, organizationId, "CONTACT", id, fields),
   ]);
   return id;
 }
@@ -362,10 +364,18 @@ type ContactPatch = Partial<
 /**
  * Changes the contact. A new email lifts its suppression; a new company
  * takes away the contact's primary claim on the company they left, so a
- * company never names someone who works elsewhere. Throws a unique
+ * company never names someone who works elsewhere; the custom field values
+ * given with the change are written in the same batch (the caller has
+ * checked the contact is the organization's: a value names its record by id
+ * alone). The changed contact as findById reads it. Throws a unique
  * violation when a live contact already has the new email.
  */
-async function update(organizationId: string, id: string, patch: ContactPatch) {
+async function update(
+  organizationId: string,
+  id: string,
+  patch: ContactPatch,
+  fields: FieldWrite[] = [],
+) {
   const { email, companyId } = patch;
   await runBatch((tx) => [
     tx
@@ -376,18 +386,9 @@ async function update(organizationId: string, id: string, patch: ContactPatch) {
       ? []
       : [leaveOtherCompanies(tx, organizationId, [id], companyId)]),
     ...(email ? [allowAgain(tx, organizationId, email)] : []),
+    ...fieldValueWrites(tx, organizationId, "CONTACT", id, fields),
   ]);
-  const [row] = await db
-    .select({
-      id: contact.id,
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      email: contact.email,
-      companyId: contact.companyId,
-    })
-    .from(contact)
-    .where(inOrganization(organizationId, id));
-  return row ?? null;
+  return findById(organizationId, id);
 }
 
 /** Archives the live contacts among `ids`; the ids it archived. */

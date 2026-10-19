@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { crmTool } from "@/server/everyapp/crm-tool";
+import { crmTool, fullName, recordRefOutput } from "@/server/everyapp/crm-tool";
 import { ActivityService } from "@/server/features/activities/services/ActivityService";
 import { ConnectionService } from "@/server/features/mailbox/services/ConnectionService";
 import { MAILBOX_PROVIDERS, SYNC_SOURCES } from "@/shared/mailbox";
@@ -25,9 +25,27 @@ function cut(text: string | null) {
 const capturedId = (what: string, from: string) =>
   z.string().min(1).describe(`The ${what}'s id, from ${from}.`);
 
+const filedOnOutput = {
+  company: recordRefOutput.nullable(),
+  contact: recordRefOutput.nullable(),
+};
+
+/** The company and contact a thread or meeting is filed on, by id and name. */
+function filedOn(item: {
+  company: { id: string; name: string } | null;
+  contact: { id: string; firstName: string; lastName: string | null } | null;
+}) {
+  return {
+    company: item.company,
+    contact: item.contact
+      ? { id: item.contact.id, name: fullName(item.contact) }
+      : null,
+  };
+}
+
 export const mailTools = {
   get_email_thread: crmTool({
-    description: `One captured email thread: its subject and its newest ${THREAD_MESSAGES} messages, oldest first, each with sender, recipients and text (cut at ${BODY_CHARS.toLocaleString("en")} characters). list_activities with filter "email" gives thread ids.`,
+    description: `One captured email thread: its subject, the company and contact it is filed on, and its newest ${THREAD_MESSAGES} messages, oldest first, each with sender, recipients and text (cut at ${BODY_CHARS.toLocaleString("en")} characters). list_activities with filter "email" gives thread ids.`,
     risk: "read",
     input: z
       .object({
@@ -37,6 +55,7 @@ export const mailTools = {
     output: z.object({
       id: z.string(),
       subject: z.string().nullable(),
+      ...filedOnOutput,
       messageCount: z.number(),
       messages: z.array(
         z.object({
@@ -61,6 +80,7 @@ export const mailTools = {
       );
       return {
         ...thread,
+        ...filedOn(thread),
         messages: thread.messages.slice(-THREAD_MESSAGES).map((message) => ({
           direction: message.direction,
           from: { email: message.fromEmail, name: message.fromName },
@@ -73,8 +93,7 @@ export const mailTools = {
   }),
 
   get_meeting: crmTool({
-    description:
-      'One captured meeting: when and where, and who was invited with their answers (attendees in the CRM come with their contact id). list_activities with filter "meetings" gives meeting ids.',
+    description: `One captured meeting: when and where, what the invite says (cut at ${BODY_CHARS.toLocaleString("en")} characters), who organized it, the company and contact it is filed on, and who was invited with their answers (attendees in the CRM come with their contact id). list_activities with filter "meetings" gives meeting ids.`,
     risk: "read",
     input: z
       .object({
@@ -87,12 +106,15 @@ export const mailTools = {
     output: z.object({
       id: z.string(),
       title: z.string().nullable(),
+      description: z.string().nullable(),
       startsAt: z.string(),
       endsAt: z.string(),
       isAllDay: z.boolean(),
       location: z.string().nullable(),
       conferenceUrl: z.string().nullable(),
       status: z.string().nullable(),
+      organizerEmail: z.string().nullable(),
+      ...filedOnOutput,
       attendees: z.array(
         z.object({
           email: z.string(),
@@ -110,6 +132,8 @@ export const mailTools = {
       );
       return {
         ...meeting,
+        ...filedOn(meeting),
+        description: cut(meeting.description),
         attendees: meeting.attendees.map((attendee) => ({
           ...attendee,
           response: attendee.responseStatus,

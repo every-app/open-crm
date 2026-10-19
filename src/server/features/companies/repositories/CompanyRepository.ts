@@ -30,6 +30,8 @@ import {
   type SortSpec,
 } from "@/server/features/records/listQuery";
 import { idChunks } from "@/server/features/records/recordRules";
+import { fieldValueWrites } from "@/server/features/fields/repositories/FieldValueRepository";
+import type { FieldWrite } from "@/server/features/fields/repositories/FieldValueRepository";
 import type { CompanyListInput, CompanySort } from "@/types/schemas/companies";
 import { UNASSIGNED, type FacetCounts } from "@/types/schemas/records";
 
@@ -315,18 +317,26 @@ async function insert(values: NewCompany) {
   return { ...row, created: row.id === id };
 }
 
-/** The changed company, or null when it isn't the organization's. */
+/**
+ * Changes the company and writes the custom field values given with the
+ * change, in one batch (the caller has checked the company is the
+ * organization's: a value names its record by id alone). The changed
+ * company as findById reads it, or null when it isn't the organization's.
+ */
 async function update(
   organizationId: string,
   id: string,
   patch: Partial<Omit<typeof company.$inferInsert, "id" | "organizationId">>,
+  fields: FieldWrite[] = [],
 ) {
-  const [row] = await db
-    .update(company)
-    .set({ ...patch, updatedAt: new Date().toISOString() })
-    .where(inOrganization(organizationId, id))
-    .returning({ id: company.id, name: company.name, domain: company.domain });
-  return row ?? null;
+  await runBatch((tx) => [
+    tx
+      .update(company)
+      .set({ ...patch, updatedAt: new Date().toISOString() })
+      .where(inOrganization(organizationId, id)),
+    ...fieldValueWrites(tx, organizationId, "COMPANY", id, fields),
+  ]);
+  return findById(organizationId, id);
 }
 
 /** Archives the live companies among `ids`; the ids it archived. */

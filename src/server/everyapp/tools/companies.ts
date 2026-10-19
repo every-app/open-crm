@@ -6,13 +6,19 @@ import {
   memberId,
   pageSizeInput,
   personOutput,
+  reported,
+  reportedOutput,
   sourceOutput,
 } from "@/server/everyapp/crm-tool";
 import {
   fieldColumnsOutput,
   fieldFiltersInput,
+  fieldValuesInput,
+  recordValues,
+  recordValuesOutput,
   resolveFieldFilters,
   userFieldsByEmail,
+  withMemberIds,
 } from "@/server/everyapp/tools/fieldFilters";
 import {
   CompanyService,
@@ -73,6 +79,7 @@ const summaryOutput = z.object({
   lastActivityAt: z.string().nullable(),
   enrichment,
   source: sourceOutput,
+  createdAt: z.string(),
   archivedAt: z.string().nullable(),
   fields: fieldColumnsOutput,
 });
@@ -100,7 +107,11 @@ const detailsOutput = z.object({
   website: z.string().nullable(),
   description: z.string().nullable(),
   industry: z.string().nullable(),
-  location: z.string().nullable(),
+  subIndustry: z.string().nullable(),
+  city: z.string().nullable(),
+  stateCode: z.string().nullable(),
+  country: z.string().nullable(),
+  countryCode: z.string().nullable(),
   phone: z.string().nullable(),
   email: z.string().nullable(),
   linkedinUrl: z.string().nullable(),
@@ -109,7 +120,18 @@ const detailsOutput = z.object({
   pricingUrl: z.string().nullable(),
   careersUrl: z.string().nullable(),
   owner: personOutput.nullable(),
+  source: sourceOutput,
   enrichment,
+  enrichmentError: z
+    .string()
+    .nullable()
+    .describe("Why the research agent's last look failed."),
+  enrichedAt: z
+    .string()
+    .nullable()
+    .describe("When the research agent last finished with it."),
+  queued: z.boolean().describe("The research agent has work on it due now."),
+  fields: recordValuesOutput,
   primaryContact: z
     .object({
       id: z.string(),
@@ -124,6 +146,7 @@ const detailsOutput = z.object({
       name: z.string(),
       title: z.string().nullable(),
       email: z.string().nullable(),
+      owner: personOutput.nullable(),
     }),
   ),
   deals: z.array(
@@ -134,7 +157,9 @@ const detailsOutput = z.object({
       open: z.boolean(),
       amount: z.number().nullable(),
       currency: z.string(),
+      inReportingCurrency: reportedOutput,
       expectedCloseDate: z.string().nullable(),
+      owner: personOutput.nullable(),
     }),
   ),
   lastActivityAt: z.string().nullable(),
@@ -142,11 +167,14 @@ const detailsOutput = z.object({
   archivedAt: z.string().nullable(),
 });
 
-function details(company: CompanyDetail): z.input<typeof detailsOutput> {
+function details(
+  company: CompanyDetail,
+  fields: z.input<typeof recordValuesOutput>,
+): z.input<typeof detailsOutput> {
   return {
     ...company,
-    location: location(company),
     enrichment: company.enrichmentStatus,
+    fields,
     primaryContact: company.primaryContact
       ? {
           ...company.primaryContact,
@@ -156,6 +184,10 @@ function details(company: CompanyDetail): z.input<typeof detailsOutput> {
     contacts: company.contacts.map((contact) => ({
       ...contact,
       name: fullName(contact),
+    })),
+    deals: company.deals.map((deal) => ({
+      ...deal,
+      inReportingCurrency: reported(deal, company.reportingCurrency),
     })),
   };
 }
@@ -269,33 +301,41 @@ export const companyTools = {
 
   get_company: crmTool({
     description:
-      "One company in full: its details and links (pricing and careers pages included), owner, primary contact, the people who work there and its deals.",
+      "One company in full: its details and links (pricing and careers pages included), owner, custom fields, the research agent's state, primary contact, and the people who work there and its deals with their owners.",
     risk: "read",
     input: z.object({ id: companyId }).strict(),
     output: detailsOutput,
-    handler: async ({ id }, context) =>
-      details(await CompanyService.getCompany(context.organizationId, id)),
+    handler: async ({ id }, context) => {
+      const [company, fields] = await Promise.all([
+        CompanyService.getCompany(context.organizationId, id),
+        recordValues(context.organizationId, "COMPANY", id),
+      ]);
+      return details(company, fields);
+    },
   }),
 
   create_company: crmTool({
     description:
-      "Add a company. Its domain (or a website, reduced to its host) must not belong to another live company. The research agent then fetches its logo and writes its profile.",
+      "Add a company, with its custom field values if given. Its domain (or a website, reduced to its host) must not belong to another live company. The research agent then fetches its logo and writes its profile.",
     risk: "write",
     input: createCompanySchema
       .omit({ ownerId: true })
-      .extend({ ownerEmail: ownerEmail.optional() })
+      .extend({ ownerEmail: ownerEmail.optional(), fields: fieldValuesInput })
       .strict(),
     output: companyRefOutput,
-    handler: async ({ ownerEmail: email, ...input }, context) =>
+    handler: async ({ ownerEmail: email, fields, ...input }, context) =>
       CompanyService.createCompany(context.organizationId, {
         ...input,
         ownerId: email ? await memberId(context.organizationId, email) : null,
+        fields:
+          fields &&
+          (await withMemberIds(context.organizationId, "COMPANY", fields)),
       }),
   }),
 
   update_company: crmTool({
     description:
-      "Change a company's details. Only the fields given change; an empty string clears one. A new domain sends the research agent to look again.",
+      "Change a company's details and custom field values, in one write. Only what is given changes; an empty string clears a detail. A new domain sends the research agent to look again.",
     risk: "write",
     input: updateCompanySchema
       .omit({ ownerId: true })
@@ -305,16 +345,20 @@ export const companyTools = {
           .nullable()
           .optional()
           .describe("The new owner's email, or null for nobody."),
+        fields: fieldValuesInput,
       })
       .strict(),
     output: companyRefOutput,
-    handler: async ({ ownerEmail: email, ...input }, context) =>
+    handler: async ({ ownerEmail: email, fields, ...input }, context) =>
       CompanyService.updateCompany(context.organizationId, {
         ...input,
         ownerId:
           email === undefined
             ? undefined
             : email && (await memberId(context.organizationId, email)),
+        fields:
+          fields &&
+          (await withMemberIds(context.organizationId, "COMPANY", fields)),
       }),
   }),
 

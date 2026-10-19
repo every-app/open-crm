@@ -57,6 +57,7 @@ async function listDeals(organizationId: string, companyId: string) {
       amount: deal.amount,
       currency: deal.currency,
       baseAmount: deal.baseAmount,
+      baseCurrency: deal.baseCurrency,
       expectedCloseDate: deal.expectedCloseDate,
       owner: ownerColumns,
     })

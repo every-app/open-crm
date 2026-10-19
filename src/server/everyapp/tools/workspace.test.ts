@@ -43,13 +43,16 @@ const readOnly = { scopes: ["mcp:read"] };
 describe("workspace tools", () => {
   beforeAll(() => testDb.seedTwoOrganizations());
 
-  it("members with their roles, found by name, email or role and sorted; currencies an owner or admin sets", async () => {
-    await call("get_workspace", {}, { as: member });
+  it("who the caller is; members with their roles, found by name, email or role and sorted; currencies an owner or admin sets", async () => {
+    expect(await call("get_workspace", {}, { as: member })).toMatchObject({
+      caller: { id: member.sub, email: member.email },
+      role: "member",
+    });
     expect(await call("list_members")).toMatchObject({
       total: 2,
       members: [
-        { name: "Ana", email: ana.email, role: "owner" },
-        { email: member.email, role: "member" },
+        { name: "Ana", email: ana.email, role: "owner", isCaller: true },
+        { email: member.email, role: "member", isCaller: false },
       ],
     });
     expect(
@@ -187,14 +190,18 @@ describe("workspace tools", () => {
       cookieDays: 0,
       domains: [{ host: "www.acme.test", scope: "SITE_AND_SUBDOMAINS" }],
     });
-    // The snippet loads the tracker from the CRM's own origin.
+    // The snippet loads the tracker from the CRM's own origin; Tag Manager's
+    // carries the site id in its URL.
     expect(String(settings.snippet)).toContain("https://crm.test/t/crm.js");
+    expect(String(settings.tagManagerSnippet)).toContain(
+      `https://crm.test/t/crm.js?site=${String(settings.siteId)}`,
+    );
     expect(await failure("get_traffic_sources", {}, { as: member })).toBe(
       OWNERS_ONLY,
     );
   });
 
-  it("slack: its status and people without a connection; with one, its channels, joining and creating one, and reading Slack again", async () => {
+  it("slack: its status and people without a connection; with one, its channels, joining and creating one, and reading Slack again, also when a join finds a channel changed", async () => {
     expect(await call("get_slack_status", {}, readOnly)).toMatchObject({
       available: false,
       connected: false,
@@ -216,8 +223,9 @@ describe("workspace tools", () => {
     await testDb.exec(`
       INSERT INTO slack_connection (id, organization_id, team_id, team_name, bot_user_id, bot_name, bot_token, bot_scopes, connected_at, synced_at) VALUES ('sc', 'org_a', 'T1', 'Acme HQ', 'UBOT', 'Acme CRM', 'xoxb-test', 'chat:write', '${at}', '${at}');
       INSERT INTO slack_member_match (id, organization_id, user_id, slack_user_id, slack_handle, updated_at) VALUES ('mm_a', 'org_a', 'user_a', 'U1', '@ana', '${at}'), ('mm_c', 'org_a', 'user_c', NULL, NULL, '${at}');
-      INSERT INTO slack_channel (id, organization_id, slack_channel_id, name) VALUES ('ch_1', 'org_a', 'C1', 'sales');
+      INSERT INTO slack_channel (id, organization_id, slack_channel_id, name) VALUES ('ch_1', 'org_a', 'C1', 'sales'), ('ch_3', 'org_a', 'C3', 'ops');
     `);
+    // Slack has #ops as private now; the list has it as public.
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: URL) => {
@@ -225,7 +233,10 @@ describe("workspace tools", () => {
         if (method === "conversations.info") {
           return Response.json({
             ok: true,
-            channel: { is_private: false, is_member: false },
+            channel: {
+              is_private: url.searchParams.get("channel") === "C3",
+              is_member: false,
+            },
           });
         }
         if (method === "conversations.create") {
@@ -250,10 +261,24 @@ describe("workspace tools", () => {
         { email: member.email, slackUserId: null },
       ],
     });
+    const reads = () =>
+      testDb.rows(`SELECT id FROM agent_task WHERE kind = 'slack-sync'`);
+    const settled = () =>
+      Promise.all(vi.mocked(waitUntil).mock.calls.map(([read]) => read));
+    await settled();
+    await testDb.exec(`DELETE FROM agent_task WHERE kind = 'slack-sync'`);
     expect(await call("join_slack_channel", { channelId: "C1" })).toEqual({
       outcome: "joined",
       reason: null,
     });
+    await settled();
+    expect(await reads()).toEqual([]);
+    expect(await call("join_slack_channel", { channelId: "C3" })).toEqual({
+      outcome: "asked",
+      reason: null,
+    });
+    await settled();
+    expect(await reads()).toHaveLength(1);
     expect(await call("create_slack_channel", { name: "deal-alerts" })).toEqual(
       {
         created: true,
@@ -261,10 +286,17 @@ describe("workspace tools", () => {
         reason: null,
       },
     );
+    const asked: unknown = expect.any(String);
     expect(await call("list_slack_channels")).toMatchObject({
       channels: [
         { id: "C2", name: "deal-alerts", isMember: true },
-        { id: "C1", name: "sales", isMember: true },
+        { id: "C1", isMember: true, classified: true, inviteRequestedAt: null },
+        {
+          id: "C3",
+          isPrivate: true,
+          isMember: false,
+          inviteRequestedAt: asked,
+        },
       ],
     });
     expect(await call("get_slack_status", {}, { as: bo })).toMatchObject({
@@ -272,6 +304,6 @@ describe("workspace tools", () => {
     });
 
     expect(await call("refresh_slack")).toEqual({ requested: true });
-    await Promise.all(vi.mocked(waitUntil).mock.calls.map(([read]) => read));
+    await settled();
   });
 });

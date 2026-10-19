@@ -115,6 +115,15 @@ export const slackTools = {
           memberCount: z.number().nullable(),
           isPrivate: z.boolean(),
           isMember: z.boolean().describe("The CRM's app is in the channel."),
+          classified: z
+            .boolean()
+            .describe("Slack has confirmed isPrivate and isMember."),
+          inviteRequestedAt: z
+            .string()
+            .nullable()
+            .describe(
+              "When a join asked someone in this private channel to /invite the app.",
+            ),
         }),
       ),
       nextOffset: z.number().nullable(),

@@ -2,11 +2,13 @@ import { z } from "zod";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { memberId } from "@/server/everyapp/crm-tool";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
+import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
 import { AppError } from "@/server/lib/errors";
 import type { FieldEntity, FieldType } from "@/shared/crm-enums";
 import { ENTITY_NOUNS, type FieldValueJson } from "@/shared/fields";
 import {
   fieldFiltersSchema,
+  fieldValuesSchema,
   type FieldFilter,
   type FieldFilters,
 } from "@/types/schemas/fields";
@@ -24,6 +26,16 @@ export const fieldFiltersInput = fieldFiltersSchema
     'Filters by custom field key (list_fields gives the keys and types). Text, URL, email and phone fields take { "op": "contains" | "equals", "value" }; numbers { "op": "range", "min", "max" }; dates { "op": "dateRange", "from", "to" } (YYYY-MM-DD, inclusive); checkboxes { "op": "checked", "value": true | false }; selects { "op": "anyOf", "values": [option labels or ids] }; user fields { "op": "anyOf", "values": [member emails] }.',
   );
 
+/**
+ * The record tools' `fields`: values written with the record, checked as
+ * set_field_values checks them (withMemberIds, then the service).
+ */
+export const fieldValuesInput = fieldValuesSchema
+  .optional()
+  .describe(
+    'Custom field values by key (list_fields), written with the record: a select takes an option\'s id or label, a date YYYY-MM-DD, a checkbox true or false, a user field a member\'s email; null clears. E.g. { "segment": "Enterprise" }.',
+  );
+
 /** A custom field's value: text, a number, a checkbox, or null when empty. */
 export const fieldValueOutput = z.union([
   z.string(),
@@ -36,6 +48,34 @@ export const fieldValueOutput = z.union([
 export const fieldColumnsOutput = z
   .record(z.string(), fieldValueOutput)
   .describe("Custom fields shown as columns, by key (a select as its label).");
+
+/** A record's values of every live custom field, by key. */
+export const recordValuesOutput = z
+  .record(z.string(), fieldValueOutput)
+  .describe(
+    "Its custom fields by key (list_fields), null when empty: a select as its label, a user field as the member's email.",
+  );
+
+/** One record's custom field values as recordValuesOutput shows them. */
+export async function recordValues(
+  organizationId: string,
+  entity: FieldEntity,
+  recordId: string,
+): Promise<Record<string, FieldValueJson>> {
+  const [fields, shown] = await Promise.all([
+    FieldValuesService.recordFields(organizationId, entity, recordId),
+    userFieldsByEmail(organizationId, entity),
+  ]);
+  return Object.fromEntries(
+    fields.map((field) => [
+      field.key,
+      field.type === "SELECT"
+        ? (field.options.find((option) => option.id === field.value)?.label ??
+          null)
+        : shown(field.key, field.value),
+    ]),
+  );
+}
 
 const OPS: Partial<Record<FieldType, FieldFilter["op"][]>> = {
   NUMBER: ["range"],
@@ -137,7 +177,7 @@ export async function userFieldsByEmail(
 export async function withMemberIds(
   organizationId: string,
   entity: FieldEntity,
-  values: Record<string, unknown>,
+  values: Record<string, FieldValueJson>,
 ) {
   const resolved = { ...values };
   for (const field of await FieldsService.list(organizationId, entity)) {

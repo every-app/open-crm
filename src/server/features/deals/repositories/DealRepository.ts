@@ -15,6 +15,8 @@ import { activity, company, deal, user } from "@/db/schema";
 import { queueCrmEvents } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import { idChunks } from "@/server/features/records/recordRules";
+import { fieldValueWrites } from "@/server/features/fields/repositories/FieldValueRepository";
+import type { FieldWrite } from "@/server/features/fields/repositories/FieldValueRepository";
 import type { DealStage } from "@/shared/crm-enums";
 import { isClosedStage } from "@/shared/deal-stages";
 
@@ -68,16 +70,21 @@ async function findById(organizationId: string, id: string) {
   return { ...row.deal, company: row.company, owner: row.owner };
 }
 
-/** Inserts the deal and queues the CRM events its creation emits, in one batch. */
+/**
+ * Inserts the deal with the CRM events its creation emits and the custom
+ * field values it is created with, in one batch.
+ */
 async function insert(
   values: Omit<typeof deal.$inferInsert, "id">,
   events: CrmEvent[] = [],
+  fields: FieldWrite[] = [],
 ) {
   const { organizationId } = values;
   const id = crypto.randomUUID();
   await runBatch((tx) => [
     tx.insert(deal).values({ ...values, id }),
     ...queueCrmEvents(tx, { organizationId, recordId: id, events }),
+    ...fieldValueWrites(tx, organizationId, "DEAL", id, fields),
   ]);
   return { id, name: values.name, companyId: values.companyId };
 }
@@ -86,14 +93,26 @@ type DealPatch = Partial<
   Omit<typeof deal.$inferInsert, "id" | "organizationId">
 >;
 
-/** The changed deal, or null when it isn't the organization's. */
-async function update(organizationId: string, id: string, patch: DealPatch) {
-  const [row] = await db
-    .update(deal)
-    .set({ ...patch, updatedAt: new Date().toISOString() })
-    .where(inOrganization(organizationId, id))
-    .returning({ id: deal.id, name: deal.name });
-  return row ?? null;
+/**
+ * Changes the deal and writes the custom field values given with the
+ * change, in one batch (the caller has checked the deal is the
+ * organization's: a value names its record by id alone). The changed deal
+ * as findById reads it, or null when it isn't the organization's.
+ */
+async function update(
+  organizationId: string,
+  id: string,
+  patch: DealPatch,
+  fields: FieldWrite[] = [],
+) {
+  await runBatch((tx) => [
+    tx
+      .update(deal)
+      .set({ ...patch, updatedAt: new Date().toISOString() })
+      .where(inOrganization(organizationId, id)),
+    ...fieldValueWrites(tx, organizationId, "DEAL", id, fields),
+  ]);
+  return findById(organizationId, id);
 }
 
 type StageMove = {

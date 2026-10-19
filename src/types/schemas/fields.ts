@@ -87,14 +87,19 @@ export const fieldValueInputSchema = z.union([
   z.null(),
 ]);
 
+/** Values by field key, as a record's create or update also takes them. */
+export const fieldValuesSchema = z
+  .record(id, fieldValueInputSchema)
+  .refine(
+    (values) => Object.keys(values).length <= 100,
+    "Set at most 100 fields at once.",
+  );
+
 export const setRecordFieldValuesSchema = recordFieldsSchema.extend({
-  values: z
-    .record(id, fieldValueInputSchema)
-    .refine((values) => Object.keys(values).length > 0, "Name a field to set.")
-    .refine(
-      (values) => Object.keys(values).length <= 100,
-      "Set at most 100 fields at once.",
-    ),
+  values: fieldValuesSchema.refine(
+    (values) => Object.keys(values).length > 0,
+    "Name a field to set.",
+  ),
 });
 
 const isoDay = z

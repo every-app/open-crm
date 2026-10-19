@@ -53,6 +53,7 @@ import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { withBalance } from "@/server/billing/autumnTestSupport";
 import { toClientError } from "@/server/lib/errors";
 import { companyListSchema } from "@/types/schemas/companies";
+import { CompanyDirectoryService } from "./CompanyDirectoryService";
 import { CompanyService } from "./CompanyService";
 
 const A = "org_a";
@@ -107,9 +108,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(getStandardErrorMessage(toClientError(taken))).toBe(
         "Acme already uses the domain acme.com.",
       );
-      expect(await CompanyService.companyForEmail(A, "ana@acme.com")).toBe(
-        acme.id,
-      );
+      expect(
+        await CompanyDirectoryService.companyForEmail(A, "ana@acme.com"),
+      ).toBe(acme.id);
       // Another organization's Acme is its own.
       await expect(create(B, "Acme", "acme.com")).resolves.toMatchObject({
         domain: "acme.com",
@@ -117,9 +118,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
 
       await CompanyService.archiveCompany(A, acme.id);
       const second = await create(A, "Acme again", "acme.com");
-      expect(await CompanyService.companyForEmail(A, "bo@acme.com")).toBe(
-        second.id,
-      );
+      expect(
+        await CompanyDirectoryService.companyForEmail(A, "bo@acme.com"),
+      ).toBe(second.id);
       await expect(
         CompanyService.restoreCompany(A, acme.id),
       ).rejects.toMatchObject({ code: "CONFLICT" });

@@ -1,6 +1,4 @@
-import { reverse } from "remeda";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 
 // The record tools end to end below the gateway: a minted identity in, the
 // SDK's checks, the feature's service, real SQL, the output schema's fields
@@ -27,15 +25,7 @@ import {
   call,
   failure,
   idFrom,
-  type Caller,
 } from "@/server/everyapp/toolTestSupport";
-
-const member: Caller = {
-  sub: "user_c",
-  email: "cy@a.test",
-  orgId: "org_a",
-  orgRole: "member",
-};
 
 beforeAll(() => testDb.seedTwoOrganizations());
 
@@ -208,6 +198,41 @@ describe("record tools", () => {
     });
   });
 
+  it("full reads: a company's people and deals with their owners and converted amounts; a contact's applied facts apart from their suggestions, and their deals' owners", async () => {
+    const companyId = await idFrom("create_company", { name: "Initrode" });
+    const jo = await idFrom("create_contact", {
+      firstName: "Jo",
+      companyId,
+      ownerEmail: ana.email,
+    });
+    const dealId = await idFrom("create_deal", {
+      name: "Initrode pilot",
+      companyId,
+      amount: 500,
+      currency: "USD",
+    });
+    await call("add_deal_contact", { dealId, contactId: jo });
+    await testDb.exec(
+      `INSERT INTO contact_fact (id, organization_id, contact_id, field, value, score, band, evidence, method, status) VALUES ('fact_cto', 'org_a', '${jo}', 'title', 'CTO', 0.9, 'VERIFIED', '[]', 'web', 'APPLIED'), ('fact_ceo', 'org_a', '${jo}', 'title', 'CEO', 0.6, 'PROBABLE', '[]', 'web', 'PROPOSED')`,
+    );
+    const owner = { name: "Ana", email: ana.email };
+    expect(await call("get_company", { id: companyId })).toMatchObject({
+      contacts: [{ id: jo, owner }],
+      deals: [
+        {
+          id: dealId,
+          owner,
+          inReportingCurrency: { amount: 500, currency: "USD" },
+        },
+      ],
+    });
+    expect(await call("get_contact", { id: jo })).toMatchObject({
+      facts: [{ field: "title", value: "CTO", band: "VERIFIED" }],
+      suggestions: [{ id: "fact_ceo" }],
+      deals: [{ id: dealId, owner }],
+    });
+  });
+
   it("bulk actions say how many records they changed and why the first one failed", async () => {
     const id = await idFrom("create_company", { name: "Umbrella" });
     expect(
@@ -236,88 +261,7 @@ describe("record tools", () => {
   });
 });
 
-describe("custom field and saved view tools", () => {
-  it("custom fields: owners and admins define them, anyone sets values, selects go by label and people by email", async () => {
-    const segment = {
-      entity: "COMPANY",
-      label: "Segment",
-      type: "SELECT",
-      options: [{ label: "Enterprise" }, { label: "SMB" }],
-      agentFilled: false,
-      showOnTable: true,
-    };
-    expect(await failure("create_field", segment, { as: member })).toBe(
-      "Only an owner or an admin can do that.",
-    );
-    await call("create_field", segment);
-    await call("create_field", {
-      entity: "COMPANY",
-      label: "Account manager",
-      type: "USER",
-      agentFilled: false,
-      showOnTable: true,
-    });
-    const id = await idFrom("create_company", { name: "Hooli" });
-    expect(
-      await call(
-        "set_field_values",
-        {
-          entity: "COMPANY",
-          recordId: id,
-          values: { segment: "Enterprise", account_manager: ana.email },
-        },
-        { as: member },
-      ),
-    ).toMatchObject({
-      fields: [
-        { key: "segment" },
-        { key: "account_manager", value: ana.email },
-      ],
-    });
-    const { fields } = await call("list_fields", { entity: "COMPANY" });
-    const { total } = await call("list_companies");
-    expect(
-      await call("get_field_coverage", {
-        id: z.array(z.object({ id: z.string() })).parse(fields)[0]?.id,
-      }),
-    ).toEqual({ filled: 1, total });
-    expect(
-      await call("list_companies", {
-        fields: { segment: { op: "anyOf", values: ["enterprise"] } },
-      }),
-    ).toMatchObject({
-      total: 1,
-      companies: [
-        {
-          id,
-          fields: { segment: "Enterprise", account_manager: ana.email },
-        },
-      ],
-    });
-
-    const order = reverse(
-      z
-        .array(z.object({ id: z.string() }))
-        .parse(fields)
-        .map((field) => field.id),
-    );
-    expect(
-      await failure(
-        "reorder_fields",
-        { entity: "COMPANY", ids: order },
-        { as: member },
-      ),
-    ).toBe("Only an owner or an admin can do that.");
-    expect(
-      await call("reorder_fields", { entity: "COMPANY", ids: order }),
-    ).toMatchObject({
-      fields: [
-        { key: "account_manager", showOnSheet: true, showOnFilter: false },
-        { key: "segment" },
-      ],
-    });
-  });
-
+describe("saved view tools", () => {
   it("saved views: a list's filters saved under a name, the owner by email", async () => {
     const view = await call("create_saved_view", {
       entity: "COMPANY",

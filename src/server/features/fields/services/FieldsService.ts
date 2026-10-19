@@ -380,8 +380,9 @@ async function fill(
 }
 
 /**
- * For a record that was just created: every field the agent fills is blank
- * on it, so it is queued once for all of them. Never fails the caller.
+ * For a record that was just created: the fields the agent fills that it
+ * wasn't created with a value for, queued once for all of them. Never fails
+ * the caller.
  */
 async function queueFillForNewRecord(
   organizationId: string,
@@ -389,12 +390,23 @@ async function queueFillForNewRecord(
   recordId: string,
 ): Promise<void> {
   try {
-    const keys = (
+    const agentFilled = (
       await FieldDefinitionRepository.list(organizationId, entity, {
         includeArchived: false,
       })
-    )
-      .filter((definition) => definition.agentFilled)
+    ).filter((definition) => definition.agentFilled);
+    if (agentFilled.length === 0) return;
+    const given = new Set(
+      (
+        await FieldValueRepository.listForRecord(
+          organizationId,
+          entity,
+          recordId,
+        )
+      ).map((value) => value.fieldId),
+    );
+    const keys = agentFilled
+      .filter((definition) => !given.has(definition.id))
       .map((definition) => definition.key);
     if (keys.length === 0) return;
     await AgentTaskService.fieldBackfillRecords(

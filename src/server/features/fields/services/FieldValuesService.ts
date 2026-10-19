@@ -2,6 +2,7 @@ import type { SQL, SQLWrapper } from "drizzle-orm";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { FieldDefinitionRepository } from "@/server/features/fields/repositories/FieldDefinitionRepository";
 import { FieldFacetRepository } from "@/server/features/fields/repositories/FieldFacetRepository";
+import { FieldFilterRepository } from "@/server/features/fields/repositories/FieldFilterRepository";
 import {
   FieldValueRepository,
   storedValue,
@@ -21,6 +22,7 @@ import {
 import type { FieldFilters } from "@/types/schemas/fields";
 import type { FacetCounts } from "@/types/schemas/records";
 
+/** Refuses a record that isn't the organization's. */
 async function requireRecord(
   organizationId: string,
   entity: FieldEntity,
@@ -60,23 +62,18 @@ async function recordFields(
 }
 
 /**
- * Sets custom field values on one record, by field key: the one write path
- * for people and the agent. Every value is checked against its field (its
- * type, a select's options, required; a user must work here) before anything
- * is written, then they are written together. Null clears a value.
- *
- * With `onlyIfEmpty` (the agent filling blanks), a value is written only
- * where the record has none, so nobody's value is ever overwritten; the keys
- * it left alone come back as `skipped`.
+ * Values by field key as `entity`'s live fields take them, each checked
+ * against its field (its type, a select's options, required; a user must
+ * work here); the first that doesn't fit is refused. Null clears a value.
+ * Every write of values goes through here: setValues, and a record's create
+ * or update (fieldWrites), which writes them in the record's own batch.
  */
-async function setValues(
+async function checkValues(
   organizationId: string,
   entity: FieldEntity,
-  recordId: string,
   values: Record<string, unknown>,
-  { onlyIfEmpty = false }: { onlyIfEmpty?: boolean } = {},
-): Promise<{ written: string[]; skipped: string[] }> {
-  await requireRecord(organizationId, entity, recordId);
+): Promise<(FieldWrite & { key: string })[]> {
+  if (Object.keys(values).length === 0) return [];
   const byKey = new Map(
     (
       await FieldDefinitionRepository.list(organizationId, entity, {
@@ -123,6 +120,27 @@ async function setValues(
       value: parsed.value,
     });
   }
+  return writes;
+}
+
+/**
+ * Sets custom field values on one record, by field key, for people and the
+ * agent: every value is checked (checkValues) before any is written, then
+ * they are written together.
+ *
+ * With `onlyIfEmpty` (the agent filling blanks), a value is written only
+ * where the record has none, so nobody's value is ever overwritten; the keys
+ * it left alone come back as `skipped`.
+ */
+async function setValues(
+  organizationId: string,
+  entity: FieldEntity,
+  recordId: string,
+  values: Record<string, unknown>,
+  { onlyIfEmpty = false }: { onlyIfEmpty?: boolean } = {},
+): Promise<{ written: string[]; skipped: string[] }> {
+  await requireRecord(organizationId, entity, recordId);
+  const writes = await checkValues(organizationId, entity, values);
 
   if (!onlyIfEmpty) {
     await FieldValueRepository.write(organizationId, entity, recordId, writes);
@@ -206,7 +224,7 @@ async function filterConditions(
   return entries.flatMap(([key, filter]) => {
     const definition = byKey.get(key);
     const condition = definition
-      ? FieldValueRepository.filterCondition(entity, definition, filter)
+      ? FieldFilterRepository.filterCondition(entity, definition, filter)
       : null;
     return condition ? [condition] : [];
   });
@@ -243,7 +261,9 @@ async function facetCounts(
 }
 
 export const FieldValuesService = {
+  requireRecord,
   recordFields,
+  checkValues,
   setValues,
   tableValues,
   filterConditions,

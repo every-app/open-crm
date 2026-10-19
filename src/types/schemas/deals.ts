@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DEAL_STAGES } from "@/shared/crm-enums";
 import { currencyCodeSchema } from "@/types/schemas/currency";
+import { fieldValuesSchema } from "@/types/schemas/fields";
 import {
   SORT_DIRECTIONS,
   bulkIdsSchema,
@@ -73,6 +74,8 @@ export const createDealSchema = z.object({
   /** Omitted: the workspace's reporting currency. */
   currency: currencyCodeSchema.optional(),
   expectedCloseDate: closeDate.nullable().optional(),
+  /** Custom field values by key, written with the record. */
+  fields: fieldValuesSchema.optional(),
 });
 
 export type CreateDealInput = z.infer<typeof createDealSchema>;
@@ -87,6 +90,8 @@ export const updateDealSchema = z.object({
   amount: amount.nullable().optional(),
   currency: currencyCodeSchema.optional(),
   expectedCloseDate: closeDate.nullable().optional(),
+  /** Custom field values by key, written with the record. */
+  fields: fieldValuesSchema.optional(),
 });
 
 export type UpdateDealInput = z.infer<typeof updateDealSchema>;

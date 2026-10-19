@@ -10,6 +10,7 @@ import {
   assertOwner,
   blankToNull,
   bulkOutcome,
+  fieldWrites,
   runBulk,
 } from "@/server/features/records/recordRules";
 import { AppError } from "@/server/lib/errors";
@@ -121,6 +122,7 @@ export type DealDetail = Awaited<ReturnType<typeof getDeal>>;
 async function createDeal(organizationId: string, input: CreateDealInput) {
   await requireCompany(organizationId, input.companyId);
   await assertOwner(organizationId, input.ownerId);
+  const fields = await fieldWrites(organizationId, "DEAL", input.fields);
   const stage = input.stage ?? "DEMO_BOOKED";
   const currency =
     input.currency ??
@@ -153,6 +155,7 @@ async function createDeal(organizationId: string, input: CreateDealInput) {
       expectedCloseDate: closeDateOf(input.expectedCloseDate),
     },
     events,
+    fields,
   );
   console.log("[deals] created", { organizationId, dealId: row.id, stage });
   pokeEvents(organizationId);
@@ -181,6 +184,7 @@ async function updateDeal(organizationId: string, input: UpdateDealInput) {
   if (input.expectedCloseDate !== undefined) {
     patch.expectedCloseDate = closeDateOf(input.expectedCloseDate);
   }
+  const fields = await fieldWrites(organizationId, "DEAL", input.fields, id);
   if (input.amount !== undefined || input.currency !== undefined) {
     // The unchanged one of the two is read back, and the conversion frozen
     // again at today's rate.
@@ -198,9 +202,10 @@ async function updateDeal(organizationId: string, input: UpdateDealInput) {
       ),
     );
   }
-  const updated = await DealRepository.update(organizationId, id, patch);
-  if (!updated) notFound(id);
-  return updated;
+  return (
+    (await DealRepository.update(organizationId, id, patch, fields)) ??
+    notFound(id)
+  );
 }
 
 /**
