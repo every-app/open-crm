@@ -210,7 +210,11 @@ export function InlineTextArea({
     <Button
       variant="ghost"
       aria-label={`Edit ${label.toLowerCase()}`}
-      className="h-auto min-h-16 w-full items-start justify-start border border-transparent px-2 py-2 text-left font-normal whitespace-pre-wrap hover:border-input hover:bg-transparent"
+      className={cn(
+        "w-full justify-start border border-transparent px-2 text-left font-normal whitespace-pre-wrap hover:border-input hover:bg-transparent",
+        // Text gets room; an empty one is a line, as an empty property is.
+        shown ? "h-auto min-h-16 items-start py-2" : "h-8",
+      )}
       pending={saving}
       onClick={field.edit}
     >
