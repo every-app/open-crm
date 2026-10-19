@@ -12,24 +12,15 @@ The CRM runs only behind an [Every App](https://everyapp.com) gateway. The gatew
 | Company brand data, LinkedIn, extraction | The gateway holds `CONTEXT_API_KEY` (the `context` capability, `src/server/lib/provider-access.ts`)                                         |
 | Members' mail and calendar               | The gateway holds the Google and Microsoft OAuth clients; the CRM keeps each member's tokens ([mail-and-calendar.md](mail-and-calendar.md)) |
 
-## Two shapes, one code path
+## One organization per deployment
 
-Identity is the same in both; the deploy picks the shape.
+An organization deploys the CRM to its own gateway, and the deploy pins it to that organization (`EVERY_APP_ORG_ID`): a token for any other organization is refused. `everyapp dev` pins none, and its local gateway signs in only its seeded owner.
 
-|                    | First party                                                                      | Fork                                                    |
-| ------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Who deploys it     | Every App, as a shared app of the hosted gateway                                 | An organization: a self-hosted gateway, or its own copy |
-| Organizations      | Every organization on the gateway, from one Worker                               | One                                                     |
-| `EVERY_APP_ORG_ID` | Unset: the organization comes from each request's identity                       | Set by the deploy: any other organization is refused    |
-| `EVERYAPP_SHARED`  | `1` (set by `everyapp deploy --shared`): every gateway call must say whose it is | Unset                                                   |
-| Database           | Postgres through Hyperdrive (`DATABASE_PROVIDER=postgres`)                       | D1                                                      |
-| Deploy             | `pnpm deploy:everyapp:first-party`                                               | `pnpm deploy:everyapp`                                  |
-
-In both shapes the token's organization id is the CRM's organization id: the first request from a member of a new organization creates its `organization` row, the member's `user` row and a `member` row mirroring their role (`src/server/auth/delegated-organization.ts`). Every CRM table hangs off `organization_id`. Authorization always reads the organization and role from the signed token, never from a member row, so a member the gateway removes can't open the CRM or call its tools again. The gateway never tells the CRM whom it removed, though, so their `member` row stays, and so does anything they connected: see "Removing a member" below.
+The token's organization id is the CRM's organization id: the first request from a member creates the `organization` row, the member's `user` row and a `member` row mirroring their role (`src/server/auth/delegated-organization.ts`). Every CRM table hangs off `organization_id`. Authorization always reads the organization and role from the signed token, never from a member row, so a member the gateway removes can't open the CRM or call its tools again. The gateway never tells the CRM whom it removed, though, so their `member` row stays, and so does anything they connected: see "Removing a member" below.
 
 The `member` row also notes when the CRM last saw the member (`last_seen_at`: a page, a server function or a tool call), at most once a day. A gateway that deletes a removed member's account gives them a new id if they're invited again; the old `user` row keeps the records it is on and gives its email up to the new one (`src/middleware/ensure-user/delegated.ts`).
 
-Unlike OpenSEO, a fork doesn't map its organization to a `shared-workspace` row: OpenSEO keeps that for data its older self-host modes wrote, and the CRM has none.
+Unlike OpenSEO, the CRM doesn't map its organization to a `shared-workspace` row: OpenSEO keeps that for data its older self-host modes wrote, and the CRM has none.
 
 ## Removing a member
 
@@ -41,12 +32,10 @@ Without step 2, their mailbox keeps syncing until the CRM has gone 30 days witho
 
 ## Whose calls they are
 
-A first-party deployment serves every organization from one Worker, so every model and Context.dev call says whose it is (`src/server/lib/gateway-attribution.ts`):
+Every model and Context.dev call says whose it is (`src/server/lib/gateway-attribution.ts`):
 
 - While serving a request (pages, server functions, the gateway's tool calls), the request's signed identity is forwarded.
 - Work no request started (the minute cron, the agent's sessions) runs inside `forOrganization(organizationId, ...)`, which sends `x-everyapp-org`. The gateway accepts it for an active organization with a live member.
-
-`FIRST_PARTY_SCHEDULED_RESEARCH=off` holds the agent's scheduled research on a first-party deployment (`src/server/lib/deployment-tier.ts`); research a person asks for always runs.
 
 ## Run it locally
 
@@ -57,9 +46,9 @@ pnpm install
 pnpm dev
 ```
 
-`everyapp dev` applies the D1 migrations to a local database in `.cloudflare/state`, then starts a gateway-lite on `http://crm.localhost:8787` with a seeded owner (`dev@everyapp.localhost` in `dev-org`) and the real identity checks. With no gateway binding locally, the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from `.dev.vars`. Local runs are the first-party shape on D1 (`everyapp dev` pins no organization); to see what a fork's owners see, such as the setup commands, set `DEPLOYMENT_TIER=fork` in `.dev.vars`.
+`everyapp dev` applies the D1 migrations to a local database in `.cloudflare/state`, then starts a gateway-lite on `http://crm.localhost:8787` with a seeded owner (`dev@everyapp.localhost` in `dev-org`) and the real identity checks. With no gateway binding locally, the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from `.dev.vars`.
 
-The first-party shape runs locally too, against a local Postgres:
+The Postgres shape runs locally too, against a local Postgres:
 
 ```bash
 POSTGRES_DATABASE_URL=postgres://<user>:<password>@localhost:5432/<database> pnpm db:migrate:pg
@@ -72,7 +61,7 @@ OPEN_CRM_DATABASE=postgres pnpm dev
 
 ## Deploy it
 
-**Fork**, to the gateway in your Cloudflare account:
+To the gateway in your Cloudflare account:
 
 ```bash
 pnpm deploy:everyapp
@@ -80,15 +69,7 @@ pnpm deploy:everyapp
 
 `everyapp deploy` registers the app, creates its D1 database and R2 bucket, builds the Worker, checks the schema has no migration drift, migrates D1 after a restore point, uploads, and binds it to the gateway. The gateway holds the provider keys for every app (`everyapp secret set OPENROUTER_API_KEY --for gateway`, and `CONTEXT_API_KEY`). The CRM's one optional setting of its own is `GITHUB_TOKEN` (`everyapp secret set GITHUB_TOKEN`).
 
-**First party**, as a shared app of the hosted gateway (a platform owner or admin):
-
-```bash
-# .everyapp/secrets.env (never committed or uploaded):
-# POSTGRES_DATABASE_URL=postgres://<user>:<password>@<host>:<port>/<database>
-pnpm deploy:everyapp:first-party   # OPEN_CRM_DATABASE=postgres everyapp deploy --shared
-```
-
-With `OPEN_CRM_DATABASE=postgres`, `everyapp.config.ts` declares Postgres (`database.provider`), a `HYPERDRIVE` binding and the Postgres migrations instead of D1: the deploy creates the Hyperdrive config from the database URL, runs `drizzle-kit migrate` with `drizzle/pg.config.ts` before it uploads, and registers the app as shared (no `EVERY_APP_ORG_ID`, `EVERYAPP_SHARED=1`). The first party bills usage on the Autumn environment it shares with OpenSEO's first party (not app.openseo.so's), so it also needs `everyapp secret set AUTUMN_SECRET_KEY` ([billing.md](billing.md)).
+With `OPEN_CRM_DATABASE=postgres`, `everyapp.config.ts` declares Postgres (`database.provider`), a `HYPERDRIVE` binding and the Postgres migrations instead of D1: the deploy creates the Hyperdrive config from `POSTGRES_DATABASE_URL` in `.everyapp/secrets.env` and runs `drizzle-kit migrate` with `drizzle/pg.config.ts` before it uploads.
 
 ## Database
 

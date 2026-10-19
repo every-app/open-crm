@@ -1,6 +1,6 @@
 # Self-hosting Open CRM
 
-Open CRM runs behind an Every App gateway. You can deploy your own copy (a fork) to a gateway in your Cloudflare account, as this page describes. Every App also runs the CRM for organizations on its hosted gateway; there is nothing to set up there.
+Open CRM runs behind an Every App gateway. You deploy your own copy (a fork) to a gateway in your Cloudflare account, as this page describes.
 
 ## What you need
 

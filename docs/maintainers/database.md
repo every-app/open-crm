@@ -1,6 +1,6 @@
 # The database
 
-One schema in two dialects, D1 (SQLite) for forks and Postgres through Hyperdrive for the first party ([every-app.md](every-app.md#database)). This note is about keeping both fast and their data safe.
+One schema in two dialects, D1 (SQLite) by default and Postgres through Hyperdrive ([every-app.md](every-app.md#database)). This note is about keeping both fast and their data safe.
 
 ## Changing the schema
 
@@ -15,7 +15,7 @@ On Postgres an index builds under a lock that holds writes to its table. For a l
 
 ## Indexes
 
-Both dialects have the same indexes, and `src/db/schema-parity.test.ts` compares them. Most lead with `organization_id`, since every list is one organization's. A foreign key that deleting a record follows (deleting the rows, or setting the key to null) also has one led by the key, because Postgres looks those rows up by the key alone, across every organization.
+Both dialects have the same indexes, and `src/db/schema-parity.test.ts` compares them. Most lead with `organization_id`, since every list is one organization's. A foreign key that deleting a record follows (deleting the rows, or setting the key to null) also has one led by the key, because the database looks those rows up by the key alone.
 
 ## Statistics on D1
 
@@ -25,15 +25,13 @@ To see them: `pnpm everyapp db query "select tbl, idx, stat from sqlite_stat1"` 
 
 ## Size
 
-D1 refuses every write once a database reaches 10 GB, with no warning. On a fork, `/health/dispatch` reports the database and its size, `"database": { "provider": "d1", "sizeBytes": … }`; a fork nearing the limit moves to Postgres. A first-party deployment's database is every organization's, so its health check leaves the size out.
+D1 refuses every write once a database reaches 10 GB, with no warning. `/health/dispatch` reports the database and its size, `"database": { "provider": "d1", "sizeBytes": … }`; a deployment nearing the limit moves to Postgres.
 
 ## Placement
 
-With Postgres, a request's queries cross to the database one after another, so the Worker should run beside it. `everyapp.config.ts` sets `database.region`, which the deploy turns into Cloudflare's targeted placement. It is `aws:us-east-1`, beside OpenSEO's database, unless `OPEN_CRM_DATABASE_REGION` names another region at deploy (`gcp:europe-west1`, `azure:westeurope`, …). Cloudflare places only the fetch handler this way: the cron and the agent's Durable Objects run where it puts them.
+With Postgres, a request's queries cross to the database one after another, so the Worker should run beside it. `everyapp.config.ts` sets `database.region`, which the deploy turns into Cloudflare's targeted placement. It is `aws:us-east-1` unless `OPEN_CRM_DATABASE_REGION` names another region at deploy (`gcp:europe-west1`, `azure:westeurope`, …). Cloudflare places only the fetch handler this way: the cron and the agent's Durable Objects run where it puts them.
 
-A shared deploy serves every organization, so it must run on Postgres. Built on D1 it would move them all onto an empty database, and `cloudflare.config.ts` fails the build before the deploy migrates or uploads anything.
-
-## Moving a fork from D1 to Postgres
+## Moving from D1 to Postgres
 
 1. **Provision Postgres** where Hyperdrive can reach it, and note its region.
 2. **Create the schema:** `POSTGRES_DATABASE_URL=postgres://… pnpm db:migrate:pg`.
