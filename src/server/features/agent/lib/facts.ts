@@ -21,7 +21,10 @@ import { fullName, isDerivedName, splitName } from "./names";
 //   cleared is blank again.
 // - A blank is filled by anything that clears the floor for keeping; a value
 //   already there is replaced only by VERIFIED evidence (a primary source).
-//   Anything else becomes a PROPOSED fact a person settles.
+//   Anything else becomes a PROPOSED fact a person settles, but only where
+//   accepting it writes the record (SUGGESTED_FIELDS): the employer, location
+//   and tenure the record keeps no column for stay on the ledger for the
+//   agent alone, as in the CRM, which never showed them to anybody.
 // - Applying a fact settles the field's other facts (SUPERSEDED), so a
 //   person never answers the same question twice; that is also how a job
 //   change is noticed (lastEmployerChange).
@@ -60,6 +63,15 @@ const COLUMNS = {
 
 export function isFactField(field: string): field is FactField {
   return (FACT_FIELDS as readonly string[]).includes(field);
+}
+
+/** The fields a person is asked about: accepting a fact for one writes the contact. */
+export const SUGGESTED_FIELDS: readonly FactField[] = FACT_FIELDS.filter(
+  (field) => field === "name" || COLUMNS[field] !== null,
+);
+
+function isSuggested(field: string): boolean {
+  return (SUGGESTED_FIELDS as readonly string[]).includes(field);
 }
 
 /**
@@ -246,6 +258,11 @@ export async function recordFact(
   }
   const applies =
     scored.band === "VERIFIED" || fillsBlank(field, read, applied);
+  if (!applies && !isSuggested(field)) {
+    return refused(
+      `The ${field} already found stands until VERIFIED evidence replaces it; no rep is asked about it. Not stored.`,
+    );
+  }
   if (!applies && said("PROPOSED")) {
     return refused(
       "This exact value is already in front of a rep, waiting on them. Offering it twice only makes them read it twice.",
@@ -279,7 +296,7 @@ export async function recordFact(
 
 type FactDecision =
   | { outcome: "decided"; contactId: string; field: string; applied: boolean }
-  /** No such fact in this organization. */
+  /** No such suggestion in this organization. */
   | { outcome: "missing" }
   /** Somebody (or the agent) settled it first. */
   | { outcome: "settled" };
@@ -294,7 +311,8 @@ export async function decideFact(
   input: { factId: string; accept: boolean; decidedById: string },
 ): Promise<FactDecision> {
   const fact = await AgentFactRepository.find(organizationId, input.factId);
-  if (!fact) return { outcome: "missing" };
+  // A fact for a field the record keeps no column for is nobody's to settle.
+  if (!fact || !isSuggested(fact.field)) return { outcome: "missing" };
   if (fact.status !== "PROPOSED") return { outcome: "settled" };
   const decided = await AgentFactRepository.decide(organizationId, {
     fact,

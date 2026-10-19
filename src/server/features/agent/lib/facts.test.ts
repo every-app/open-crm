@@ -224,6 +224,17 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toMatchObject({ stored: false });
     });
 
+    it("asks nobody about a field the record keeps no column for", async () => {
+      await record("location", "Berlin", SUPPORTING);
+      expect(await record("location", "Lisbon", SUPPORTING)).toMatchObject({
+        stored: false,
+        reason: says("no rep is asked"),
+      });
+      expect(await facts("location")).toEqual([
+        { value: "Berlin", status: "APPLIED" },
+      ]);
+    });
+
     it("notices a job change from the employer it superseded", async () => {
       await record("employer", "Fleetio", saw("linkedin.employer-and-name"));
       await record("employer", "Comp AI", saw("linkedin.employer-and-name"));

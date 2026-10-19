@@ -58,16 +58,10 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           fact("f2", "title", "VP Engineering", "PROPOSED", 3),
           fact("f3", "title", "CTO", "DISMISSED", 2),
           fact("f4", "name", "Ana  Maria Zed", "PROPOSED", 4),
-          fact("f5", "employer", "Acme", "PROPOSED", 5),
         ].join("\n"),
       );
       const before = await ContactService.getContact("org_a", "c1");
-      expect(before.facts.map((item) => item.id)).toEqual([
-        "f5",
-        "f4",
-        "f2",
-        "f1",
-      ]);
+      expect(before.facts.map((item) => item.id)).toEqual(["f4", "f2", "f1"]);
       expect(before.facts[0]?.evidence).toEqual([
         { kind: "web.cited-claim", detail: "Their talk bio says so" },
       ]);
@@ -79,7 +73,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       });
       await expect(dismiss("f2")).rejects.toMatchObject({ code: "CONFLICT" });
       await accept("f4");
-      await dismiss("f5");
 
       expect(
         await database.rows(
@@ -91,7 +84,6 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         // A dismissal stands: the agent never offers that value again.
         { id: "f3", status: "DISMISSED" },
         { id: "f4", status: "APPLIED" },
-        { id: "f5", status: "DISMISSED", decided_by_id: "user_a" },
       ]);
       expect(await ContactService.getContact("org_a", "c1")).toMatchObject({
         firstName: "Ana",
@@ -99,6 +91,25 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         title: "VP Engineering",
         companyId: null,
       });
+    });
+
+    it("offers only what accepting writes on the contact, on the sheet, in the list and to a decision", async () => {
+      await database.exec(
+        [
+          fact("f1", "title", "VP Engineering", "PROPOSED", 1),
+          fact("f2", "employer", "Acme", "PROPOSED", 2),
+          fact("f3", "location", "Berlin", "PROPOSED", 3),
+        ].join("\n"),
+      );
+      const contact = await ContactService.getContact("org_a", "c1");
+      expect(contact.facts.map((item) => item.id)).toEqual(["f1"]);
+      expect(
+        await ContactFactService.listSuggestions("org_a", {
+          page: 1,
+          pageSize: 25,
+        }),
+      ).toMatchObject({ rows: [{ id: "f1" }], total: 1 });
+      await expect(accept("f2")).rejects.toMatchObject({ code: "NOT_FOUND" });
     });
 
     it("changes nothing when a suggestion was settled between its read and the decision", async () => {

@@ -142,7 +142,6 @@ export function ContactOverview({
             saving={saving.includes("companyId")}
             clearable
             onSave={(companyId) => update.mutate({ companyId })}
-            suggestion={suggestion("employer")}
           />
           <OwnerField
             owner={contact.owner}

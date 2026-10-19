@@ -1,7 +1,8 @@
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { contact, contactBrief, contactFact } from "@/db/schema";
+import { SUGGESTED_FIELDS } from "@/server/features/agent/lib/facts";
 
 // What the research agent wrote about a contact: evidence-priced facts and
 // a brief, as the contact sheet reads them. The agent writes them, and a
@@ -9,6 +10,16 @@ import { contact, contactBrief, contactFact } from "@/db/schema";
 // (agent/lib/facts.ts). An APPLIED fact already changed the
 // record; a PROPOSED one waits for a person; a DISMISSED one is never offered
 // again; a SUPERSEDED one was replaced by a later fact for the same field.
+// The sheet and the MCP tools offer a PROPOSED fact only where accepting it
+// writes the record (SUGGESTED_FIELDS); one about the employer, location or
+// tenure, which the record keeps no column for, is never offered.
+
+/** A fact waiting for a person that accepting would write on the contact. */
+const suggestion = () =>
+  and(
+    eq(contactFact.status, "PROPOSED"),
+    inArray(contactFact.field, [...SUGGESTED_FIELDS]),
+  );
 
 // What the agent observed behind a fact: the evidence ledger's entries.
 const evidenceSchema = z
@@ -34,7 +45,7 @@ const sectionsSchema = z
   })
   .catch({});
 
-/** The contact's applied and proposed facts, newest first. */
+/** The contact's applied facts and its suggestions, newest first. */
 async function listOpen(organizationId: string, contactId: string) {
   const rows = await db
     .select({
@@ -54,7 +65,7 @@ async function listOpen(organizationId: string, contactId: string) {
       and(
         eq(contactFact.organizationId, organizationId),
         eq(contactFact.contactId, contactId),
-        inArray(contactFact.status, ["APPLIED", "PROPOSED"]),
+        or(eq(contactFact.status, "APPLIED"), suggestion()),
       ),
     )
     .orderBy(desc(contactFact.observedAt), desc(contactFact.id));
@@ -74,7 +85,7 @@ async function listProposed(
 ) {
   const where = and(
     eq(contactFact.organizationId, organizationId),
-    eq(contactFact.status, "PROPOSED"),
+    suggestion(),
     input.contactId ? eq(contactFact.contactId, input.contactId) : undefined,
     isNull(contact.archivedAt),
   );
