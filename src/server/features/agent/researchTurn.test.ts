@@ -30,7 +30,7 @@ import { capabilityList } from "./prompt/capabilities";
 import type { LeasedTask } from "./repositories/AgentQueueRepository";
 import { recordEvent } from "./runtime/audit";
 import { researchBrief } from "./runtime/brief";
-import { addTokens, budgetSpender, writeUpStep } from "./runtime/budget";
+import { addTokens, budgetSpender, tokenLimitStep } from "./runtime/budget";
 import { reportResearch } from "./runtime/research";
 import { loadAgentSession } from "./runtime/session";
 import { MAX_STEPS, prepareTurn } from "./runtime/turn";
@@ -112,7 +112,8 @@ async function runSession(task: LeasedTask, stub: MockLanguageModelV3) {
     tools,
     stopWhen: stepCountIs(MAX_STEPS),
     // CrmAgent.beforeStep: past its tokens, the session writes up.
-    prepareStep: () => writeUpStep(storage, system),
+    prepareStep: () =>
+      tokenLimitStep(storage, { kind: "research", system, building: false }),
     onStepFinish: (step) => {
       addTokens(storage, step.usage);
       return recordEvent(session, "step.completed", {

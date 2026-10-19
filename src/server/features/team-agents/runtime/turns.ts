@@ -1,7 +1,6 @@
 import type {
   FilePart,
   ModelMessage,
-  StopCondition,
   ToolSet,
   UIMessage,
   UserModelMessage,
@@ -38,23 +37,21 @@ import { runnerTools } from "./runnerTools";
 // CrmAgent runtime holds beside research and record chats (CrmAgent
 // beforeTurn): a run of a deployed version, and a builder chat.
 
-/** A run's steps and tokens: tighter than a research session's. */
+/**
+ * A run's steps and research budget. Its tokens are capped as the CRM capped
+ * its runner's (agent/runtime/budget.ts), and the CRM set no step limit, so
+ * this one is only a safety bound: every step re-reads the run's
+ * instructions, tools and transcript, so its 500,000 input tokens run out
+ * long before its hundredth step.
+ */
 export const RUN_LIMITS = {
-  maxSteps: 16,
-  maxOutputTokens: 4_000,
+  maxSteps: 100,
   /** Research units: two quick web questions. */
   budget: 2,
-  /** A run that has read this much input stops where it is. */
-  maxInputTokens: 300_000,
 } as const;
 
 export const RUN_STOPPED_REPLY =
   "This run is no longer active, so it does nothing.";
-
-/** A run stops where it is once its steps have read this much input. */
-export const withinRunInput: StopCondition<ToolSet> = ({ steps }) =>
-  steps.reduce((total, step) => total + (step.usage.inputTokens ?? 0), 0) >
-  RUN_LIMITS.maxInputTokens;
 
 /**
  * A run's turn: the runner's instructions and the version's approved ones,
@@ -264,7 +261,8 @@ async function withTagsAndFiles(
  * tools re-check every tagged record against the organization before
  * anything is saved. A question's research draws on the turn's budget.
  * `messages` gives the model what the person tagged and attached, from the
- * model messages Think assembled for the turn (TurnContext.messages).
+ * model messages Think assembled for the turn (TurnContext.messages), and
+ * `creating` says whether the turn builds, which has its own token limit.
  */
 export function prepareBuilderTurn(
   session: ChatSession,
@@ -278,6 +276,7 @@ export function prepareBuilderTurn(
   system: string;
   tools: ToolSet;
   messages: (assembled: ModelMessage[]) => Promise<ModelMessage[]>;
+  creating: boolean;
 } {
   const userMessages = input.messages.filter(
     (message) => message.role === "user",
@@ -342,5 +341,6 @@ export function prepareBuilderTurn(
     tools,
     messages: (assembled) =>
       withTagsAndFiles(session, input.messages, people, assembled),
+    creating,
   };
 }
