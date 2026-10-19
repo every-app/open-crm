@@ -74,12 +74,19 @@ this order; the ones that need no database run before the one lookup:
 3. Site id shape, `Origin` present, visitor id shape (8 to 64 characters of
    `[A-Za-z0-9_-]`), at most 20 events, and no replays (three or more events
    with the same timestamp).
-4. Site lookup: one indexed read. Refuses unknown, rotated or paused sites.
-5. `Origin` and each event's host against the allow-list. Off-list events
+4. The client's address (`CF-Connecting-IP`, an IPv6 one by its /64): at
+   most 120 requests a minute to one site and 600 in all. It is counted in
+   the Worker's memory (`addressLimit.ts`), so it holds per isolate, and it
+   is never stored. `/t/<siteId>.js` counts the same way and answers 429
+   past it. Every App's deploy policy doesn't allow a Workers Rate Limiting
+   binding yet; with one, the count would hold per Cloudflare location.
+5. Site lookup: one indexed read. Refuses unknown, rotated or paused sites.
+6. `Origin` and each event's host against the allow-list. Off-list events
    are filtered out; the rest of the batch is kept.
-6. Rate, charged per accepted event in the database with one conditional
-   upsert per counter. The limits are 600 events a minute per site and 120
-   per visitor. A refused charge spends nothing.
+7. Rate, charged per accepted event in the database with one conditional
+   upsert per counter. The limits are 50,000 events a day per organization,
+   600 a minute per site and 120 per visitor. A refused charge spends
+   nothing.
 
 Stored fields are bounded too: paths and referrers at 512 characters,
 labels at 80, UTM values at 120, and forms at 40 fields of 512 characters.
@@ -97,7 +104,7 @@ follows (`src/shared/participants.ts`):
   submission to an existing contact costs nothing.
 
 So the worst a scripted attacker can do to one organization is bounded per
-minute and per hour, and each event costs them a full HTTP request.
+minute, per hour and per day, and each event costs them a full HTTP request.
 
 ## Retention
 

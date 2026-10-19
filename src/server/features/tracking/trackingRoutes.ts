@@ -1,3 +1,7 @@
+import {
+  addressOf,
+  withinAddressLimit,
+} from "@/server/features/tracking/addressLimit";
 import { TrackingCollectorService } from "@/server/features/tracking/services/TrackingCollectorService";
 import {
   LOADER_SOURCE,
@@ -19,7 +23,9 @@ import {
 //
 // They run on somebody else's website, so they set their own CORS and
 // resource-policy headers. They read nothing from the request but the path,
-// the body, Origin and User-Agent; the organization comes from the site id.
+// the body, Origin, User-Agent and the client's address, which only counts
+// its requests (addressLimit.ts) and is never stored; the organization comes
+// from the site id.
 
 const COLLECTOR_PATH = "/t/e";
 const LOADER_PATH = "/t/crm.js";
@@ -52,6 +58,12 @@ function emptyTracker(): Response {
 }
 
 async function tracker(request: Request, siteId: string): Promise<Response> {
+  if (!withinAddressLimit(addressOf(request), siteId)) {
+    return new Response(null, {
+      status: 429,
+      headers: { "retry-after": "60", "cache-control": "no-store" },
+    });
+  }
   const site = await TrackingCollectorService.configForSite(siteId);
   if (!site) return emptyTracker();
   const origin = new URL(request.url).origin;
@@ -109,6 +121,7 @@ async function collect(request: Request): Promise<Response> {
       await TrackingCollectorService.accept(body, {
         origin: request.headers.get("origin"),
         userAgent: request.headers.get("user-agent"),
+        address: addressOf(request),
       });
     }
   } catch (error) {

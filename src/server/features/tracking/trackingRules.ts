@@ -19,6 +19,14 @@ export const MAX_FORM_FIELDS = 40;
 /** Events a site may record per minute, and one visitor of it. */
 export const SITE_EVENTS_PER_MINUTE = 600;
 export const VISITOR_EVENTS_PER_MINUTE = 120;
+/** Events an organization may record per UTC day, whatever the minute's rate. */
+export const ORG_EVENTS_PER_DAY = 50_000;
+/**
+ * Requests one address may make to the public routes per minute, to one
+ * site and in all, counted before anything reads the database.
+ */
+export const ADDRESS_SITE_REQUESTS_PER_MINUTE = 120;
+export const ADDRESS_REQUESTS_PER_MINUTE = 600;
 /** New contacts form submissions may create per organization per hour. */
 export const CONTACTS_PER_HOUR = 50;
 
@@ -210,7 +218,7 @@ export function originAllowed(
   return hostAllowed(host, config);
 }
 
-/** One minute's window, and one hour's: the counters' keys. */
+/** One minute's window, one hour's and one day's: the counters' keys. */
 export function minuteWindow(at: Date): { key: string; expiresAt: string } {
   const minute = Math.floor(at.getTime() / 60_000);
   return {
@@ -224,6 +232,14 @@ export function hourWindow(at: Date): { key: string; expiresAt: string } {
   return {
     key: String(hour),
     expiresAt: new Date((hour + 2) * 3_600_000).toISOString(),
+  };
+}
+
+export function dayWindow(at: Date): { key: string; expiresAt: string } {
+  const day = Math.floor(at.getTime() / 86_400_000);
+  return {
+    key: String(day),
+    expiresAt: new Date((day + 2) * 86_400_000).toISOString(),
   };
 }
 

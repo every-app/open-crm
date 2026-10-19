@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The collector is the CRM's one anonymous write path: each refusal must
 // happen for the reason its test names, the rate counts in the database,
@@ -32,9 +32,13 @@ import {
   readySite,
 } from "@/server/features/tracking/testing/trackingTestSupport";
 import { TrackingEventRepository } from "@/server/features/tracking/repositories/TrackingEventRepository";
+import { TrackingSiteRepository } from "@/server/features/tracking/repositories/TrackingSiteRepository";
 import { TrackingSettingsService } from "@/server/features/tracking/services/TrackingSettingsService";
 import {
+  ADDRESS_SITE_REQUESTS_PER_MINUTE,
+  dayWindow,
   minuteWindow,
+  ORG_EVENTS_PER_DAY,
   SITE_EVENTS_PER_MINUTE,
 } from "@/server/features/tracking/trackingRules";
 import { TrackingCollectorService } from "./TrackingCollectorService";
@@ -58,6 +62,9 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
       await database.seedTwoOrganizations();
       siteId = await readySite(A, "acme.com");
+    });
+    afterEach(() => {
+      vi.useRealTimers();
     });
 
     const events = () =>
@@ -221,6 +228,52 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
       expect(await database.rows("SELECT path FROM tracked_event")).toEqual([
         { path: "/c" },
+      ]);
+    });
+
+    it("refuses an address past its minute for a site, before reading the database", async () => {
+      vi.useFakeTimers({
+        now: new Date("2026-10-19T12:00:30Z"),
+        toFake: ["Date"],
+      });
+      const lookups = vi.spyOn(TrackingSiteRepository, "findBySiteId");
+      const unknownSite = batch("cmp_ffffffffffffffff", [pageView("acme.com")]);
+      // The limiter's memory outlives a test: each backend its own address.
+      const from = {
+        ...BROWSER,
+        address: dialect === "sqlite" ? "198.51.100.1" : "198.51.100.2",
+      };
+      for (let sent = 0; sent < ADDRESS_SITE_REQUESTS_PER_MINUTE; sent += 1) {
+        await TrackingCollectorService.accept(unknownSite, from);
+      }
+      await TrackingCollectorService.accept(unknownSite, from);
+      expect(lookups).toHaveBeenCalledTimes(ADDRESS_SITE_REQUESTS_PER_MINUTE);
+      // Another address still gets through.
+      await TrackingCollectorService.accept(unknownSite, {
+        ...from,
+        address: "203.0.113.9",
+      });
+      expect(lookups).toHaveBeenCalledTimes(
+        ADDRESS_SITE_REQUESTS_PER_MINUTE + 1,
+      );
+    });
+
+    it("refuses events past the organization's day, and charges them nothing", async () => {
+      const day = dayWindow(new Date());
+      await TrackingEventRepository.take(
+        A,
+        `day:${day.key}`,
+        ORG_EVENTS_PER_DAY,
+        ORG_EVENTS_PER_DAY,
+        day.expiresAt,
+      );
+      await TrackingCollectorService.accept(
+        batch(siteId, [pageView("acme.com")]),
+        BROWSER,
+      );
+      expect(await events()).toEqual([]);
+      expect(await database.rows("SELECT key FROM tracking_counter")).toEqual([
+        { key: `day:${day.key}` },
       ]);
     });
 
