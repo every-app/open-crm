@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       plugins: [tsConfigPaths()],
       test: {
         environment: "node",
-        include: ["src/**/*.test.ts"],
+        include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
         restoreMocks: true,
         clearMocks: true,
         // The key connection tokens are encrypted under, as a deploy sets it.

@@ -166,6 +166,19 @@ export function ExchangeRates({
           </Table>
         )}
       </SettingsCard>
+      {/* The feed's free terms ask for this link wherever its rates show. */}
+      {settings.rates.some((rate) => rate.source !== "MANUAL") ? (
+        <p className="text-right text-xs text-muted-foreground">
+          <a
+            href="https://www.exchangerate-api.com"
+            target="_blank"
+            rel="noreferrer"
+            className="underline-offset-4 hover:underline"
+          >
+            Rates By Exchange Rate API
+          </a>
+        </p>
+      ) : null}
     </SettingsSection>
   );
 }

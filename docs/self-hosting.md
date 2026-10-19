@@ -6,8 +6,8 @@ Open CRM runs behind an Every App gateway. You can deploy your own copy (a fork)
 
 - **An Every App gateway.** The gateway is a Worker in your Cloudflare account that signs people in, decides who may open each app, and holds the provider keys apps use. If you don't have one yet, the steps below set it up.
 - **A Cloudflare account on Workers Paid, with a domain on Cloudflare.** The gateway lives at a subdomain of it (for example `apps.your-company.com`) and the CRM one level below (`crm.apps.your-company.com`).
-- **Node.js 22.18 or newer**, and **pnpm**.
-- **A checkout of the Every App repository** beside this one, at `../private-every-app`, with `pnpm install` run there. The Every App SDK and CLI are not published yet, so the CRM's `package.json` links them from that checkout by path.
+- **Node.js 22.18 or newer**, and **pnpm 10**.
+- **A checkout of the Every App repository** beside this one, at `../private-every-app`, with `pnpm install` run there. The Every App SDK and CLI are not published yet, so the CRM's `package.json` links them from that checkout by path. The [release notes](release-notes.md) name the Every App commit each release needs.
 
 ```text
 projects/
@@ -37,7 +37,7 @@ pnpm deploy:everyapp
 
 The deploy registers the CRM with the gateway, creates its D1 database and R2 bucket, builds the Worker, migrates the database, uploads it, and binds it to the gateway. With no gateway in your account, the deploy offers to set one up first. When it finishes, the CRM appears on your gateway for every member of your organization.
 
-The CRM has one optional setting of its own. A GitHub token (any classic token with no scopes) raises GitHub's rate limit when the agent matches people to GitHub profiles. Set it after the first deploy:
+The CRM has two optional settings of its own: `OPENROUTER_MODEL` ([below](#give-the-agent-its-keys)), and a GitHub token (any classic token with no scopes), which raises GitHub's rate limit when the agent matches people to GitHub profiles. Set the token after the first deploy:
 
 ```bash
 pnpm everyapp secret set GITHUB_TOKEN
@@ -75,7 +75,9 @@ pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET --f
 
 Settings → Connections shows the exact redirect URI for your CRM to owners and admins, and each card says when its client isn't set up yet.
 
-Gmail's read scope is one Google restricts. If everyone who connects is in your own Google Workspace, make the consent screen _Internal_ and no review is needed. An _External_ consent screen needs Google's verification and a yearly security assessment before people outside your Workspace can connect Gmail. Microsoft client secrets expire (after 6 to 24 months): set a new one with the same command before it does.
+Gmail's read scope is one Google restricts. If everyone who connects is in your own Google Workspace, make the consent screen _Internal_ and no review is needed. An _External_ consent screen needs Google's verification and a yearly security assessment before people outside your Workspace can connect Gmail. Left in _Testing_, it takes at most 100 test users, and their connections stop working after 7 days.
+
+Microsoft client secrets expire after the period you pick when you create one, from 90 days to 24 months. Set a new one with the same command before it does.
 
 ### Slack
 
@@ -87,13 +89,41 @@ pnpm everyapp secret set SLACK_CLIENT_ID SLACK_CLIENT_SECRET --for gateway
 
 An owner or admin then connects the workspace's Slack from Settings → Connections.
 
+## Invite your team
+
+Everyone in your organization on the gateway can open the CRM. Owners and admins invite people on the gateway, under Users → Invite user (`https://<gateway>/admin/users`). If the gateway can't send email, copy the invite link it shows and send it yourself. Settings → Members lists who has opened the CRM.
+
 ## What works without keys
 
-The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking & Analytics), and the MCP tools AI clients use, at `https://<crm host>/mcp` and on your gateway's `/mcp`. Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
+The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking & Analytics), and the MCP tools AI clients use. Clients that sign in with OAuth, such as claude.ai and ChatGPT, connect to your gateway's `/mcp`; the CRM's own `https://<crm host>/mcp` takes only a personal access token. Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
 
 Without a model key, the research agent pauses. Records it would research say "Waiting for setup", and the agent button on Overview says "Agent paused". Settings → General shows which key is missing and, on your own gateway, the command that sets it; owners and admins also see it as a step in Overview's Get started card. Nothing is lost while it waits: the agent does the work once the key is set.
 
 With a model key but no Context.dev key, the agent still researches. Each company shows its website's favicon as its logo, and brand data stays empty.
+
+## What the agent costs
+
+On your own gateway, the agent spends your OpenRouter and Context.dev accounts. At their prices in October 2026:
+
+- A new company gets a logo and brand lookup (10 Context.dev credits, $0.025), then a research session for its profile.
+- A new contact gets a research session to identify them, and a photo search when there's somewhere to look (up to $0.05).
+- A new record's research session makes at most two Context.dev lookups ($0.025 for a brand or a site's pages, $0.05 for a LinkedIn profile) and spends at most 500,000 input and 50,000 output tokens: $0.075 on GPT-6 Luna, at $0.10 and $0.50 per million, plus $0.01 for each web search. A company enriched on request, and the brief before a meeting with someone new, may make four or five lookups.
+
+So researching a record costs at most about $0.25, plus its web searches. Context.dev bills credits at about $0.0025 each on its $19 plan, and its free plan's 1,000 credits a month buy 100 logo lookups. A team agent's run can spend up to 500,000 input and 40,000 output tokens, and its schedule can run as often as every minute.
+
+The agent researches every record you add and, every five minutes, up to 500 records of each kind that were never researched. To bound the spend:
+
+- Give the OpenRouter key the gateway holds a credit limit that resets daily, in [OpenRouter's key settings](https://openrouter.ai/settings/keys). $10 a day covers a team adding a few dozen records a day, and holds a large import to $300 a month.
+- Turn off **Research automatically** in Settings → General (owners and admins). The agent then researches only what someone asks for, and new records wait.
+- Import a large CSV with **Research new records** off.
+
+## Website tracking
+
+The tracking tag runs on your own website, for visitors who aren't signed in:
+
+- If your site sends a Content-Security-Policy, allow the CRM's host (`https://<crm host>`) in `script-src` and `connect-src`.
+- If Cloudflare Access protects your gateway's app hosts, bypass `/t/*` and `/health` on the CRM's host. The Every App repository's `docs/runbooks/cloudflare-access.md` shows how.
+- The collector takes at most 600 events a minute from a site and 120 from one visitor, and forms create at most 50 contacts an hour. Anything over is dropped.
 
 ## Run it locally
 
@@ -114,17 +144,70 @@ CONTEXT_API_KEY=...
 
 ## Health checks
 
-`https://<crm host>/health` answers `200 {"status":"ok","database":"up"}` without signing in, or `503` when the database doesn't answer. Point an uptime monitor at it.
+`https://<crm host>/health` answers `200 {"status":"ok","database":"up"}` without signing in, or `503` when the database doesn't answer. Point an uptime monitor at it, checking every minute.
 
-`https://<crm host>/health/dispatch` reports the research agent's queue: when each part last ran, its backlog and recent failures. It answers `503` when a part has stopped or work is overdue. Call it with a personal access token for the CRM, made by an owner or admin on the gateway, in an `Authorization: Bearer` header.
+`https://<crm host>/health/dispatch` reports the research agent's queue: when each part last ran, its backlog and recent failures. It answers `503` when a part has stopped or work is overdue. Call it with a personal access token for the CRM, made by an owner or admin on the gateway, in an `Authorization: Bearer` header, every five minutes or so. Tokens expire (after 7 to 180 days, or on a date you pick), and the monitor fails from then on: make a new one before it does.
+
+It also reports the database's size (`"database": {"provider": "d1", "sizeBytes": …}`). D1 refuses every write once a database reaches 10 GB, so watch it. [Moving to Postgres](maintainers/database.md) lifts the limit; there, set `OPEN_CRM_DATABASE_REGION` (for example `aws:eu-central-1`) when you deploy, so the Worker runs beside the database.
+
+## Operations
+
+### Backups
+
+D1 keeps every change for 30 days (Time Travel), with nothing to set up. Each deploy also takes a restore point before it migrates, and prints the command that goes back to it.
+
+For a copy outside Cloudflare, export the database with Wrangler, Cloudflare's other CLI, which asks you to log in the first time. The CRM's database is named like its Worker, `every-<org key>-crm` (`pnpm exec cf d1 list` shows it). An export blocks the database's other requests while it runs, so make it when nobody is working:
+
+```bash
+npx wrangler d1 export every-<org key>-crm --remote --output crm-backup.sql
+```
+
+The export is SQL, which `npx wrangler d1 execute <database> --remote --file crm-backup.sql` loads into an empty database.
+
+Neither covers two things outside the database: agent chats and the research agent's transcripts, which live in the CRM's Durable Objects, and logos, photos and files attached to builder chats, in its R2 bucket. They aren't backed up.
+
+### Restoring
+
+To take the database back to a moment in the last 30 days, or to a deploy's restore point:
+
+```bash
+pnpm exec cf d1 time-travel restore <database id> --timestamp 2026-10-19T09:00:00Z
+pnpm exec cf d1 time-travel restore <database id> --bookmark <bookmark the deploy printed>
+```
+
+A restore rewinds the whole database in place, so everything written since is lost. It prints a bookmark that undoes it. Chats and images aren't rewound, so a chat may mention a record the restore removed.
+
+### Rolling back
+
+To serve the previous version again, open the CRM's Worker in the Cloudflare dashboard (Workers & Pages → `every-<org key>-crm` → Deployments) and choose Rollback beside that version. A rollback leaves the database as it is: the older version runs on the migrated database, because migrations only add tables and columns. To undo a migration's changes to data too, restore the deploy's bookmark.
+
+After a rollback, the CRM serves a version `pnpm deploy:everyapp` didn't upload, so the next deploy asks before replacing it. Run that deploy in a terminal: where it can't ask, as in CI, it stops without changing anything.
+
+### Logs
+
+Every deploy turns on Workers Logs and traces. Open them under Workers & Pages → `every-<org key>-crm` → Observability. Workers Paid keeps logs for 7 days, and Workers Issues groups the errors.
+
+### Operator scripts
+
+From this checkout, with your Cloudflare login, these read the deployed CRM's database and print JSON:
+
+```bash
+pnpm ops organization <organization id or member email>   # records, members, connections and the agent's queue
+pnpm ops dispatch                                         # when the agent's lanes last ran, and the work waiting
+pnpm ops requeue <task id>                                # a stuck task, back on the queue; add --execute to do it
+```
 
 ## Upgrading
 
-1. Pull the latest CRM, and update the Every App checkout too. Run `pnpm install` in both.
+Releases are tagged (`v0.1.0`), and the [release notes](release-notes.md) list each one's breaking changes, new settings, migrations and the Every App commit it needs.
+
+1. Merge the release's tag into your fork, and update the Every App checkout to at least the commit the notes name. Run `pnpm install` in both.
 2. If the Every App checkout changed, run `pnpm everyapp setup` to upgrade the gateway. It keeps the gateway's data, users and apps.
-3. Run `pnpm deploy:everyapp` from the CRM checkout.
+3. Set any new settings the notes list, then run `pnpm deploy:everyapp` from the CRM checkout.
 
 The deploy migrates the CRM's database after taking a restore point (a D1 Time Travel bookmark, which it prints), then uploads the new version.
+
+If your fork changes the schema, change tables only by adding to them. On D1, a migration that rebuilds a table deletes the rows of every table that references it, and `pnpm test` refuses one.
 
 ## Troubleshooting
 
