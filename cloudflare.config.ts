@@ -3,7 +3,7 @@ import { everyAppWorker } from "@every-app/sdk/cloudflare";
 import * as entrypoint from "./src/server.ts" with { type: "cf-worker" };
 import manifest from "./everyapp.config.ts";
 
-// The CRM's Worker, as `pnpm dev`, `pnpm build` and `everyapp deploy` build
+// The CRM's Worker, as `pnpm dev`, `pnpm build:dev` and `everyapp deploy` build
 // it, from everyapp.config.ts. Nothing the Worker imports may be imported
 // here: in dev the Cloudflare Vite plugin hides this file's imports from the
 // Worker.

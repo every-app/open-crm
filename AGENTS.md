@@ -41,7 +41,7 @@ Open CRM is the open-source CRM from [trycompai/crm](https://github.com/trycompa
 ## Commands
 
 - `pnpm dev`: `everyapp dev` (a local gateway with a seeded dev owner, D1, the real identity checks) at `http://crm.localhost:8787`.
-- `pnpm build`, `pnpm types:check`, `pnpm lint`, `pnpm knip`, `pnpm test`, `pnpm format:write`.
+- `pnpm build:dev` (the dev Worker), `pnpm build:prod` (both deployable shapes, with stand-in deploy inputs), `pnpm types:check`, `pnpm lint`, `pnpm knip`, `pnpm test`, `pnpm format:write`.
 - `pnpm db:generate` after any schema change (both dialects).
 - `pnpm ci:check` runs everything CI runs.
 

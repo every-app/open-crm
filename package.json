@@ -8,7 +8,8 @@
   "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "everyapp dev",
-    "build": "vite build --mode development && tsc --noEmit",
+    "build:dev": "vite build --mode development && tsc --noEmit",
+    "build:prod": "node scripts/build-prod.ts",
     "lint": "oxlint . --type-aware",
     "lint:fix": "oxlint . --type-aware --fix",
     "types:generate": "cf workers types",
@@ -27,7 +28,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ci": "vitest run --reporter=dot",
-    "ci:check": "prettier --check . && knip && cf workers types && tsc --noEmit && oxlint . --type-aware && vitest run"
+    "ci:check": "prettier --check . && knip && cf workers types && tsc --noEmit && oxlint . --type-aware && vitest run && pnpm build:prod"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.211",
