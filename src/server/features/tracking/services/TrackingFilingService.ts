@@ -1,9 +1,8 @@
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
-import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import { MatchService } from "@/server/features/mailbox/services/MatchService";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
 import {
@@ -24,9 +23,10 @@ import {
 // The only path from a website form to a contact. Every submission is
 // stored; filing it may decline, and the reason is kept on the row. It
 // applies the rules captured mail does (machine and automated addresses, our
-// own domains, deleted contacts and suppressed domains stay out), bounds a
-// scripted form's damage with CONTACTS_PER_HOUR, and tells the research agent
-// about a new contact without asking it anything.
+// own domains, deleted contacts and suppressed domains stay out), and bounds
+// a scripted form's damage with CONTACTS_PER_HOUR. Anyone can submit a form,
+// so a new contact and its company get no paid research until a person opens
+// one (ResearchHoldService).
 
 type Submission = {
   id: string;
@@ -186,9 +186,12 @@ async function file(
       companyId: await CompanyDirectoryService.companyForEmail(
         organizationId,
         email,
+        null,
+        "TRACKING",
       ),
       ownerId: null,
       source: "TRACKING",
+      researchHeldAt: ResearchHoldService.heldFrom("TRACKING"),
     });
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
@@ -210,16 +213,6 @@ async function file(
     contactId,
     host: submission.host,
   });
-  await AgentTaskService.contactCreated(
-    organizationId,
-    contactId,
-    `Submitted a form on ${submission.host}`,
-  );
-  await FieldsService.queueFillForNewRecord(
-    organizationId,
-    "CONTACT",
-    contactId,
-  );
   return { filed: true, contactId };
 }
 

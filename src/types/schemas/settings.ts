@@ -30,3 +30,5 @@ export const archiveRetentionFormSchema = z.object({
       `Enter a whole number of days from ${MIN_ARCHIVE_RETENTION_DAYS} to ${MAX_ARCHIVE_RETENTION_DAYS.toLocaleString("en-US")}.`,
     ),
 });
+
+export const setAutomaticResearchSchema = z.object({ enabled: z.boolean() });

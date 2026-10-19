@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, lt, notExists, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, lte, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { db } from "@/db";
 import { agentDefinition, agentRun } from "@/db/schema";
@@ -9,20 +9,27 @@ import { agentDefinition, agentRun } from "@/db/schema";
 // organization of every run it hands back.
 
 /**
- * Queued runs of live agents with nothing running, oldest first: the next
- * runs to start, at most one per agent.
+ * Queued runs of live agents with nothing running: the next runs to start,
+ * each agent's oldest. Organizations take turns, oldest first within each,
+ * at most `perOrganization` runs each.
  */
-async function queuedAcrossOrganizations(
-  limit: number,
-  organizationId?: string,
-) {
+async function queuedAcrossOrganizations(input: {
+  limit: number;
+  perOrganization: number;
+  organizationId?: string;
+}) {
   const otherRun = alias(agentRun, "other_run");
-  const rows = await db
+  const startable = db
     .select({
       id: agentRun.id,
       organizationId: agentRun.organizationId,
       agentId: agentRun.agentId,
       versionId: agentRun.versionId,
+      createdAt: agentRun.createdAt,
+      agentTurn:
+        sql<number>`row_number() over (partition by ${agentRun.agentId} order by ${agentRun.createdAt}, ${agentRun.id})`.as(
+          "agent_turn",
+        ),
     })
     .from(agentRun)
     .innerJoin(
@@ -35,8 +42,8 @@ async function queuedAcrossOrganizations(
     .where(
       and(
         eq(agentRun.status, "QUEUED"),
-        organizationId
-          ? eq(agentRun.organizationId, organizationId)
+        input.organizationId
+          ? eq(agentRun.organizationId, input.organizationId)
           : undefined,
         notExists(
           db
@@ -51,16 +58,32 @@ async function queuedAcrossOrganizations(
         ),
       ),
     )
-    .orderBy(asc(agentRun.createdAt), asc(agentRun.id))
-    .limit(limit * 4);
-  const seen = new Set<string>();
-  return rows
-    .filter((row) => {
-      if (seen.has(row.agentId)) return false;
-      seen.add(row.agentId);
-      return true;
+    .as("startable");
+  const next = db
+    .select({
+      id: startable.id,
+      organizationId: startable.organizationId,
+      agentId: startable.agentId,
+      versionId: startable.versionId,
+      createdAt: startable.createdAt,
+      turn: sql<number>`row_number() over (partition by ${startable.organizationId} order by ${startable.createdAt}, ${startable.id})`.as(
+        "turn",
+      ),
     })
-    .slice(0, limit);
+    .from(startable)
+    .where(eq(startable.agentTurn, 1))
+    .as("next");
+  return db
+    .select({
+      id: next.id,
+      organizationId: next.organizationId,
+      agentId: next.agentId,
+      versionId: next.versionId,
+    })
+    .from(next)
+    .where(lte(next.turn, input.perOrganization))
+    .orderBy(asc(next.turn), asc(next.createdAt), asc(next.id))
+    .limit(input.limit);
 }
 
 /**

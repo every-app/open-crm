@@ -76,6 +76,12 @@ export const workspace = sqliteTable("workspace", {
   // When the enrichment sweep last looked over the organization's records
   // (src/server/features/agent/dispatch/sweep.ts).
   enrichmentSweptAt: timestamp("enrichment_swept_at"),
+  // Whether the agent researches on its own (Settings → General): new
+  // records, and what the enrichment sweep finds. Off, only what a person
+  // asks for runs.
+  researchAutomatically: integer("research_automatically", { mode: "boolean" })
+    .notNull()
+    .default(true),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -138,6 +144,10 @@ export const company = sqliteTable(
       .default("PENDING"),
     enrichedAt: timestamp("enriched_at"),
     enrichmentError: text("enrichment_error"),
+    // Set while the record's paid research waits for a person: added by a
+    // website form or a calendar invite (until someone opens or enriches
+    // it), or imported with research off (until someone enriches it).
+    researchHeldAt: timestamp("research_held_at"),
 
     source: text("source", { enum: RECORD_SOURCES })
       .notNull()
@@ -212,6 +222,10 @@ export const contact = sqliteTable(
       .default("PENDING"),
     enrichedAt: timestamp("enriched_at"),
     enrichmentError: text("enrichment_error"),
+    // Set while the record's paid research waits for a person: added by a
+    // website form or a calendar invite (until someone opens or enriches
+    // it), or imported with research off (until someone enriches it).
+    researchHeldAt: timestamp("research_held_at"),
 
     companyId: text("company_id").references(() => company.id, {
       onDelete: "set null",

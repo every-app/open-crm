@@ -7,7 +7,8 @@ import { WorkspaceRepository } from "@/server/features/workspace/repositories/Wo
 // the gateway has no status route for AI providers, so the CRM learns it
 // from the gateway's answers (AgentAvailabilityService). Kept on the
 // workspace row, and written without touching `updated_at`: nobody edited
-// the workspace.
+// the workspace. Beside it, whether the organization lets the agent research
+// on its own.
 
 export type ModelSighting = {
   refusedAt: string | null;
@@ -43,8 +44,17 @@ async function noteAnswer(organizationId: string): Promise<void> {
     .where(eq(workspace.organizationId, organizationId));
 }
 
+/** Whether the agent researches on its own (Settings → General). */
+async function researchesAutomatically(
+  organizationId: string,
+): Promise<boolean> {
+  return (await WorkspaceRepository.getOrCreate(organizationId))
+    .researchAutomatically;
+}
+
 export const AgentAvailabilityRepository = {
   read,
   noteRefusal,
   noteAnswer,
+  researchesAutomatically,
 };

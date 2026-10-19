@@ -4,11 +4,13 @@ import {
   count,
   desc,
   eq,
+  exists,
   gte,
   inArray,
   isNull,
   lt,
   lte,
+  not,
   notInArray,
   or,
   sql,
@@ -17,6 +19,7 @@ import { chunk, sort } from "remeda";
 import { db } from "@/db";
 import { agentTask, workspace } from "@/db/schema";
 import {
+  ASKED_FOR_PRIORITY,
   FREE_KINDS,
   MAX_ATTEMPTS,
   RETIRED_OUTCOME,
@@ -77,25 +80,49 @@ const outOfCreditsSince = (since: string) =>
   sql`exists (select 1 from ${workspace} where ${workspace.organizationId} = ${agentTask.organizationId} and ${workspace.creditsDepletedAt} >= ${since})`;
 
 /**
- * Leases up to `limit` due tasks of `lane`, most urgent first. Across every
- * organization unless `organizationId` names one: the minute cron serves the
- * whole queue, a poke serves one organization's. Each returned task carries
- * its organization, and everything done with it after is scoped to that.
+ * The task's organization turned off Research automatically (Settings →
+ * General), so only work a person asked for runs.
+ */
+const researchHeldByOrganization = () =>
+  exists(
+    db
+      .select({ organizationId: workspace.organizationId })
+      .from(workspace)
+      .where(
+        and(
+          eq(workspace.organizationId, agentTask.organizationId),
+          eq(workspace.researchAutomatically, false),
+        ),
+      ),
+  );
+
+/**
+ * Leases up to `limit` due tasks of `lane`. Across every organization unless
+ * `organizationId` names one: the minute cron serves the whole queue, a poke
+ * serves one organization's. Organizations take turns, round-robin: each
+ * one's most urgent task, then each one's next, at most `perOrganization`
+ * each, and none of `skipOrganizations`'. Each returned task carries its
+ * organization, and everything done with it after is scoped to that.
  *
  * A lease is a conditional update (no SKIP LOCKED on D1): the UPDATE re-checks
  * that each row is still unleased, so of two dispatchers that picked the same
  * candidates only one gets each row back. Every claim counts an attempt.
  *
- * `heldSince` leaves the tasks of organizations whose model the gateway
- * refused since then: they wait until the model is set up. `creditsHeldSince`
- * leaves those of organizations out of credits since then, but for work that
- * costs nothing (FREE_KINDS).
+ * Work below what a person asked for waits where scheduled research is held:
+ * everyone's with `minPriority` (a first-party deployment's switch), and an
+ * organization's own once it turned off Research automatically. `heldSince`
+ * leaves the tasks of organizations whose model the gateway refused since
+ * then: they wait until the model is set up. `creditsHeldSince` leaves those
+ * of organizations out of credits since then, but for work that costs
+ * nothing (FREE_KINDS).
  */
 async function claimDue(input: {
   limit: number;
   lane: TaskLane;
   leaseMs: number;
   organizationId?: string;
+  perOrganization?: number;
+  skipOrganizations?: readonly string[];
   minPriority?: number;
   heldSince?: string;
   creditsHeldSince?: string;
@@ -108,8 +135,15 @@ async function claimDue(input: {
     unleased(now),
     lt(agentTask.attempts, MAX_ATTEMPTS),
   );
-  const candidates = await db
-    .select({ id: agentTask.id })
+  const ranked = db
+    .select({
+      id: agentTask.id,
+      priority: agentTask.priority,
+      dueAt: agentTask.dueAt,
+      turn: sql<number>`row_number() over (partition by ${agentTask.organizationId} order by ${agentTask.priority} desc, ${agentTask.dueAt} asc)`.as(
+        "turn",
+      ),
+    })
     .from(agentTask)
     .where(
       and(
@@ -120,9 +154,16 @@ async function claimDue(input: {
         input.organizationId
           ? eq(agentTask.organizationId, input.organizationId)
           : undefined,
+        input.skipOrganizations?.length
+          ? notInArray(agentTask.organizationId, [...input.skipOrganizations])
+          : undefined,
         input.minPriority === undefined
           ? undefined
           : gte(agentTask.priority, input.minPriority),
+        or(
+          gte(agentTask.priority, ASKED_FOR_PRIORITY),
+          not(researchHeldByOrganization()),
+        ),
         input.heldSince === undefined
           ? undefined
           : sql`not ${modelRefusedSince(input.heldSince)}`,
@@ -134,7 +175,16 @@ async function claimDue(input: {
             ),
       ),
     )
-    .orderBy(desc(agentTask.priority), asc(agentTask.dueAt))
+    .as("ranked");
+  const candidates = await db
+    .select({ id: ranked.id })
+    .from(ranked)
+    .where(
+      input.perOrganization === undefined
+        ? undefined
+        : lte(ranked.turn, input.perOrganization),
+    )
+    .orderBy(asc(ranked.turn), desc(ranked.priority), asc(ranked.dueAt))
     .limit(input.limit);
   if (candidates.length === 0) return [];
   const claimed = await db
@@ -154,10 +204,12 @@ async function claimDue(input: {
       ),
     )
     .returning(leasedColumns());
-  // Postgres does not return an UPDATE's rows in any particular order.
+  // In the candidates' order: Postgres does not return an UPDATE's rows in
+  // any particular one.
+  const order = new Map(candidates.map((row, index) => [row.id, index]));
   return sort(
     claimed,
-    (a, b) => b.priority - a.priority || a.dueAt.localeCompare(b.dueAt),
+    (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
   );
 }
 

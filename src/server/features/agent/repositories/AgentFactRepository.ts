@@ -321,7 +321,8 @@ async function organizationsWithProposals(): Promise<string[]> {
   const rows = await db
     .selectDistinct({ organizationId: contactFact.organizationId })
     .from(contactFact)
-    .where(eq(contactFact.status, "PROPOSED"));
+    .where(eq(contactFact.status, "PROPOSED"))
+    .orderBy(contactFact.organizationId);
   return rows.map((row) => row.organizationId);
 }
 

@@ -5,18 +5,22 @@ const DAY_MS = 24 * 60 * MINUTE_MS;
  * How much the dispatcher takes on per tick, and how long it holds what it
  * took. The CRM's numbers: the visible lane (no model) runs many at once on a
  * short lease; the research lane starts one session per task on a lease long
- * enough for a session to finish and report back.
+ * enough for a session to finish and report back. One minute cron serves
+ * every organization, so they take turns, and none takes more than
+ * `perOrganization` of a tick's work.
  */
 export const DISPATCH = {
   visible: {
     batch: 60,
     concurrency: 6,
     leaseMs: 6 * MINUTE_MS,
+    perOrganization: 20,
   },
 
   research: {
     batch: 12,
     leaseMs: 30 * MINUTE_MS,
+    perOrganization: 4,
     link: { attempts: 3, retryMs: 250 },
   },
 

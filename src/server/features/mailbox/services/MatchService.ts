@@ -1,6 +1,7 @@
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
@@ -15,6 +16,11 @@ import {
   type Participant,
 } from "@/shared/participants";
 import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
+import { TrackingEventRepository } from "@/server/features/tracking/repositories/TrackingEventRepository";
+import {
+  CONTACTS_PER_HOUR,
+  hourWindow,
+} from "@/server/features/tracking/trackingRules";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
 import { domainFromEmail, normalizeDomain } from "@/shared/domain";
@@ -24,7 +30,10 @@ import { domainFromEmail, normalizeDomain } from "@/shared/domain";
 // addresses; else the company behind the people's dominant work domain;
 // else, only when the source may add records, a new company (named after the
 // domain, for the agent to research) and the person as its contact. Nobody
-// in `externalParticipants`' discard pile is ever matched or created.
+// in `externalParticipants`' discard pile is ever matched or created. Anyone
+// can send an invite, so a calendar adds at most CONTACTS_PER_HOUR people an
+// hour to an organization, as website forms may, and what it adds gets no
+// paid research until a person opens it (ResearchHoldService).
 
 export type MatchContext = ExternalFilterOptions;
 
@@ -83,6 +92,32 @@ async function loadContext(organizationId: string): Promise<MatchContext> {
   };
 }
 
+/**
+ * Whether `request` may add a person now: a calendar takes one of its
+ * organization's hourly slots, as a website form does (TrackingFilingService).
+ */
+async function mayCreate(
+  organizationId: string,
+  request: MatchRequest,
+): Promise<boolean> {
+  if (!request.allowCreate) return false;
+  if (request.source !== "CALENDAR") return true;
+  const window = hourWindow(new Date());
+  const taken = await TrackingEventRepository.take(
+    organizationId,
+    `calendar-contacts:${window.key}`,
+    CONTACTS_PER_HOUR,
+    1,
+    window.expiresAt,
+  );
+  if (!taken) {
+    console.warn("[mailbox] hourly calendar contact cap reached", {
+      organizationId,
+    });
+  }
+  return taken;
+}
+
 async function resolve(
   organizationId: string,
   request: MatchRequest,
@@ -116,7 +151,7 @@ async function resolve(
   if (existing) {
     return {
       companyId: existing,
-      contactId: request.allowCreate
+      contactId: (await mayCreate(organizationId, request))
         ? await createContact(
             organizationId,
             external,
@@ -127,7 +162,7 @@ async function resolve(
         : null,
     };
   }
-  if (!request.allowCreate) return NO_MATCH;
+  if (!(await mayCreate(organizationId, request))) return NO_MATCH;
 
   const lead =
     external.find((person) => domainFromEmail(person.email) === domain) ??
@@ -174,7 +209,8 @@ async function resolve(
  * The person at `domain` as a contact of the company: the live contact with
  * their address, or a new one, written with its contact.created event. A
  * name the mail carries replaces one only made from the address; a new
- * contact with no name at all is the agent's to identify.
+ * contact with no name at all is the agent's to identify, unless a calendar
+ * invite added them (held for a person: ResearchHoldService).
  */
 async function createContact(
   organizationId: string,
@@ -193,6 +229,7 @@ async function createContact(
     organizationId,
     person.email,
   );
+  const researchHeldAt = ResearchHoldService.heldFrom(request.source);
   let created = false;
   if (!contact) {
     try {
@@ -207,6 +244,7 @@ async function createContact(
           companyId,
           ownerId: request.ownerId,
           source: request.source,
+          researchHeldAt,
         },
         [
           {
@@ -249,11 +287,13 @@ async function createContact(
       createdById: request.ownerId,
       meta: { source: request.source, automated: true },
     });
-    await FieldsService.queueFillForNewRecord(
-      organizationId,
-      "CONTACT",
-      contact.id,
-    );
+    if (!researchHeldAt) {
+      await FieldsService.queueFillForNewRecord(
+        organizationId,
+        "CONTACT",
+        contact.id,
+      );
+    }
   }
 
   const hasRealName = Boolean(person.name?.trim());
@@ -267,7 +307,7 @@ async function createContact(
       firstName,
       lastName,
     });
-  } else if (created && placeholder) {
+  } else if (created && placeholder && !researchHeldAt) {
     await AgentTaskService.contactCreated(
       organizationId,
       contact.id,

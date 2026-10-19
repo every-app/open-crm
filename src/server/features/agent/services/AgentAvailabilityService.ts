@@ -83,26 +83,28 @@ async function modelOf(organizationId: string) {
 async function forOrganization(
   organizationId: string,
 ): Promise<AgentAvailability> {
-  const [model, context, outOfCredits] = await Promise.all([
+  const [model, context, outOfCredits, automatic] = await Promise.all([
     modelOf(organizationId),
     hasContextAccess(),
     heldForCredits(organizationId),
+    AgentAvailabilityRepository.researchesAutomatically(organizationId),
   ]);
   return {
     model: model.state,
     modelRefusal: model.refusal,
     context,
     outOfCredits,
-    scheduledResearch: scheduledResearchEnabled(model.env),
+    scheduledResearch: automatic && scheduledResearchEnabled(model.env),
     tier: deploymentTierFor(model.env),
   };
 }
 
 /**
  * What holds the organization's research back: the model (`paused`), the
- * workspace out of credits (`outOfCredits`, every paid task), and on a
- * first-party deployment holding scheduled research, every task below the
- * work a person asked for (`minPriority`).
+ * workspace out of credits (`outOfCredits`, every paid task), and where its
+ * scheduled research is held (the organization turned off Research
+ * automatically, or a first-party deployment holds it), every task below
+ * the work a person asked for (`minPriority`).
  */
 export type ResearchHold = {
   paused: boolean;
@@ -111,16 +113,18 @@ export type ResearchHold = {
 };
 
 async function researchHold(organizationId: string): Promise<ResearchHold> {
-  const [model, outOfCredits] = await Promise.all([
+  const [model, outOfCredits, automatic] = await Promise.all([
     modelOf(organizationId),
     heldForCredits(organizationId),
+    AgentAvailabilityRepository.researchesAutomatically(organizationId),
   ]);
   return {
     paused: model.state === "missing" || model.state === "refused",
     outOfCredits,
-    minPriority: scheduledResearchEnabled(model.env)
-      ? null
-      : ASKED_FOR_PRIORITY,
+    minPriority:
+      automatic && scheduledResearchEnabled(model.env)
+        ? null
+        : ASKED_FOR_PRIORITY,
   };
 }
 

@@ -25,6 +25,7 @@ import { AgentPeopleRepository } from "./AgentPeopleRepository";
 import { AgentProfileRepository } from "./AgentProfileRepository";
 import { AgentRecordRepository } from "./AgentRecordRepository";
 import { AgentSweepRepository } from "./AgentSweepRepository";
+import { ResearchHoldRepository } from "./ResearchHoldRepository";
 
 const OWN = "org_a";
 const OTHER = "org_b";
@@ -399,5 +400,16 @@ describe("organization isolation of the sweep's reads", () => {
         "SELECT outcome FROM agent_task WHERE organization_id = 'org_a'",
       ),
     ).toEqual([{ outcome: "ours" }]);
+  });
+
+  it("ResearchHoldRepository", async () => {
+    const held = (organizationId: string) =>
+      ResearchHoldRepository.isHeld(organizationId, "contact", "c_a");
+    await ResearchHoldRepository.hold(OTHER, "contact", ["c_a"]);
+    expect(await held(OWN)).toBe(false);
+    await ResearchHoldRepository.hold(OWN, "contact", ["c_a"]);
+    expect(await held(OTHER)).toBe(false);
+    await ResearchHoldRepository.release(OTHER, "contact", "c_a");
+    expect(await held(OWN)).toBe(true);
   });
 });

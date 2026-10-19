@@ -280,6 +280,7 @@ export type NewCompany = {
     | "phone"
     | "email"
     | "linkedinUrl"
+    | "researchHeldAt"
   >
 >;
 

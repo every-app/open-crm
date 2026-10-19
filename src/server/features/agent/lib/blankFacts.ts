@@ -87,9 +87,12 @@ async function sweepBlankFacts(
 
 /**
  * The pass for the minute cron, over each organization with a suggestion
- * waiting. Never throws: one organization failing doesn't stop the others.
+ * waiting until the tick's time is up (`signal`). Each tick starts one
+ * organization further along the list, so one cut short doesn't always
+ * leave the same organizations out. Never throws: one organization failing
+ * doesn't stop the others.
  */
-export async function sweepAllBlankFacts(): Promise<void> {
+export async function sweepAllBlankFacts(signal?: AbortSignal): Promise<void> {
   let organizations: string[];
   try {
     organizations = await AgentFactRepository.organizationsWithProposals();
@@ -97,7 +100,13 @@ export async function sweepAllBlankFacts(): Promise<void> {
     console.error("[agent] could not list waiting suggestions", error);
     return;
   }
-  for (const organizationId of organizations) {
+  const start =
+    Math.floor(Date.now() / 60_000) % Math.max(1, organizations.length);
+  for (const organizationId of [
+    ...organizations.slice(start),
+    ...organizations.slice(0, start),
+  ]) {
+    if (signal?.aborted) break;
     try {
       const sweep = await sweepBlankFacts(organizationId);
       if (sweep.filled + sweep.settled > 0) {

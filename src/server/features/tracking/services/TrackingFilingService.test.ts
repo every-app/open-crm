@@ -113,11 +113,13 @@ for (const dialect of ["sqlite", "postgres"] as const) {
           created_by_id: "user_a",
         },
       ]);
+      // Anyone can submit a form: the agent researches nobody until a person
+      // opens them.
       expect(
         await database.rows(
           "SELECT kind FROM agent_task WHERE contact_id IS NOT NULL",
         ),
-      ).toEqual([{ kind: "identify" }]);
+      ).toEqual([]);
 
       const contactId =
         (

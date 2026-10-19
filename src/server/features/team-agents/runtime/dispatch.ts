@@ -22,14 +22,17 @@ import { TriggerService } from "../services/TriggerService";
 // (`run.<organization>.<run id>`). A person's "Run now", and the runs a
 // record write's events queued, poke it for their organization at once. A
 // run that can't run (no model on the gateway, Slack not connected, the
-// workspace out of credits) fails with the reason instead of waiting. The
-// per-minute scans are a few indexed queries whatever the number of
+// workspace out of credits) fails with the reason instead of waiting.
+// Organizations take turns, each at most RUNS.perOrganization runs a tick.
+// The per-minute scans are a few indexed queries whatever the number of
 // organizations.
 
 const MINUTE_MS = 60_000;
 
 const RUNS = {
   batch: 20,
+  /** Runs an organization may start a tick, so organizations take turns. */
+  perOrganization: 5,
   /** A delivered run that hasn't finished in this long is stopped. */
   executionTimeoutMs: 20 * MINUTE_MS,
   /** A claimed run whose session never accepted it goes back to the queue. */
@@ -217,10 +220,11 @@ export async function runTeamAgentLane(
     });
   }
   if (options.signal?.aborted) return 0;
-  const queued = await RunQueueRepository.queuedAcrossOrganizations(
-    RUNS.batch,
-    options.organizationId,
-  );
+  const queued = await RunQueueRepository.queuedAcrossOrganizations({
+    limit: RUNS.batch,
+    perOrganization: options.organizationId ? RUNS.batch : RUNS.perOrganization,
+    organizationId: options.organizationId,
+  });
   let started = 0;
   for (const run of queued) {
     if (options.signal?.aborted) break;

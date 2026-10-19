@@ -11,11 +11,15 @@ import {
   type NewAgentTask,
 } from "@/server/features/agent/repositories/AgentTaskRepository";
 import { pokeDispatcher } from "@/server/features/agent/poke";
+import { AgentAvailabilityRepository } from "@/server/features/agent/repositories/AgentAvailabilityRepository";
+import { ResearchHoldRepository } from "@/server/features/agent/repositories/ResearchHoldRepository";
 
 // How the rest of the CRM hands the research agent work: a row in its queue
 // (agent_task), which the minute cron leases (src/server/features/agent/
 // dispatch.ts). Queueing never fails a person's request unless they asked for
-// the work themselves (`required`).
+// the work themselves (`required`). Research nobody asked for (a new record's,
+// a meeting's) is queued only where the organization lets the agent research
+// on its own (Research automatically, Settings → General).
 
 type TaskInput = Omit<NewAgentTask, "organizationId" | "subject"> & {
   subject?: string;
@@ -52,12 +56,34 @@ async function enqueue(
   }
 }
 
+/**
+ * Whether the organization lets the agent research on its own. False when
+ * that can't be read: nothing is queued that nobody asked for.
+ */
+async function researchesAutomatically(
+  organizationId: string,
+): Promise<boolean> {
+  try {
+    return await AgentAvailabilityRepository.researchesAutomatically(
+      organizationId,
+    );
+  } catch (error) {
+    console.error(
+      "[agent] could not read whether research is automatic",
+      { organizationId },
+      error,
+    );
+    return false;
+  }
+}
+
 /** A company was added: fetch its brand, then write its profile. */
 async function companyCreated(
   organizationId: string,
   companyId: string,
   reason = "New company",
 ): Promise<void> {
+  if (!(await researchesAutomatically(organizationId))) return;
   await enqueue(organizationId, {
     companyId,
     kind: "brand",
@@ -77,7 +103,8 @@ async function companyCreated(
 /**
  * A person added a company, or gave one a new domain: as companyCreated, and
  * its favicon at once, as the CRM fetched it then (companies.service.ts). The
- * favicon is free, so it waits for neither the queue nor credits.
+ * favicon is free, so it waits for neither the queue, credits nor Research
+ * automatically.
  */
 async function companyAddedByPerson(
   organizationId: string,
@@ -135,8 +162,8 @@ async function workspaceChanged(
 
 /**
  * A contact was added (or a person asked to identify one: `required`, which
- * also puts it with the work people asked for, so it runs even where a
- * first-party deployment holds its scheduled research).
+ * also puts it with the work people asked for, so it runs even where the
+ * organization or a first-party deployment holds its scheduled research).
  */
 async function contactCreated(
   organizationId: string,
@@ -144,6 +171,9 @@ async function contactCreated(
   reason: string,
   required = false,
 ): Promise<boolean> {
+  if (!required && !(await researchesAutomatically(organizationId))) {
+    return false;
+  }
   return enqueue(
     organizationId,
     {
@@ -179,13 +209,18 @@ async function slackSyncRequested(
 
 /**
  * A captured meeting within a week has a contact the agent has written no
- * brief on: get the record ready before it (the CRM's meetingSoon).
+ * brief on: get the record ready before it (the CRM's meetingSoon). Not for
+ * a contact whose research waits for a person (one a stranger's invite
+ * added).
  */
 async function meetingSoon(
   organizationId: string,
   contactId: string,
   startsAt: string,
 ): Promise<void> {
+  if (!(await researchesAutomatically(organizationId))) return;
+  if (await ResearchHoldRepository.isHeld(organizationId, "contact", contactId))
+    return;
   await enqueue(organizationId, {
     contactId,
     kind: "meeting-prep",
@@ -330,9 +365,10 @@ type ImportedRecords = {
  * adds. Everything that needs the model (a company's profile, identifying a
  * contact, the custom fields the agent fills) is booked at the lowest
  * priority but rechecks, one record every IMPORT_RESEARCH_SPACING_MS after
- * any earlier import's bookings. Where a first-party deployment holds
- * scheduled research, that research waits for a person to ask, as all
- * scheduled research does there.
+ * any earlier import's bookings. Where the organization (Research
+ * automatically off) or a first-party deployment holds scheduled research,
+ * that research waits for a person to ask, as all scheduled research does
+ * there. An import with research off queues none (ResearchHoldService).
  */
 async function recordsImported(
   organizationId: string,
@@ -416,6 +452,7 @@ async function recordsImported(
 }
 
 export const AgentTaskService = {
+  researchesAutomatically,
   companyCreated,
   companyAddedByPerson,
   companyRequested,

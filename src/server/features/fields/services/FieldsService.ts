@@ -381,8 +381,9 @@ async function fill(
 
 /**
  * For a record that was just created: the fields the agent fills that it
- * wasn't created with a value for, queued once for all of them. Never fails
- * the caller.
+ * wasn't created with a value for, queued once for all of them, where the
+ * agent researches on its own (Research automatically). Never fails the
+ * caller.
  */
 async function queueFillForNewRecord(
   organizationId: string,
@@ -390,6 +391,9 @@ async function queueFillForNewRecord(
   recordId: string,
 ): Promise<void> {
   try {
+    if (!(await AgentTaskService.researchesAutomatically(organizationId))) {
+      return;
+    }
     const agentFilled = (
       await FieldDefinitionRepository.list(organizationId, entity, {
         includeArchived: false,

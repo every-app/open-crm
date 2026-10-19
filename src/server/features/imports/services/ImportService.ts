@@ -1,4 +1,5 @@
 import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
+import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { FieldDefinitionRepository } from "@/server/features/fields/repositories/FieldDefinitionRepository";
 import { FIELD_ENTITIES, type FieldEntity } from "@/shared/crm-enums";
 import type { ImportChunkInput } from "@/types/schemas/imports";
@@ -14,6 +15,8 @@ import { openRun, type RowResult } from "./importRun";
 // imported records. Matching makes a chunk safe to send again, so an import
 // that stopped halfway is re-run from the start without duplicating
 // anything. A dry run says what would happen to each row and writes nothing.
+// With research off, what a chunk creates waits for a person to ask
+// (ResearchHoldService): the enrichment sweep never queues it.
 
 const IMPORTERS = {
   COMPANY: importCompanies,
@@ -43,8 +46,28 @@ async function importChunk(
       failed: results.filter((row) => row.outcome === "failed").length,
     });
   }
-  if (input.research && !input.dryRun) await queueResearch(run);
+  if (!input.dryRun) {
+    await (input.research ? queueResearch(run) : holdResearch(run));
+  }
   return { results };
+}
+
+/** What the chunk created waits for a person. Never fails the import. */
+async function holdResearch(
+  run: Awaited<ReturnType<typeof openRun>>,
+): Promise<void> {
+  try {
+    await ResearchHoldService.imported(run.organizationId, {
+      companyIds: run.created.COMPANY,
+      contactIds: run.created.CONTACT,
+    });
+  } catch (error) {
+    console.error(
+      "[import] could not hold research on imported records",
+      { organizationId: run.organizationId },
+      error,
+    );
+  }
 }
 
 /**

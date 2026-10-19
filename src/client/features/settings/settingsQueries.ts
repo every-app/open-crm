@@ -6,6 +6,7 @@ import {
   getAgentModel,
   getAgentStatus,
   getArchiveRetention,
+  getAutomaticResearch,
 } from "@/serverFunctions/settings";
 
 /** Reporting currency, effective rates, the currencies deals are in. */
@@ -36,6 +37,13 @@ export const archiveRetentionQueryOptions = () =>
   queryOptions({
     queryKey: ["settings", "archive-retention"],
     queryFn: () => getArchiveRetention(),
+  });
+
+/** Whether the research agent researches on its own. */
+export const automaticResearchQueryOptions = () =>
+  queryOptions({
+    queryKey: ["settings", "automatic-research"],
+    queryFn: () => getAutomaticResearch(),
   });
 
 /** Whether the viewer's gateway role may change workspace settings. */

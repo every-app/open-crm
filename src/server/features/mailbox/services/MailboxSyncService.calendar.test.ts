@@ -35,6 +35,10 @@ import {
   stubProviders,
 } from "@/server/features/mailbox/mailboxTestSupport";
 import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
+import {
+  CONTACTS_PER_HOUR,
+  hourWindow,
+} from "@/server/features/tracking/trackingRules";
 import { MailboxSyncService } from "./MailboxSyncService";
 
 const EVENTS = "www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -97,7 +101,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         `UPDATE mailbox_sync SET next_sync_at = '2000-01-01T00:00:00.000Z'`,
       );
 
-    it("files the next 180 days' meetings and gets the agent ready for the ones this week", async () => {
+    it("files the next 180 days' meetings, the people it adds waiting for a person before the agent researches them", async () => {
       const fetched = stubProviders({
         [EVENTS]: () => ({
           items: [
@@ -148,15 +152,13 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toEqual([
         { type: "MEETING", subject: "Call soon", body: "Location: Room 4" },
       ]);
+      // Anyone can send an invite: no identify and no meeting prep until a
+      // person opens the contact, but team agents hear of them.
       expect(
         await database.rows(
           `SELECT t.kind FROM agent_task t JOIN contact c ON c.id = t.contact_id ORDER BY t.kind`,
         ),
-      ).toEqual([
-        { kind: "agent-event" },
-        { kind: "identify" },
-        { kind: "meeting-prep" },
-      ]);
+      ).toEqual([{ kind: "agent-event" }]);
       expect(
         await firstValue(
           database.rows(`SELECT cursor FROM mailbox_sync`),
@@ -219,6 +221,28 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await database.rows(`SELECT domain FROM company`)).toEqual([
         { domain: "wayne.com" },
       ]);
+    });
+
+    it("adds no one once the organization's new people for the hour are used up", async () => {
+      const window = hourWindow(new Date());
+      await database.exec(
+        `INSERT INTO tracking_counter (organization_id, key, value, expires_at) VALUES ('org_a', 'calendar-contacts:${window.key}', ${CONTACTS_PER_HOUR}, '${window.expiresAt}')`,
+      );
+      stubProviders({
+        [EVENTS]: () => ({
+          items: [
+            event({
+              id: "spam",
+              guest: "kim@initech.com",
+              startsAt: daysFromNow(2),
+            }),
+          ],
+          nextSyncToken: "sync-1",
+        }),
+      });
+      await MailboxSyncService.runDue();
+      expect(await database.rows(`SELECT id FROM company`)).toEqual([]);
+      expect(await database.rows(`SELECT id FROM contact`)).toEqual([]);
     });
 
     it("re-reads the window when the sync token has expired", async () => {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { MAX_ATTEMPTS, PRIORITY, RETIRED_OUTCOME } from "@/shared/agent-tasks";
 import { AUTUMN_SEO_DATA_BALANCE_FEATURE_ID } from "@/shared/billing";
 
@@ -17,6 +18,8 @@ vi.mock("@/db", () => ({
   withPgClient: (fn: () => unknown) => fn(),
 }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
+// Logos aren't fetched at once here: the lanes under test take them.
+vi.mock("./poke", () => ({ pokeDispatcher: vi.fn() }));
 // No Context.dev key on this install.
 vi.mock("@/server/lib/provider-access", () => ({
   getContextFetch: vi.fn(async () => null),
@@ -33,12 +36,19 @@ vi.mock("@/server/billing/autumn", () => ({
 
 import { withBalance } from "@/server/billing/autumnTestSupport";
 import { laneCreditCheck } from "@/server/billing/credits";
+import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import {
   getContextFetch,
   hasContextAccess,
 } from "@/server/lib/provider-access";
 import { runResearchLane, runVisibleLane } from "./dispatch";
+import { DISPATCH } from "./dispatch/config";
 import { reconcileStaleTasks } from "./dispatch/staleTasks";
+import type { LeasedTask } from "./repositories/AgentQueueRepository";
+import { reportResearch } from "./runtime/research";
+import { loadAgentSession } from "./runtime/session";
+import { AgentTaskService } from "./services/AgentTaskService";
+import { sessionName } from "./sessionName";
 import { NO_CONTEXT_REASON } from "./visible/brand";
 
 const defer = vi.fn();
@@ -165,6 +175,75 @@ describe("the dispatcher", () => {
     });
     expect(await row("contact", "c1")).toMatchObject({
       enrichment_status: "RUNNING",
+    });
+  });
+
+  it("lets another organization's research through a bulk enrich", async () => {
+    const ids = Array.from({ length: 15 }, (_, index) => `bulk${index}`);
+    await database.exec(
+      ids
+        .map(
+          (id) =>
+            `INSERT INTO company (id, organization_id, name, domain) VALUES ('${id}', 'org_a', '${id}', '${id}.test');`,
+        )
+        .join("\n"),
+    );
+    await database.exec(
+      `INSERT INTO contact (id, organization_id, first_name, email) VALUES ('c_b', 'org_b', 'Bo', 'bo@bolt.test');`,
+    );
+    await CompanyService.bulkEnrich("org_a", ids);
+    await AgentTaskService.contactCreated("org_b", "c_b", "New contact");
+
+    const start = vi.fn(async (task: LeasedTask) => ({
+      sessionId: `task.${task.id}`,
+    }));
+    await runResearchLane({
+      start,
+      modelConfigured: true,
+      askedForOnly: false,
+      defer,
+    });
+    const started = start.mock.calls.map(([task]) => task.organizationId);
+    expect(started.filter((id) => id === "org_b")).toHaveLength(1);
+    expect(started.filter((id) => id === "org_a")).toHaveLength(
+      DISPATCH.research.perOrganization,
+    );
+  });
+
+  it("hands back research its model's provider failed, its attempt unused, to try later", async () => {
+    await queue("t1", {
+      kind: "identify",
+      priority: PRIORITY.identify,
+      contactId: "c1",
+    });
+    await runResearchLane({
+      start: async () => ({ sessionId: "task.session" }),
+      modelConfigured: true,
+      askedForOnly: false,
+      defer,
+    });
+    const session = await loadAgentSession(sessionName("task", "org_a", "t1"));
+    if (session?.kind !== "research") throw new Error("no research session");
+
+    // Still the session's to carry on with, so it isn't cleared.
+    expect(
+      await reportResearch(session, {
+        status: "error",
+        error:
+          "Failed after 3 attempts. Last error: Upstream provider request failed",
+      }),
+    ).toBe(false);
+    const task = await row("agent_task", "t1");
+    expect(task).toMatchObject({
+      attempts: 0,
+      leased_until: null,
+      finished_at: null,
+    });
+    expect(Date.parse(z.string().parse(task?.due_at))).toBeGreaterThan(
+      Date.now() + 4 * 60_000,
+    );
+    expect(await row("contact", "c1")).toMatchObject({
+      enrichment_status: "PENDING",
     });
   });
 

@@ -333,6 +333,7 @@ type NewContact = {
   ownerId: string | null;
   linkedinUrl?: string | null;
   source?: RecordSource;
+  researchHeldAt?: string | null;
 };
 
 /**

@@ -63,6 +63,11 @@ export const agentTask = sqliteTable(
       table.organizationId,
       table.dealId,
     ),
+    // The open tasks, for the dispatcher's claims and the stale-task scan:
+    // finished ones are nearly all of the table.
+    index("agent_task_open_due_idx")
+      .on(table.dueAt)
+      .where(sql`${table.finishedAt} is null`),
     uniqueIndex("agent_task_open_kind_subject_uidx")
       .on(table.organizationId, table.kind, table.subject)
       .where(sql`${table.finishedAt} is null`),
