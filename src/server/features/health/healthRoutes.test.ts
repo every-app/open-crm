@@ -15,6 +15,8 @@ const { databases, current } = await vi.hoisted(async () => {
     current: {
       dialect: "sqlite" as "sqlite" | "postgres",
       databaseDown: false,
+      // A fork pinned to org_a; unset, the first-party deployment.
+      fork: false,
     },
   };
 });
@@ -23,7 +25,15 @@ vi.mock("cloudflare:workers", () => ({
     get DATABASE_PROVIDER() {
       return current.dialect === "postgres" ? "postgres" : "d1";
     },
+    get EVERY_APP_ORG_ID() {
+      return current.fork ? "org_a" : undefined;
+    },
   },
+}));
+// The size comes from D1's own report or from Postgres, neither of which the
+// test databases give.
+vi.mock("@/db/maintenance", () => ({
+  databaseSize: () => Promise.resolve({ provider: "d1", sizeBytes: 4096 }),
 }));
 vi.mock("@/db", () => ({
   get db() {
@@ -89,6 +99,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     beforeEach(async () => {
       current.dialect = dialect;
       current.databaseDown = false;
+      current.fork = false;
       await database.exec(
         `DELETE FROM dispatcher_lane; DELETE FROM agent_task; DELETE FROM workspace; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
       );
@@ -183,3 +194,26 @@ for (const dialect of ["sqlite", "postgres"] as const) {
     });
   });
 }
+
+describe("the dispatcher's health check on a fork", () => {
+  beforeEach(async () => {
+    current.dialect = "sqlite";
+    current.databaseDown = false;
+    current.fork = false;
+    await databases.sqlite.exec(
+      `DELETE FROM dispatcher_lane; DELETE FROM agent_task; DELETE FROM workspace; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
+    );
+    await databases.sqlite.seedTwoOrganizations();
+  });
+
+  it("shows its owners the database's size, which a first party's don't see", async () => {
+    const firstParty = await serveDispatchHealth(person());
+    expect(await firstParty.json()).not.toHaveProperty("database");
+
+    current.fork = true;
+    const fork = await serveDispatchHealth(person());
+    expect(await fork.json()).toMatchObject({
+      database: { provider: "d1", sizeBytes: 4096 },
+    });
+  });
+});
