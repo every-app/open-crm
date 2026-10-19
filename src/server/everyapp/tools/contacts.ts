@@ -4,6 +4,7 @@ import {
   crmTool,
   fullName,
   memberId,
+  ownersInput,
   pageSizeInput,
   personOutput,
   sourceOutput,
@@ -37,11 +38,7 @@ import {
   createContactSchema,
   updateContactSchema,
 } from "@/types/schemas/contacts";
-import {
-  FACET_FILTER_MAX,
-  SORT_DIRECTIONS,
-  UNASSIGNED,
-} from "@/types/schemas/records";
+import { SORT_DIRECTIONS, UNASSIGNED } from "@/types/schemas/records";
 
 // The contacts (people) as an AI client sees them. Owners are named by email
 // here, as a model knows them; the app's own forms use member ids.
@@ -113,7 +110,14 @@ const detailsOutput = z.object({
   linkedinUrl: z.string().nullable(),
   twitterUrl: z.string().nullable(),
   githubUrl: z.string().nullable(),
-  company: companyOutput,
+  company: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      domain: z.string().nullable(),
+      industry: z.string().nullable(),
+    })
+    .nullable(),
   primaryContactOfCompany: z.boolean(),
   owner: personOutput.nullable(),
   enrichment,
@@ -147,7 +151,9 @@ const detailsOutput = z.object({
         sourceUrl: z.string().nullable(),
       }),
     )
-    .describe("What the research agent found and put on the record."),
+    .describe(
+      "What the research agent found and applied: a name, title, seniority, function or profile link is on the record; an employer, location or tenure has no field there and stays with the agent.",
+    ),
   suggestions: z
     .array(suggestionOutput)
     .describe("What the research agent found that waits for a person."),
@@ -225,33 +231,25 @@ export const contactTools = {
           .max(200)
           .optional()
           .describe("Words from a contact's name, email or company."),
-        owners: z
-          .array(z.string())
-          .max(20)
-          .optional()
-          .describe(
-            `Only contacts these members own, by email; "${UNASSIGNED}" for contacts nobody owns.`,
-          ),
-        companyIds: z
-          .array(z.string())
-          .max(FACET_FILTER_MAX)
+        owners: ownersInput.describe(
+          `Only contacts these members own, by email or id; "${UNASSIGNED}" for contacts nobody owns.`,
+        ),
+        companyIds: contactListSchema.shape.company
+          .unwrap()
           .optional()
           .describe(
             `Only contacts at these companies, by id; "${NO_COMPANY}" for contacts at no company.`,
           ),
-        titles: z
-          .array(z.string())
-          .max(FACET_FILTER_MAX)
+        titles: contactListSchema.shape.title
+          .unwrap()
           .optional()
           .describe("Only contacts with exactly these titles."),
-        seniorities: z
-          .array(z.string())
-          .max(FACET_FILTER_MAX)
+        seniorities: contactListSchema.shape.seniority
+          .unwrap()
           .optional()
           .describe("Only contacts at these seniorities, as get_contact says."),
-        personas: z
-          .array(z.string())
-          .max(FACET_FILTER_MAX)
+        personas: contactListSchema.shape.persona
+          .unwrap()
           .optional()
           .describe("Only contacts in these functions (get_contact's)."),
         activeWithinDays: z
@@ -290,6 +288,8 @@ export const contactTools = {
             : memberId(context.organizationId, value),
         ),
       );
+      // Only fills in the list's defaults: the input took each filter by the
+      // list's own rules.
       const list = contactListSchema.parse({
         fields: await resolveFieldFilters(
           context.organizationId,

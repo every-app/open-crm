@@ -34,11 +34,18 @@ import { CurrencyService } from "./CurrencyService";
 
 const fetchMock = vi.fn<typeof fetch>();
 
-/** The feed's answer for a base: how many of each currency one base buys. */
-function feed(rates: Record<string, number>) {
+/**
+ * The feed's answer for a base: how many of each currency one base buys,
+ * and when it publishes next (a day on unless said).
+ */
+function feed(
+  rates: Record<string, number>,
+  nextUpdate = Date.now() / 1000 + 86_400,
+) {
   return Response.json({
     result: "success",
     time_last_update_unix: 1_792_108_800,
+    time_next_update_unix: Math.round(nextUpdate),
     rates,
   });
 }
@@ -97,7 +104,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       });
     });
 
-    it("fetches a base currency's rates once a day for every organization, inverted", async () => {
+    it("fetches a base currency's rates once a publication for every organization, inverted", async () => {
       const settings = await CurrencyService.refreshRates("org_a");
       await CurrencyService.refreshRates("org_b");
 
@@ -189,6 +196,38 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
     });
 
+    it("fetches a base again once the feed has published since: on a refresh, and hourly though no organization is due; a late feed is asked again an hour on", async () => {
+      // The time the feed said it would publish next has come.
+      const published = () =>
+        database.exec(
+          `UPDATE fx_rate SET next_fetch_at = '2026-01-01T00:00:00.000Z'`,
+        );
+      await CurrencyService.refreshRates("org_a");
+      expect(await CurrencyService.refreshDueRates()).toEqual({
+        refreshed: 0,
+        failed: 0,
+      });
+      expect(fetchMock).toHaveBeenCalledOnce();
+
+      await published();
+      await CurrencyService.refreshRates("org_a");
+      await published();
+      expect(await CurrencyService.refreshDueRates()).toEqual({
+        refreshed: 0,
+        failed: 0,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+
+      // A late feed: still the rates it had, and a next time already gone.
+      fetchMock.mockImplementation(async (input) =>
+        feed(FEEDS[requestedBase(input)] ?? {}, Date.now() / 1000 - 60),
+      );
+      await published();
+      await CurrencyService.refreshRates("org_a");
+      await CurrencyService.refreshRates("org_a");
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+
     it("refreshes each organization a day after its last refresh", async () => {
       await database.exec(
         `INSERT INTO workspace (organization_id, name) VALUES ('org_a', 'A')`,
@@ -196,7 +235,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       await seedDeal("a1", "org_a", 100, "EUR");
       await CurrencyService.refreshRates("org_b");
       await database.exec(
-        `UPDATE fx_rate SET updated_at = '2026-01-01T00:00:00.000Z'`,
+        `UPDATE fx_rate SET next_fetch_at = '2026-01-01T00:00:00.000Z'`,
       );
       fetchMock.mockClear();
 

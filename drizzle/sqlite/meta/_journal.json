@@ -29,6 +29,13 @@
       "when": 1792345612401,
       "tag": "0003_thick_eternals",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792391384725,
+      "tag": "0004_cold_frog_thor",
+      "breakpoints": true
     }
   ]
 }

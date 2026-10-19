@@ -4,6 +4,7 @@ import {
   crmTool,
   fullName,
   memberId,
+  ownersInput,
   pageSizeInput,
   personOutput,
   reported,
@@ -36,11 +37,7 @@ import {
   createCompanySchema,
   updateCompanySchema,
 } from "@/types/schemas/companies";
-import {
-  FACET_FILTER_MAX,
-  SORT_DIRECTIONS,
-  UNASSIGNED,
-} from "@/types/schemas/records";
+import { SORT_DIRECTIONS, UNASSIGNED } from "@/types/schemas/records";
 
 // The companies (accounts) as an AI client sees them. People are named by
 // email here, as a model knows them; the app's own forms use member ids.
@@ -78,6 +75,7 @@ const summaryOutput = z.object({
   openDeals: z.number(),
   lastActivityAt: z.string().nullable(),
   enrichment,
+  queued: z.boolean().describe("The research agent has work on it due now."),
   source: sourceOutput,
   createdAt: z.string(),
   archivedAt: z.string().nullable(),
@@ -137,6 +135,7 @@ const detailsOutput = z.object({
       id: z.string(),
       name: z.string(),
       email: z.string().nullable(),
+      phone: z.string().nullable(),
       title: z.string().nullable(),
     })
     .nullable(),
@@ -215,20 +214,15 @@ export const companyTools = {
           .max(200)
           .optional()
           .describe("Part of a company's name or domain."),
-        owners: z
-          .array(z.string())
-          .max(20)
-          .optional()
-          .describe(
-            `Only companies these members own, by email; "${UNASSIGNED}" for companies nobody owns.`,
-          ),
-        industries: z
-          .array(z.string())
-          .max(FACET_FILTER_MAX)
+        owners: ownersInput.describe(
+          `Only companies these members own, by email or id; "${UNASSIGNED}" for companies nobody owns.`,
+        ),
+        industries: companyListSchema.shape.industry
+          .unwrap()
           .optional()
           .describe("Only companies in these industries, as listed."),
-        enrichment: z
-          .array(z.enum(ENRICHMENT_STATUSES))
+        enrichment: companyListSchema.shape.enrichment
+          .unwrap()
           .optional()
           .describe("Only companies in these research states."),
         sources: z
@@ -267,6 +261,8 @@ export const companyTools = {
             : memberId(context.organizationId, value),
         ),
       );
+      // Only fills in the list's defaults: the input took each filter by the
+      // list's own rules.
       const list = companyListSchema.parse({
         fields: await resolveFieldFilters(
           context.organizationId,

@@ -74,7 +74,7 @@ for (const dialect of ["sqlite", "postgres"] as const) {
         "SELECT organization_id, first_name, last_name, email, source FROM contact",
       );
 
-    it("files a new person as a contact once, with the note and their visit", async () => {
+    it("files a new person as a contact once, with the note (under the workspace's first member, as they have no owner) and their visit", async () => {
       await TrackingCollectorService.accept(
         batch(siteId, [pageView("acme.com", { path: "/pricing" })]),
         BROWSER,
@@ -102,9 +102,17 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await submissions()).toMatchObject([{ skip_reason: null }]);
       // Sensitive fields never reach storage.
       expect(JSON.stringify(await submissions())).not.toMatch(/hunter2|4111/);
-      expect(await database.rows("SELECT type, subject FROM activity")).toEqual(
-        [{ type: "NOTE", subject: "Submitted a form on acme.com" }],
-      );
+      expect(
+        await database.rows(
+          "SELECT type, subject, created_by_id FROM activity",
+        ),
+      ).toEqual([
+        {
+          type: "NOTE",
+          subject: "Submitted a form on acme.com",
+          created_by_id: "user_a",
+        },
+      ]);
       expect(
         await database.rows(
           "SELECT kind FROM agent_task WHERE contact_id IS NOT NULL",
@@ -131,10 +139,16 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       ).toMatchObject({ identified: false, pages: [] });
     });
 
-    it("files under the existing contact without charging the hourly cap", async () => {
+    it("files under the existing contact, the note under their owner, without charging the hourly cap", async () => {
+      // Cy, who joined after Ana, owns Jane.
+      await database.exec(
+        `INSERT INTO "user" (id, name, email, email_verified) VALUES ('user_c', 'Cy', 'cy@a.test', true);
+         INSERT INTO member (id, organization_id, user_id, role, created_at) VALUES ('m_c', '${A}', 'user_c', 'member', '2026-01-01T00:00:00.000Z');`,
+      );
       const jane = await ContactService.createContact(A, {
         firstName: "Jane",
         email: "jane@northwind.example",
+        ownerId: "user_c",
       });
       await fillCap();
       await submit({ email: "JANE@northwind.example" });
@@ -142,6 +156,11 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       expect(await submissions()).toMatchObject([
         { skip_reason: null, contact_id: jane.id },
       ]);
+      expect(
+        await database.rows(
+          "SELECT created_by_id FROM activity WHERE type = 'NOTE'",
+        ),
+      ).toEqual([{ created_by_id: "user_c" }]);
     });
 
     it("declines once the hour's new contacts are used up", async () => {

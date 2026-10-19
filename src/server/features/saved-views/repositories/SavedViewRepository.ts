@@ -28,6 +28,26 @@ async function listVisible(
     .orderBy(asc(savedView.name), asc(savedView.createdAt));
 }
 
+/** One of `ownerId`'s views. Null when they have no view `id`. */
+async function findOwned(
+  organizationId: string,
+  ownerId: string,
+  id: string,
+): Promise<SavedViewRow | null> {
+  const [row] = await db
+    .select()
+    .from(savedView)
+    .where(
+      and(
+        eq(savedView.organizationId, organizationId),
+        eq(savedView.ownerId, ownerId),
+        eq(savedView.id, id),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 async function insert(
   row: Omit<typeof savedView.$inferInsert, "createdAt" | "updatedAt">,
 ): Promise<SavedViewRow> {
@@ -78,6 +98,7 @@ async function removeOwned(
 
 export const SavedViewRepository = {
   listVisible,
+  findOwned,
   insert,
   updateOwned,
   removeOwned,

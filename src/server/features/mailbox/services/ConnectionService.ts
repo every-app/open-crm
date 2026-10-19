@@ -399,8 +399,10 @@ async function suppressDomain(
 /**
  * Stops capture and forgets the member's tokens; what was captured stays.
  * Google's grant is withdrawn at Google first (refusing to forget a grant
- * Google still honours); Microsoft has no way to withdraw consent from here,
- * which the page tells the member.
+ * Google still honours), unless another connection uses that Google account:
+ * withdrawing a token ends the account's whole grant to the gateway's client,
+ * which every organization shares, so it would end theirs too. Microsoft has
+ * no way to withdraw consent from here, which the page tells the member.
  */
 async function disconnect(member: Member, provider: MailboxProvider) {
   const connection = await ConnectionRepository.findWithTokens(
@@ -410,7 +412,16 @@ async function disconnect(member: Member, provider: MailboxProvider) {
   );
   if (!connection) return;
   const token = connection.refreshToken ?? connection.accessToken;
-  if (provider === "google" && token && !(await revokeGoogleToken(token))) {
+  if (
+    provider === "google" &&
+    token &&
+    !(await ConnectionRepository.accountConnectedElsewhere({
+      ...member,
+      provider,
+      accountEmail: connection.accountEmail,
+    })) &&
+    !(await revokeGoogleToken(token))
+  ) {
     throw new AppError(
       "UPSTREAM_UNAVAILABLE",
       "Google did not confirm the access was withdrawn.",

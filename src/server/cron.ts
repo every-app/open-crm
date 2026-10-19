@@ -9,8 +9,9 @@ import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSy
 //
 // - every minute: the research agent's dispatcher, and the mailboxes due a
 //   check (each every five minutes; one indexed query when none is due);
-// - on the hour: the exchange-rate refresh, which takes each organization
-//   whose rates are a day old (one query when nobody is due);
+// - on the hour: the exchange-rate refresh, which fetches the rates the
+//   feed has published since the last fetch and takes each organization
+//   whose rates are a day old;
 // - at 05:00 UTC: the retention purge of records archived longer than their
 //   workspace keeps them, as the CRM ran it;
 // - at minute 30 of every hour: website tracking's retention (roll up and

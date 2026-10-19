@@ -1,6 +1,6 @@
 import { keys } from "remeda";
 import { z } from "zod";
-import { crmTool, memberId } from "@/server/everyapp/crm-tool";
+import { crmTool, memberId, ownersInput } from "@/server/everyapp/crm-tool";
 import {
   fieldFiltersInput,
   resolveFieldFilters,
@@ -33,8 +33,9 @@ import {
 
 // Saved views: a list's filters under a name, personal until shared. Only a
 // view's owner changes or deletes it. A view keeps the filters as the list's
-// URL does (owners and user fields by user id, selects by option id); the
-// tools take them as the list tools do, by email and label.
+// URL does (owners and user fields by user id, selects by option id), which
+// the list tools take as they are; these tools take them as the list tools
+// do, by email or id and by label.
 
 const entity = fieldEntitySchema.describe(
   "Which list: COMPANY, CONTACT or DEAL.",
@@ -45,11 +46,9 @@ const values = facetFilterSchema.unwrap().optional();
 const filtersInput = z
   .object({
     query: z.string().max(200).optional(),
-    owners: z
-      .array(z.string())
-      .max(20)
-      .optional()
-      .describe(`Members' emails, or "${UNASSIGNED}" for records nobody owns.`),
+    owners: ownersInput.describe(
+      `Members' emails or ids, or "${UNASSIGNED}" for records nobody owns.`,
+    ),
     archived: z.boolean().optional().describe("The archived records instead."),
     fields: fieldFiltersInput,
     sort: z
@@ -119,7 +118,7 @@ const viewOutput = z.object({
   filters: z
     .record(z.string(), z.unknown())
     .describe(
-      "As the list's URL keeps them: owners and user fields by user id, selects by option id.",
+      "As the list's URL keeps them: owners and user fields by user id, selects by option id, which the list tools take as they are.",
     ),
   updatedAt: z.string(),
 });
@@ -239,8 +238,19 @@ export const savedViewTools = {
       })
       .strict(),
     output: viewOutput,
-    handler: async (input, context) =>
-      SavedViewService.update(context.organizationId, context.userId, {
+    handler: async (input, context) => {
+      const view = await SavedViewService.getOwned(
+        context.organizationId,
+        context.userId,
+        input.id,
+      );
+      if (view.entity !== input.entity) {
+        throw new AppError(
+          "VALIDATION_ERROR",
+          `That view is of ${ENTITY_NOUNS[view.entity].many}, not ${ENTITY_NOUNS[input.entity].many}.`,
+        );
+      }
+      return SavedViewService.update(context.organizationId, context.userId, {
         id: input.id,
         name: input.name,
         shared: input.shared,
@@ -251,7 +261,8 @@ export const savedViewTools = {
               input.filters,
             )
           : undefined,
-      }),
+      });
+    },
   }),
 
   delete_saved_view: crmTool({

@@ -4,6 +4,7 @@ import {
   crmTool,
   fullName,
   memberId,
+  ownersInput,
   pageSizeInput,
   personOutput,
   recordRefOutput,
@@ -183,11 +184,9 @@ export const dealTools = {
           .max(200)
           .optional()
           .describe("Part of a deal's name or of its company's name."),
-        owners: z
-          .array(z.string())
-          .max(20)
-          .optional()
-          .describe("Only deals these members own, by email."),
+        owners: ownersInput.describe(
+          "Only deals these members own, by email or id.",
+        ),
         status: z
           .enum(DEAL_STATUSES)
           .optional()
@@ -226,10 +225,12 @@ export const dealTools = {
     }),
     handler: async (input, context) => {
       const owners = await Promise.all(
-        (input.owners ?? []).map((email) =>
-          memberId(context.organizationId, email),
+        (input.owners ?? []).map((person) =>
+          memberId(context.organizationId, person),
         ),
       );
+      // Only fills in the list's defaults: the input took each filter by the
+      // list's own rules.
       const list = dealListSchema.parse({
         fields: await resolveFieldFilters(
           context.organizationId,

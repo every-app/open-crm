@@ -27,6 +27,8 @@ export type SavedView = {
 
 const NAME_TAKEN = "You already have a view with that name.";
 
+const NO_SUCH_VIEW = "You have no such saved view.";
+
 function serialize(row: SavedViewRow, userId: string): SavedView {
   const filters = savedViewFiltersSchema.safeParse(row.filters);
   return {
@@ -39,6 +41,17 @@ function serialize(row: SavedViewRow, userId: string): SavedView {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+/** One of the person's own views. */
+async function getOwned(
+  organizationId: string,
+  userId: string,
+  id: string,
+): Promise<SavedView> {
+  const row = await SavedViewRepository.findOwned(organizationId, userId, id);
+  if (!row) throw new AppError("NOT_FOUND", NO_SUCH_VIEW);
+  return serialize(row, userId);
 }
 
 /** The entity's views the person can apply: their own and the team's shared ones. */
@@ -90,7 +103,7 @@ async function update(
       input.id,
       { name: input.name, shared: input.shared, filters: input.filters },
     );
-    if (!row) throw new AppError("NOT_FOUND", "You have no such saved view.");
+    if (!row) throw new AppError("NOT_FOUND", NO_SUCH_VIEW);
     return serialize(row, userId);
   } catch (error) {
     if (isUniqueViolation(error)) throw new AppError("CONFLICT", NAME_TAKEN);
@@ -104,12 +117,13 @@ async function remove(
   id: string,
 ): Promise<{ id: string }> {
   if (!(await SavedViewRepository.removeOwned(organizationId, userId, id))) {
-    throw new AppError("NOT_FOUND", "You have no such saved view.");
+    throw new AppError("NOT_FOUND", NO_SUCH_VIEW);
   }
   return { id };
 }
 
 export const SavedViewService = {
+  getOwned,
   list,
   create,
   update,

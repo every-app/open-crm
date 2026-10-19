@@ -310,5 +310,48 @@ for (const dialect of ["sqlite", "postgres"] as const) {
       );
       expect(await database.rows(`SELECT id FROM mailbox_sync`)).toEqual([]);
     });
+
+    it("leaves Google's grant while another organization's connection uses the same account, which would lose it too", async () => {
+      // Ana's Google account, connected in both organizations (the gateway's
+      // one client), and Bo's own in org_b.
+      const anaInB = { organizationId: "org_b", userId: "user_a" };
+      for (const member of [ANA, anaInB]) {
+        await seedMailbox({
+          ...member,
+          provider: "google",
+          accountEmail: "ana@acme.com",
+          sources: ["gmail"],
+        });
+      }
+      await seedMailbox({
+        ...BO,
+        provider: "google",
+        accountEmail: "bo@contoso.com",
+        sources: ["gmail"],
+      });
+      const revoked: string[] = [];
+      stubProviders({
+        "oauth2.googleapis.com/revoke": () => {
+          revoked.push("call");
+          return new Response(null, { status: 200 });
+        },
+      });
+
+      await ConnectionService.disconnect(ANA, "google");
+      expect(revoked).toEqual([]);
+      expect(
+        await database.rows(
+          `SELECT organization_id, user_id FROM mailbox_connection ORDER BY user_id`,
+        ),
+      ).toEqual([
+        { organization_id: "org_b", user_id: "user_a" },
+        { organization_id: "org_b", user_id: "user_b" },
+      ]);
+
+      // The account's last connection withdraws the grant; Bo's own account
+      // doesn't hold it back.
+      await ConnectionService.disconnect(anaInB, "google");
+      expect(revoked).toHaveLength(1);
+    });
   });
 }

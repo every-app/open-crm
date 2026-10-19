@@ -20,6 +20,7 @@ const touchOutput = z
     medium: z.string().nullable(),
     campaign: z.string().nullable(),
     landing: z.string().nullable(),
+    referrer: z.string().nullable().describe("The page they came from."),
     at: z.string().nullable(),
   })
   .nullable();

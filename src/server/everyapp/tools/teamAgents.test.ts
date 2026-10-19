@@ -98,7 +98,7 @@ describe("team agent tools", () => {
     expect(await call("list_team_agents")).toMatchObject({ total: 0 });
   });
 
-  it("reads an agent's grants, files, runs page by page and audit log, and renames it", async () => {
+  it("lists an agent's triggers; reads its grants, files, runs page by page and audit log, and renames it", async () => {
     const readOnly = { scopes: ["mcp:read"] };
     const instructions: unknown = expect.stringContaining("one-line summary");
     const aCursor: unknown = expect.any(String);
@@ -110,6 +110,15 @@ describe("team agent tools", () => {
     `);
     const { agentId } = await live(
       draft({
+        triggers: [
+          { type: "MANUAL", name: "By hand", summary: "When someone runs it" },
+          {
+            type: "EVENT",
+            name: "Stage moves",
+            summary: "When a deal changes stage",
+            event: "deal.stage.changed",
+          },
+        ],
         integrations: ["slack"],
         actions: [
           { type: "run.summary", provider: "crm", summary: "Summarize" },
@@ -133,6 +142,13 @@ describe("team agent tools", () => {
         ],
       }),
     );
+    const bothTriggers: unknown = expect.arrayContaining([
+      expect.objectContaining({ type: "MANUAL", name: "By hand" }),
+      expect.objectContaining({ type: "EVENT", name: "Stage moves" }),
+    ]);
+    expect(await call("list_team_agents", {}, readOnly)).toMatchObject({
+      agents: [{ id: agentId, triggers: bothTriggers }],
+    });
     expect(await call("get_team_agent", { agentId }, readOnly)).toMatchObject({
       currentVersion: {
         actions: [
@@ -206,5 +222,11 @@ describe("team agent tools", () => {
     expect(
       await failure("list_team_agent_activity", { agentId }, { as: bo }),
     ).toBe("The requested record was not found.");
+    // As long a name and description as the CRM allowed.
+    const name = "N".repeat(120);
+    const description = "D".repeat(500);
+    expect(
+      await call("rename_team_agent", { agentId, name, description }),
+    ).toMatchObject({ name, description });
   });
 });

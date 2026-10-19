@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { mailboxConnection, oauthState } from "@/db/schema";
 import { randomToken } from "@/server/lib/pkce";
@@ -119,6 +119,33 @@ async function findWithTokens(
     )
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * Whether any other connection, in this organization or another, is to the
+ * same account at `provider`. Only whether one exists: nothing of it is read.
+ */
+async function accountConnectedElsewhere(input: {
+  organizationId: string;
+  userId: string;
+  provider: MailboxProvider;
+  accountEmail: string;
+}): Promise<boolean> {
+  const [row] = await db
+    .select({ found: sql<number>`1` })
+    .from(mailboxConnection)
+    .where(
+      and(
+        eq(mailboxConnection.provider, input.provider),
+        eq(mailboxConnection.accountEmail, input.accountEmail),
+        or(
+          ne(mailboxConnection.organizationId, input.organizationId),
+          ne(mailboxConnection.userId, input.userId),
+        ),
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
 }
 
 /**
@@ -268,6 +295,7 @@ export const ConnectionRepository = {
   consumeState,
   listForUser,
   findWithTokens,
+  accountConnectedElsewhere,
   upsert,
   storeRefreshed,
   expireAccessToken,

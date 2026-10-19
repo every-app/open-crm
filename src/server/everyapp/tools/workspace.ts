@@ -181,7 +181,7 @@ export const workspaceTools = {
 
   list_members: crmTool({
     description:
-      "The organization's members who have opened the CRM, with their roles: the people records can be owned by and tools take by email. `query` matches part of a name or email. 50 a page, oldest first unless sorted.",
+      "The organization's members who have opened the CRM, with their roles: the people records can be owned by and tools take by email or id. `query` matches part of a name or email. 50 a page, oldest first unless sorted.",
     risk: "read",
     input: z
       .object({
@@ -210,6 +210,7 @@ export const workspaceTools = {
       pageSize: z.number(),
       members: z.array(
         z.object({
+          id: z.string().describe("Their user id, as saved views keep owners."),
           name: z.string(),
           email: z.string(),
           role: z.string(),
@@ -243,6 +244,7 @@ export const workspaceTools = {
         ...rest,
         members: rows.map((row) => ({
           ...row,
+          id: row.userId,
           isCaller: row.userId === context.userId,
         })),
       };
@@ -311,7 +313,7 @@ export const workspaceTools = {
 
   refresh_exchange_rates: crmTool({
     description:
-      "Fetch today's exchange rates now and convert the deals no rate converted yet (owners and admins only).",
+      "Take the rate feed's latest exchange rates, fetching them if it has published since they were last fetched, and convert the deals no rate converted yet (owners and admins only).",
     risk: "write",
     input: z.object({}).strict(),
     output: currencyOutput,

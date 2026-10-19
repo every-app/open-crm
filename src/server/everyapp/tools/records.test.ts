@@ -30,34 +30,44 @@ import {
 beforeAll(() => testDb.seedTwoOrganizations());
 
 describe("record tools", () => {
-  it("companies: create, change, find, read with its people, archive; another organization can't reach one", async () => {
+  it("companies: create, change, find (owners by email or id), read with its people, archive; another organization can't reach one", async () => {
     const id = await idFrom("create_company", {
       name: "Acme",
       domain: "https://www.acme.com/pricing",
       ownerEmail: ana.email,
     });
     await call("update_company", { id, industry: "Software" });
-    expect(await call("list_companies", { query: "acm" })).toMatchObject({
-      total: 1,
-      companies: [
-        {
-          id,
-          domain: "acme.com",
-          industry: "Software",
-          owner: { email: ana.email },
-        },
-      ],
-    });
+    // Owners by email or by the id list_members and saved views give.
+    for (const owner of [ana.email, ana.sub]) {
+      expect(
+        await call("list_companies", { query: "acm", owners: [owner] }),
+      ).toMatchObject({
+        total: 1,
+        companies: [
+          {
+            id,
+            domain: "acme.com",
+            industry: "Software",
+            owner: { email: ana.email },
+            queued: true,
+          },
+        ],
+      });
+    }
     // A work email files the contact under the company with its domain.
     const jo = await idFrom("create_contact", {
       firstName: "Jo",
       email: "jo@acme.com",
+      phone: "+1 555 0100",
     });
     await call("set_primary_contact", { companyId: id, contactId: jo });
     expect(await call("get_company", { id })).toMatchObject({
       owner: { name: "Ana", email: ana.email },
-      primaryContact: { id: jo, name: "Jo" },
+      primaryContact: { id: jo, name: "Jo", phone: "+1 555 0100" },
       contacts: [{ id: jo, name: "Jo" }],
+    });
+    expect(await call("get_contact", { id: jo })).toMatchObject({
+      company: { id, industry: "Software" },
     });
 
     expect(await failure("get_company", { id }, { as: bo })).toBe(
@@ -112,6 +122,13 @@ describe("record tools", () => {
       pricingUrl: "https://soylent.test/pricing",
       careersUrl: "https://soylent.test/jobs",
     });
+    // A blank filter value is refused by name, as the list's own rules say.
+    expect(await failure("list_companies", { industries: [" "] })).toContain(
+      "industries.0",
+    );
+    expect(await failure("list_contacts", { titles: [""] })).toContain(
+      "titles.0",
+    );
   });
 
   it("contact suggestions: lists the organization's waiting ones, and accepting one writes it on the contact", async () => {
@@ -262,7 +279,7 @@ describe("record tools", () => {
 });
 
 describe("saved view tools", () => {
-  it("saved views: a list's filters saved under a name, the owner by email", async () => {
+  it("saved views: a list's filters saved under a name, the owner by email, changed only on the caller's own view of that list", async () => {
     const view = await call("create_saved_view", {
       entity: "COMPANY",
       name: "Mine",
@@ -279,6 +296,29 @@ describe("saved view tools", () => {
     expect(
       await call("list_saved_views", { entity: "COMPANY" }, { as: bo }),
     ).toEqual({ views: [] });
+
+    // Only onto the caller's own view, of the list it filters.
+    expect(
+      await failure("update_saved_view", {
+        id: view.id,
+        entity: "DEAL",
+        filters: { stages: ["DEMO_BOOKED"] },
+      }),
+    ).toBe("That view is of companies, not deals.");
+    expect(
+      await failure(
+        "update_saved_view",
+        { id: view.id, entity: "COMPANY", name: "Theirs" },
+        { as: bo },
+      ),
+    ).toBe("You have no such saved view.");
+    expect(
+      await call("update_saved_view", {
+        id: view.id,
+        entity: "COMPANY",
+        name: "Acme, mine",
+      }),
+    ).toMatchObject({ name: "Acme, mine", filters: { owner: ["user_a"] } });
 
     // The companies' and contacts' own filters, as their lists' URLs keep them.
     expect(
