@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Pause, Play } from "lucide-react";
+import { Bot, Pause, Play } from "lucide-react";
 import { sortBy } from "remeda";
+import { EmptyState } from "@/client/components/EmptyState";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -19,6 +20,7 @@ import {
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
+import { getErrorCode } from "@/client/lib/error-messages";
 import {
   changeTeamAgentStatus,
   deployTeamAgent,
@@ -48,6 +50,7 @@ const TRIGGER_ORDER = ["SCHEDULE", "EVENT", "MANUAL"] as const;
  */
 export function AgentDetailPage({ agentId }: { agentId: string }) {
   const query = useQuery(teamAgentQueryOptions(agentId));
+  if (getErrorCode(query.error) === "NOT_FOUND") return <UnavailableAgent />;
   if (!query.data) {
     return query.isError ? (
       <div className="p-6">
@@ -64,6 +67,18 @@ export function AgentDetailPage({ agentId }: { agentId: string }) {
     );
   }
   return <LoadedAgent agent={query.data} />;
+}
+
+/**
+ * An agent that doesn't exist, was deleted, or is someone else's draft (the
+ * CRM's "Agent unavailable"), as a chat that isn't there shows.
+ */
+function UnavailableAgent() {
+  return (
+    <div className="flex h-full items-center justify-center p-6">
+      <EmptyState variant="plain" icon={Bot} title="Agent unavailable" />
+    </div>
+  );
 }
 
 function LoadedAgent({ agent }: { agent: Agent }) {

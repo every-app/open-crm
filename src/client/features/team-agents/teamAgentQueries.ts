@@ -31,10 +31,15 @@ export const teamAgentsQueryOptions = () =>
     queryFn: () => listTeamAgents(),
   });
 
+/** An agent or chat that isn't there won't be on a retry. */
+const retryUnlessMissing = (failures: number, error: Error) =>
+  getErrorCode(error) !== "NOT_FOUND" && failures < 3;
+
 export const teamAgentQueryOptions = (agentId: string) =>
   queryOptions({
     queryKey: teamAgentKeys.agent(agentId),
     queryFn: () => getTeamAgent({ data: { agentId } }),
+    retry: retryUnlessMissing,
   });
 
 export const teamAgentFilesQueryOptions = (
@@ -75,9 +80,7 @@ export const builderChatQueryOptions = (conversationId: string) =>
   queryOptions({
     queryKey: teamAgentKeys.chat(conversationId),
     queryFn: () => getBuilderChat({ data: { conversationId } }),
-    // A chat that isn't there won't be on a retry.
-    retry: (failures, error) =>
-      getErrorCode(error) !== "NOT_FOUND" && failures < 3,
+    retry: retryUnlessMissing,
   });
 
 export const builderResourcesQueryOptions = (q: string) =>
