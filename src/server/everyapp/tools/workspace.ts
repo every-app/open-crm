@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireOrgPermission } from "@/server/auth/org-gate";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { rolesOf, roleRank } from "@/client/features/members/memberRoles";
+import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { crmTool, pageInput, pageOf } from "@/server/everyapp/crm-tool";
 import { EnrichmentQueueService } from "@/server/features/agent/services/EnrichmentQueueService";
 import { CurrencyService } from "@/server/features/currency/services/CurrencyService";
@@ -30,6 +31,9 @@ import { updateWorkspaceSchema } from "@/types/schemas/workspace";
 const workspaceOutput = z.object({
   name: z.string(),
   website: z.string().nullable(),
+  caller: z
+    .object({ id: z.string(), name: z.string(), email: z.string() })
+    .describe("Who these tools act as."),
   role: z.string().describe("The caller's role: owner, admin or member."),
   archiveRetentionDays: z
     .number()
@@ -39,13 +43,18 @@ const workspaceOutput = z.object({
 });
 
 /** The workspace as the tools show it to `context`. */
-async function workspace(context: { organizationId: string; role: string }) {
-  const [details, retention] = await Promise.all([
+async function workspace(
+  context: Pick<EnsuredUserContext, "organizationId" | "userId" | "role">,
+) {
+  const [details, retention, [caller]] = await Promise.all([
     WorkspaceService.getWorkspace(context.organizationId),
     SettingsService.getArchiveRetention(context.organizationId),
+    AuthRepository.getUsers([context.userId]),
   ]);
+  if (!caller) throw new Error("The caller has no user row");
   return {
     ...details,
+    caller,
     role: context.role,
     archiveRetentionDays: retention.days,
   };
@@ -110,7 +119,7 @@ const subjectOutput = z.object({
 export const workspaceTools = {
   get_workspace: crmTool({
     description:
-      "The workspace this CRM belongs to: the company's name and website, the caller's role in it, and how long archived records are kept.",
+      "The workspace this CRM belongs to: the company's name and website, who the caller is and their role in it, and how long archived records are kept.",
     risk: "read",
     input: z.object({}).strict(),
     output: workspaceOutput,
@@ -205,6 +214,7 @@ export const workspaceTools = {
           email: z.string(),
           role: z.string(),
           joinedAt: z.string(),
+          isCaller: z.boolean().describe("This member is the caller."),
         }),
       ),
     }),
@@ -229,7 +239,13 @@ export const workspaceTools = {
         input.page ?? 1,
         MEMBERS_PAGE,
       );
-      return { ...rest, members: rows };
+      return {
+        ...rest,
+        members: rows.map((row) => ({
+          ...row,
+          isCaller: row.userId === context.userId,
+        })),
+      };
     },
   }),
 

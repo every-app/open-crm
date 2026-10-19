@@ -43,13 +43,16 @@ const readOnly = { scopes: ["mcp:read"] };
 describe("workspace tools", () => {
   beforeAll(() => testDb.seedTwoOrganizations());
 
-  it("members with their roles, found by name, email or role and sorted; currencies an owner or admin sets", async () => {
-    await call("get_workspace", {}, { as: member });
+  it("who the caller is; members with their roles, found by name, email or role and sorted; currencies an owner or admin sets", async () => {
+    expect(await call("get_workspace", {}, { as: member })).toMatchObject({
+      caller: { id: member.sub, email: member.email },
+      role: "member",
+    });
     expect(await call("list_members")).toMatchObject({
       total: 2,
       members: [
-        { name: "Ana", email: ana.email, role: "owner" },
-        { email: member.email, role: "member" },
+        { name: "Ana", email: ana.email, role: "owner", isCaller: true },
+        { email: member.email, role: "member", isCaller: false },
       ],
     });
     expect(
