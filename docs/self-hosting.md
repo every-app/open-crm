@@ -103,6 +103,10 @@ An owner or admin then connects the workspace's Slack from Settings → Connecti
 
 Everyone in your organization on the gateway can open the CRM. Owners and admins invite people on the gateway, under Users → Invite user (`https://<gateway>/admin/users`). If the gateway can't send email, copy the invite link it shows and send it yourself. Settings → Members lists who has opened the CRM.
 
+To remove someone, remove them on the gateway, then disconnect their mailbox under Settings → Connections → Members' mailboxes. Otherwise their mail and calendar keep syncing until 30 days after the CRM last saw them.
+
+Owners can export all of the workspace's data from Settings → General.
+
 ## What works without keys
 
 The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking & Analytics), and the MCP tools AI clients use. Clients that sign in with OAuth, such as claude.ai and ChatGPT, connect to your gateway's `/mcp`; the CRM's own `https://<crm host>/mcp` takes only a personal access token. Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
@@ -201,6 +205,10 @@ After a rollback, the CRM serves a version `pnpm deploy:everyapp` didn't upload,
 ### Logs
 
 Every deploy turns on Workers Logs and traces. Open them under Workers & Pages → `every-<org key>-crm` → Observability. Workers Paid keeps logs for 7 days, and Workers Issues groups the errors.
+
+### Erasing an organization
+
+To erase an organization and everything it stored, follow `docs/maintainers/runbooks/erase-organization.md`. It needs `ERASURE_SECRET`, set with `pnpm everyapp secret set ERASURE_SECRET` for the erasure and removed afterwards.
 
 ### Operator scripts
 

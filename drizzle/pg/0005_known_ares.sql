@@ -7,6 +7,7 @@ CREATE TABLE "paid_session" (
 	CONSTRAINT "paid_session_organization_id_kind_slot_pk" PRIMARY KEY("organization_id","kind","slot")
 );
 --> statement-breakpoint
+ALTER TABLE "member" ADD COLUMN "last_seen_at" text;--> statement-breakpoint
 ALTER TABLE "company" ADD COLUMN "research_held_at" text;--> statement-breakpoint
 ALTER TABLE "contact" ADD COLUMN "research_held_at" text;--> statement-breakpoint
 ALTER TABLE "workspace" ADD COLUMN "research_automatically" boolean DEFAULT true NOT NULL;--> statement-breakpoint
@@ -27,4 +28,5 @@ CREATE INDEX "email_thread_company_idx" ON "email_thread" USING btree ("company_
 CREATE INDEX "email_thread_contact_idx" ON "email_thread" USING btree ("contact_id");--> statement-breakpoint
 CREATE INDEX "agent_task_open_due_idx" ON "agent_task" USING btree ("due_at") WHERE "agent_task"."finished_at" is null;--> statement-breakpoint
 CREATE INDEX "form_submission_contact_idx" ON "form_submission" USING btree ("contact_id");--> statement-breakpoint
+CREATE INDEX "form_submission_created_idx" ON "form_submission" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "tracked_visitor_contact_idx" ON "tracked_visitor" USING btree ("contact_id");

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "02360bfa-483e-4cc5-a7aa-17afb388436e",
+  "id": "203b64fd-3f19-4b89-b51e-a6268e4ac5b1",
   "prevId": "a5e883ff-af11-494a-9e35-308f543ac860",
   "tables": {
     "member": {
@@ -41,6 +41,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         }
       },
@@ -4998,6 +5005,13 @@
           "name": "form_submission_contact_idx",
           "columns": [
             "contact_id"
+          ],
+          "isUnique": false
+        },
+        "form_submission_created_idx": {
+          "name": "form_submission_created_idx",
+          "columns": [
+            "created_at"
           ],
           "isUnique": false
         }

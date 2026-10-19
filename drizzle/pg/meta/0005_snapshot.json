@@ -1,5 +1,5 @@
 {
-  "id": "0881e8f9-7238-4b24-bafe-7691c78f4c75",
+  "id": "509d6d87-c19a-46d7-ae77-cbcf103e3e8e",
   "prevId": "52f7a3a1-6e33-4ad2-ab89-e37245c05a2b",
   "version": "7",
   "dialect": "postgresql",
@@ -38,6 +38,12 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -5963,6 +5969,21 @@
           "columns": [
             {
               "expression": "contact_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "form_submission_created_idx": {
+          "name": "form_submission_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
