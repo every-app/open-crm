@@ -38,7 +38,7 @@ export function dealColumns({
       enableSorting: true,
       enableHiding: false,
       header: ({ column }) => <SortableHeader column={column} label="Deal" />,
-      meta: { label: "Deal", width: "w-[21%]" },
+      meta: { label: "Deal", width: 168 },
       cell: ({ row }) => (
         <RecordLink
           record={{ kind: "deal", id: row.original.id }}
@@ -55,7 +55,7 @@ export function dealColumns({
       header: ({ column }) => (
         <SortableHeader column={column} label="Company" />
       ),
-      meta: { label: "Company", width: "w-[16%]" },
+      meta: { label: "Company", width: 128 },
       cell: ({ row }) => {
         const { company } = row.original;
         return (
@@ -80,7 +80,7 @@ export function dealColumns({
       accessorFn: (row) => row.stage,
       enableSorting: true,
       header: ({ column }) => <SortableHeader column={column} label="Stage" />,
-      meta: { label: "Stage", width: "w-[15%]" },
+      meta: { label: "Stage", width: 120 },
       cell: ({ row }) => (
         <DealStageMenu dealId={row.original.id} stage={row.original.stage} />
       ),
@@ -95,7 +95,7 @@ export function dealColumns({
       ),
       meta: {
         label: "Amount",
-        width: "w-[11%]",
+        width: 88,
         cellClassName: "text-right whitespace-nowrap",
       },
       cell: ({ row }) =>
@@ -107,7 +107,7 @@ export function dealColumns({
           </span>
         ),
     },
-    ownerColumn("w-[13%]"),
+    ownerColumn(104),
     {
       id: "expectedCloseDate",
       accessorFn: (row) => row.expectedCloseDate,
@@ -117,7 +117,7 @@ export function dealColumns({
       ),
       meta: {
         label: "Close date",
-        width: "w-[12%]",
+        width: 112,
         cellClassName: "text-right whitespace-nowrap text-muted-foreground",
       },
       cell: ({ row }) =>
@@ -132,7 +132,7 @@ export function dealColumns({
       header: "Last activity",
       value: (row) => row.lastActivityAt,
       sortable: true,
-      width: "w-[12%]",
+      width: 112,
     }),
     ...recordDateColumns<DealRow>(archived),
   ];

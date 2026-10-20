@@ -42,10 +42,12 @@ type AppColumnMeta<TData> = {
   /** What the Columns menu calls it, when its header isn't plain text. */
   label?: string;
   /**
-   * Its share of the table, such as `w-[24%]`: with widths, the table lays
-   * its columns out fixed, as the CRM's tables do, and long values truncate.
+   * Its width in pixels: with widths, the table lays its columns out fixed,
+   * as the CRM's tables do, and long values truncate. A wider card shares
+   * the room left over among the columns; a narrower one, or a table with
+   * many columns, scrolls sideways rather than squeeze them.
    */
-  width?: string;
+  width?: number;
   headerClassName?: string;
   cellClassName?: string | ((row: Row<TData>) => string | undefined);
 };
@@ -93,7 +95,7 @@ export function makeSelectionColumn<TData>(
     size: 32,
     enableSorting: false,
     enableHiding: false,
-    meta: { width: "w-10" },
+    meta: { width: 40 },
     header: ({ table }) => (
       <Checkbox
         checked={table.getIsAllRowsSelected()}
@@ -223,6 +225,10 @@ export function DataTable<TData>({
   const columns = table.getVisibleLeafColumns();
   const rows = table.getRowModel().rows;
   const fixed = columns.some((column) => column.columnDef.meta?.width);
+  const minWidth = columns.reduce(
+    (total, column) => total + (column.columnDef.meta?.width ?? 0),
+    0,
+  );
   const noRows = !isLoading && rows.length === 0;
 
   return (
@@ -234,9 +240,9 @@ export function DataTable<TData>({
       {error && noRows ? null : (
         <Table
           containerClassName={scrollClassName}
-          // A phone scrolls the table rather than squeeze its columns; an
-          // empty one keeps to the card, so its empty state stays in view.
-          className={fixed && !noRows ? "min-w-3xl table-fixed" : undefined}
+          // An empty table keeps to the card, so its empty state stays in view.
+          className={fixed && !noRows ? "table-fixed" : undefined}
+          style={fixed && !noRows ? { minWidth } : undefined}
         >
           {/* An empty table is its empty state alone. */}
           {noRows ? null : (
@@ -249,8 +255,15 @@ export function DataTable<TData>({
                     <TableHead
                       key={header.id}
                       aria-sort={ariaSort(header.column)}
+                      style={{ width: header.column.columnDef.meta?.width }}
+                      // A custom field's label can run past its column.
+                      title={
+                        typeof header.column.columnDef.header === "string"
+                          ? header.column.columnDef.header
+                          : undefined
+                      }
                       className={cn(
-                        header.column.columnDef.meta?.width,
+                        fixed && "truncate",
                         header.column.columnDef.meta?.headerClassName,
                       )}
                     >

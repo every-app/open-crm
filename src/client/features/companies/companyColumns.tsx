@@ -47,7 +47,7 @@ export function companyColumns({
       header: ({ column }) => (
         <SortableHeader column={column} label="Company" />
       ),
-      meta: { label: "Company", width: "w-[24%]" },
+      meta: { label: "Company", width: 192 },
       cell: ({ row }) => {
         const company = row.original;
         return (
@@ -86,7 +86,7 @@ export function companyColumns({
       id: "domain",
       header: "Domain",
       value: (row) => row.domain,
-      width: "w-[15%]",
+      width: 120,
       className: "text-muted-foreground",
       sortable: true,
     }),
@@ -94,40 +94,40 @@ export function companyColumns({
       id: "industry",
       header: "Industry",
       value: (row) => row.industry,
-      width: "w-[14%]",
+      width: 112,
       sortable: true,
     }),
     textColumn<CompanyRow>({
       id: "location",
       header: "Location",
       value: location,
-      width: "w-[14%]",
+      width: 112,
     }),
-    ownerColumn("w-[15%]"),
+    ownerColumn(120),
     countColumn({
       id: "contacts",
       header: "Contacts",
       value: (row) => row.contactCount,
-      width: "w-[9%]",
+      width: 72,
     }),
     countColumn({
       id: "deals",
       header: "Open deals",
       value: (row) => row.openDealCount,
-      width: "w-[10%]",
+      width: 80,
     }),
     dateColumn({
       id: "lastActivity",
       header: "Last activity",
       value: (row) => row.lastActivityAt,
       sortable: true,
-      width: "w-[13%]",
+      width: 112,
     }),
     {
       id: "enrichment",
       header: "Enrichment",
       enableSorting: false,
-      meta: { label: "Enrichment status", width: "w-[14%]" },
+      meta: { label: "Enrichment status", width: 112 },
       cell: ({ row }) => (
         <EnrichmentIndicator
           status={row.original.enrichmentStatus}

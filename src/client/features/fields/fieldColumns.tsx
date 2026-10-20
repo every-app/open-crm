@@ -55,7 +55,7 @@ export function useFieldColumns<
             id: `field:${field.key}`,
             header: field.label,
             enableSorting: false,
-            meta: { width: "w-[12%]" },
+            meta: { width: 136 },
             cell: ({ row }) => (
               <FieldCell
                 field={field}

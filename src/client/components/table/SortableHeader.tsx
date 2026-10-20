@@ -41,12 +41,16 @@ export function SortableHeader({
   const content = (
     <button
       type="button"
-      className={`inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground ${className ?? ""}`}
+      className={`inline-flex max-w-full items-center gap-1 font-medium transition-colors hover:text-foreground ${className ?? ""}`}
       onClick={column.getToggleSortingHandler()}
       title={title}
       aria-label={`Sort by ${label}`}
     >
-      {helpText ? <HelpLabel label={label} helpText={helpText} /> : label}
+      {helpText ? (
+        <HelpLabel label={label} helpText={helpText} />
+      ) : (
+        <span className="truncate">{label}</span>
+      )}
       {sorted === "asc" ? (
         <ArrowUp className="size-3 shrink-0" />
       ) : sorted === "desc" ? (

@@ -31,7 +31,7 @@ function sortableColumn(options: {
   id: "title" | "email" | "company";
   header: string;
   value: (row: ContactRow) => string | null;
-  width: string;
+  width: number;
   cell?: (row: ContactRow) => ReactNode;
   className?: string;
 }): ColumnDef<ContactRow> {
@@ -78,7 +78,7 @@ export function contactColumns({
       enableSorting: true,
       enableHiding: false,
       header: ({ column }) => <SortableHeader column={column} label="Name" />,
-      meta: { label: "Name", width: "w-[20%]" },
+      meta: { label: "Name", width: 160 },
       cell: ({ row }) => {
         const contact = row.original;
         const name = fullName(contact);
@@ -112,20 +112,20 @@ export function contactColumns({
       id: "title",
       header: "Title",
       value: (row) => row.title,
-      width: "w-[17%]",
+      width: 136,
     }),
     sortableColumn({
       id: "email",
       header: "Email",
       value: (row) => row.email,
-      width: "w-[20%]",
+      width: 160,
       className: "text-muted-foreground",
     }),
     sortableColumn({
       id: "company",
       header: "Company",
       value: (row) => row.company?.name ?? null,
-      width: "w-[17%]",
+      width: 136,
       cell: ({ company }) =>
         company ? (
           <span className="flex min-w-0 items-center gap-2">
@@ -140,13 +140,13 @@ export function contactColumns({
           </span>
         ) : null,
     }),
-    ownerColumn("w-[14%]"),
+    ownerColumn(112),
     dateColumn({
       id: "lastActivity",
       header: "Last activity",
       value: (row) => row.lastActivityAt,
       sortable: true,
-      width: "w-[12%]",
+      width: 112,
     }),
     ...recordDateColumns<ContactRow>(archived),
   ];

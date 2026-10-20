@@ -194,8 +194,7 @@ export function textColumn<TRow>(options: {
   id: string;
   header: string;
   value: (row: TRow) => string | null;
-  /** Its share of the table, such as `w-[16%]`. */
-  width: string;
+  width: number;
   className?: string;
   sortable?: boolean;
 }): ColumnDef<TRow> {
@@ -227,7 +226,7 @@ export function textColumn<TRow>(options: {
 }
 
 export function ownerColumn<TRow extends { owner: Owner | null }>(
-  width: string,
+  width: number,
 ): ColumnDef<TRow> {
   return {
     id: "owner",
@@ -244,7 +243,7 @@ export function countColumn<TRow>(options: {
   id: string;
   header: string;
   value: (row: TRow) => number;
-  width: string;
+  width: number;
 }): ColumnDef<TRow> {
   return {
     id: options.id,
@@ -274,7 +273,7 @@ export function dateColumn<TRow>(options: {
   label?: string;
   value: (row: TRow) => string | null;
   sortable?: boolean;
-  width: string;
+  width: number;
 }): ColumnDef<TRow> {
   return {
     id: options.id,
@@ -311,7 +310,7 @@ export function recordDateColumns<
       label: "Created date",
       value: (row) => row.createdAt,
       sortable: true,
-      width: "w-[10%]",
+      width: 112,
     }),
     ...(archived
       ? [
@@ -321,7 +320,7 @@ export function recordDateColumns<
             label: "Archived date",
             value: (row) => row.archivedAt,
             sortable: true,
-            width: "w-[12%]",
+            width: 112,
           }),
         ]
       : []),
