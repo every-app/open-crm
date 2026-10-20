@@ -3,7 +3,7 @@ import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
 
 /**
- * Where the account menu sends people: the Every App gateway owns sign-in,
+ * Where "Back to Every App" goes: the Every App gateway owns sign-in,
  * sign-out, organizations and teams. The deploy sets GATEWAY_URL; the
  * identity tokens' issuer is the same origin, so it stands in where
  * GATEWAY_URL isn't set (local dev).
@@ -24,7 +24,7 @@ async function getEveryAppGatewayUrl(): Promise<string | null> {
   return null;
 }
 
-/** The signed-in person, their role and their gateway, for the account menu. */
+/** The signed-in person, their role and their gateway. */
 export const getEveryAppAccount = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
   .handler(async ({ context }) => ({

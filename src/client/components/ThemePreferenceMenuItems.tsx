@@ -13,7 +13,7 @@ const THEME_OPTIONS: {
   { value: "dark", label: "Dark", icon: <Moon /> },
 ];
 
-/** System / Light / Dark segmented radio, shared by Settings and account menus. */
+/** System / Light / Dark segmented radio, for Settings → General. */
 export function ThemePreferenceRadio() {
   const { themePreference, setThemePreference } = useThemePreference();
 

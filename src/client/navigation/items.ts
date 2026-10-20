@@ -47,5 +47,11 @@ export const navItems: NavItem[] = [
     icon: CircleDollarSign,
     link: linkOptions({ to: "/deals" }),
   },
-  { label: "Settings", icon: Settings, link: linkOptions({ to: "/settings" }) },
 ];
+
+/** Settings, at the sidebar's foot under the way back to Every App. */
+export const settingsNavItem: NavItem = {
+  label: "Settings",
+  icon: Settings,
+  link: linkOptions({ to: "/settings" }),
+};

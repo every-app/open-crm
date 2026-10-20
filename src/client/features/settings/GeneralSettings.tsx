@@ -3,8 +3,10 @@ import { ExportAllSection } from "@/client/features/csv/ExportAllSection";
 import {
   SettingsCard,
   SettingsPage,
+  SettingsRow,
   SettingsSection,
 } from "@/client/components/SettingsSection";
+import { ThemePreferenceRadio } from "@/client/components/ThemePreferenceMenuItems";
 import { ArchivedRecordsSection } from "@/client/features/settings/ArchivedRecordsSection";
 import { GatewayKeyRow } from "@/client/features/settings/GatewayKeyRow";
 import { ResearchAgentSection } from "@/client/features/settings/ResearchAgentSection";
@@ -29,6 +31,14 @@ export function GeneralSettings() {
       <SettingsSection title="Company research">
         <SettingsCard>
           <GatewayKeyRow id="context" label="Context API key" />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Appearance">
+        <SettingsCard>
+          <SettingsRow label="Theme" description="For this browser.">
+            <ThemePreferenceRadio />
+          </SettingsRow>
         </SettingsCard>
       </SettingsSection>
 

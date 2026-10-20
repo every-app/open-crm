@@ -3,9 +3,8 @@ import { PRODUCT_NAME } from "@/client/lib/page-title";
 import type { LinkOptions } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
-import { LogOut, User } from "lucide-react";
-import { navItems } from "@/client/navigation/items";
-import { ThemePreferenceRadio } from "@/client/components/ThemePreferenceMenuItems";
+import { ArrowUpRight } from "lucide-react";
+import { navItems, settingsNavItem } from "@/client/navigation/items";
 import { getEveryAppAccount } from "@/serverFunctions/everyApp";
 import {
   Sidebar as UiSidebar,
@@ -20,15 +19,6 @@ import {
   SidebarMenuSkeleton,
   useSidebar,
 } from "@/client/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/client/components/ui/dropdown-menu";
 
 const navButtonClass =
   "relative text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:before:absolute data-active:before:inset-y-1 data-active:before:left-0 data-active:before:w-[3px] data-active:before:rounded-r-full data-active:before:bg-primary";
@@ -122,63 +112,41 @@ export function Sidebar({
           </SidebarGroup>
         </nav>
       </SidebarContent>
-      <AccountFooter />
+      <SidebarFoot />
     </UiSidebar>
   );
 }
 
-// The Every App gateway owns sign-in, organizations and teams: the menu shows
-// the person from the signed identity, no switcher, and signing out happens
-// on the gateway.
-function AccountFooter() {
+// The sidebar's foot, as the other Every App apps lay it out: the way back
+// to the gateway, which owns sign-in, sign-out, organizations and the other
+// apps, then Settings. The theme is on Settings → General.
+function SidebarFoot() {
   const accountQuery = useQuery(everyAppAccountQueryOptions());
-  const account = accountQuery.data;
+  const gatewayUrl = accountQuery.data?.gatewayUrl;
 
   return (
     <UiSidebarFooter className="gap-0 border-t border-sidebar-border pb-safe">
       <SidebarMenu>
-        {account ? (
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <SidebarMenuButton
-                    className={navButtonClass}
-                    aria-label="Open account menu"
-                  />
-                }
-              >
-                <User className="size-4" />
-                <span className="truncate">{account.email}</span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" className="w-56">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>Theme</DropdownMenuLabel>
-                  <div className="px-1 pb-1">
-                    <ThemePreferenceRadio />
-                  </div>
-                </DropdownMenuGroup>
-                {account.gatewayUrl ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      render={<a href={account.gatewayUrl} />}
-                    >
-                      <LogOut className="size-4" />
-                      Sign out on Every App
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        ) : (
-          // The account row's slot while the identity loads.
+        {accountQuery.isPending ? (
           <SidebarMenuItem>
             <SidebarMenuSkeleton showIcon />
           </SidebarMenuItem>
-        )}
+        ) : gatewayUrl ? (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<a href={gatewayUrl} />}
+              className={navButtonClass}
+            >
+              <ArrowUpRight className="size-4" />
+              <span>Back to Every App</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ) : null}
+        <SidebarNavLink
+          icon={settingsNavItem.icon}
+          label={settingsNavItem.label}
+          linkProps={settingsNavItem.link}
+        />
       </SidebarMenu>
     </UiSidebarFooter>
   );

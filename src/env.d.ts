@@ -6,7 +6,7 @@ declare namespace Cloudflare {
     // Set by `everyapp deploy`: the CRM is pinned to that organization. Unset
     // under `everyapp dev`.
     EVERY_APP_ORG_ID?: string;
-    // The gateway's origin, for the account menu's "Sign out on Every App".
+    // The gateway's origin, for the sidebar's "Back to Every App".
     GATEWAY_URL?: string;
     // Optional app secret (`everyapp secret set GITHUB_TOKEN`): raises GitHub's
     // rate limit for the agent's profile matching.
