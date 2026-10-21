@@ -13,6 +13,7 @@ export default {
   name: "OpenCRM",
   description:
     "Companies, contacts and deals, kept up to date by a research agent.",
+  icon: "/everyapp-icon.svg",
   resources: {
     d1: ["DB"],
     durableObjects: [
