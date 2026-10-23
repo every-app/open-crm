@@ -12,14 +12,3 @@ export const getSetupChecklist = createServerFn({ method: "GET" })
       hasOrgPermission(context.role, { workspace: ["manage"] }),
     ),
   );
-
-/** Overview's Get started steps for the signed-in person. */
-export const getGetStarted = createServerFn({ method: "GET" })
-  .middleware(requireAuthenticatedContext)
-  .handler(async ({ context }) =>
-    SetupService.getStarted(
-      context.organizationId,
-      context.userId,
-      hasOrgPermission(context.role, { workspace: ["manage"] }),
-    ),
-  );

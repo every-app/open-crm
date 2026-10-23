@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { ArrowRight, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, TriangleAlert } from "lucide-react";
 import {
   SettingsCard,
   SettingsPage,
@@ -27,12 +27,6 @@ import { ScopeGroups } from "./SlackScopeGroups";
 // the gateway needs first.
 
 type Status = Awaited<ReturnType<typeof getSlackStatus>>;
-
-const NEVER = [
-  "Send anything until you deploy an agent",
-  "Post anywhere except the agent's approved destination",
-  "Read a direct message between two people",
-];
 
 const SUGGESTIONS = [
   ["When a deal is created", "Post the deal to an approved sales channel."],
@@ -94,23 +88,8 @@ export function SlackNotConnected({
       }
     >
       <SlackConnectAlert error={connectError} />
-      <ScopeGroups
-        title="What you are handing over"
-        scopes={SLACK_BOT_SCOPES}
-      />
-      <SettingsSection title="What it will never do">
-        <SettingsCard>
-          {NEVER.map((line) => (
-            <p key={line} className="flex items-start gap-2.5 px-5 py-3.5">
-              <X
-                aria-hidden
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-              />
-              <span className="text-sm">{line}</span>
-            </p>
-          ))}
-        </SettingsCard>
-      </SettingsSection>
+      <ScopeGroups title="Slack access" scopes={SLACK_BOT_SCOPES} />
+
       {status.configured ? (
         <SettingsCard>
           <SettingsRow
@@ -155,8 +134,8 @@ export function SlackNotConnected({
           {SUGGESTIONS.map(([name, description]) => (
             <Link
               key={name}
-              to="/chat"
-              state={{ builderDraft: suggestionText(name, description) }}
+              to="/settings/connections"
+              hash="ai-clients"
               className="group flex flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-xs outline-none hover:bg-foreground/[0.03] focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <span className="flex items-center justify-between gap-2 text-sm font-medium">
@@ -175,9 +154,4 @@ export function SlackNotConnected({
       </SettingsSection>
     </SettingsPage>
   );
-}
-
-/** A suggestion as the builder takes it: "When a deal is won, tell …". */
-function suggestionText(name: string, description: string): string {
-  return `${name}, ${description.charAt(0).toLowerCase()}${description.slice(1)}`;
 }

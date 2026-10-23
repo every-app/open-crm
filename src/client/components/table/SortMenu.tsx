@@ -17,7 +17,13 @@ import {
  * way. A new column keeps the direction. The table's `onSortingChange`
  * writes the choice to the URL, as a header click does.
  */
-export function SortMenu<TData>({ table }: { table: Table<TData> }) {
+export function SortMenu<TData>({
+  table,
+  showLabel = false,
+}: {
+  table: Table<TData>;
+  showLabel?: boolean;
+}) {
   const [current] = table.getState().sorting;
   if (!current) return null;
   const columns = table
@@ -29,7 +35,7 @@ export function SortMenu<TData>({ table }: { table: Table<TData> }) {
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
         <ArrowUpDown data-icon="inline-start" />
-        <span className="max-sm:sr-only">Sort</span>
+        <span className={showLabel ? undefined : "max-sm:sr-only"}>Sort</span>
         <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">

@@ -1,10 +1,10 @@
+import { useState } from "react";
+import { Button } from "@/client/components/ui/button";
 import { ExternalLink } from "lucide-react";
-import { cn } from "cn";
 import type { Company } from "@/client/features/companies/companyFormat";
 import type { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { RecordFields } from "@/client/features/fields/RecordFields";
-import { isEnriching } from "@/client/features/records/EnrichmentStatus";
 import {
   InlineField,
   InlineTextArea,
@@ -20,8 +20,7 @@ type Mutations = ReturnType<typeof useCompanyMutations>;
 type CompanyPatch = Omit<UpdateCompanyInput, "id">;
 
 /**
- * A company's Overview tab: what it does, its details and links, and its
- * visits to the website. Its people and deals have tabs of their own.
+ * A company's editable details, links and website visits.
  */
 export function CompanyOverview({
   company,
@@ -30,6 +29,7 @@ export function CompanyOverview({
   company: Company;
   mutations: Mutations;
 }) {
+  const [showEmpty, setShowEmpty] = useState(false);
   const { update } = mutations;
   // The fields whose save is in flight show a spinner.
   const saving =
@@ -41,8 +41,7 @@ export function CompanyOverview({
 
   return (
     <div>
-      {/* Even when empty: a cleared description can be written again. */}
-      <SheetSection title="About">
+      <SheetSection title={company.description ? "About" : undefined}>
         <InlineTextArea
           label="Description"
           value={company.description}
@@ -52,7 +51,18 @@ export function CompanyOverview({
 
       <SheetSection
         title="Details"
-        action={<FieldsSheetButton entity="COMPANY" />}
+        action={
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => setShowEmpty((value) => !value)}
+            >
+              {showEmpty ? "Hide empty fields" : "Add details"}
+            </Button>
+            <FieldsSheetButton entity="COMPANY" />
+          </div>
+        }
       >
         <div className="space-y-0.5">
           <InlineField
@@ -71,44 +81,60 @@ export function CompanyOverview({
             placeholder="acme.com"
             {...field("domain")}
           />
-          <InlineField
-            label="Website"
-            type="url"
-            value={company.website}
-            placeholder="https://acme.com"
-            {...field("website")}
-          />
-          <InlineField
-            label="Industry"
-            value={company.industry}
-            {...field("industry")}
-          />
-          <InlineField
-            label="Phone"
-            type="tel"
-            value={company.phone}
-            {...field("phone")}
-          />
-          <InlineField
-            label="Email"
-            type="email"
-            value={company.email}
-            {...field("email")}
-          />
-          <InlineField label="City" value={company.city} {...field("city")} />
-          <InlineField
-            label="Country"
-            value={company.country}
-            {...field("country")}
-          />
+          {(company.website !== null && company.website !== "") || showEmpty ? (
+            <InlineField
+              label="Website"
+              type="url"
+              value={company.website}
+              placeholder="https://acme.com"
+              {...field("website")}
+            />
+          ) : null}
+          {(company.industry !== null && company.industry !== "") ||
+          showEmpty ? (
+            <InlineField
+              label="Industry"
+              value={company.industry}
+              {...field("industry")}
+            />
+          ) : null}
+          {(company.phone !== null && company.phone !== "") || showEmpty ? (
+            <InlineField
+              label="Phone"
+              type="tel"
+              value={company.phone}
+              {...field("phone")}
+            />
+          ) : null}
+          {(company.email !== null && company.email !== "") || showEmpty ? (
+            <InlineField
+              label="Email"
+              type="email"
+              value={company.email}
+              {...field("email")}
+            />
+          ) : null}
+          {(company.city !== null && company.city !== "") || showEmpty ? (
+            <InlineField label="City" value={company.city} {...field("city")} />
+          ) : null}
+          {(company.country !== null && company.country !== "") || showEmpty ? (
+            <InlineField
+              label="Country"
+              value={company.country}
+              {...field("country")}
+            />
+          ) : null}
           <OwnerField
             owner={company.owner}
             saving={saving.includes("ownerId")}
             onSave={(ownerId) => update.mutate({ ownerId })}
           />
-          <RecordFields entity="COMPANY" recordId={company.id} />
+          <RecordFields
+            entity="COMPANY"
+            recordId={company.id}
+            showEmpty={showEmpty}
+          />
         </div>
-        <AgentPending company={company} />
       </SheetSection>
 
       <CompanyLinks company={company} />
@@ -117,37 +143,6 @@ export function CompanyOverview({
       <p className="px-5 py-4 text-xs text-muted-foreground">
         Added <LocalDateTime date={company.createdAt} />
       </p>
-    </div>
-  );
-}
-
-/**
- * What the agent hasn't found yet; the dot is lit while it looks (the
- * header says it's researching).
- */
-function AgentPending({ company }: { company: Company }) {
-  const missing = [
-    company.industry ? null : "industry",
-    company.description ? null : "description",
-    company.linkedinUrl || company.twitterUrl || company.githubUrl
-      ? null
-      : "social links",
-  ].filter(Boolean);
-  if (missing.length === 0) return null;
-  const running = isEnriching(company.enrichmentStatus, company.queued);
-  return (
-    <div className="mt-3 space-y-1.5 rounded-md bg-foreground/[0.03] p-3">
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className={cn(
-            "size-1.5 shrink-0 rounded-full",
-            running ? "bg-primary" : "bg-muted-foreground",
-          )}
-        />
-        <span className="text-xs font-medium">Not known yet</span>
-      </div>
-      <p className="text-xs/5 text-muted-foreground">{missing.join(", ")}</p>
     </div>
   );
 }

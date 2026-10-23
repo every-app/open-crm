@@ -41,7 +41,7 @@ const DOT: Record<Tone, string> = {
 };
 
 /** The agent is on it: running, or queued for a record it hasn't started. */
-export function isEnriching(status: EnrichmentStatus, queued: boolean) {
+function isEnriching(status: EnrichmentStatus, queued: boolean) {
   return status === "RUNNING" || (status === "PENDING" && queued);
 }
 

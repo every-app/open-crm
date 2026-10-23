@@ -52,10 +52,12 @@ export function SavedViewsMenu({
   entity,
   current,
   onApply,
+  showLabel = false,
 }: {
   entity: FieldEntity;
   current: Record<string, unknown>;
   onApply: (filters: SavedViewFilters) => void;
+  showLabel?: boolean;
 }) {
   const views = useQuery(savedViewsQueryOptions(entity));
   const [dialog, setDialog] = useState<"save" | "manage" | null>(null);
@@ -67,7 +69,9 @@ export function SavedViewsMenu({
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
           <Bookmark data-icon="inline-start" />
-          <span className="max-sm:sr-only">Views</span>
+          <span className={showLabel ? undefined : "max-sm:sr-only"}>
+            Views
+          </span>
           <ChevronDown
             data-icon="inline-end"
             className="text-muted-foreground"

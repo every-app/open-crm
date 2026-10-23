@@ -43,7 +43,10 @@ export const createCompany = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
   .validator(createCompanySchema)
   .handler(({ data, context }) =>
-    CompanyService.createCompany(context.organizationId, data),
+    CompanyService.createCompany(context.organizationId, {
+      ...data,
+      ownerId: data.ownerId === undefined ? context.userId : data.ownerId,
+    }),
   );
 
 export const updateCompany = createServerFn({ method: "POST" })

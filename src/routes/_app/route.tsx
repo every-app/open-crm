@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { SkeletonPage } from "@/client/components/SkeletonPresets";
 import { QueryError } from "@/client/components/QueryState";
 import { AppLayout } from "@/client/layout/AppShell";
-import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
 import { RecordSheetHost } from "@/client/features/records/RecordSheetHost";
 import { appSearchSchema } from "@/client/features/records/recordStack";
 import { QuickSwitcher } from "@/client/features/search/QuickSwitcher";
@@ -30,14 +29,7 @@ function AppRouteLayout() {
   return (
     <AppLayout
       workspaceName={workspace?.name ?? null}
-      sidebarHeader={
-        // A gap, not space-y: an open menu appends hidden focus guards after
-        // its trigger, which would give the trigger space-y's margin.
-        <div className="flex flex-col gap-1 pb-1">
-          <QuickSwitcher />
-          <EnrichmentQueue />
-        </div>
-      }
+      sidebarHeader={<QuickSwitcher />}
     >
       {workspace ? (
         <>

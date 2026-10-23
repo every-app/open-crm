@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import { CopyButton } from "@/client/components/CopyButton";
 import { SettingsRow } from "@/client/components/SettingsSection";
 import { Badge } from "@/client/components/ui/badge";
+import { Button } from "@/client/components/ui/button";
 import { Skeleton } from "@/client/components/ui/skeleton";
 import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 import { setupChecklistQueryOptions } from "@/client/features/setup/setupQueries";
@@ -24,6 +26,7 @@ export function GatewayKeyRow({
   label: string;
 }) {
   const canManage = useCanManageWorkspace();
+  const queryClient = useQueryClient();
   const query = useQuery(setupChecklistQueryOptions());
   const checklist = query.data;
   const item = checklist?.items.find((entry) => entry.id === id);
@@ -52,13 +55,41 @@ export function GatewayKeyRow({
             {item.note ? <p>{item.note}</p> : null}
             {fallback ? <p>{fallback}</p> : null}
             {item.command ? (
-              <SetupCommand command={item.command} label={label} />
+              <>
+                <p>Run from your Every App gateway:</p>
+                <SetupCommand command={item.command} label={label} />
+              </>
             ) : null}
           </div>
         ) : undefined
       }
     >
       <Badge variant={status.variant}>{status.label}</Badge>
+      {item.state === "missing" ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
+          aria-label={`Refresh ${label} status`}
+          title={`Refresh ${label} status`}
+          disabled={query.isFetching}
+          aria-busy={query.isFetching || undefined}
+          onClick={() => {
+            void query.refetch();
+            void queryClient.invalidateQueries({
+              queryKey: ["settings", "agent-status"],
+            });
+          }}
+        >
+          <RefreshCw
+            aria-hidden
+            className={
+              query.isFetching ? "motion-safe:animate-spin" : undefined
+            }
+          />
+        </Button>
+      ) : null}
     </SettingsRow>
   );
 }

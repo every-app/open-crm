@@ -38,15 +38,6 @@ export const TRIGGER_COPY: Record<TriggerType, string> = {
   EVENT: "Event",
 };
 
-/** Suggested agents, as the CRM's builder home offers them. */
-export const BUILDER_SUGGESTIONS = [
-  "Brief every deal owner before a renewal call",
-  "Flag deals with no activity for 14 days",
-  "Hand new customers from Sales to Onboarding",
-];
-
-export const CREATE_AGENT_PREFIX = "/Create agent ";
-
 /** What a failed run's code means, as the CRM's agent-run-failure.ts says it. */
 const RUN_FAILURES: Record<string, string> = {
   ACTION_NOT_PERFORMED:

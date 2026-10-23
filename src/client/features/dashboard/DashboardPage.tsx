@@ -1,11 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { getRouteApi } from "@tanstack/react-router";
-import { UserRound, Users } from "lucide-react";
+import { Navigate, getRouteApi } from "@tanstack/react-router";
+import { Users } from "lucide-react";
 import { cn } from "cn";
 import { z } from "zod";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
-import { SegmentedToggle } from "@/client/components/SegmentedToggle";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/client/components/ui/select";
 import { SkeletonStatGrid } from "@/client/components/SkeletonPresets";
 import { Skeleton } from "@/client/components/ui/skeleton";
 import {
@@ -14,6 +20,7 @@ import {
   RecentActivity,
 } from "@/client/features/dashboard/DashboardLists";
 import { SalesSummary } from "@/client/features/dashboard/SalesSummary";
+import { FirstFollowUp } from "@/client/features/dashboard/FirstFollowUp";
 import { GetStartedCard } from "@/client/features/setup/GetStartedCard";
 import { dashboardSummaryQueryOptions } from "@/client/features/dashboard/dashboardQueries";
 import { DASHBOARD_SCOPES } from "@/types/schemas/dashboard";
@@ -26,39 +33,88 @@ export const dashboardSearchSchema = z.object({
 const routeApi = getRouteApi("/_app/");
 
 const SCOPES = [
-  { value: "me" as const, label: "Me", icon: <UserRound /> },
-  { value: "everyone" as const, label: "Everyone", icon: <Users /> },
+  { value: "everyone", label: "All owners" },
+  { value: "me", label: "My deals" },
 ];
 
 /** Home: the viewer's (or the team's) sales at a glance. */
 export function DashboardPage() {
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
-  const scope = search.scope ?? "me";
+  const scope = search.scope ?? "everyone";
   const query = useQuery(dashboardSummaryQueryOptions(scope));
   const summary = query.data;
+  const hasSales =
+    summary &&
+    (summary.pipeline.count > 0 ||
+      summary.performance.winRate !== null ||
+      summary.wonThisMonth.count > 0 ||
+      summary.wonLastMonth.count > 0 ||
+      summary.trend.some((point) => point.won > 0 || point.created > 0));
+  const hasActivity =
+    summary &&
+    (summary.overdueTasks.length > 0 || summary.recentActivity.length > 0);
+
+  if (summary && !summary.multipleOwners && scope === "me") {
+    return (
+      <Navigate
+        to="/"
+        search={(prev) => ({ ...prev, scope: undefined })}
+        replace
+      />
+    );
+  }
+  const firstDeal =
+    summary?.pipeline.count === 1 ? summary.biggestOpen[0] : undefined;
 
   return (
-    <div className="h-full overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="flex min-h-full flex-col px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6">
         <PageHeader
-          title="Welcome back"
+          title={summary && !summary.hasDeals ? "Welcome" : "Overview"}
           actions={
-            <SegmentedToggle
-              items={SCOPES}
-              value={scope}
-              onChange={(next) =>
-                void navigate({
-                  search: { scope: next === "me" ? undefined : next },
-                  replace: true,
-                })
-              }
-              showLabels
-            />
+            summary?.multipleOwners ? (
+              <Select
+                items={SCOPES}
+                value={scope}
+                onValueChange={(next) => {
+                  if (next !== "me" && next !== "everyone") return;
+                  void navigate({
+                    search: (prev) => ({
+                      ...prev,
+                      scope: next === "everyone" ? undefined : next,
+                    }),
+                    replace: true,
+                  });
+                }}
+              >
+                <SelectTrigger aria-label="Deal owner" size="sm">
+                  <Users />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCOPES.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null
           }
         />
 
-        <GetStartedCard />
+        {summary && !hasSales ? (
+          <GetStartedCard
+            company={summary.firstCompany}
+            hasDeals={summary.hasDeals}
+            prominent={!hasActivity}
+          />
+        ) : null}
+
+        {firstDeal && !firstDeal.followUpAt ? (
+          <FirstFollowUp deal={firstDeal} />
+        ) : null}
 
         {summary ? (
           <div
@@ -76,8 +132,15 @@ export function DashboardPage() {
                 isRetrying={query.isFetching}
               />
             ) : null}
-            <SalesSummary summary={summary} />
-            <div className="grid gap-6 lg:grid-cols-2">
+            {hasSales ? <SalesSummary summary={summary} /> : null}
+            <div
+              className={cn(
+                "grid gap-6",
+                summary.biggestOpen.length > 0 &&
+                  summary.overdueTasks.length > 0 &&
+                  "lg:grid-cols-2",
+              )}
+            >
               <DealsInProgress summary={summary} />
               <OverdueTasks summary={summary} />
             </div>

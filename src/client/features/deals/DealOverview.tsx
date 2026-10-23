@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Button } from "@/client/components/ui/button";
 import { toast } from "sonner";
 import { fullName } from "@/client/features/companies/companyFormat";
 import { StageStepper } from "@/client/features/deals/DealStage";
@@ -51,8 +52,7 @@ function currencyItems(currency: string) {
 }
 
 /**
- * A deal's Overview tab: its stage and who is on it, its details and its
- * description. The people on it are managed on their own tab.
+ * A deal's stage, details and description; related contacts follow below.
  */
 export function DealOverview({
   deal,
@@ -61,6 +61,7 @@ export function DealOverview({
   deal: Deal;
   mutations: Mutations;
 }) {
+  const [showEmpty, setShowEmpty] = useState(false);
   const { update } = mutations;
   // The fields whose save is in flight show a spinner.
   const saving =
@@ -94,7 +95,18 @@ export function DealOverview({
 
       <SheetSection
         title="Details"
-        action={<FieldsSheetButton entity="DEAL" />}
+        action={
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => setShowEmpty((value) => !value)}
+            >
+              {showEmpty ? "Hide empty fields" : "Add details"}
+            </Button>
+            <FieldsSheetButton entity="DEAL" />
+          </div>
+        }
       >
         <div className="space-y-0.5">
           <InlineField
@@ -154,7 +166,11 @@ export function DealOverview({
             saving={saving.includes("ownerId")}
             onSave={(ownerId) => save({ ownerId })}
           />
-          <RecordFields entity="DEAL" recordId={deal.id} />
+          <RecordFields
+            entity="DEAL"
+            recordId={deal.id}
+            showEmpty={showEmpty}
+          />
         </div>
       </SheetSection>
 

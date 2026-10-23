@@ -45,6 +45,7 @@ export function DealSheet({ dealId }: { dealId: string }) {
 
   return (
     <RecordSheetFrame
+      archivedAt={deal?.archivedAt}
       record={{ kind: "deal", id: dealId }}
       header={
         deal
@@ -115,7 +116,6 @@ export function DealSheet({ dealId }: { dealId: string }) {
           ? [
               {
                 value: "contacts",
-                count: deal.contacts.length,
                 content: <DealContacts deal={deal} mutations={mutations} />,
               },
             ]

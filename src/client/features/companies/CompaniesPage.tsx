@@ -4,6 +4,10 @@ import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
 import { Building2, Plus, Upload } from "lucide-react";
 import { findLast } from "remeda";
+import {
+  DirectoryTabs,
+  DirectoryView,
+} from "@/client/features/records/DirectoryTabs";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -47,6 +51,7 @@ import { usePrefetchRecord } from "@/client/features/records/recordQueries";
 import {
   useNewForm,
   useRecordStack,
+  recordKey,
 } from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listCompanies } from "@/serverFunctions/companies";
@@ -136,7 +141,7 @@ export function CompaniesPage() {
       {/* The rows scroll inside the table's card, under its header. */}
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
-          title="Companies"
+          title={input.archived ? "Archived companies" : "Directory"}
           actions={
             <>
               <CsvMenu
@@ -151,92 +156,96 @@ export function CompaniesPage() {
             </>
           }
         />
-        <DataTable
-          table={table}
-          isLoading={query.isPending}
-          isFiltered={isListFiltered(search, COMPANY_FILTER_KEYS)}
-          onClearFilters={() => setSearch(clearedFilters(COMPANY_FILTER_KEYS))}
-          filteredTitle="No matches"
-          error={
-            query.isError ? (
-              <QueryError
-                error={query.error}
-                fallback="Couldn't load companies."
-                onRetry={() => void query.refetch()}
-                isRetrying={query.isFetching}
-              />
-            ) : undefined
-          }
-          empty={
-            input.archived
-              ? {
-                  icon: Building2,
-                  media: "rows",
-                  title: "No archived companies",
+        <DirectoryTabs view={DirectoryView.Companies}>
+          <DataTable
+            table={table}
+            isLoading={query.isPending}
+            isFiltered={isListFiltered(search, COMPANY_FILTER_KEYS)}
+            onClearFilters={() =>
+              setSearch(clearedFilters(COMPANY_FILTER_KEYS))
+            }
+            filteredTitle="No matches"
+            error={
+              query.isError ? (
+                <QueryError
+                  error={query.error}
+                  fallback="Couldn't load companies."
+                  onRetry={() => void query.refetch()}
+                  isRetrying={query.isFetching}
+                />
+              ) : undefined
+            }
+            empty={
+              input.archived
+                ? {
+                    icon: Building2,
+                    media: "icon",
+                    title: "No archived companies",
+                  }
+                : {
+                    icon: Building2,
+                    media: "icon",
+                    title: "No companies",
+                    action: (
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {newCompany}
+                        {importCsv}
+                      </div>
+                    ),
+                  }
+            }
+            toolbar={
+              <RecordListToolbar
+                entity="COMPANY"
+                table={table}
+                search={search}
+                onSearchChange={setSearch}
+                onApplyView={(view) =>
+                  void navigate({
+                    search: (prev) =>
+                      searchFromSavedView(companyListSearchSchema, view, prev),
+                  })
                 }
-              : {
-                  icon: Building2,
-                  media: "rows",
-                  title: "No companies",
-                  action: (
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {newCompany}
-                      {importCsv}
-                    </div>
+                placeholder="Search companies…"
+                facetCounts={query.data?.facetCounts}
+                filters={filters}
+                filterKeys={COMPANY_FILTER_KEYS}
+                selection={{
+                  count: selection.selectedIds.length,
+                  onClear: selection.clear,
+                  actions: (
+                    <CompanyBulkActions
+                      ids={selection.selectedIds}
+                      archived={input.archived}
+                      canPurge={canPurge}
+                      onDone={selection.clear}
+                    />
                   ),
+                }}
+              />
+            }
+            footer={
+              <TablePagination
+                page={input.page}
+                pageSize={input.pageSize}
+                totalCount={query.data?.total ?? null}
+                isLoading={query.isPlaceholderData}
+                // Prev and next are links, each page a step the browser's
+                // Back returns to; a page put back in range replaces its own.
+                renderPageButton={PageLink}
+                onPageChange={(page) =>
+                  setSearch({ page: page > 1 ? page : undefined })
                 }
-          }
-          toolbar={
-            <RecordListToolbar
-              entity="COMPANY"
-              table={table}
-              search={search}
-              onSearchChange={setSearch}
-              onApplyView={(view) =>
-                void navigate({
-                  search: (prev) =>
-                    searchFromSavedView(companyListSearchSchema, view, prev),
-                })
-              }
-              placeholder="Search companies…"
-              facetCounts={query.data?.facetCounts}
-              filters={filters}
-              filterKeys={COMPANY_FILTER_KEYS}
-              selection={{
-                count: selection.selectedIds.length,
-                onClear: selection.clear,
-                actions: (
-                  <CompanyBulkActions
-                    ids={selection.selectedIds}
-                    archived={input.archived}
-                    canPurge={canPurge}
-                    onDone={selection.clear}
-                  />
-                ),
-              }}
-            />
-          }
-          footer={
-            <TablePagination
-              page={input.page}
-              pageSize={input.pageSize}
-              totalCount={query.data?.total ?? null}
-              isLoading={query.isPlaceholderData}
-              // Prev and next are links, each page a step the browser's
-              // Back returns to; a page put back in range replaces its own.
-              renderPageButton={PageLink}
-              onPageChange={(page) =>
-                setSearch({ page: page > 1 ? page : undefined })
-              }
-            />
-          }
-          onRowClick={(row) => openCompany(row.original.id)}
-          onRowHover={(row) =>
-            prefetchRecord({ kind: "company", id: row.original.id })
-          }
-          scrollClassName="min-h-0 flex-1"
-          activeRowId={findLast(stack, (ref) => ref.kind === "company")?.id}
-        />
+              />
+            }
+            onRowClick={(row) => openCompany(row.original.id)}
+            onRowHover={(row) =>
+              prefetchRecord({ kind: "company", id: row.original.id })
+            }
+            scrollClassName="min-h-0 flex-1"
+            activeRowId={findLast(stack, (ref) => ref.kind === "company")?.id}
+          />
+        </DirectoryTabs>
       </div>
 
       {importing ? (
@@ -245,8 +254,19 @@ export function CompaniesPage() {
       {creating ? (
         <CreateCompanyDialog
           onClose={() => setCreating(false)}
-          // Opening the record it made closes the form, in its place in history.
-          onCreated={(company) => openCompany(company.id)}
+          // Continue with a deal for this company, in the form's history entry.
+          onCreated={(company) =>
+            void navigate({
+              search: (prev) => ({
+                ...prev,
+                record: recordKey({ kind: "company", id: company.id }),
+                new: undefined,
+                tab: undefined,
+                add: "deal",
+              }),
+              replace: true,
+            })
+          }
         />
       ) : null}
     </div>

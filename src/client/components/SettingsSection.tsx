@@ -29,11 +29,13 @@ export function SettingsPage({
 
 /** A titled group of settings: one or more `SettingsCard`s. */
 export function SettingsSection({
+  id,
   title,
   description,
   action,
   children,
 }: {
+  id?: string;
   title: ReactNode;
   description?: ReactNode;
   /** A control beside the title, such as a "New" button for a table. */
@@ -41,7 +43,7 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section id={id} className="scroll-mt-6 space-y-3">
       <div
         className={cn(
           "flex justify-between gap-3",

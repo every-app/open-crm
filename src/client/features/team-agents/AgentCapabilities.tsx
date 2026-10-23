@@ -213,7 +213,10 @@ export function AgentCapabilities({
         onRecords={setRecords}
         onSources={setSources}
       />
-      <SettingsSection title="Code">
+      <details className="space-y-4 rounded-xl border border-border p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          Advanced · Agent files
+        </summary>
         <AgentCode
           agentId={agentId}
           versionId={versionId}
@@ -230,7 +233,7 @@ export function AgentCapabilities({
               : undefined
           }
         />
-      </SettingsSection>
+      </details>
       {changed || edited.length > 0 ? (
         <SaveBar
           note={note}

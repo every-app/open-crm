@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { revalidateLogic } from "@tanstack/react-form";
 import { toast } from "sonner";
-import { Coins } from "lucide-react";
-import { EmptyState } from "@/client/components/EmptyState";
+import { useState } from "react";
 import { InlineConfirm } from "@/client/components/InlineConfirm";
 import {
   SettingsCard,
@@ -48,6 +47,7 @@ export function ExchangeRates({
   settings: CurrencySettings;
   canManage: boolean;
 }) {
+  const [adding, setAdding] = useState(false);
   const queryClient = useQueryClient();
   // Rates convert deals, which moves totals well beyond this page.
   const invalidateAll = () => queryClient.invalidateQueries();
@@ -82,30 +82,42 @@ export function ExchangeRates({
       title="Exchange rates"
       action={
         canManage ? (
-          <Button
-            variant="outline"
-            pending={refresh.isPending}
-            onClick={() => refresh.mutate()}
-          >
-            Refresh
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setAdding((value) => !value)}
+            >
+              {adding ? "Cancel" : "Add rate"}
+            </Button>
+            <Button
+              variant="outline"
+              pending={refresh.isPending}
+              onClick={() => refresh.mutate()}
+            >
+              Refresh
+            </Button>
+          </>
         ) : null
       }
     >
       <SettingsCard>
-        {canManage ? (
+        {canManage && adding ? (
           <div className="px-5 py-4">
             {/* Remounted per base, so it never offers the reporting currency. */}
-            <ManualRateForm key={base} base={base} />
+            <ManualRateForm
+              key={base}
+              base={base}
+              onSaved={() => setAdding(false)}
+            />
           </div>
         ) : null}
         {settings.rates.length === 0 ? (
-          <EmptyState
-            icon={Coins}
-            media="rows"
-            variant="plain"
-            title="No rates yet"
-          />
+          <p className="px-5 py-4 text-sm text-muted-foreground">
+            {settings.inUse.length > 0 &&
+            settings.inUse.every((row) => row.currency === base)
+              ? `All deals use ${base}. No conversion is needed.`
+              : "Add a rate when you use another currency."}
+          </p>
         ) : (
           <Table>
             <TableHeader>
@@ -184,7 +196,13 @@ export function ExchangeRates({
 }
 
 /** A rate entered by hand: 1 unit of a currency = ? of the reporting one. */
-function ManualRateForm({ base }: { base: string }) {
+function ManualRateForm({
+  base,
+  onSaved,
+}: {
+  base: string;
+  onSaved: () => void;
+}) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (input: { currency: string; rate: number }) =>
@@ -210,6 +228,7 @@ function ManualRateForm({ base }: { base: string }) {
       });
       formApi.reset();
       toast.success("Rate saved.");
+      onSaved();
     },
   });
 

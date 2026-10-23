@@ -1,12 +1,10 @@
 import { queryOptions } from "@tanstack/react-query";
 import { getErrorCode } from "@/client/lib/error-messages";
 import {
-  getBuilderChat,
   getTeamAgent,
   getTeamAgentActivity,
   getTeamAgentFiles,
   getTeamAgentRuns,
-  listBuilderChats,
   listTeamAgents,
   searchBuilderResources,
 } from "@/serverFunctions/teamAgents";
@@ -20,9 +18,6 @@ export const teamAgentKeys = {
   all: ["team-agents"] as const,
   list: () => ["team-agents", "list"] as const,
   agent: (agentId: string) => ["team-agents", "agent", agentId] as const,
-  chats: () => ["team-agents", "chats"] as const,
-  chat: (conversationId: string) =>
-    ["team-agents", "chat", conversationId] as const,
 };
 
 export const teamAgentsQueryOptions = () =>
@@ -31,7 +26,7 @@ export const teamAgentsQueryOptions = () =>
     queryFn: () => listTeamAgents(),
   });
 
-/** An agent or chat that isn't there won't be on a retry. */
+/** A missing agent won't appear on a retry. */
 const retryUnlessMissing = (failures: number, error: Error) =>
   getErrorCode(error) !== "NOT_FOUND" && failures < 3;
 
@@ -68,19 +63,6 @@ export const teamAgentActivityQueryOptions = (agentId: string) =>
   queryOptions({
     queryKey: [...teamAgentKeys.agent(agentId), "activity"],
     queryFn: () => getTeamAgentActivity({ data: { agentId, limit: 100 } }),
-  });
-
-export const builderChatsQueryOptions = () =>
-  queryOptions({
-    queryKey: teamAgentKeys.chats(),
-    queryFn: () => listBuilderChats(),
-  });
-
-export const builderChatQueryOptions = (conversationId: string) =>
-  queryOptions({
-    queryKey: teamAgentKeys.chat(conversationId),
-    queryFn: () => getBuilderChat({ data: { conversationId } }),
-    retry: retryUnlessMissing,
   });
 
 export const builderResourcesQueryOptions = (q: string) =>

@@ -6,7 +6,6 @@ import { FormDialog } from "@/client/components/FormDialog";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
 import { companyErrorMessage } from "@/client/features/companies/useCompanyMutations";
-import { ownerIdOf, useOwnerOptions } from "@/client/features/records/owners";
 import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   getErrorCode,
@@ -14,7 +13,6 @@ import {
 } from "@/client/lib/error-messages";
 import { createCompany } from "@/serverFunctions/companies";
 import { COMPANY_NAME_MAX } from "@/types/schemas/companies";
-import { UNASSIGNED } from "@/types/schemas/records";
 
 const FORM_ID = "create-company";
 
@@ -25,10 +23,9 @@ const formSchema = z.object({
     .min(1, "A company needs a name.")
     .max(COMPANY_NAME_MAX),
   domain: z.string().trim().max(255),
-  owner: z.string(),
 });
 
-/** A company's name, domain and owner; the agent finds the rest. */
+/** A name and optional website; the creator owns the new company. */
 export function CreateCompanyDialog({
   onClose,
   onCreated,
@@ -37,14 +34,12 @@ export function CreateCompanyDialog({
   onCreated: (company: { id: string; name: string }) => void;
 }) {
   const invalidate = useInvalidateRecords();
-  const owners = useOwnerOptions();
   const mutation = useMutation({
     mutationFn: (values: z.infer<typeof formSchema>) =>
       createCompany({
         data: {
           name: values.name,
           domain: values.domain || undefined,
-          ownerId: ownerIdOf(values.owner),
         },
       }),
     // The form shows a taken or unreadable domain on the field itself.
@@ -57,7 +52,7 @@ export function CreateCompanyDialog({
   });
 
   const form = useAppForm({
-    defaultValues: { name: "", domain: "", owner: UNASSIGNED },
+    defaultValues: { name: "", domain: "" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: formSchema },
     onSubmit: async ({ value, formApi }) => {
@@ -107,15 +102,12 @@ export function CreateCompanyDialog({
           <form.AppField name="domain">
             {(field) => (
               <field.TextField
-                label="Domain"
+                label="Website (optional)"
                 placeholder="stripe.com"
                 inputMode="url"
                 autoComplete="off"
               />
             )}
-          </form.AppField>
-          <form.AppField name="owner">
-            {(field) => <field.SelectField label="Owner" items={owners} />}
           </form.AppField>
         </form.Form>
       </FormDialog>

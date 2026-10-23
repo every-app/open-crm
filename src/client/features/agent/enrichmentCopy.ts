@@ -28,7 +28,7 @@ const STEPS = {
 const STEP_BY_KIND = new Map<string, string>(Object.entries(STEPS));
 
 /** What a task of `kind` is doing: "Reading their profile". */
-export function enrichmentStep(kind: string): string {
+function enrichmentStep(kind: string): string {
   return STEP_BY_KIND.get(kind) ?? "Looking them up";
 }
 

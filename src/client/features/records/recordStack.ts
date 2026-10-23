@@ -9,6 +9,7 @@ import { z } from "zod";
 import { DEAL_STAGES } from "@/shared/crm-enums";
 import { isLosingStage } from "@/shared/deal-stages";
 import { RECORD_KINDS, type RecordRef } from "@/shared/records";
+import { TaskDue } from "@/types/schemas/activities";
 
 // The record sheets open over whatever page is current, as the CRM opens
 // them: `record` in the URL lists them bottom first ("company:a,contact:b"),
@@ -22,8 +23,6 @@ import { RECORD_KINDS, type RecordRef } from "@/shared/records";
 //                          or a deal's Add contact form
 //   timeline               the Activity tab's view; All when absent
 //   emailThread            the email thread open on the timeline
-//   thread                 the conversation with the agent open on the
-//                          Agent tab, or "new"
 //   manageFields           the fields sheet, on a kind of record's fields
 //   manageField            the field it edits, by key, or "new"
 //   k                      the quick switcher (⌘K)
@@ -41,15 +40,8 @@ declare module "@tanstack/react-router" {
   }
 }
 
-// Every sheet has Overview, Activity and Agent; a company's sheet adds
-// Contacts and Deals, a contact's Deals and a deal's Contacts.
-export const RECORD_TABS = [
-  "overview",
-  "contacts",
-  "deals",
-  "activity",
-  "agent",
-] as const;
+// Record details include related records; Activity holds the timeline.
+export const RECORD_TABS = ["details", "activity"] as const;
 export type RecordTab = (typeof RECORD_TABS)[number];
 
 /**
@@ -58,10 +50,6 @@ export type RecordTab = (typeof RECORD_TABS)[number];
  */
 const QUICK_ADDS = ["contact", "deal"] as const;
 type QuickAdd = (typeof QUICK_ADDS)[number];
-const QUICK_ADD_TAB: Record<QuickAdd, RecordTab> = {
-  contact: "contacts",
-  deal: "deals",
-};
 
 /** The views of a record's timeline (its Activity tab). */
 export const TIMELINE_VIEWS = [
@@ -69,8 +57,9 @@ export const TIMELINE_VIEWS = [
   "notes",
   "email",
   "meetings",
-  "upcoming",
-  "done",
+  "calls",
+  "open-tasks",
+  "completed-tasks",
 ] as const;
 export type TimelineView = (typeof TIMELINE_VIEWS)[number];
 
@@ -125,8 +114,8 @@ export const appSearchSchema = z.object({
   tab: z.enum(RECORD_TABS).optional().catch(undefined),
   add: z.enum(QUICK_ADDS).optional().catch(undefined),
   timeline: z.enum(TIMELINE_VIEWS).optional().catch(undefined),
+  due: z.enum(TaskDue).optional().catch(undefined),
   emailThread: textParam,
-  thread: textParam,
   manageFields: z.enum(RECORD_KINDS).optional().catch(undefined),
   manageField: textParam,
   k: z.boolean().optional().catch(undefined),
@@ -149,8 +138,8 @@ const PANELS_CLOSED = {
   tab: undefined,
   add: undefined,
   timeline: undefined,
+  due: undefined,
   emailThread: undefined,
-  thread: undefined,
   manageFields: undefined,
   manageField: undefined,
   k: undefined,
@@ -233,12 +222,13 @@ export function useRecordTab() {
   const { tab, add } = useAppSearch();
   const setSearch = useSetAppSearch();
   return [
-    add ? QUICK_ADD_TAB[add] : (tab ?? "overview"),
+    add ? "details" : (tab ?? "details"),
     (next: RecordTab) =>
       setSearch({
-        tab: next === "overview" ? undefined : next,
+        tab: next === "details" ? undefined : next,
         add: undefined,
         timeline: undefined,
+        due: undefined,
         emailThread: undefined,
       }),
   ] as const;
@@ -290,6 +280,6 @@ export function useQuickAdd() {
   return [
     add,
     (next: QuickAdd | undefined) =>
-      setSearch(next ? { add: next, tab: QUICK_ADD_TAB[next] } : { add: next }),
+      setSearch(next ? { add: next, tab: undefined } : { add: next }),
   ] as const;
 }

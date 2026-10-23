@@ -24,7 +24,7 @@ import { DEAL_NAME_MAX } from "@/types/schemas/deals";
 
 // A company's sheet adds a person who works there, or a deal sold to it,
 // without leaving the sheet: a short form above the section's list. The new
-// record belongs to whoever owns the company.
+// contact belongs to whoever owns the company; a new deal starts with its creator.
 
 type QuickAddCompany = { id: string; name: string; ownerId: string | null };
 
@@ -196,7 +196,7 @@ export function QuickAddDeal({
 }) {
   const account = useQuery(everyAppAccountQueryOptions());
   const invalidate = useInvalidateRecords();
-  const owner = company.ownerId ?? account.data?.userId ?? null;
+  const owner = account.data?.userId ?? null;
   const create = useMutation({
     mutationFn: (values: z.infer<typeof dealSchema> & { ownerId: string }) =>
       createDeal({

@@ -20,7 +20,7 @@ export const EMPTY_TITLE = "No custom fields yet";
 export const ERROR_TITLE = "We could not load your fields";
 export const ERROR_BODY = "Try again before you create a field.";
 
-export const LABEL_LABEL = "Label";
+export const LABEL_LABEL = "Name";
 export const KEY_LABEL = "Key";
 export const KEY_HELP = "Fixed once saved.";
 export const AGENT_LABEL = "Let your agents fill this";
@@ -36,7 +36,7 @@ export const ARCHIVE = "Archive";
 export const FILL = "Ask the agent to fill";
 export const ALL_FILLED = "Nothing left to fill";
 
-export const SHEET_PLACEMENT = "Show on the sheet";
+export const SHEET_PLACEMENT = "Show in record details";
 export const TABLE_PLACEMENT = "Offer as a column";
 export const FILTER_PLACEMENT = "Offer as a filter";
 export const REQUIRED_LABEL = "Required";

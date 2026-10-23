@@ -103,7 +103,7 @@ const askedQuestion = z
     };
   });
 
-export type AgentQuestion = z.infer<typeof askedQuestion>;
+type AgentQuestion = z.infer<typeof askedQuestion>;
 
 /** The model's question, as far as it is usable. */
 export function parseQuestion(input: unknown): AgentQuestion {
@@ -114,7 +114,7 @@ export function parseQuestion(input: unknown): AgentQuestion {
  * What the tool returns to the model once the person has answered: the
  * option they chose, by its id and label, or what they typed.
  */
-export type QuestionAnswer = { answer: string; optionId?: string };
+type QuestionAnswer = { answer: string; optionId?: string };
 
 const sentAnswer = z.object({
   optionId: z.string().min(1).max(200).optional(),

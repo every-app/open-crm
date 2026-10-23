@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { navItems, settingsNavItem } from "@/client/navigation/items";
+import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
 import { getEveryAppAccount } from "@/serverFunctions/everyApp";
 import {
   Sidebar as UiSidebar,
@@ -32,18 +33,20 @@ export const everyAppAccountQueryOptions = () => ({
 function SidebarNavLink({
   icon: Icon,
   label,
-  related,
   linkProps,
+  activePaths,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
-  /** Another path prefix that counts as this item, as /agents does for Chat. */
-  related?: string;
   linkProps: LinkOptions;
+  activePaths?: readonly string[];
 }) {
   const { setOpenMobile } = useSidebar();
   const pathname = useLocation({ select: (location) => location.pathname });
-  const inRelated = related !== undefined && pathname.startsWith(related);
+  const alsoActive =
+    activePaths?.some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`),
+    ) ?? false;
   return (
     <SidebarMenuItem>
       <Link
@@ -58,7 +61,7 @@ function SidebarNavLink({
         {({ isActive }) => (
           <SidebarMenuButton
             render={<span />}
-            isActive={isActive || inRelated}
+            isActive={isActive || alsoActive}
             className={navButtonClass}
           >
             <Icon className="size-4" />
@@ -103,23 +106,30 @@ export function Sidebar({
                     key={item.label}
                     icon={item.icon}
                     label={item.label}
-                    related={item.related}
                     linkProps={item.link}
+                    activePaths={item.activePaths}
                   />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         </nav>
+        <SidebarGroup className="mt-auto py-2">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <EnrichmentQueue />
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFoot />
     </UiSidebar>
   );
 }
 
-// The sidebar's foot, as the other Every App apps lay it out: the way back
-// to the gateway, which owns sign-in, sign-out, organizations and the other
-// apps, then Settings. The theme is on Settings → General.
+// Workspace utilities sit below the divider; research status stays above it.
 function SidebarFoot() {
   const accountQuery = useQuery(everyAppAccountQueryOptions());
   const gatewayUrl = accountQuery.data?.gatewayUrl;
@@ -127,6 +137,11 @@ function SidebarFoot() {
   return (
     <UiSidebarFooter className="gap-0 border-t border-sidebar-border pb-safe">
       <SidebarMenu>
+        <SidebarNavLink
+          icon={settingsNavItem.icon}
+          label={settingsNavItem.label}
+          linkProps={settingsNavItem.link}
+        />
         {accountQuery.isPending ? (
           <SidebarMenuItem>
             <SidebarMenuSkeleton showIcon />
@@ -142,11 +157,6 @@ function SidebarFoot() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         ) : null}
-        <SidebarNavLink
-          icon={settingsNavItem.icon}
-          label={settingsNavItem.label}
-          linkProps={settingsNavItem.link}
-        />
       </SidebarMenu>
     </UiSidebarFooter>
   );

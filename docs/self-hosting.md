@@ -55,7 +55,7 @@ The research agent's keys live on the gateway, never in the CRM. Set each once:
 
 | Setting              | What it unlocks                                                                | Command                                       |
 | -------------------- | ------------------------------------------------------------------------------ | --------------------------------------------- |
-| `OPENROUTER_API_KEY` | The research agent and the chats on each record, including their web research  | `pnpm everyapp secret set OPENROUTER_API_KEY` |
+| `OPENROUTER_API_KEY` | The research agent and team agents, including their web research               | `pnpm everyapp secret set OPENROUTER_API_KEY` |
 | `CONTEXT_API_KEY`    | Company logos and brand data, LinkedIn profile lookups, and website extraction | `pnpm everyapp secret set CONTEXT_API_KEY`    |
 
 Each command asks for the value at a hidden prompt, so the key never appears in your shell history. The change is live on the gateway at once, with no redeploy of the gateway or the CRM. The CRM notices a newly set key on its own, with no restart: work waiting for the model key starts within about ten minutes, and logos and photos waiting for the Context.dev key within about five.
@@ -101,17 +101,17 @@ An owner or admin then connects the workspace's Slack from Settings → Connecti
 
 ## Invite your team
 
-Everyone in your organization on the gateway can open the CRM. Owners and admins invite people on the gateway, under Users → Invite user (`https://<gateway>/admin/users`). If the gateway can't send email, copy the invite link it shows and send it yourself. Settings → Members lists who has opened the CRM.
+Everyone in your organization on the gateway can open the CRM. Owners and admins invite people on the gateway, under Users → Invite user (`https://<gateway>/admin/users`). If the gateway can't send email, copy the invite link it shows and send it yourself. Settings → Workspace → Members links to that access management page.
 
 To remove someone, remove them on the gateway, then disconnect their mailbox under Settings → Connections → Members' mailboxes. Otherwise their mail and calendar keep syncing until 30 days after the CRM last saw them.
 
-Owners can export all of the workspace's data from Settings → General.
+Owners can export all of the workspace's data from Settings → Workspace.
 
 ## What works without keys
 
-The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking & Analytics), and the MCP tools AI clients use. Clients that sign in with OAuth, such as claude.ai and ChatGPT, connect to your gateway's `/mcp`; the CRM's own `https://<crm host>/mcp` takes only a personal access token. Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
+The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking, and the MCP tools AI clients use. Clients that sign in with OAuth, such as claude.ai and ChatGPT, connect to your gateway's `/mcp`; the CRM's own `https://<crm host>/mcp` takes only a personal access token. Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
 
-Without a model key, the research agent pauses. Records it would research say "Waiting for setup", and the agent button on Overview says "Agent paused". Settings → General shows which key is missing and, on your own gateway, the command that sets it; owners and admins also see it as a step in Overview's Get started card. Nothing is lost while it waits: the agent does the work once the key is set.
+Without a model key, the research agent pauses. Records it would research say "Waiting for setup", and the sidebar says "Needs setup". Clicking that status opens Settings → AI, which shows which key is missing and, on your own gateway, the command that sets it. Nothing is lost while it waits: the agent does the work once the key is set.
 
 With a model key but no Context.dev key, the agent still researches. Each company shows its website's favicon as its logo, and brand data stays empty.
 
@@ -128,7 +128,7 @@ So researching a record costs at most about $0.25, plus its web searches. Contex
 The agent researches every record you add and, every five minutes, up to 500 records of each kind that were never researched. To bound the spend:
 
 - Give the OpenRouter key the gateway holds a credit limit that resets daily, in [OpenRouter's key settings](https://openrouter.ai/settings/keys). $10 a day covers a team adding a few dozen records a day, and holds a large import to $300 a month.
-- Turn off **Research automatically** in Settings → General (owners and admins). The agent then researches only what someone asks for, and new records wait.
+- Turn off **Research automatically** in Settings → Workspace (owners and admins). The agent then researches only what someone asks for, and new records wait.
 - Import a large CSV with **Research new records** off. Those records are never researched automatically.
 
 Records a website form or a calendar invite adds aren't researched until someone opens or enriches them, and a calendar adds at most 50 people an hour. With **Research automatically** off, an import's research waits even when **Research new records** is on. Agent tasks and their step logs older than 30 days are deleted daily.
@@ -234,9 +234,9 @@ If your fork changes the schema, change tables only by adding to them. On D1, a 
 
 ## Troubleshooting
 
-**The agent says "Waiting for setup".** The gateway has no model key. Set `OPENROUTER_API_KEY` on the gateway (see [Give the agent its keys](#give-the-agent-its-keys)); the CRM picks it up within about ten minutes. Settings → General shows Connected after the agent's next successful call.
+**The agent says "Waiting for setup".** The gateway has no model key. Set `OPENROUTER_API_KEY` on the gateway (see [Give the agent its keys](#give-the-agent-its-keys)); the CRM picks it up within about ten minutes. Settings → Workspace shows Connected after the agent's next successful call.
 
-**Settings → General says "Not checked yet".** The gateway is connected, and the agent finds out whether it holds a model key the first time it runs. It runs within a minute of new work being queued, for example when you add a company.
+**Settings → Workspace says "Not checked yet".** The gateway is connected, and the agent finds out whether it holds a model key the first time it runs. It runs within a minute of new work being queued, for example when you add a company.
 
 **No logos.** Logos and brand data come from Context.dev, and without it only a company's favicon. Set `CONTEXT_API_KEY` on the gateway.
 

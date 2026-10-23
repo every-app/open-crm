@@ -26,9 +26,11 @@ import type { FieldValueJson } from "@/shared/fields";
 export function RecordFields({
   entity,
   recordId,
+  showEmpty = false,
 }: {
   entity: FieldEntity;
   recordId: string;
+  showEmpty?: boolean;
 }) {
   const query = useQuery(recordFieldsQueryOptions(entity, recordId));
 
@@ -53,7 +55,9 @@ export function RecordFields({
     );
   }
 
-  const fields = query.data.filter((field) => field.showOnSheet);
+  const fields = query.data.filter(
+    (field) => field.showOnSheet && (showEmpty || field.value !== null),
+  );
   if (fields.length === 0) return null;
   return (
     <dl className="space-y-0.5">

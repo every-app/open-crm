@@ -89,6 +89,16 @@ export function ImportDialog({
   );
   const missing = missingTargets(entity, mapping, targets);
   const busy = step.name === "importing";
+  const templateHeaders = targets
+    .filter((target) => target.id !== "fullName")
+    .map((target) => target.label);
+  const requiredHeaders =
+    entity === "CONTACT"
+      ? "First name or Full name"
+      : targets
+          .filter((target) => target.required)
+          .map((target) => target.label)
+          .join(", ");
 
   const send = (chunk: typeof rows, dryRun: boolean) =>
     importRecords({
@@ -215,7 +225,7 @@ export function ImportDialog({
           <DialogDescription>
             {file
               ? `${file.name}: ${file.csv.rows.length.toLocaleString()} ${file.csv.rows.length === 1 ? "row" : "rows"}`
-              : "A CSV with a header row."}
+              : `Required: ${requiredHeaders}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -232,6 +242,24 @@ export function ImportDialog({
                 onChange={(event) => void pick(event.target.files?.[0])}
               />
             </label>
+            <Button
+              variant="link"
+              size="sm"
+              className="px-0"
+              disabled={fields.isPending || fields.isError}
+              onClick={() =>
+                downloadCsv(
+                  `${noun.many}-template.csv`,
+                  buildCsv(templateHeaders, []),
+                )
+              }
+            >
+              Download template
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Up to {IMPORT_MAX_ROWS.toLocaleString()} rows. Match your columns
+              before importing.
+            </p>
             {step.error ? (
               <p className="text-sm text-destructive">{step.error}</p>
             ) : null}

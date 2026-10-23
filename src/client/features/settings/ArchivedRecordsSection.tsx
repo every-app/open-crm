@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { revalidateLogic } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { useState } from "react";
+import { ConfirmDialog } from "@/client/components/ConfirmDialog";
 import { QueryState } from "@/client/components/QueryState";
 import {
   SettingsCard,
@@ -36,6 +38,7 @@ export function ArchivedRecordsSection() {
 }
 
 function RetentionForm({ days }: { days: number }) {
+  const [confirmDays, setConfirmDays] = useState<number | null>(null);
   const canManage = useCanManageWorkspace();
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -45,6 +48,7 @@ function RetentionForm({ days }: { days: number }) {
         queryKey: archiveRetentionQueryOptions().queryKey,
       });
       toast.success("Archive retention saved.");
+      setConfirmDays(null);
     },
   });
 
@@ -53,7 +57,9 @@ function RetentionForm({ days }: { days: number }) {
     validationLogic: revalidateLogic(),
     validators: { onDynamic: archiveRetentionFormSchema },
     onSubmit: async ({ value }) => {
-      await mutation.mutateAsync(Number(value.days));
+      const next = Number(value.days);
+      if (next < days) setConfirmDays(next);
+      else await mutation.mutateAsync(next);
     },
   });
 
@@ -64,8 +70,8 @@ function RetentionForm({ days }: { days: number }) {
           <form.AppField name="days">
             {(field) => (
               <field.RowTextField
-                label="Prune archived records after"
-                description="Days"
+                label="Permanently delete archived records after"
+                description="Days. Deleting a company also removes its deals and their history."
                 className="sm:w-28"
                 type="number"
                 inputMode="numeric"
@@ -91,6 +97,20 @@ function RetentionForm({ days }: { days: number }) {
           </SettingsCardFooter>
         </SettingsCard>
       </form.Form>
+      {confirmDays !== null ? (
+        <ConfirmDialog
+          title={`Delete archived records after ${confirmDays} days?`}
+          confirmLabel="Shorten retention"
+          destructive
+          pending={mutation.isPending}
+          onClose={() => setConfirmDays(null)}
+          onConfirm={() => mutation.mutate(confirmDays)}
+        >
+          Archived records older than {confirmDays} days will be permanently
+          deleted at the next cleanup, including a deleted company's deals and
+          history.
+        </ConfirmDialog>
+      ) : null}
     </form.AppForm>
   );
 }

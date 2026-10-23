@@ -16,6 +16,7 @@ import {
   COMPOSABLE_TYPES,
   TASK_WINDOWS,
   TIMELINE_FILTERS,
+  TaskDue,
   createActivitySchema,
   updateActivitySchema,
 } from "@/types/schemas/activities";
@@ -143,7 +144,7 @@ const timelineRecord = {
 export const activityTools = {
   list_activities: crmTool({
     description:
-      "A company's, contact's or deal's timeline, newest first: notes, calls, emails, meetings, tasks, stage changes and the research agent's findings. A company's includes its people's and deals'. Filters go by type, and captured mail and meetings are EMAIL and MEETING entries (with a threadId or meetingId), so `notes`, `email` and `meetings` each hold both logged and captured ones. 30 a page unless `limit` says (at most 100); pass nextCursor for older entries.",
+      "A company's, contact's or deal's timeline, newest first: notes, calls, emails, meetings, tasks, stage changes and the research agent's findings. A company's includes its people's and deals'. Filters go by type, and captured mail and meetings are EMAIL and MEETING entries (with a threadId or meetingId), so `email` and `meetings` each hold both logged and captured ones. `notes` holds notes only. 30 a page unless `limit` says (at most 100); pass nextCursor for older entries.",
     risk: "read",
     input: z
       .object({
@@ -152,8 +153,12 @@ export const activityTools = {
           .enum(TIMELINE_FILTERS)
           .optional()
           .describe(
-            "history: everything but open tasks; notes: notes, calls, emails and meetings; upcoming: open tasks; done: finished tasks; email: emails; meetings: meetings. Emails and meetings are logged or captured alike.",
+            "history: everything but open tasks; notes: notes only; calls: calls; open-tasks: incomplete tasks; completed-tasks: finished tasks; email: emails; meetings: meetings. Emails and meetings are logged or captured alike.",
           ),
+        due: z
+          .enum(TaskDue)
+          .optional()
+          .describe("Limit tasks by due date: overdue, upcoming, or undated."),
         cursor: z
           .string()
           .max(200)
@@ -166,10 +171,11 @@ export const activityTools = {
       activities: z.array(activityOutput),
       nextCursor: z.string().nullable(),
     }),
-    handler: async ({ kind, id, filter, cursor, limit }, context) => {
+    handler: async ({ kind, id, filter, due, cursor, limit }, context) => {
       const page = await ActivityService.timeline(context.organizationId, {
         record: { kind, id },
         filter: filter ?? "all",
+        due,
         cursor: cursor || undefined,
         limit: limit ?? 30,
       });
@@ -188,8 +194,9 @@ export const activityTools = {
     output: z.object({
       all: z.number(),
       notes: z.number(),
-      upcoming: z.number(),
-      done: z.number(),
+      calls: z.number(),
+      "open-tasks": z.number(),
+      "completed-tasks": z.number(),
       email: z.number(),
       meetings: z.number(),
     }),

@@ -47,6 +47,7 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 
   return (
     <RecordSheetFrame
+      archivedAt={company?.archivedAt}
       record={{ kind: "company", id: companyId }}
       header={
         company
@@ -76,7 +77,7 @@ export function CompanySheet({ companyId }: { companyId: string }) {
                     {mutations.enrich.isPending ? null : (
                       <RefreshCw data-icon="inline-start" />
                     )}
-                    <span className="max-sm:sr-only">Re-enrich</span>
+                    <span className="max-sm:sr-only">Refresh research</span>
                   </Button>
                   <RecordActionsMenu
                     name={company.name}
@@ -118,14 +119,12 @@ export function CompanySheet({ companyId }: { companyId: string }) {
           ? [
               {
                 value: "contacts",
-                count: company.contacts.length,
                 content: (
                   <CompanyContacts company={company} mutations={mutations} />
                 ),
               },
               {
                 value: "deals",
-                count: company.deals.length,
                 content: <CompanyDeals company={company} />,
               },
             ]

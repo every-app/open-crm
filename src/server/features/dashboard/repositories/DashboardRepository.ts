@@ -13,7 +13,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { db } from "@/db";
-import { company, contact, deal, user } from "@/db/schema";
+import { activity, company, deal, user } from "@/db/schema";
 import { countedIn } from "@/server/features/currency/repositories/DealConversionRepository";
 import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
 
@@ -115,6 +115,13 @@ async function biggestOpen(scope: DealScope, base: string, limit: number) {
       baseAmount: value,
       expectedCloseDate: deal.expectedCloseDate,
       stageChangedAt: deal.stageChangedAt,
+      followUpAt: sql<
+        string | null
+      >`(select min(${activity.dueAt}) from ${activity}
+        where ${activity.organizationId} = ${deal.organizationId}
+          and ${activity.dealId} = ${deal.id}
+          and ${activity.type} = 'TASK'
+          and ${activity.completedAt} is null)`,
       companyId: company.id,
       companyName: company.name,
       iconUrl: company.iconUrl,
@@ -174,22 +181,46 @@ async function biggestOpen(scope: DealScope, base: string, limit: number) {
   );
 }
 
-/** Whether the organization has any live company, contact or deal yet. */
-async function hasRecords(organizationId: string): Promise<boolean> {
-  const live = (table: typeof company | typeof contact | typeof deal) =>
-    db
-      .select({ id: table.id })
-      .from(table)
-      .where(
-        and(eq(table.organizationId, organizationId), isNull(table.archivedAt)),
-      )
-      .limit(1);
-  const found = await Promise.all([live(company), live(contact), live(deal)]);
-  return found.some((rows) => rows.length > 0);
+/** A live company to start a deal with, newest first. */
+async function firstCompany(organizationId: string) {
+  const [row] = await db
+    .select({ id: company.id, name: company.name })
+    .from(company)
+    .where(
+      and(
+        eq(company.organizationId, organizationId),
+        isNull(company.archivedAt),
+      ),
+    )
+    .orderBy(desc(company.createdAt), desc(company.id))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Whether this scope has a live deal, including older closed deals. */
+async function hasDeals(scope: DealScope): Promise<boolean> {
+  const [row] = await db
+    .select({ id: deal.id })
+    .from(deal)
+    .where(dealsInScope(scope))
+    .limit(1);
+  return Boolean(row);
+}
+
+/** The owner filter is useful only once live deals have different owners. */
+async function multipleOwners(organizationId: string): Promise<boolean> {
+  const owners = await db
+    .selectDistinct({ ownerId: deal.ownerId })
+    .from(deal)
+    .where(dealsInScope({ organizationId, ownerId: null }))
+    .limit(2);
+  return owners.length > 1;
 }
 
 export const DashboardRepository = {
-  hasRecords,
+  firstCompany,
+  hasDeals,
+  multipleOwners,
   openByStage,
   createdOrClosedSince,
   closingBetween,

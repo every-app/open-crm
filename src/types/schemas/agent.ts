@@ -7,7 +7,7 @@ const agentRecordSchema = z.object({
   id: z.string().trim().min(1).max(128),
 });
 
-export const openAgentConversationSchema = z.object({
+const openAgentConversationSchema = z.object({
   record: agentRecordSchema,
   // Reopen this conversation; otherwise the latest one, or a new one.
   conversationId: z.string().trim().min(1).max(128).optional(),
@@ -18,17 +18,6 @@ export const openAgentConversationSchema = z.object({
 export type OpenAgentConversationInput = z.infer<
   typeof openAgentConversationSchema
 >;
-
-export const agentRecordQuerySchema = z.object({ record: agentRecordSchema });
-
-export const agentEventsQuerySchema = z.object({
-  record: agentRecordSchema,
-  limit: z.number().int().min(1).max(200).default(50),
-});
-
-export const agentConversationIdSchema = z.object({
-  conversationId: z.string().trim().min(1).max(128),
-});
 
 /** The enrichment queue's page, and the most "Load more" reaches. */
 export const ENRICHMENT_PAGE = 20;

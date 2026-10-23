@@ -5,7 +5,6 @@ import {
   capturedIdSchema,
   completeTaskSchema,
   createActivitySchema,
-  timelineCountsSchema,
   timelineSchema,
 } from "@/types/schemas/activities";
 
@@ -17,13 +16,6 @@ export const getTimeline = createServerFn({ method: "GET" })
   .validator(timelineSchema)
   .handler(({ data, context }) =>
     ActivityService.timeline(context.organizationId, data),
-  );
-
-export const getTimelineCounts = createServerFn({ method: "GET" })
-  .middleware(requireAuthenticatedContext)
-  .validator(timelineCountsSchema)
-  .handler(({ data, context }) =>
-    ActivityService.timelineCounts(context.organizationId, data.record),
   );
 
 export const createActivity = createServerFn({ method: "POST" })

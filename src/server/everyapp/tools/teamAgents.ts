@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { crmTool, pageInput, pageOf } from "@/server/everyapp/crm-tool";
 import { TeamAgentService } from "@/server/features/team-agents/services/TeamAgentService";
+import { AgentDraftService } from "@/server/features/team-agents/services/AgentDraftService";
+import {
+  draftInputSchema,
+  eventCatalog,
+} from "@/server/features/team-agents/services/draft";
+import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import { AppError } from "@/server/lib/errors";
 import { TEAM_AGENT_STATUSES, TRIGGER_TYPES } from "@/shared/team-agents";
 import {
@@ -11,8 +17,8 @@ import {
 
 // Team agents for AI clients: see them, their versions, files and audit log;
 // rename, pause, resume, archive, restore and delete them (their runs are in
-// teamAgentRuns.ts). Building and deploying a version stays with people in the
-// CRM: deploying is where a person approves what a version may read and do.
+// teamAgentRuns.ts), and prepare drafts. Deployment stays in the CRM, where
+// a person approves what a version may read and do.
 
 export const agentId = z
   .string()
@@ -111,6 +117,43 @@ const statusOutput = z.object({
 });
 
 export const teamAgentTools = {
+  get_agent_connections: crmTool({
+    description:
+      "The connected sources, Slack destinations with exact labels, and CRM events available when preparing a team-agent draft.",
+    risk: "read",
+    input: z.object({}).strict(),
+    output: z.object({
+      slack: z.unknown(),
+      capture: z.object({ email: z.boolean(), calendar: z.boolean() }),
+      events: z.unknown(),
+    }),
+    handler: async (_input, context) => ({
+      slack: await SlackInventoryService.builderInventory(
+        context.organizationId,
+      ),
+      capture: await AgentDraftService.captureConnections(
+        context.organizationId,
+      ),
+      events: eventCatalog(),
+    }),
+  }),
+  save_team_agent_draft: crmTool({
+    description:
+      "Create a private agent draft or prepare the next version of an agent you manage. Inspect connections first and use exact record and Slack labels. For a new draft, generate a UUID as agentId and reuse it on retries; for a revision use the existing agent id. Saving never deploys or enables a trigger: return /agents/<agentId> for a person to review and deploy.",
+    risk: "write",
+    input: z.object({ agentId: z.uuid(), draft: draftInputSchema }).strict(),
+    output: z.object({
+      saved: z.boolean(),
+      agentId: z.string().optional(),
+      versionId: z.string().optional(),
+      versionNumber: z.number().optional(),
+      status: z.literal("READY").optional(),
+      issues: z.array(z.string()).optional(),
+      availableConnections: z.unknown().optional(),
+    }),
+    handler: (input, context) =>
+      AgentDraftService.saveFromClient(context, input),
+  }),
   list_team_agents: crmTool({
     description:
       "The team's agents and the caller's own drafts: name, status, what triggers them and how many runs they have had. 50 a page, most recently changed first.",

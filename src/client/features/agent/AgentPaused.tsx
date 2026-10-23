@@ -43,8 +43,8 @@ export function ModelNotSetUp() {
     <>
       The agent's model isn't set up.{" "}
       {canManage ? (
-        <Link to="/settings" className={LINK}>
-          Set it up in Settings → General
+        <Link to="/settings/ai" hash="model" className={LINK}>
+          Set up research
         </Link>
       ) : (
         "An owner or admin can set it up."

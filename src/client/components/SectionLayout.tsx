@@ -3,57 +3,36 @@ import { createLink } from "@tanstack/react-router";
 import { cn } from "cn";
 
 /**
- * A part of the app with its own navigation column, as Chat and Settings
- * have. From `md` up the column sits left of the page; below it, the column
- * becomes a strip of links above the page.
+ * A settings area with a navigation column on desktop and a section picker
+ * on mobile.
  */
 export function SectionLayout({
   label,
   nav,
+  mobileNav,
   children,
 }: {
   /** The accessible name of the section's navigation. */
   label: string;
   nav: ReactNode;
+  mobileNav?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col md:flex-row">
+      {mobileNav ? (
+        <div className="border-b border-border p-3 md:hidden">{mobileNav}</div>
+      ) : null}
       <nav
         aria-label={label}
-        className="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2 md:w-56 md:flex-col md:gap-0.5 md:overflow-x-visible md:overflow-y-auto md:border-r md:border-b-0 md:p-3"
+        className={cn(
+          "shrink-0 gap-1 border-b border-border p-2 md:flex md:w-56 md:flex-col md:gap-0.5 md:overflow-y-auto md:border-r md:border-b-0 md:p-3",
+          mobileNav ? "hidden" : "flex overflow-x-auto",
+        )}
       >
         {nav}
       </nav>
       <div className="min-h-0 min-w-0 flex-1 overflow-auto">{children}</div>
-    </div>
-  );
-}
-
-/**
- * A labelled group of links in a section's navigation column, with an
- * optional action such as a new-chat button beside the label.
- */
-export function SectionNavGroup({
-  label,
-  action,
-  children,
-  className,
-}: {
-  label: ReactNode;
-  action?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("min-w-0", className)}>
-      <div className="flex h-8 items-center justify-between gap-2 pr-1 pl-2.5">
-        <span className="min-w-0 truncate text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
-          {label}
-        </span>
-        {action}
-      </div>
-      <div className="flex flex-col gap-0.5">{children}</div>
     </div>
   );
 }

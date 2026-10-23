@@ -6,6 +6,7 @@ import {
   SettingsCard,
   SettingsPage,
   SettingsRow,
+  SettingsSection,
 } from "@/client/components/SettingsSection";
 import { Button } from "@/client/components/ui/button";
 import { Skeleton } from "@/client/components/ui/skeleton";
@@ -24,6 +25,7 @@ import {
 import { slackStatusQueryOptions } from "@/client/features/slack/slackQueries";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
+import { ApiSettings } from "./ApiSettings";
 
 type Connection = {
   name: string;
@@ -93,11 +95,14 @@ export function ConnectionsOverview() {
           }}
         />
       ) : null}
-      <SettingsCard>
-        {connections.map((connection) => (
-          <ConnectionRow key={connection.name} connection={connection} />
-        ))}
-      </SettingsCard>
+      <ApiSettings />
+      <SettingsSection title="Email and Slack">
+        <SettingsCard>
+          {connections.map((connection) => (
+            <ConnectionRow key={connection.name} connection={connection} />
+          ))}
+        </SettingsCard>
+      </SettingsSection>
       {canManage ? <MemberMailboxes /> : null}
     </SettingsPage>
   );

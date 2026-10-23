@@ -163,7 +163,7 @@ export function AgentScope({
 /**
  * The records it could read (or, for a workspace-wide agent, the ones to
  * narrow it to), and the captured email and meetings once someone has
- * connected a mailbox or calendar (the CRM's "Add a record type").
+ * connected a mailbox or calendar (the CRM's "Add records or sources").
  */
 function RecordTypePicker({
   offersRecords,
@@ -205,7 +205,7 @@ function RecordTypePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={<Button variant="outline" size="sm" />}>
         <Plus data-icon="inline-start" />
-        Add a record type
+        Add records or sources
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-0">
         <div className="border-b border-border p-2">

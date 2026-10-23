@@ -24,9 +24,11 @@ export function columnLabel<TData>(column: Column<TData>): string {
 export function ColumnsMenu<TData>({
   table,
   onEditFields,
+  showLabel = false,
 }: {
   table: Table<TData>;
   onEditFields?: () => void;
+  showLabel?: boolean;
 }) {
   const columns = table
     .getAllLeafColumns()
@@ -35,7 +37,9 @@ export function ColumnsMenu<TData>({
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
         <Columns3 data-icon="inline-start" />
-        <span className="max-sm:sr-only">Columns</span>
+        <span className={showLabel ? undefined : "max-sm:sr-only"}>
+          Columns
+        </span>
         <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">

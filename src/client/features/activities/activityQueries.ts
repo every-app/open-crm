@@ -15,19 +15,19 @@ import {
   getEmailThread,
   getMeeting,
   getTimeline,
-  getTimelineCounts,
 } from "@/serverFunctions/activities";
 import type { RecordRef } from "@/shared/records";
 import type {
   CreateActivityInput,
   TimelineFilter,
+  TaskDue,
 } from "@/types/schemas/activities";
 
 // Every activity query lives under ["activities"].
 export const activityKeys = {
   all: ["activities"] as const,
-  timeline: (record: RecordRef, filter: TimelineFilter) =>
-    ["activities", "timeline", record.kind, record.id, filter] as const,
+  timeline: (record: RecordRef, filter: TimelineFilter, due?: TaskDue) =>
+    ["activities", "timeline", record.kind, record.id, filter, due] as const,
   outstanding: (record: RecordRef) =>
     ["activities", "outstanding", record.kind, record.id] as const,
   counts: (record: RecordRef) =>
@@ -40,27 +40,14 @@ export const activityKeys = {
 export const timelineQueryOptions = (
   record: RecordRef,
   filter: TimelineFilter,
+  due?: TaskDue,
 ) =>
   infiniteQueryOptions({
-    queryKey: activityKeys.timeline(record, filter),
+    queryKey: activityKeys.timeline(record, filter, due),
     queryFn: ({ pageParam }) =>
-      getTimeline({ data: { record, filter, cursor: pageParam } }),
+      getTimeline({ data: { record, filter, due, cursor: pageParam } }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
-  });
-
-/** The open tasks pinned above a record's whole timeline. */
-export const outstandingQueryOptions = (record: RecordRef) =>
-  queryOptions({
-    queryKey: activityKeys.outstanding(record),
-    queryFn: () =>
-      getTimeline({ data: { record, filter: "upcoming", limit: 10 } }),
-  });
-
-export const timelineCountsQueryOptions = (record: RecordRef) =>
-  queryOptions({
-    queryKey: activityKeys.counts(record),
-    queryFn: () => getTimelineCounts({ data: { record } }),
   });
 
 export const emailThreadQueryOptions = (id: string) =>

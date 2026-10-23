@@ -7,6 +7,7 @@ import {
 } from "@/client/components/SettingsSection";
 import { Skeleton } from "@/client/components/ui/skeleton";
 import { Switch } from "@/client/components/ui/switch";
+import { SettingsDisclosure } from "@/client/components/SettingsDisclosure";
 import {
   GatewayKeyRow,
   SetupCommand,
@@ -31,8 +32,9 @@ export function ResearchAgentSection() {
     <SettingsSection title="Research agent">
       <SettingsCard>
         <AutomaticResearchRow />
-        <ModelRows />
+        <GatewayKeyRow id="model" label="OpenRouter API key" />
       </SettingsCard>
+      <ModelSettings />
     </SettingsSection>
   );
 }
@@ -42,6 +44,11 @@ function AutomaticResearchRow() {
   const canManage = useCanManageWorkspace();
   const queryClient = useQueryClient();
   const query = useQuery(automaticResearchQueryOptions());
+  const checklist = useQuery(setupChecklistQueryOptions());
+  const state = checklist.data?.items.find(
+    (item) => item.id === "model",
+  )?.state;
+  const available = state === "done" || state === "checking";
   const mutation = useMutation({
     mutationFn: (enabled: boolean) =>
       setAutomaticResearch({ data: { enabled } }),
@@ -50,16 +57,27 @@ function AutomaticResearchRow() {
   });
 
   return (
-    <SettingsRow label="Research automatically" htmlFor={id}>
+    <SettingsRow
+      label="Research automatically"
+      htmlFor={id}
+      description={
+        state === "checking"
+          ? "The first research run will verify the model connection."
+          : available
+            ? undefined
+            : "Available after your model is connected."
+      }
+    >
       {query.data ? (
         <Switch
           id={id}
           checked={
-            mutation.isPending
+            available &&
+            (mutation.isPending
               ? (mutation.variables ?? query.data.enabled)
-              : query.data.enabled
+              : query.data.enabled)
           }
-          disabled={!canManage || mutation.isPending}
+          disabled={!canManage || !available || mutation.isPending}
           onCheckedChange={(enabled) => mutation.mutate(enabled)}
         />
       ) : query.isError ? null : (
@@ -69,33 +87,34 @@ function AutomaticResearchRow() {
   );
 }
 
-function ModelRows() {
+function ModelSettings() {
   const checklist = useQuery(setupChecklistQueryOptions()).data;
   const canManage = useCanManageWorkspace();
   const model = useQuery(agentModelQueryOptions());
 
   return (
-    <>
-      <SettingsRow
-        label="Model"
-        description={
-          checklist?.local ? (
-            `In local development, put ${MODEL_SETTING} in .dev.vars.`
-          ) : canManage ? (
-            <SetupCommand
-              command={`pnpm everyapp secret set ${MODEL_SETTING}`}
-              label="the model"
-            />
-          ) : undefined
-        }
-      >
-        {model.data ? (
-          <span className="font-mono text-sm">{model.data.id}</span>
-        ) : model.isError ? null : (
-          <Skeleton className="h-5 w-40" />
-        )}
-      </SettingsRow>
-      <GatewayKeyRow id="model" label="Model key" />
-    </>
+    <SettingsDisclosure id="research-model" title="Model settings">
+      <SettingsCard>
+        <SettingsRow
+          label="Model"
+          description={
+            checklist?.local ? (
+              `In local development, put ${MODEL_SETTING} in .dev.vars.`
+            ) : canManage ? (
+              <SetupCommand
+                command={`pnpm everyapp secret set ${MODEL_SETTING}`}
+                label="the model"
+              />
+            ) : undefined
+          }
+        >
+          {model.data ? (
+            <span className="font-mono text-sm">{model.data.id}</span>
+          ) : model.isError ? null : (
+            <Skeleton className="h-5 w-40" />
+          )}
+        </SettingsRow>
+      </SettingsCard>
+    </SettingsDisclosure>
   );
 }

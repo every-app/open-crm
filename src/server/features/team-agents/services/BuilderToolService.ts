@@ -1,6 +1,5 @@
 import { AgentVersionRepository } from "@/server/features/team-agents/repositories/AgentVersionRepository";
 import { env } from "cloudflare:workers";
-import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
 import type { RecordRef } from "@/shared/records";
 import {
@@ -8,22 +7,15 @@ import {
   CAPTURE_KINDS,
   SLACK_RESOURCE,
   slackChannelResourceId,
-  type CaptureGrants,
 } from "@/shared/team-agents";
-import {
-  AgentFileRepository,
-  type NewArtifact,
-} from "../repositories/AgentFileRepository";
-import type { NewAudit } from "../repositories/AuditRepository";
+import { AgentFileRepository } from "../repositories/AgentFileRepository";
+import { AgentDraftService } from "./AgentDraftService";
 import { BuilderRepository } from "../repositories/BuilderRepository";
 import { TeamAgentRepository } from "../repositories/TeamAgentRepository";
 import {
   assertNoSecrets,
-  draftIssues,
   eventCatalog,
   FILE_LANGUAGES,
-  manifestOf,
-  versionFiles,
   type BuilderFilePath,
   type DraftInput,
 } from "./draft";
@@ -50,17 +42,7 @@ export type BuilderToolContext = {
  * Whether a version could be granted the captured email and meetings: some
  * member of the workspace has connected a mailbox, or a calendar.
  */
-async function captureConnections(
-  organizationId: string,
-): Promise<CaptureGrants> {
-  const sources = await ConnectionRepository.connectedSources(organizationId);
-  return {
-    email: CAPTURE_GRANTS.email.sources.some((source) => sources.has(source)),
-    calendar: CAPTURE_GRANTS.calendar.sources.some((source) =>
-      sources.has(source),
-    ),
-  };
-}
+const captureConnections = AgentDraftService.captureConnections;
 
 function isText(mediaType: string): boolean {
   return /^text\/|^application\/(json|xml|csv|x-yaml|yaml)/i.test(mediaType);
@@ -180,207 +162,19 @@ async function writeFile(
   return { saved: true as const, ...written };
 }
 
-function sameVersion(
-  latest: {
-    status: string;
-    instructions: string;
-    manifest: unknown;
-  },
-  input: { instructions: string; manifest: unknown },
-): boolean {
-  return (
-    latest.status === "READY" &&
-    latest.instructions === input.instructions &&
-    JSON.stringify(latest.manifest) === JSON.stringify(input.manifest)
-  );
-}
-
-/**
- * save_agent_draft: checks the draft and, when it holds, saves it as the
- * chat's agent's next READY version with its triggers (disabled until a
- * person deploys it) and the exact files. The chat's first save creates the
- * agent, private to its creator. A save identical to the newest READY
- * version changes nothing.
- */
 async function saveDraft(tool: BuilderToolContext, input: DraftInput) {
-  const { organizationId, userId, conversationId } = tool;
   const conversation = await BuilderRepository.findConversation(
-    organizationId,
-    userId,
-    conversationId,
+    tool.organizationId,
+    tool.userId,
+    tool.conversationId,
   );
   if (!conversation)
     throw new Error("This builder conversation is unavailable.");
-  const [tagged, slack, capture] = await Promise.all([
-    describeTagged(tool),
-    SlackInventoryService.builderInventory(organizationId),
-    captureConnections(organizationId),
-  ]);
-  const existing = await BuilderRepository.describeRecords(
-    organizationId,
-    input.resources,
-  );
-  const now = new Date();
-  const issues = draftIssues(input, tagged, existing, { slack, capture }, now);
-  if (issues.length > 0) {
-    return {
-      saved: false as const,
-      issues,
-      availableConnections: {
-        slack: slack.connected,
-        slackChannels: slack.channels,
-        slackPeople: slack.people,
-        email: capture.email,
-        calendar: capture.calendar,
-      },
-    };
-  }
-  const manifest = manifestOf(input);
-  const files = versionFiles(input, manifest);
-  for (const file of files) assertNoSecrets(file.content);
   const agent = await TeamAgentRepository.findByConversation(
-    organizationId,
-    conversationId,
+    tool.organizationId,
+    tool.conversationId,
   );
-  if (agent?.status === "DELETED") {
-    throw new Error(
-      "This chat's agent was deleted. Start a new chat to build another.",
-    );
-  }
-  const agentId = agent?.id ?? crypto.randomUUID();
-  const latest = agent
-    ? await AgentVersionRepository.latestVersion(organizationId, agentId)
-    : null;
-  if (
-    latest &&
-    sameVersion(latest, { instructions: input.instructions, manifest })
-  ) {
-    return {
-      saved: true as const,
-      agentId,
-      versionId: latest.id,
-      versionNumber: latest.number,
-      status: latest.status,
-    };
-  }
-
-  const versionId = crypto.randomUUID();
-  const number = (latest?.number ?? 0) + 1;
-  const working = await AgentFileRepository.conversationFiles(
-    organizationId,
-    conversationId,
-  );
-  const claimed: string[] = [];
-  const artifacts: NewArtifact[] = [];
-  for (const file of files) {
-    const held = working.find((row) => row.path === file.path);
-    if (
-      held?.content === file.content &&
-      held.status === "WRITING" &&
-      !held.versionId
-    ) {
-      claimed.push(held.id);
-      continue;
-    }
-    artifacts.push({
-      id: crypto.randomUUID(),
-      organizationId,
-      conversationId,
-      versionId,
-      path: file.path,
-      language: FILE_LANGUAGES[file.path],
-      content: file.content,
-      previousContent: held?.content ?? null,
-      revision: (held?.revision ?? 0) + 1,
-      status: "READY",
-    });
-  }
-  const audit: NewAudit[] = [
-    ...(agent
-      ? []
-      : [
-          {
-            organizationId,
-            agentId,
-            actorUserId: userId,
-            actorType: "USER" as const,
-            type: "agent.created",
-            summary: "Created a draft agent from a private builder chat",
-            requestId: `builder:${conversationId}`,
-          },
-        ]),
-    {
-      organizationId,
-      agentId,
-      versionId,
-      actorUserId: userId,
-      actorType: "USER",
-      type: "version.created",
-      summary: `Prepared version ${number} for review`,
-      after: { status: "READY" },
-      requestId: versionId,
-    },
-  ];
-  await AgentVersionRepository.saveVersion({
-    agent: agent
-      ? undefined
-      : {
-          id: agentId,
-          organizationId,
-          name: input.name,
-          description: input.description,
-          createdById: userId,
-          conversationId,
-        },
-    renameDraft:
-      agent?.status === "DRAFT"
-        ? { name: input.name, description: input.description }
-        : undefined,
-    version: {
-      id: versionId,
-      organizationId,
-      agentId,
-      number,
-      status: "READY",
-      instructions: input.instructions,
-      manifest,
-      sourceConversationId: conversationId,
-      createdById: userId,
-    },
-    triggers: input.triggers.map((trigger) => ({
-      id: crypto.randomUUID(),
-      organizationId,
-      agentId,
-      versionId,
-      type: trigger.type,
-      name: trigger.name,
-      summary: trigger.summary,
-      event: trigger.type === "EVENT" ? trigger.event : null,
-      intervalMinutes:
-        trigger.type === "SCHEDULE" ? trigger.intervalMinutes : null,
-      nextRunAt:
-        trigger.type === "SCHEDULE"
-          ? new Date(trigger.nextRunAt).toISOString()
-          : null,
-      enabled: false,
-    })),
-    artifacts,
-    claimedArtifactIds: claimed,
-    audit,
-  });
-  console.log("[team-agents] version saved", {
-    organizationId,
-    agentId,
-    versionId,
-    number,
-  });
-  return {
-    saved: true as const,
-    agentId,
-    versionId,
-    versionNumber: number,
-    status: "READY" as const,
-  };
+  return AgentDraftService.saveDraft({ ...tool, agent }, input);
 }
 
 export const BuilderToolService = {

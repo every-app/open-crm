@@ -16,7 +16,6 @@ import { Alert, AlertAction, AlertTitle } from "@/client/components/ui/alert";
 import { Button } from "@/client/components/ui/button";
 import { ConnectionBadge } from "@/client/features/settings/ConnectionStatus";
 import { DangerRow, DangerZone } from "@/client/features/settings/DangerZone";
-import { NewAgentDialog } from "@/client/features/team-agents/NewAgentDialog";
 import { disconnectSlack, type getSlackStatus } from "@/serverFunctions/slack";
 import {
   describeSlackScopes,
@@ -154,7 +153,15 @@ function Connected({
 
       <SettingsSection
         title="Agents that use Slack"
-        action={<NewAgentDialog />}
+        action={
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link to="/agents" />}
+          >
+            Manage agents
+          </Button>
+        }
       >
         {status.agents.length === 0 ? (
           <EmptyState

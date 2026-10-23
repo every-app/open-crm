@@ -5,7 +5,6 @@ import {
   desc,
   eq,
   gte,
-  inArray,
   isNull,
   lt,
   or,
@@ -22,7 +21,11 @@ import {
 } from "@/server/features/activities/repositories/activityEntries";
 import type { ActivityType } from "@/shared/crm-enums";
 import type { RecordRef } from "@/shared/records";
-import type { TaskWindow, TimelineFilter } from "@/types/schemas/activities";
+import type {
+  TaskWindow,
+  TimelineFilter,
+  TaskDue,
+} from "@/types/schemas/activities";
 
 // Activities: everything on a record's timeline. Writing one moves its
 // records' last activity up to it in the same batch, as the CRM's activity
@@ -30,8 +33,6 @@ import type { TaskWindow, TimelineFilter } from "@/types/schemas/activities";
 // newest activity, whatever its type, and never moves back when an older one
 // is written. A purge recomputes it the same way from what is left
 // (ArchiveRepository's restamp).
-
-const NOTE_TYPES: ActivityType[] = ["NOTE", "CALL", "EMAIL", "MEETING"];
 
 function openTask(): SQL {
   return sql`(${activity.type} = 'TASK' and ${activity.completedAt} is null)`;
@@ -41,10 +42,12 @@ function openTask(): SQL {
 function filterCondition(filter: Exclude<TimelineFilter, "all">): SQL {
   switch (filter) {
     case "notes":
-      return inArray(activity.type, NOTE_TYPES);
-    case "upcoming":
+      return eq(activity.type, "NOTE");
+    case "calls":
+      return eq(activity.type, "CALL");
+    case "open-tasks":
       return openTask();
-    case "done":
+    case "completed-tasks":
       return sql`(${activity.type} = 'TASK' and ${activity.completedAt} is not null)`;
     case "history":
       return sql`not ${openTask()}`;
@@ -82,6 +85,7 @@ async function timeline(
   input: {
     record: RecordRef;
     filter: TimelineFilter;
+    due?: TaskDue;
     cursor?: string;
     limit: number;
   },
@@ -90,6 +94,14 @@ async function timeline(
     and(
       about(organizationId, input.record),
       input.filter === "all" ? undefined : filterCondition(input.filter),
+      input.due ? eq(activity.type, "TASK") : undefined,
+      input.due
+        ? {
+            overdue: lt(activity.dueAt, new Date().toISOString()),
+            upcoming: gte(activity.dueAt, new Date().toISOString()),
+            undated: isNull(activity.dueAt),
+          }[input.due]
+        : undefined,
       input.cursor ? afterCursor(input.cursor) : undefined,
     ),
   )
@@ -114,15 +126,24 @@ async function counts(organizationId: string, record: RecordRef) {
     .select({
       all: count(),
       notes: tally("notes"),
-      upcoming: tally("upcoming"),
-      done: tally("done"),
+      calls: tally("calls"),
+      "open-tasks": tally("open-tasks"),
+      "completed-tasks": tally("completed-tasks"),
       email: tally("email"),
       meetings: tally("meetings"),
     })
     .from(activity)
     .where(about(organizationId, record));
   return (
-    row ?? { all: 0, notes: 0, upcoming: 0, done: 0, email: 0, meetings: 0 }
+    row ?? {
+      all: 0,
+      notes: 0,
+      calls: 0,
+      "open-tasks": 0,
+      "completed-tasks": 0,
+      email: 0,
+      meetings: 0,
+    }
   );
 }
 

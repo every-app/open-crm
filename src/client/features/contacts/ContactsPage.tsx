@@ -4,6 +4,10 @@ import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
 import { Plus, Upload, Users } from "lucide-react";
 import { findLast } from "remeda";
+import {
+  DirectoryTabs,
+  DirectoryView,
+} from "@/client/features/records/DirectoryTabs";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -136,7 +140,7 @@ export function ContactsPage() {
       {/* The rows scroll inside the table's card, under its header. */}
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
-          title="Contacts"
+          title={input.archived ? "Archived contacts" : "Directory"}
           actions={
             <>
               <CsvMenu
@@ -151,92 +155,96 @@ export function ContactsPage() {
             </>
           }
         />
-        <DataTable
-          table={table}
-          isLoading={query.isPending}
-          isFiltered={isListFiltered(search, CONTACT_FILTER_KEYS)}
-          onClearFilters={() => setSearch(clearedFilters(CONTACT_FILTER_KEYS))}
-          filteredTitle="No matches"
-          error={
-            query.isError ? (
-              <QueryError
-                error={query.error}
-                fallback="Couldn't load contacts."
-                onRetry={() => void query.refetch()}
-                isRetrying={query.isFetching}
-              />
-            ) : undefined
-          }
-          empty={
-            input.archived
-              ? {
-                  icon: Users,
-                  media: "rows",
-                  title: "No archived contacts",
+        <DirectoryTabs view={DirectoryView.Contacts}>
+          <DataTable
+            table={table}
+            isLoading={query.isPending}
+            isFiltered={isListFiltered(search, CONTACT_FILTER_KEYS)}
+            onClearFilters={() =>
+              setSearch(clearedFilters(CONTACT_FILTER_KEYS))
+            }
+            filteredTitle="No matches"
+            error={
+              query.isError ? (
+                <QueryError
+                  error={query.error}
+                  fallback="Couldn't load contacts."
+                  onRetry={() => void query.refetch()}
+                  isRetrying={query.isFetching}
+                />
+              ) : undefined
+            }
+            empty={
+              input.archived
+                ? {
+                    icon: Users,
+                    media: "icon",
+                    title: "No archived contacts",
+                  }
+                : {
+                    icon: Users,
+                    media: "icon",
+                    title: "No contacts",
+                    action: (
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {newContact}
+                        {importCsv}
+                      </div>
+                    ),
+                  }
+            }
+            toolbar={
+              <RecordListToolbar
+                entity="CONTACT"
+                table={table}
+                search={search}
+                onSearchChange={setSearch}
+                onApplyView={(view) =>
+                  void navigate({
+                    search: (prev) =>
+                      searchFromSavedView(contactListSearchSchema, view, prev),
+                  })
                 }
-              : {
-                  icon: Users,
-                  media: "rows",
-                  title: "No contacts",
-                  action: (
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {newContact}
-                      {importCsv}
-                    </div>
+                placeholder="Search contacts…"
+                facetCounts={query.data?.facetCounts}
+                filters={filters}
+                filterKeys={CONTACT_FILTER_KEYS}
+                selection={{
+                  count: selection.selectedIds.length,
+                  onClear: selection.clear,
+                  actions: (
+                    <ContactBulkActions
+                      ids={selection.selectedIds}
+                      archived={input.archived}
+                      canPurge={canPurge}
+                      onDone={selection.clear}
+                    />
                   ),
+                }}
+              />
+            }
+            footer={
+              <TablePagination
+                page={input.page}
+                pageSize={input.pageSize}
+                totalCount={query.data?.total ?? null}
+                isLoading={query.isPlaceholderData}
+                // Prev and next are links, each page a step the browser's
+                // Back returns to; a page put back in range replaces its own.
+                renderPageButton={PageLink}
+                onPageChange={(page) =>
+                  setSearch({ page: page > 1 ? page : undefined })
                 }
-          }
-          toolbar={
-            <RecordListToolbar
-              entity="CONTACT"
-              table={table}
-              search={search}
-              onSearchChange={setSearch}
-              onApplyView={(view) =>
-                void navigate({
-                  search: (prev) =>
-                    searchFromSavedView(contactListSearchSchema, view, prev),
-                })
-              }
-              placeholder="Search contacts…"
-              facetCounts={query.data?.facetCounts}
-              filters={filters}
-              filterKeys={CONTACT_FILTER_KEYS}
-              selection={{
-                count: selection.selectedIds.length,
-                onClear: selection.clear,
-                actions: (
-                  <ContactBulkActions
-                    ids={selection.selectedIds}
-                    archived={input.archived}
-                    canPurge={canPurge}
-                    onDone={selection.clear}
-                  />
-                ),
-              }}
-            />
-          }
-          footer={
-            <TablePagination
-              page={input.page}
-              pageSize={input.pageSize}
-              totalCount={query.data?.total ?? null}
-              isLoading={query.isPlaceholderData}
-              // Prev and next are links, each page a step the browser's
-              // Back returns to; a page put back in range replaces its own.
-              renderPageButton={PageLink}
-              onPageChange={(page) =>
-                setSearch({ page: page > 1 ? page : undefined })
-              }
-            />
-          }
-          onRowClick={(row) => openContact(row.original.id)}
-          onRowHover={(row) =>
-            prefetchRecord({ kind: "contact", id: row.original.id })
-          }
-          scrollClassName="min-h-0 flex-1"
-          activeRowId={findLast(stack, (ref) => ref.kind === "contact")?.id}
-        />
+              />
+            }
+            onRowClick={(row) => openContact(row.original.id)}
+            onRowHover={(row) =>
+              prefetchRecord({ kind: "contact", id: row.original.id })
+            }
+            scrollClassName="min-h-0 flex-1"
+            activeRowId={findLast(stack, (ref) => ref.kind === "contact")?.id}
+          />
+        </DirectoryTabs>
       </div>
 
       {importing ? (

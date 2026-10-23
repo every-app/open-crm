@@ -1,13 +1,10 @@
 import { useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
-import { EmptyState } from "@/client/components/EmptyState";
 import { QueryState } from "@/client/components/QueryState";
 import {
   SettingsCard,
-  SettingsPage,
   SettingsRow,
   SettingsSection,
 } from "@/client/components/SettingsSection";
@@ -42,7 +39,7 @@ export function CurrencySettings() {
   const query = useQuery(currencySettingsQueryOptions());
 
   return (
-    <SettingsPage title="Currencies">
+    <div className="space-y-6">
       <QueryState
         query={query}
         errorFallback="The currency settings could not be loaded."
@@ -58,7 +55,7 @@ export function CurrencySettings() {
           </>
         )}
       </QueryState>
-    </SettingsPage>
+    </div>
   );
 }
 
@@ -143,6 +140,7 @@ function ReportingCurrency({
 
 function CurrenciesInUse({ settings }: { settings: Settings }) {
   const { unconverted, inUse, reportingCurrency } = settings;
+  if (inUse.length === 0) return null;
   const deals = `${unconverted.count} ${unconverted.count === 1 ? "deal" : "deals"}`;
 
   return (
@@ -155,49 +153,40 @@ function CurrenciesInUse({ settings }: { settings: Settings }) {
       }
     >
       <SettingsCard>
-        {inUse.length === 0 ? (
-          <EmptyState
-            icon={Banknote}
-            media="rows"
-            variant="plain"
-            title="No deals have an amount yet"
-          />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Currency</TableHead>
-                <TableHead className="text-right">Deals</TableHead>
-                <TableHead className="text-right">Convertible</TableHead>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Currency</TableHead>
+              <TableHead className="text-right">Deals</TableHead>
+              <TableHead className="text-right">Convertible</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {inUse.map((row) => (
+              <TableRow key={row.currency}>
+                <TableCell>
+                  <span className="font-medium">{row.currency}</span>
+                  <span className="text-muted-foreground">
+                    {row.name ? ` · ${row.name}` : ""}
+                    {row.currency === reportingCurrency
+                      ? " · reporting currency"
+                      : ""}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {row.deals.toLocaleString("en-US")}
+                </TableCell>
+                <TableCell className="text-right">
+                  {row.convertible ? (
+                    <Badge variant="success">Yes</Badge>
+                  ) : (
+                    <Badge variant="destructive">No rate</Badge>
+                  )}
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {inUse.map((row) => (
-                <TableRow key={row.currency}>
-                  <TableCell>
-                    <span className="font-medium">{row.currency}</span>
-                    <span className="text-muted-foreground">
-                      {row.name ? ` · ${row.name}` : ""}
-                      {row.currency === reportingCurrency
-                        ? " · reporting currency"
-                        : ""}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {row.deals.toLocaleString("en-US")}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {row.convertible ? (
-                      <Badge variant="success">Yes</Badge>
-                    ) : (
-                      <Badge variant="destructive">No rate</Badge>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+            ))}
+          </TableBody>
+        </Table>
       </SettingsCard>
     </SettingsSection>
   );

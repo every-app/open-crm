@@ -223,7 +223,7 @@ export function InlineTextArea({
           {shown}
         </span>
       ) : (
-        <span className="text-sm text-muted-foreground">—</span>
+        <span className="text-sm text-muted-foreground">Add description</span>
       )}
     </Button>
   );

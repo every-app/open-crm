@@ -84,8 +84,9 @@ export function WorkspaceForm({
         <form.AppField name="name">
           {(field) => (
             <field.TextField
-              label="Company name"
-              placeholder="Acme Inc."
+              label="Workspace name"
+              placeholder="Acme sales"
+              autoComplete="organization"
               maxLength={WORKSPACE_NAME_MAX}
               required
             />
@@ -93,7 +94,14 @@ export function WorkspaceForm({
         </form.AppField>
         <form.AppField name="website">
           {(field) => (
-            <field.TextField label="Website" placeholder="acme.com" required />
+            <field.TextField
+              label="Your business website (optional)"
+              placeholder="acme.com"
+              inputMode="url"
+              autoComplete="url"
+              autoCapitalize="off"
+              spellCheck={false}
+            />
           )}
         </form.AppField>
         <div>
@@ -135,7 +143,7 @@ export function WorkspaceSettingsCard({
           <form.AppField name="website">
             {(field) => (
               <field.RowTextField
-                label="Website"
+                label="Business website (optional)"
                 prefix="https://"
                 placeholder="acme.com"
                 autoComplete="off"
@@ -143,7 +151,6 @@ export function WorkspaceSettingsCard({
                 spellCheck={false}
                 inputMode="url"
                 disabled={!canManage}
-                required
               />
             )}
           </form.AppField>

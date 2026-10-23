@@ -13,10 +13,7 @@ import type { useCompanyMutations } from "@/client/features/companies/useCompany
 import { DealStageMenu } from "@/client/features/deals/DealStage";
 import { LocalDay } from "@/client/features/records/LocalDateTime";
 import { RecordLink } from "@/client/features/records/RecordLink";
-import {
-  SheetEmpty,
-  SheetSection,
-} from "@/client/features/records/RecordSheet";
+import { SheetSection } from "@/client/features/records/RecordSheet";
 import { useQuickAdd } from "@/client/features/records/recordStack";
 import {
   EmptyValue,
@@ -24,9 +21,7 @@ import {
   SubListOwner,
 } from "@/client/features/records/cells";
 
-// A company's Contacts and Deals tabs, each with a form that adds one
-// without leaving the sheet (open in the URL's `add`). The tab names the
-// list and counts it.
+// Related contacts and deals, added without leaving the company details.
 
 type Mutations = ReturnType<typeof useCompanyMutations>;
 
@@ -74,8 +69,9 @@ export function CompanyContacts({
   const empty = company.contacts.length === 0;
   return (
     <SheetSection
+      title={`Contacts · ${company.contacts.length}`}
       action={
-        adding || empty ? null : (
+        adding ? null : (
           <AddButton
             label="Add contact"
             variant="ghost"
@@ -90,20 +86,7 @@ export function CompanyContacts({
           onDone={() => setAdding(false)}
         />
       ) : null}
-      {empty ? (
-        adding ? null : (
-          <SheetEmpty
-            title="No contacts yet"
-            action={
-              <AddButton
-                label="Add contact"
-                variant="outline"
-                onClick={() => setAdding(true)}
-              />
-            }
-          />
-        )
-      ) : (
+      {empty ? null : (
         <ul className="-mx-2 divide-y divide-border">
           {company.contacts.map((contact) => {
             const name = fullName(contact);
@@ -160,8 +143,9 @@ export function CompanyDeals({ company }: { company: Company }) {
   const empty = company.deals.length === 0;
   return (
     <SheetSection
+      title={`Deals · ${company.deals.length}`}
       action={
-        adding || empty ? null : (
+        adding ? null : (
           <AddButton
             label="New deal"
             variant="ghost"
@@ -176,20 +160,7 @@ export function CompanyDeals({ company }: { company: Company }) {
           onDone={() => setAdding(false)}
         />
       ) : null}
-      {empty ? (
-        adding ? null : (
-          <SheetEmpty
-            title="No deals yet"
-            action={
-              <AddButton
-                label="New deal"
-                variant="outline"
-                onClick={() => setAdding(true)}
-              />
-            }
-          />
-        )
-      ) : (
+      {empty ? null : (
         <ul className="-mx-2 divide-y divide-border">
           {company.deals.map((deal) => (
             <li

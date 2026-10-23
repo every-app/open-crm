@@ -42,6 +42,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 
   return (
     <RecordSheetFrame
+      archivedAt={contact?.archivedAt}
       record={{ kind: "contact", id: contactId }}
       header={
         contact
@@ -87,7 +88,6 @@ export function ContactSheet({ contactId }: { contactId: string }) {
           ? [
               {
                 value: "deals",
-                count: contact.deals.length,
                 content: <ContactDeals contact={contact} />,
               },
             ]
@@ -119,7 +119,7 @@ function ContactActions({
         {mutations.enrich.isPending ? null : (
           <RefreshCw data-icon="inline-start" />
         )}
-        <span className="max-sm:sr-only">Re-enrich</span>
+        <span className="max-sm:sr-only">Refresh research</span>
       </Button>
       {contact.email ? (
         <Button

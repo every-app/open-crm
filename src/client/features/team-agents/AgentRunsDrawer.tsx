@@ -184,7 +184,7 @@ function Runs({ agentId }: { agentId: string }) {
               <EmptyState
                 kind={outcome ? "filtered" : "no-data"}
                 icon={Play}
-                media={outcome ? "icon" : "rows"}
+                media="icon"
                 variant="plain"
                 title="No runs"
               />

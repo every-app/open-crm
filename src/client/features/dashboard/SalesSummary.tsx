@@ -103,49 +103,55 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
     unconverted,
   } = summary;
   const money = (value: number) => formatMoneyCompact(value, currency);
-  const hasTrend = summary.trend.some(
-    (point) => point.won > 0 || point.created > 0,
-  );
+  // Comparisons need more than one populated period or stage.
+  const hasTrend =
+    summary.trend.filter((point) => point.won > 0 || point.created > 0).length >
+    1;
   // Only the stages holding value, as the original CRM lists them.
   const openStages = pipeline.stages.filter((stage) => stage.value > 0);
+  const hasWins = wonThisMonth.count > 0 || wonLastMonth.count > 0;
+  const hasStats =
+    pipeline.count > 0 || hasWins || performance.winRate !== null;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm lg:grid-cols-4">
-        <StatTile
-          label="Closed won this month"
-          value={money(wonThisMonth.value)}
-          delta={changeFrom(wonThisMonth.value, wonLastMonth.value)}
-          description={`${formatCount(wonThisMonth.count, "deal")} · ${money(wonLastMonth.value)} last month`}
-        />
-        <StatTile
-          label="Open pipeline"
-          value={money(pipeline.total)}
-          description={`${formatCount(pipeline.count, "deal")} · ${money(closingThisMonth.value)} due this month`}
-        />
-        <StatTile
-          label={`Win rate (${performance.windowDays}d)`}
-          value={
-            performance.winRate === null
-              ? "—"
-              : formatPercent(performance.winRate)
-          }
-          description={`${performance.wins} won · ${performance.losses} lost`}
-        />
-        <StatTile
-          label={`Average deal (${performance.windowDays}d)`}
-          value={
-            performance.averageDeal === null
-              ? "—"
-              : money(performance.averageDeal)
-          }
-          description={
-            performance.averageCycleDays === null
-              ? undefined
-              : `${performance.averageCycleDays}-day cycle`
-          }
-        />
-      </div>
+      {hasStats ? (
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]">
+          {hasWins ? (
+            <StatTile
+              label="Closed won this month"
+              value={money(wonThisMonth.value)}
+              delta={changeFrom(wonThisMonth.value, wonLastMonth.value)}
+              description={`${formatCount(wonThisMonth.count, "deal")}${wonLastMonth.count > 0 ? ` · ${money(wonLastMonth.value)} last month` : ""}`}
+            />
+          ) : null}
+          {pipeline.count > 0 ? (
+            <StatTile
+              label="Open pipeline"
+              value={money(pipeline.total)}
+              description={`${formatCount(pipeline.count, "deal")}${closingThisMonth.count > 0 ? ` · ${money(closingThisMonth.value)} due this month` : ""}`}
+            />
+          ) : null}
+          {performance.winRate !== null ? (
+            <StatTile
+              label={`Win rate (${performance.windowDays}d)`}
+              value={formatPercent(performance.winRate)}
+              description={`${performance.wins} won · ${performance.losses} lost`}
+            />
+          ) : null}
+          {performance.averageDeal !== null ? (
+            <StatTile
+              label={`Average deal (${performance.windowDays}d)`}
+              value={money(performance.averageDeal)}
+              description={
+                performance.averageCycleDays === null
+                  ? undefined
+                  : `${performance.averageCycleDays}-day cycle`
+              }
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       {unconverted.count > 0 ? (
         <p className="text-xs text-muted-foreground">
@@ -153,7 +159,8 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
           {unconverted.currencies.join(", ")}{" "}
           {unconverted.count === 1 ? "is" : "are"} left out: no exchange rate.{" "}
           <Link
-            to="/settings/currencies"
+            to="/settings"
+            hash="currencies"
             className="underline underline-offset-3 hover:text-foreground"
           >
             Set one
@@ -162,30 +169,25 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Panel title="Closed won vs. new pipeline">
+      {hasTrend || openStages.length > 1 ? (
+        <div
+          className={cn(
+            "grid gap-4",
+            hasTrend && openStages.length > 1 && "lg:grid-cols-[2fr_1fr]",
+          )}
+        >
           {hasTrend ? (
-            <TrendChart trend={summary.trend} currency={currency} />
-          ) : (
-            <EmptyPanel label="No deals closed or created yet" />
-          )}
-        </Panel>
-        <Panel title="Open pipeline by stage">
-          {openStages.length > 0 ? (
-            <StageBreakdown stages={openStages} currency={currency} />
-          ) : (
-            <EmptyPanel label="Nothing open" />
-          )}
-        </Panel>
-      </div>
-    </div>
-  );
-}
-
-function EmptyPanel({ label }: { label: string }) {
-  return (
-    <div className="flex flex-1 items-center justify-center py-10 text-sm text-muted-foreground">
-      {label}
+            <Panel title="Closed won vs. new pipeline">
+              <TrendChart trend={summary.trend} currency={currency} />
+            </Panel>
+          ) : null}
+          {openStages.length > 1 ? (
+            <Panel title="Open pipeline by stage">
+              <StageBreakdown stages={openStages} currency={currency} />
+            </Panel>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

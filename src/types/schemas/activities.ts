@@ -15,16 +15,14 @@ export const COMPOSABLE_TYPES = [
 ] as const;
 export type ComposableType = (typeof COMPOSABLE_TYPES)[number];
 
-/**
- * A timeline's views. `history` is everything but open tasks: the All tab
- * shows those pinned above it.
- */
+/** A chronological timeline, activity types, and task status views. */
 export const TIMELINE_FILTERS = [
   "all",
   "history",
   "notes",
-  "upcoming",
-  "done",
+  "calls",
+  "open-tasks",
+  "completed-tasks",
   "email",
   "meetings",
 ] as const;
@@ -61,9 +59,16 @@ const instant = z
     return new Date(time).toISOString();
   });
 
+export enum TaskDue {
+  Overdue = "overdue",
+  Upcoming = "upcoming",
+  Undated = "undated",
+}
+
 export const timelineSchema = z.object({
   record: recordRefSchema,
   filter: z.enum(TIMELINE_FILTERS).default("all"),
+  due: z.enum(TaskDue).optional(),
   /** The `nextCursor` of the page before. */
   cursor: z
     .string()
@@ -74,8 +79,6 @@ export const timelineSchema = z.object({
 });
 
 export type TimelineInput = z.infer<typeof timelineSchema>;
-
-export const timelineCountsSchema = z.object({ record: recordRefSchema });
 
 export const createActivitySchema = z
   .object({

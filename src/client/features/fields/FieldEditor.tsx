@@ -213,17 +213,79 @@ export function FieldEditor({
       <form.AppForm>
         <form.Form className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-6 overflow-y-auto p-4">
-            <div className="space-y-3">
-              <form.AppField name="label">
-                {(input) => (
-                  <input.TextField
-                    label={LABEL_LABEL}
-                    maxLength={FIELD_LABEL_MAX}
-                    autoFocus={!field}
-                    required
-                  />
-                )}
-              </form.AppField>
+            <form.AppField name="label">
+              {(input) => (
+                <input.TextField
+                  label={LABEL_LABEL}
+                  maxLength={FIELD_LABEL_MAX}
+                  autoFocus={!field}
+                  required
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="type">
+              {(input) => (
+                <input.SelectField
+                  label={TYPE_LABEL}
+                  description={typeLocked ? TYPE_LOCKED : undefined}
+                  disabled={typeLocked}
+                  items={FIELD_TYPES.map((type) => ({
+                    value: type,
+                    label: FIELD_TYPE_LABELS[type],
+                  }))}
+                />
+              )}
+            </form.AppField>
+            <form.Subscribe selector={(state) => state.values.type}>
+              {(type) =>
+                type === "SELECT" ? (
+                  <form.Field name="options">
+                    {(input) => (
+                      <div className="space-y-2">
+                        <FieldTitle>{OPTIONS_LABEL}</FieldTitle>
+                        <FieldOptionsEditor
+                          options={input.state.value}
+                          onChange={(options) => input.handleChange(options)}
+                          error={getFieldError(input.state.meta.errors)}
+                        />
+                      </div>
+                    )}
+                  </form.Field>
+                ) : null
+              }
+            </form.Subscribe>
+            <form.AppField name="agentFilled">
+              {(input) => (
+                <input.SwitchField
+                  label={AGENT_LABEL}
+                  description={AGENT_HELP}
+                />
+              )}
+            </form.AppField>
+            <form.Subscribe selector={(state) => state.values.agentFilled}>
+              {(enabled) =>
+                enabled ? (
+                  <details className="space-y-3">
+                    <summary className="cursor-pointer text-sm font-medium">
+                      Research instructions
+                    </summary>
+                    <form.AppField name="agentBrief">
+                      {(input) => (
+                        <input.TextareaField
+                          label={BRIEF_LABEL}
+                          maxLength={FIELD_BRIEF_MAX}
+                          rows={3}
+                        />
+                      )}
+                    </form.AppField>
+                  </details>
+                ) : null
+              }
+            </form.Subscribe>
+            <details className="space-y-4 border-t border-border pt-4">
+              <summary className="cursor-pointer text-sm font-medium">
+                Advanced
+              </summary>
               <div className="space-y-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <FieldTitle>{KEY_LABEL}</FieldTitle>
@@ -237,74 +299,18 @@ export function FieldEditor({
                 </div>
                 <FieldDescription>{KEY_HELP}</FieldDescription>
               </div>
-            </div>
-
-            <div className="space-y-3">
-              <form.AppField name="agentFilled">
-                {(input) => (
-                  <input.SwitchField
-                    label={AGENT_LABEL}
-                    description={AGENT_HELP}
-                  />
-                )}
-              </form.AppField>
-              <form.AppField name="agentBrief">
-                {(input) => (
-                  <input.TextareaField
-                    label={BRIEF_LABEL}
-                    maxLength={FIELD_BRIEF_MAX}
-                    rows={3}
-                  />
-                )}
-              </form.AppField>
-            </div>
-
-            <div className="space-y-3">
-              <form.AppField name="type">
-                {(input) => (
-                  <input.SelectField
-                    label={TYPE_LABEL}
-                    description={typeLocked ? TYPE_LOCKED : undefined}
-                    disabled={typeLocked}
-                    items={FIELD_TYPES.map((type) => ({
-                      value: type,
-                      label: FIELD_TYPE_LABELS[type],
-                    }))}
-                  />
-                )}
-              </form.AppField>
-              <form.Subscribe selector={(state) => state.values.type}>
-                {(type) =>
-                  type === "SELECT" ? (
-                    <form.Field name="options">
-                      {(input) => (
-                        <div className="space-y-2">
-                          <FieldTitle>{OPTIONS_LABEL}</FieldTitle>
-                          <FieldOptionsEditor
-                            options={input.state.value}
-                            onChange={(options) => input.handleChange(options)}
-                            error={getFieldError(input.state.meta.errors)}
-                          />
-                        </div>
-                      )}
-                    </form.Field>
-                  ) : null
-                }
-              </form.Subscribe>
-            </div>
-
-            <div className="space-y-2.5">
-              <form.AppField name="showOnSheet">
-                {(input) => <input.CheckboxField label={SHEET_PLACEMENT} />}
-              </form.AppField>
-              <form.AppField name="showOnTable">
-                {(input) => <input.CheckboxField label={TABLE_PLACEMENT} />}
-              </form.AppField>
-              <form.AppField name="showOnFilter">
-                {(input) => <input.CheckboxField label={FILTER_PLACEMENT} />}
-              </form.AppField>
-            </div>
-
+              <div className="space-y-2.5">
+                <form.AppField name="showOnSheet">
+                  {(input) => <input.CheckboxField label={SHEET_PLACEMENT} />}
+                </form.AppField>
+                <form.AppField name="showOnTable">
+                  {(input) => <input.CheckboxField label={TABLE_PLACEMENT} />}
+                </form.AppField>
+                <form.AppField name="showOnFilter">
+                  {(input) => <input.CheckboxField label={FILTER_PLACEMENT} />}
+                </form.AppField>
+              </div>
+            </details>
             {field && coverage.data ? (
               <Coverage field={field} coverage={coverage.data} canFill />
             ) : null}

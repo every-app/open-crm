@@ -17,7 +17,18 @@ export function AgentsPage() {
   return (
     <div className="px-4 pt-6 pb-24 md:px-8 md:pt-8 md:pb-12">
       <div className="mx-auto max-w-5xl space-y-6">
-        <PageHeader title="Team agents" />
+        <PageHeader
+          title="Team agents"
+          actions={
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link to="/settings/connections" hash="ai-clients" />}
+            >
+              Connect your AI client
+            </Button>
+          }
+        />
         <QueryState
           query={agents}
           errorFallback="The agents could not be loaded."
@@ -26,17 +37,20 @@ export function AgentsPage() {
             rows.length === 0 ? (
               <EmptyState
                 icon={Bot}
-                media="rows"
+                media="icon"
                 variant="card"
                 size="lg"
                 title="No team agents yet"
+                description="Ask your AI client to create an agent, then review and deploy its draft here."
                 action={
                   <Button
                     nativeButton={false}
                     variant="outline"
-                    render={<Link to="/chat" />}
+                    render={
+                      <Link to="/settings/connections" hash="ai-clients" />
+                    }
                   >
-                    Open chat
+                    Connect your AI client
                   </Button>
                 }
               />
@@ -68,10 +82,12 @@ export function AgentsPage() {
                       ) : null}
                     </span>
                     <span className="hidden shrink-0 text-right text-xs text-muted-foreground sm:block">
-                      {agent.trigger?.nextRunAt ? (
+                      {agent.status === "LIVE" && agent.trigger?.nextRunAt ? (
                         <>
                           Next <LocalDateTime date={agent.trigger.nextRunAt} />
                         </>
+                      ) : agent.status === "PAUSED" ? (
+                        "Schedule paused"
                       ) : (
                         (agent.trigger?.name ?? "Manual only")
                       )}

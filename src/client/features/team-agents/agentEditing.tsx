@@ -5,7 +5,7 @@ import { teamAgentKeys } from "./teamAgentQueries";
 
 // What the agent page shares to change the agent.
 
-/** A mutation on the agent that refreshes it, its list and the chats. */
+/** A mutation on the agent that refreshes it, its list. */
 export function useAgentMutation<Input>(
   agentId: string,
   run: (input: Input) => Promise<unknown>,
@@ -20,7 +20,6 @@ export function useAgentMutation<Input>(
         queryKey: teamAgentKeys.agent(agentId),
       });
       await queryClient.invalidateQueries({ queryKey: teamAgentKeys.list() });
-      await queryClient.invalidateQueries({ queryKey: teamAgentKeys.chats() });
     },
   });
 }

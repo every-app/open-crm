@@ -8,8 +8,9 @@ import {
 } from "@/client/components/SettingsSection";
 import { ThemePreferenceRadio } from "@/client/components/ThemePreferenceMenuItems";
 import { ArchivedRecordsSection } from "@/client/features/settings/ArchivedRecordsSection";
-import { GatewayKeyRow } from "@/client/features/settings/GatewayKeyRow";
-import { ResearchAgentSection } from "@/client/features/settings/ResearchAgentSection";
+import { SettingsDisclosure } from "@/client/components/SettingsDisclosure";
+import { MembersSettings } from "./MembersSettings";
+import { CurrencySettings } from "./CurrencySettings";
 import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 import { WorkspaceSettingsCard } from "@/client/features/workspace/WorkspaceForm";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
@@ -21,18 +22,12 @@ export function GeneralSettings() {
   const canManage = useCanManageWorkspace();
 
   return (
-    <SettingsPage title="General">
+    <SettingsPage title="Workspace">
       {workspace ? (
         <SettingsSection title="Workspace">
           <WorkspaceSettingsCard workspace={workspace} canManage={canManage} />
         </SettingsSection>
       ) : null}
-
-      <SettingsSection title="Company research">
-        <SettingsCard>
-          <GatewayKeyRow id="context" label="Context API key" />
-        </SettingsCard>
-      </SettingsSection>
 
       <SettingsSection title="Appearance">
         <SettingsCard>
@@ -43,7 +38,10 @@ export function GeneralSettings() {
       </SettingsSection>
 
       <ArchivedRecordsSection />
-      <ResearchAgentSection />
+      <MembersSettings />
+      <SettingsDisclosure id="currencies" title="Currencies">
+        <CurrencySettings />
+      </SettingsDisclosure>
       {workspace &&
       hasOrgPermission(workspace.role, { workspace: ["export"] }) ? (
         <ExportAllSection />

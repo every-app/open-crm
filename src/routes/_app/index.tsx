@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/")({
   // The loader fills the module-scoped query client, so keep it out of server
   // requests: one isolate must not cache another organization's figures.
   ssr: false,
-  loaderDeps: ({ search }) => ({ scope: search.scope ?? "me" }),
+  loaderDeps: ({ search }) => ({ scope: search.scope ?? "everyone" }),
   // Starts the figures on link intent (hovering Overview) and on a full load,
   // without holding up navigation.
   loader: ({ deps }) => {

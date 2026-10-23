@@ -137,7 +137,7 @@ export function DealsPage() {
       {/* The rows scroll inside the table's card, under its header. */}
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
-          title="Deals"
+          title={input.archived ? "Archived deals" : "Deals"}
           actions={
             <>
               <CsvMenu
@@ -172,12 +172,12 @@ export function DealsPage() {
             input.archived
               ? {
                   icon: CircleDollarSign,
-                  media: "rows",
+                  media: "icon",
                   title: "No archived deals",
                 }
               : {
                   icon: CircleDollarSign,
-                  media: "rows",
+                  media: "icon",
                   title: "No deals",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">

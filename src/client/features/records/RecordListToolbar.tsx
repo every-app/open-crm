@@ -1,8 +1,15 @@
 import type { ReactNode } from "react";
 import type { Table } from "@tanstack/react-table";
-import { Search } from "lucide-react";
+import { Search, Archive, SlidersHorizontal } from "lucide-react";
+import { useIsMobile } from "@/client/hooks/use-mobile";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/client/components/ui/sheet";
 import { ColumnsMenu } from "@/client/components/table/ColumnsMenu";
-import { DataTableTabs } from "@/client/components/table/DataTableToolbar";
 import {
   FilterTokens,
   FiltersMenu,
@@ -16,7 +23,6 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/client/components/ui/input-group";
-import { TabsTrigger } from "@/client/components/ui/tabs";
 import { useDebouncedDraft } from "@/client/hooks/useDebouncedDraft";
 import { useFieldFilters } from "@/client/features/fields/FieldFilterControls";
 import { useOpenFieldsSheet } from "@/client/features/fields/FieldsSheetButton";
@@ -31,8 +37,8 @@ import type { FieldEntity } from "@/shared/crm-enums";
 import type { SavedViewFilters } from "@/types/schemas/saved-views";
 import type { FacetCounts } from "@/types/schemas/records";
 
-// Above a record list's rows: the live/archived view switch, then one row
-// with the search and the Filters menu (the owner, the list's own filters,
+// Above a record list's rows: search and the Filters menu (archive, owner,
+// the list's own filters,
 // then its custom fields'), and the saved views, sort and columns on the
 // right; under it, while any filter is set, a token for each. Every change
 // goes to the URL and takes the list back to its first page. The filters
@@ -99,6 +105,7 @@ export function RecordListToolbar<TData>({
   /** The selected rows: how many, the list's Actions menu, and Clear. */
   selection: { count: number; actions: ReactNode; onClear: () => void };
 }) {
+  const mobile = useIsMobile();
   const openFieldsSheet = useOpenFieldsSheet();
   const owner = useOwnerFilter(
     search.owner ?? [],
@@ -119,26 +126,31 @@ export function RecordListToolbar<TData>({
         page: undefined,
       }),
   );
-  const all = [owner, ...filters, ...fieldFilters];
+  const archive: ListFilter = {
+    key: "archived",
+    label: "Archived records",
+    icon: Archive,
+    bare: true,
+    single: true,
+    options: [{ value: "archived", label: "Archived records" }],
+    value: search.archived ? ["archived"] : [],
+    onChange: (values) =>
+      onSearchChange({
+        archived: values.includes("archived") || undefined,
+        page: undefined,
+      }),
+  };
+  const all = [owner, ...filters, ...fieldFilters, archive];
   // Every filter, but not the search.
   const clearFilters = () =>
-    onSearchChange(clearedFilters(filterKeys.filter((key) => key !== "q")));
+    onSearchChange({
+      ...clearedFilters(filterKeys.filter((key) => key !== "q")),
+      archived: undefined,
+    });
   const selecting = selection.count > 0;
 
   return (
     <>
-      <DataTableTabs
-        value={search.archived ? "archived" : "live"}
-        onValueChange={(view) =>
-          onSearchChange({
-            archived: view === "archived" || undefined,
-            page: undefined,
-          })
-        }
-      >
-        <TabsTrigger value="live">Active</TabsTrigger>
-        <TabsTrigger value="archived">Archived</TabsTrigger>
-      </DataTableTabs>
       <div className="relative border-b border-border">
         {/* Under a selection the toolbar stays mounted and keeps its
             height, so the rows don't move under the pointer. */}
@@ -153,16 +165,46 @@ export function RecordListToolbar<TData>({
             />
             <FiltersMenu filters={all} onClear={clearFilters} />
             <div className="ml-auto flex items-center gap-2">
-              <SavedViewsMenu
-                entity={entity}
-                current={savedViewOf(search)}
-                onApply={onApplyView}
-              />
-              <SortMenu table={table} />
-              <ColumnsMenu
-                table={table}
-                onEditFields={() => openFieldsSheet(entity)}
-              />
+              {mobile ? (
+                <Sheet>
+                  <SheetTrigger render={<Button variant="outline" size="sm" />}>
+                    <SlidersHorizontal data-icon="inline-start" />
+                    View options
+                  </SheetTrigger>
+                  <SheetContent className="w-full sm:max-w-sm">
+                    <SheetHeader>
+                      <SheetTitle>View options</SheetTitle>
+                    </SheetHeader>
+                    <div className="flex flex-wrap gap-3 px-4">
+                      <SavedViewsMenu
+                        entity={entity}
+                        current={savedViewOf(search)}
+                        onApply={onApplyView}
+                        showLabel
+                      />
+                      <SortMenu table={table} showLabel />
+                      <ColumnsMenu
+                        table={table}
+                        onEditFields={() => openFieldsSheet(entity)}
+                        showLabel
+                      />
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              ) : (
+                <>
+                  <SavedViewsMenu
+                    entity={entity}
+                    current={savedViewOf(search)}
+                    onApply={onApplyView}
+                  />
+                  <SortMenu table={table} />
+                  <ColumnsMenu
+                    table={table}
+                    onEditFields={() => openFieldsSheet(entity)}
+                  />
+                </>
+              )}
             </div>
           </div>
           <FilterTokens filters={all} onClear={clearFilters} />

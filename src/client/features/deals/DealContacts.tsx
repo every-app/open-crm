@@ -21,10 +21,7 @@ import type { useDealMutations } from "@/client/features/deals/useDealMutations"
 import { InlineField } from "@/client/features/records/InlineField";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import { useQuickAdd } from "@/client/features/records/recordStack";
-import {
-  SheetEmpty,
-  SheetSection,
-} from "@/client/features/records/RecordSheet";
+import { SheetSection } from "@/client/features/records/RecordSheet";
 import { PersonAvatar } from "@/client/features/records/cells";
 import { getFieldError } from "@/client/lib/forms";
 
@@ -49,8 +46,9 @@ export function DealContacts({
 
   return (
     <SheetSection
+      title={`Contacts · ${deal.contacts.length}`}
       action={
-        adding || deal.contacts.length === 0 ? null : (
+        adding ? null : (
           <Button variant="ghost" size="xs" onClick={() => setAdding(true)}>
             <Plus data-icon="inline-start" />
             Add contact
@@ -65,23 +63,7 @@ export function DealContacts({
           onDone={() => setAdding(false)}
         />
       ) : null}
-      {deal.contacts.length === 0 ? (
-        adding ? null : (
-          <SheetEmpty
-            title="No contacts yet"
-            action={
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAdding(true)}
-              >
-                <Plus data-icon="inline-start" />
-                Add contact
-              </Button>
-            }
-          />
-        )
-      ) : (
+      {deal.contacts.length === 0 ? null : (
         <ul className="-mx-2 divide-y divide-border">
           {deal.contacts.map((contact) => {
             const name = fullName(contact);

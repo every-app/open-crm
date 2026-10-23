@@ -116,8 +116,9 @@ describe("timeline tools", () => {
     ).toEqual({
       all: 2,
       notes: 1,
-      upcoming: 1,
-      done: 0,
+      calls: 0,
+      "open-tasks": 1,
+      "completed-tasks": 0,
       email: 0,
       meetings: 0,
     });

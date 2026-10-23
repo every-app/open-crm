@@ -1,7 +1,4 @@
 import { AgentAvailabilityService } from "@/server/features/agent/services/AgentAvailabilityService";
-import { clientStatus } from "@/server/features/mailbox/providers/oauth";
-import { SlackService } from "@/server/features/slack/services/SlackService";
-import { SetupRepository } from "@/server/features/setup/repositories/SetupRepository";
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 import type { AgentAvailability } from "@/shared/agent-availability";
 
@@ -95,54 +92,4 @@ async function checklist(
   return { items, local };
 }
 
-/** Get started's steps, in the order they are worth doing. */
-type GetStartedStep =
-  | "model"
-  | "context"
-  | "companies"
-  | "inbox"
-  | "agent"
-  | "tracking"
-  | "slack"
-  | "team";
-
-/**
- * Overview's Get started card: the steps this person can take, and which are
- * done. Owners and admins, who run the organization's gateway, also get the
- * workspace's steps and the gateway's keys. For a member, a step whose
- * gateway piece is missing is left out: they couldn't finish it.
- */
-async function getStarted(
-  organizationId: string,
-  userId: string,
-  canManage: boolean,
-): Promise<{ steps: { id: GetStartedStep; done: boolean }[] }> {
-  const [done, availability, google, microsoft, slack] = await Promise.all([
-    SetupRepository.progress(organizationId, userId),
-    AgentAvailabilityService.forOrganization(organizationId),
-    clientStatus("google"),
-    clientStatus("microsoft"),
-    SlackService.isConnected(organizationId),
-  ]);
-  const steps: ({ id: GetStartedStep; done: boolean } | false)[] = [
-    // Done once the model has answered: a new gateway is connected before
-    // anyone knows whether it holds a key ("unchecked").
-    canManage && { id: "model", done: availability.model === "ready" },
-    canManage && { id: "context", done: availability.context },
-    { id: "companies", done: done.companies },
-    (google.ready || microsoft.ready || canManage) && {
-      id: "inbox",
-      done: done.inbox,
-    },
-    (availability.model !== "missing" || canManage) && {
-      id: "agent",
-      done: done.agent,
-    },
-    canManage && { id: "tracking", done: done.tracking },
-    canManage && { id: "slack", done: slack },
-    canManage && { id: "team", done: done.team },
-  ];
-  return { steps: steps.filter((step) => step !== false) };
-}
-
-export const SetupService = { checklist, getStarted };
+export const SetupService = { checklist };

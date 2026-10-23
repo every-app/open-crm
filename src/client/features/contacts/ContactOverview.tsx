@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Button } from "@/client/components/ui/button";
 import { SafeExternalLink } from "@/client/components/SafeExternalLink";
 import {
   AgentFound,
@@ -42,6 +43,7 @@ export function ContactOverview({
   contact: Contact;
   mutations: Mutations;
 }) {
+  const [showEmpty, setShowEmpty] = useState(false);
   const { update } = mutations;
   // The fields whose save is in flight show a spinner.
   const saving =
@@ -72,7 +74,18 @@ export function ContactOverview({
     <div>
       <SheetSection
         title="Details"
-        action={<FieldsSheetButton entity="CONTACT" />}
+        action={
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => setShowEmpty((value) => !value)}
+            >
+              {showEmpty ? "Hide empty fields" : "Add details"}
+            </Button>
+            <FieldsSheetButton entity="CONTACT" />
+          </div>
+        }
       >
         <div className="space-y-0.5">
           <InlineField
@@ -86,57 +99,85 @@ export function ContactOverview({
             // The agent suggests their whole name, first and last.
             suggestion={suggestion("name")}
           />
-          <InlineField
-            label="Last name"
-            value={contact.lastName}
-            {...field("lastName")}
-          />
-          <InlineField
-            label="Title"
-            value={contact.title}
-            trailing={found("title")}
-            suggestion={suggestion("title")}
-            {...field("title")}
-          />
-          <InlineField
-            label="Email"
-            type="email"
-            value={contact.email}
-            {...field("email")}
-          />
-          <InlineField
-            label="Phone"
-            type="tel"
-            value={contact.phone}
-            {...field("phone")}
-          />
-          <InlineField
-            label="LinkedIn"
-            type="url"
-            value={contact.linkedinUrl}
-            placeholder="https://www.linkedin.com/in/…"
-            trailing={found("linkedinUrl")}
-            suggestion={suggestion("linkedinUrl")}
-            {...field("linkedinUrl")}
-          />
-          <InlineField
-            label="X"
-            type="url"
-            value={contact.twitterUrl}
-            placeholder="https://x.com/…"
-            trailing={found("twitterUrl")}
-            suggestion={suggestion("twitterUrl")}
-            {...field("twitterUrl")}
-          />
-          <InlineField
-            label="GitHub"
-            type="url"
-            value={contact.githubUrl}
-            placeholder="https://github.com/…"
-            trailing={found("githubUrl")}
-            suggestion={suggestion("githubUrl")}
-            {...field("githubUrl")}
-          />
+          {(contact.lastName !== null && contact.lastName !== "") ||
+          showEmpty ||
+          proposed.has("lastName") ? (
+            <InlineField
+              label="Last name"
+              value={contact.lastName}
+              {...field("lastName")}
+            />
+          ) : null}
+          {(contact.title !== null && contact.title !== "") ||
+          showEmpty ||
+          proposed.has("title") ? (
+            <InlineField
+              label="Title"
+              value={contact.title}
+              trailing={found("title")}
+              suggestion={suggestion("title")}
+              {...field("title")}
+            />
+          ) : null}
+          {(contact.email !== null && contact.email !== "") ||
+          showEmpty ||
+          proposed.has("email") ? (
+            <InlineField
+              label="Email"
+              type="email"
+              value={contact.email}
+              {...field("email")}
+            />
+          ) : null}
+          {(contact.phone !== null && contact.phone !== "") ||
+          showEmpty ||
+          proposed.has("phone") ? (
+            <InlineField
+              label="Phone"
+              type="tel"
+              value={contact.phone}
+              {...field("phone")}
+            />
+          ) : null}
+          {(contact.linkedinUrl !== null && contact.linkedinUrl !== "") ||
+          showEmpty ||
+          proposed.has("linkedinUrl") ? (
+            <InlineField
+              label="LinkedIn"
+              type="url"
+              value={contact.linkedinUrl}
+              placeholder="https://www.linkedin.com/in/…"
+              trailing={found("linkedinUrl")}
+              suggestion={suggestion("linkedinUrl")}
+              {...field("linkedinUrl")}
+            />
+          ) : null}
+          {(contact.twitterUrl !== null && contact.twitterUrl !== "") ||
+          showEmpty ||
+          proposed.has("twitterUrl") ? (
+            <InlineField
+              label="X"
+              type="url"
+              value={contact.twitterUrl}
+              placeholder="https://x.com/…"
+              trailing={found("twitterUrl")}
+              suggestion={suggestion("twitterUrl")}
+              {...field("twitterUrl")}
+            />
+          ) : null}
+          {(contact.githubUrl !== null && contact.githubUrl !== "") ||
+          showEmpty ||
+          proposed.has("githubUrl") ? (
+            <InlineField
+              label="GitHub"
+              type="url"
+              value={contact.githubUrl}
+              placeholder="https://github.com/…"
+              trailing={found("githubUrl")}
+              suggestion={suggestion("githubUrl")}
+              {...field("githubUrl")}
+            />
+          ) : null}
           <InlineCompanyField
             company={contact.company}
             saving={saving.includes("companyId")}
@@ -148,7 +189,11 @@ export function ContactOverview({
             saving={saving.includes("ownerId")}
             onSave={(ownerId) => update.mutate({ ownerId })}
           />
-          <RecordFields entity="CONTACT" recordId={contact.id} />
+          <RecordFields
+            entity="CONTACT"
+            recordId={contact.id}
+            showEmpty={showEmpty}
+          />
         </div>
       </SheetSection>
 

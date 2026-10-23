@@ -71,7 +71,7 @@ export function AgentDetailPage({ agentId }: { agentId: string }) {
 
 /**
  * An agent that doesn't exist, was deleted, or is someone else's draft (the
- * CRM's "Agent unavailable"), as a chat that isn't there shows.
+ * CRM's "Agent unavailable").
  */
 function UnavailableAgent() {
   return (
@@ -87,7 +87,6 @@ function LoadedAgent({ agent }: { agent: Agent }) {
   const [resets, setResets] = useState(0);
   const review = agent.reviewVersion;
   const current = agent.currentVersion;
-  const isDraft = agent.status === "DRAFT";
   // A deployed agent's editor shows, and its changes build on, the version
   // waiting for review.
   const editing = current?.readable && review?.readable ? review : null;
@@ -156,20 +155,13 @@ function LoadedAgent({ agent }: { agent: Agent }) {
                   {agent.runCount}
                 </span>
               </Button>
-              {agent.conversationId ? (
-                <Button
-                  nativeButton={false}
-                  variant="outline"
-                  render={
-                    <Link
-                      to="/chat/$chatId"
-                      params={{ chatId: agent.conversationId }}
-                    />
-                  }
-                >
-                  {isDraft ? "Change details" : "Open in chat"}
-                </Button>
-              ) : null}
+              <Button
+                nativeButton={false}
+                variant="outline"
+                render={<Link to="/settings/connections" hash="ai-clients" />}
+              >
+                AI client access
+              </Button>
               {canRunByHand ? (
                 <Button
                   variant="outline"
@@ -238,7 +230,9 @@ function LoadedAgent({ agent }: { agent: Agent }) {
                   description={trigger.summary}
                 >
                   <span className="text-sm text-muted-foreground">
-                    {!trigger.enabled ? (
+                    {agent.status === "PAUSED" ? (
+                      "Paused"
+                    ) : !trigger.enabled ? (
                       "Off until deployed"
                     ) : trigger.nextRunAt ? (
                       <>
@@ -338,7 +332,14 @@ function ReviewSection({
           </Alert>
         )}
         {withCode ? (
-          <AgentCode agentId={agent.id} versionId={review.id} />
+          <details className="rounded-xl border border-border p-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              Advanced · Agent files
+            </summary>
+            <div className="pt-4">
+              <AgentCode agentId={agent.id} versionId={review.id} />
+            </div>
+          </details>
         ) : null}
       </div>
     </SettingsSection>

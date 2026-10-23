@@ -312,7 +312,7 @@ export const companyTools = {
 
   create_company: crmTool({
     description:
-      "Add a company, with its custom field values if given. Its domain (or a website, reduced to its host) must not belong to another live company. The research agent then fetches its logo and writes its profile.",
+      "Add a company, owned by the caller unless ownerEmail is given, with its custom field values if given. Its domain (or a website, reduced to its host) must not belong to another live company. The research agent then fetches its logo and writes its profile.",
     risk: "write",
     input: createCompanySchema
       .omit({ ownerId: true })
@@ -322,7 +322,9 @@ export const companyTools = {
     handler: async ({ ownerEmail: email, fields, ...input }, context) =>
       CompanyService.createCompany(context.organizationId, {
         ...input,
-        ownerId: email ? await memberId(context.organizationId, email) : null,
+        ownerId: email
+          ? await memberId(context.organizationId, email)
+          : context.userId,
         fields:
           fields &&
           (await withMemberIds(context.organizationId, "COMPANY", fields)),

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { ChevronRight, Handshake } from "lucide-react";
 import { cn } from "cn";
 import { QueryError } from "@/client/components/QueryState";
 import { Button } from "@/client/components/ui/button";
+import { SidebarMenuButton, useSidebar } from "@/client/components/ui/sidebar";
 import {
   Collapsible,
   CollapsibleContent,
@@ -19,7 +21,6 @@ import { RecordLink } from "@/client/features/records/RecordLink";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
 import type { getEnrichmentQueue } from "@/serverFunctions/agent";
 import { ENRICHMENT_PAGE, ENRICHMENT_PAGE_MAX } from "@/types/schemas/agent";
-import { ModelNotSetUp } from "./AgentPaused";
 import { enrichmentQueueQueryOptions } from "./agentQueries";
 import {
   dueLabel,
@@ -46,14 +47,17 @@ const STATE_DOTS: Record<QueueState, string> = {
 
 const ROW_LINK =
   "flex w-full items-center gap-3 px-4 hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:outline-none";
+const QUEUE_BUTTON =
+  "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-foreground";
 
 /**
  * What the research agent is working on for the organization, and what it
  * has booked for later (the CRM's EnrichmentQueue): a button with the count,
  * opening the list. Each row opens its record. While the agent's model isn't
- * set up, the button says the agent is paused and the list says why.
+ * set up, the status links directly to AI Settings.
  */
 export function EnrichmentQueue() {
+  const { setOpenMobile } = useSidebar();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [limit, setLimit] = useState(ENRICHMENT_PAGE);
@@ -77,17 +81,32 @@ export function EnrichmentQueue() {
     setLimit(ENRICHMENT_PAGE);
   };
 
-  return (
-    <Popover open={open} onOpenChange={show}>
-      <PopoverTrigger
+  if (paused) {
+    return (
+      <SidebarMenuButton
+        className={QUEUE_BUTTON}
         render={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-full justify-start gap-2.5 px-2 font-normal text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-foreground"
+          <Link
+            to="/settings/ai"
+            hash="model"
+            onClick={() => setOpenMobile(false)}
           />
         }
       >
+        <span
+          aria-hidden
+          className="flex size-4 shrink-0 items-center justify-center"
+        >
+          <span className={cn("size-1.5 rounded-full", STATE_DOTS.waiting)} />
+        </span>
+        <span>Needs setup</span>
+      </SidebarMenuButton>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={show}>
+      <PopoverTrigger render={<SidebarMenuButton className={QUEUE_BUTTON} />}>
         {/* In the nav's icon column. */}
         <span
           aria-hidden
@@ -96,35 +115,19 @@ export function EnrichmentQueue() {
           <span
             className={cn(
               "size-1.5 rounded-full",
-              paused
-                ? STATE_DOTS.waiting
-                : total > 0
-                  ? STATE_DOTS.running
-                  : STATE_DOTS.queued,
+              total > 0 ? STATE_DOTS.running : STATE_DOTS.queued,
             )}
           />
         </span>
-        {paused
-          ? "Agent paused"
-          : total > 0
-            ? `Enriching ${total}`
-            : "Enriching"}
+        <span>{total > 0 ? `Researching ${total}` : "Research"}</span>
       </PopoverTrigger>
       <PopoverContent side="right" align="start" className="w-96">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <PopoverTitle>
-            {paused ? "The agent is paused" : "Enriching now"}
-          </PopoverTitle>
+          <PopoverTitle>Research queue</PopoverTitle>
           <span className="font-mono text-xs text-muted-foreground">
             {total}
           </span>
         </div>
-        {paused ? (
-          <p className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
-            <ModelNotSetUp />
-          </p>
-        ) : null}
-
         {queue.isError && !queue.data ? (
           <div className="px-4 py-3">
             <QueryError
@@ -154,7 +157,7 @@ export function EnrichmentQueue() {
         {footer.more > 0 ? (
           <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs">
             <span className="text-muted-foreground">
-              {footer.more} more {paused ? "waiting" : "queued"}
+              {footer.more} more queued
             </span>
             {footer.action === "show-all" ? (
               <Button

@@ -14,7 +14,7 @@ vi.mock("@/db/runBatch", () => database.runBatchModule);
 
 import { db } from "@/db";
 import { member, user } from "@/db/schema";
-import { createActivitySchema } from "@/types/schemas/activities";
+import { createActivitySchema, TaskDue } from "@/types/schemas/activities";
 import { ActivityService } from "./ActivityService";
 
 const A = "org_a";
@@ -168,17 +168,37 @@ describe("ActivityService", () => {
 
     const upcoming = await ActivityService.timeline(A, {
       record: acme,
-      filter: "upcoming",
+      filter: "open-tasks",
       limit: 30,
     });
     expect(upcoming.entries).toMatchObject([
       { subject: "Send the contract", dueAt: "2026-10-20T17:00:00.000Z" },
     ]);
+    for (const due of [TaskDue.Overdue, TaskDue.Upcoming, TaskDue.Undated]) {
+      const filtered = await ActivityService.timeline(A, {
+        record: acme,
+        filter: "all",
+        due,
+        limit: 30,
+      });
+      expect(filtered.entries.every((entry) => entry.type === "TASK")).toBe(
+        true,
+      );
+      expect(filtered.entries.map((entry) => entry.subject)).toEqual(
+        due === TaskDue.Undated
+          ? ["Book a demo"]
+          : (due === TaskDue.Overdue) ===
+              Date.parse("2026-10-20T17:00:00Z") < Date.now()
+            ? ["Send the contract"]
+            : [],
+      );
+    }
     expect(await ActivityService.timelineCounts(A, acme)).toEqual({
       all: 6,
-      notes: 2,
-      upcoming: 1,
-      done: 1,
+      notes: 1,
+      calls: 1,
+      "open-tasks": 1,
+      "completed-tasks": 1,
       email: 0,
       meetings: 0,
     });

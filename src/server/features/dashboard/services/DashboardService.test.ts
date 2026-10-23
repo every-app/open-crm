@@ -74,6 +74,9 @@ describe("DashboardService", () => {
 
     const mine = await DashboardService.summary("org_a", "user_a", "me");
     expect(mine).toMatchObject({
+      firstCompany: { id: "acme", name: "Acme" },
+      hasDeals: true,
+      multipleOwners: true,
       reportingCurrency: "USD",
       unconverted: { count: 2, currencies: ["CHF", "USD"] },
       pipeline: { total: 3500.5, count: 4 },
@@ -132,6 +135,7 @@ describe("DashboardService", () => {
 
     const summary = await DashboardService.summary("org_a", "user_a", "me");
     expect(summary).toMatchObject({
+      multipleOwners: false,
       wonThisMonth: { count: 2, value: 3000 },
       wonLastMonth: { count: 1, value: 500 },
       performance: {
@@ -155,14 +159,15 @@ describe("DashboardService", () => {
   it("shows my overdue tasks and recent activity, and nothing of another organization", async () => {
     await deal("demo");
     await database.exec(`
-        INSERT INTO activity (id, organization_id, type, subject, company_id, created_by_id, due_at, created_at) VALUES
-          ('late', 'org_a', 'TASK', 'Chase', 'acme', 'user_a', '2000-01-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z'),
-          ('later', 'org_a', 'TASK', 'Renew', 'acme', 'user_a', '2999-01-01T00:00:00.000Z', '2026-10-02T00:00:00.000Z'),
-          ('note', 'org_a', 'NOTE', 'Theirs', 'acme', 'user_c', NULL, '2026-10-03T00:00:00.000Z');
+        INSERT INTO activity (id, organization_id, type, subject, company_id, deal_id, created_by_id, due_at, created_at) VALUES
+          ('late', 'org_a', 'TASK', 'Chase', 'acme', 'demo', 'user_a', '2000-01-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z'),
+          ('later', 'org_a', 'TASK', 'Renew', 'acme', NULL, 'user_a', '2999-01-01T00:00:00.000Z', '2026-10-02T00:00:00.000Z'),
+          ('note', 'org_a', 'NOTE', 'Theirs', 'acme', NULL, 'user_c', NULL, '2026-10-03T00:00:00.000Z');
       `);
 
     const mine = await DashboardService.summary("org_a", "user_a", "me");
     expect(mine.overdueTasks.map((task) => task.id)).toEqual(["late"]);
+    expect(mine.biggestOpen[0]?.followUpAt).toBe("2000-01-01T00:00:00.000Z");
     expect(mine.recentActivity.map((entry) => entry.id)).toEqual([
       "later",
       "late",
@@ -184,6 +189,9 @@ describe("DashboardService", () => {
       "everyone",
     );
     expect(theirs).toMatchObject({
+      firstCompany: null,
+      hasDeals: false,
+      multipleOwners: false,
       unconverted: { count: 0 },
       pipeline: { total: 0, count: 0 },
       biggestOpen: [],

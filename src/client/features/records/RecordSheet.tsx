@@ -1,6 +1,5 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, Fragment, type ReactNode } from "react";
 import { ArrowLeft, XIcon } from "lucide-react";
-import { EmptyState } from "@/client/components/EmptyState";
 import { SkeletonTableRows } from "@/client/components/SkeletonPresets";
 import { Button } from "@/client/components/ui/button";
 import { Separator } from "@/client/components/ui/separator";
@@ -18,7 +17,7 @@ import {
   TabsTrigger,
 } from "@/client/components/ui/tabs";
 import { RecordTimeline } from "@/client/features/activities/RecordTimeline";
-import { RecordAgentPanel } from "@/client/features/agent/RecordAgentPanel";
+import { ArchivedRecordNotice } from "./ArchivedRecordNotice";
 import {
   useRecordStack,
   useRecordTab,
@@ -30,9 +29,7 @@ import type { RecordRef } from "@/shared/records";
 // (RecordSheetHost). The shell is the same for companies, contacts and
 // deals: a header with Back (when it sits on another record's sheet), the
 // record's picture, name, status and actions, and Close; optional stats; and
-// the tabs: the record's own Overview, the records it lists (a company's
-// Contacts and Deals, a contact's Deals, a deal's Contacts), its Activity
-// timeline and its Agent.
+// two tabs: Details with related records, and the Activity timeline.
 
 export function RecordSheet({
   open,
@@ -80,10 +77,9 @@ type RecordHeader = {
   actions?: ReactNode;
 };
 
-/** A tab between Overview and Activity, counted when it lists anything. */
-type RecordListTab = {
+/** A related-record section appended to Details. */
+type RelatedSection = {
   value: "contacts" | "deals";
-  count: number;
   content: ReactNode;
 };
 
@@ -98,13 +94,15 @@ export function RecordSheetFrame({
   stats,
   overview,
   lists = [],
+  archivedAt,
 }: {
   record: RecordRef;
   header: RecordHeader | undefined;
   error?: ReactNode;
   stats?: ReactNode;
   overview: ReactNode;
-  lists?: RecordListTab[];
+  lists?: RelatedSection[];
+  archivedAt?: string | null;
 }) {
   const { stack, back, close } = useRecordStack();
   const [tab, setTab] = useRecordTab();
@@ -170,6 +168,7 @@ export function RecordSheetFrame({
       </div>
       {header ? (
         <>
+          {archivedAt ? <ArchivedRecordNotice archivedAt={archivedAt} /> : null}
           {stats}
           <RecordTabs
             record={record}
@@ -188,14 +187,6 @@ export function RecordSheetFrame({
   );
 }
 
-const TAB_LABELS: Record<RecordTab, string> = {
-  overview: "Overview",
-  contacts: "Contacts",
-  deals: "Deals",
-  activity: "Activity",
-  agent: "Agent",
-};
-
 function RecordTabs({
   record,
   tab,
@@ -207,76 +198,38 @@ function RecordTabs({
   tab: RecordTab;
   onTabChange: (tab: RecordTab) => void;
   overview: ReactNode;
-  lists: RecordListTab[];
+  lists: RelatedSection[];
 }) {
-  const tabs: RecordTab[] = [
-    "overview",
-    ...lists.map((list) => list.value),
-    "activity",
-    "agent",
-  ];
-  // A link can name a tab this kind of record doesn't have.
-  const shown = tabs.includes(tab) ? tab : "overview";
-  // The agent's chat keeps its connection once opened, so switching tabs
-  // doesn't drop a conversation.
-  const [agentOpened, setAgentOpened] = useState(shown === "agent");
-  if (shown === "agent" && !agentOpened) setAgentOpened(true);
-
   return (
     <Tabs
-      value={shown}
+      value={tab}
       onValueChange={(value) => {
-        const next = tabs.find((candidate) => candidate === value);
-        if (next) onTabChange(next);
+        if (value === "details") onTabChange("details");
+        else if (value === "activity") onTabChange("activity");
       }}
       className="min-h-0 flex-1 gap-0"
     >
       <TabsList
         variant="line"
-        // On a phone the tabs scroll sideways rather than cut the last off.
-        className="w-full shrink-0 justify-start gap-6 overflow-x-auto border-b border-border px-5 [scrollbar-width:none] *:flex-none"
+        className="w-full shrink-0 justify-start gap-6 border-b border-border px-5"
       >
-        {tabs.map((value) => {
-          const count = lists.find((list) => list.value === value)?.count;
-          return (
-            <TabsTrigger key={value} value={value}>
-              {TAB_LABELS[value]}
-              {count ? (
-                <span className="font-normal text-muted-foreground tabular-nums">
-                  {count}
-                </span>
-              ) : null}
-            </TabsTrigger>
-          );
-        })}
+        <TabsTrigger value="details">Details</TabsTrigger>
+        <TabsTrigger value="activity">Activity</TabsTrigger>
       </TabsList>
-      <TabsContent value="overview" className="min-h-0 overflow-y-auto">
+      <TabsContent value="details" className="min-h-0 overflow-y-auto">
         {overview}
+        {lists.map((list) => (
+          <Fragment key={list.value}>{list.content}</Fragment>
+        ))}
       </TabsContent>
-      {lists.map((list) => (
-        <TabsContent
-          key={list.value}
-          value={list.value}
-          className="min-h-0 overflow-y-auto"
-        >
-          {list.content}
-        </TabsContent>
-      ))}
       <TabsContent value="activity" className="min-h-0 overflow-y-auto">
         <RecordTimeline record={record} />
-      </TabsContent>
-      <TabsContent
-        value="agent"
-        keepMounted={agentOpened}
-        className="min-h-0 overflow-y-auto"
-      >
-        {agentOpened ? <RecordAgentPanel record={record} /> : null}
       </TabsContent>
     </Tabs>
   );
 }
 
-/** One section of a record's Overview, with an optional heading action. */
+/** One section of a record's details, with an optional heading action. */
 export function SheetSection({
   title,
   action,
@@ -302,28 +255,6 @@ export function SheetSection({
       ) : null}
       {children}
     </section>
-  );
-}
-
-/** A short "nothing here yet" inside a section. */
-export function SheetEmpty({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <EmptyState
-      variant="plain"
-      size="sm"
-      icon={null}
-      title={title}
-      description={description}
-      action={action}
-    />
   );
 }
 

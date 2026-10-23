@@ -27,8 +27,8 @@ async function updateWorkspace(
   organizationId: string,
   input: UpdateWorkspaceInput,
 ): Promise<Workspace> {
-  const website = normalizeDomain(input.website);
-  if (!website) {
+  const website = input.website ? normalizeDomain(input.website) : null;
+  if (input.website && !website) {
     throw new AppError(
       "VALIDATION_ERROR",
       "That is not a website. Enter the domain, like acme.com.",
@@ -40,7 +40,7 @@ async function updateWorkspace(
     website,
     onboardedAt: before.onboardedAt ?? new Date().toISOString(),
   });
-  if (website !== before.website) {
+  if (website && website !== before.website) {
     await AgentTaskService.workspaceChanged(
       organizationId,
       website,

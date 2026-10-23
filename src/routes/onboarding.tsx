@@ -18,8 +18,8 @@ export const Route = createFileRoute("/onboarding")({
   component: OnboardingPage,
 });
 
-// The first owner or admin to open the CRM names the workspace and says what
-// its website is, so the agent can learn the business. Anyone with nothing to
+// The first owner or admin to open the CRM names the workspace. Its business
+// website can be added now or later. Anyone with nothing to
 // answer here (a member, or anyone once it's done) goes on into the CRM.
 function OnboardingPage() {
   const navigate = useNavigate();
@@ -34,7 +34,7 @@ function OnboardingPage() {
     <main className="flex min-h-[100dvh] items-center justify-center bg-background p-4">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <CardTitle className="text-xl">Tell us about your company</CardTitle>
+          <CardTitle className="text-xl">Name your workspace</CardTitle>
         </CardHeader>
         <CardContent>
           {workspace ? (

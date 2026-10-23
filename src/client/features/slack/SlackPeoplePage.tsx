@@ -36,7 +36,7 @@ export function SlackPeoplePage() {
   const refreshing = refresh.isPending || matches.data?.sync === "syncing";
 
   return (
-    <SettingsPage title="Slack is connected">
+    <SettingsPage title="Slack people">
       <QueryState
         query={matches}
         errorFallback="The people could not be loaded."
@@ -92,7 +92,7 @@ export function SlackPeoplePage() {
                 nativeButton={false}
                 render={<Link to="/settings/connections/slack" />}
               >
-                Continue
+                Done
               </Button>
             </div>
           </SettingsSection>

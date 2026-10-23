@@ -118,7 +118,7 @@ export function AgentActivity({ agentId }: { agentId: string }) {
               <EmptyState
                 kind={kind ? "filtered" : "no-data"}
                 icon={History}
-                media={kind ? "icon" : "rows"}
+                media="icon"
                 variant="plain"
                 title="No changes"
               />
@@ -128,7 +128,6 @@ export function AgentActivity({ agentId }: { agentId: string }) {
                   <span className="w-44 shrink-0">Time</span>
                   <span className="min-w-0 flex-1">Change</span>
                   <span className="w-28 shrink-0">Actor</span>
-                  <span className="w-24 shrink-0 text-right">Request</span>
                 </div>
                 <ol className="divide-y divide-border">
                   {visible.map((event) => (
@@ -161,20 +160,26 @@ function ActivityRow({ event }: { event: AuditEvent }) {
             </span>
           ) : null}
         </span>
-        {detail ? (
-          <span className="mt-0.5 block font-mono text-xs whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
-            {detail}
-          </span>
+        {detail || event.requestId ? (
+          <details className="mt-1 text-xs text-muted-foreground">
+            <summary className="cursor-pointer">Technical details</summary>
+            {detail ? (
+              <pre className="mt-2 whitespace-pre-wrap [overflow-wrap:anywhere]">
+                {detail}
+              </pre>
+            ) : null}
+            {event.requestId ? (
+              <p className="mt-1">
+                Request: <code>{event.requestId}</code>
+              </p>
+            ) : null}
+          </details>
         ) : null}
       </span>
       <span className="shrink-0 text-xs sm:w-28 sm:text-sm">
         <span className="text-muted-foreground sm:hidden">Actor · </span>
         {event.actorName ??
           (event.actorType === "AGENT" ? "The agent" : "The CRM")}
-      </span>
-      <span className="shrink-0 font-mono text-xs text-muted-foreground sm:w-24 sm:pt-0.5 sm:text-right">
-        <span className="font-sans sm:hidden">Request · </span>
-        {event.requestId?.slice(0, 12) ?? "—"}
       </span>
     </li>
   );

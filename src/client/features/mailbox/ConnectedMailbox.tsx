@@ -71,10 +71,27 @@ function resolveLink(error: string): string | undefined {
 
 /** A sync error as the alert shows it: its first sentence, and where to fix it. */
 function explain(provider: MailboxProvider, error: string) {
-  if (provider !== "google") return { summary: error, url: undefined };
+  const requiresAdmin =
+    provider === "microsoft" &&
+    /MailboxNotEnabledForRESTAPI|inactive|soft-deleted|on-premise/i.test(error);
+  const reconnect =
+    /invalid_grant|invalid.credentials|refresh.token|needs reconnecting|consent|unauthori[sz]ed|authentication|token.*expired|access.*revoked/i.test(
+      error,
+    );
   return {
-    summary: error.split(/(?<=\.)\s/)[0] ?? error,
-    url: resolveLink(error),
+    summary: requiresAdmin
+      ? "Ask your Microsoft 365 admin to confirm this is an active Exchange Online mailbox."
+      : reconnect
+        ? "Reconnect your account to restore access."
+        : "Try syncing again. If it still fails, check your account.",
+    title: requiresAdmin
+      ? "Microsoft cannot sync this mailbox"
+      : reconnect
+        ? "Your account needs reconnecting"
+        : "Sync failed",
+    url: provider === "google" ? resolveLink(error) : undefined,
+    requiresAdmin,
+    reconnect,
   };
 }
 
@@ -174,6 +191,17 @@ export function ConnectedMailbox({
   );
   const syncing = connection.sources.some((source) => source.syncing);
   const quiet = connection.hasRefreshToken && failing.length === 0;
+  const needsReconnect =
+    connection.needsReconnect ||
+    !connection.hasRefreshToken ||
+    failing.some(
+      (source) =>
+        source.status === "NEEDS_RECONNECT" ||
+        explain(provider, source.lastError ?? "").reconnect,
+    );
+  const requiresAdmin = failing.some(
+    (source) => explain(provider, source.lastError ?? "").requiresAdmin,
+  );
   const attention =
     insistence > 0 ? "animate-in fade-in-0 zoom-in-95 duration-300" : "";
 
@@ -188,7 +216,7 @@ export function ConnectedMailbox({
           </TitleWithStatus>
         }
         action={
-          connection.needsReconnect ? (
+          needsReconnect ? (
             <Button
               pending={connect.isPending}
               disabled={!status.ready}
@@ -196,13 +224,17 @@ export function ConnectedMailbox({
             >
               Reconnect
             </Button>
-          ) : (
+          ) : requiresAdmin ? null : (
             <Button
               variant="outline"
               pending={checkNow.isPending || syncing}
               onClick={() => checkNow.mutate()}
             >
-              {checkNow.isPending || syncing ? "Checking…" : "Check now"}
+              {checkNow.isPending || syncing
+                ? "Checking…"
+                : failing.length
+                  ? "Retry sync"
+                  : "Check now"}
             </Button>
           )
         }
@@ -210,12 +242,15 @@ export function ConnectedMailbox({
         {!connection.hasRefreshToken ? (
           <Alert key={insistence} variant="destructive" className={attention}>
             <TriangleAlert aria-hidden />
-            <AlertTitle>{copy.name} did not return a refresh token</AlertTitle>
-            <AlertDescription>Disconnect and connect again.</AlertDescription>
+            <AlertTitle>Reconnect {copy.name}</AlertTitle>
+            <AlertDescription>
+              Connect your account again so new email and meetings can keep
+              syncing.
+            </AlertDescription>
           </Alert>
         ) : (
           failing.map((source) => {
-            const { summary, url } = explain(
+            const { summary, title, url } = explain(
               provider,
               source.lastError ?? `${copy.name} needs reconnecting.`,
             );
@@ -226,10 +261,18 @@ export function ConnectedMailbox({
                 className={attention}
               >
                 <TriangleAlert aria-hidden />
-                <AlertTitle>
-                  {SOURCES[source.source].label} sync failed
-                </AlertTitle>
-                <AlertDescription>{summary}</AlertDescription>
+                <AlertTitle>{title}</AlertTitle>
+                <AlertDescription>
+                  {summary}
+                  <details className="mt-2">
+                    <summary className="cursor-pointer">
+                      Technical details
+                    </summary>
+                    <p className="mt-2 break-words">
+                      {source.lastError ?? `${copy.name} needs reconnecting.`}
+                    </p>
+                  </details>
+                </AlertDescription>
                 {url ? (
                   <AlertAction>
                     <Button

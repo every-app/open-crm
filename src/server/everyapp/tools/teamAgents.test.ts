@@ -229,4 +229,46 @@ describe("team agent tools", () => {
       await call("rename_team_agent", { agentId, name, description }),
     ).toMatchObject({ name, description });
   });
+  it("saves private MCP drafts idempotently without activating triggers or crossing organizations", async () => {
+    expect(
+      await failure("save_team_agent_draft", {
+        agentId: "draft/invalid-id",
+        draft: draft(),
+      }),
+    ).toContain("UUID");
+    const agentId = crypto.randomUUID();
+    const input = { agentId, draft: draft() };
+    const first = await call("save_team_agent_draft", input);
+    expect(first).toMatchObject({
+      saved: true,
+      agentId,
+      versionNumber: 1,
+      status: "READY",
+    });
+    expect(await call("save_team_agent_draft", input)).toEqual(first);
+    expect(await call("get_team_agent", { agentId })).toMatchObject({
+      status: "DRAFT",
+      currentVersion: null,
+      reviewVersion: { number: 1 },
+      triggers: [{ type: "MANUAL", enabled: false }],
+    });
+    expect(await failure("run_team_agent", { agentId })).toBe(
+      "This agent isn't live. Deploy it, or resume it, before it runs.",
+    );
+    expect(await failure("save_team_agent_draft", input, { as: member })).toBe(
+      "The requested record was not found.",
+    );
+    expect(await failure("get_team_agent", { agentId }, { as: bo })).toBe(
+      "The requested record was not found.",
+    );
+    expect(await failure("save_team_agent_draft", input, { as: bo })).toContain(
+      "This agent changed while saving.",
+    );
+    expect(
+      await failure("save_team_agent_draft", input, { scopes: ["mcp:read"] }),
+    ).toBeTruthy();
+    expect(await call("get_team_agent", { agentId })).toMatchObject({
+      reviewVersion: { number: 1 },
+    });
+  });
 });

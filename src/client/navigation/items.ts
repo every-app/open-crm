@@ -1,10 +1,9 @@
 import {
-  Building2,
+  BookUser,
   CircleDollarSign,
   LayoutDashboard,
-  MessagesSquare,
+  Bot,
   Settings,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 import { linkOptions, type LinkOptions } from "@tanstack/react-router";
@@ -13,8 +12,7 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   link: LinkOptions;
-  /** Another path prefix that counts as this item. */
-  related?: string;
+  activePaths?: readonly string[];
 };
 
 /** The primary navigation, in the original CRM's order. */
@@ -30,26 +28,24 @@ export const navItems: NavItem[] = [
     }),
   },
   {
-    label: "Chat",
-    icon: MessagesSquare,
-    link: linkOptions({ to: "/chat" }),
-    // Team agents come out of chats, so their pages sit under Chat too.
-    related: "/agents",
-  },
-  {
-    label: "Companies",
-    icon: Building2,
+    label: "Directory",
+    icon: BookUser,
     link: linkOptions({ to: "/companies" }),
+    activePaths: ["/contacts"],
   },
-  { label: "Contacts", icon: Users, link: linkOptions({ to: "/contacts" }) },
   {
     label: "Deals",
     icon: CircleDollarSign,
     link: linkOptions({ to: "/deals" }),
   },
+  {
+    label: "Agents",
+    icon: Bot,
+    link: linkOptions({ to: "/agents" }),
+  },
 ];
 
-/** Settings, at the sidebar's foot under the way back to Every App. */
+/** Workspace utilities stay at the sidebar's foot. */
 export const settingsNavItem: NavItem = {
   label: "Settings",
   icon: Settings,
