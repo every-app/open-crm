@@ -50,7 +50,7 @@ Open CRM is the open-source CRM from [trycompai/crm](https://github.com/trycompa
 
 - The CRM runs only behind an Every App gateway. Run it with `pnpm dev` (`everyapp dev`); deploy it only with `pnpm deploy:everyapp` (`everyapp deploy`), never with `cf deploy` or wrangler.
 - `everyapp.config.ts` is the manifest: the CRM's resources (D1, the agent's Durable Object, its migrations), the gateway providers and capabilities it uses, its own `secrets` and its `public` routes. A secret the CRM reads must be listed there before `everyapp secret set` or `.dev.vars` carries it. Keys for local runs go in `.dev.vars` (copy `.dev.vars.example`), never in git.
-- The everyapp skill, with every command and flag, lives in the platform checkout at `../private-every-app/packages/cli/skills/everyapp/SKILL.md`. Read it before running an everyapp command; never guess a flag.
+- The everyapp skill, with every command and flag, is in the vendored CLI at `node_modules/everyapp/skills/everyapp/SKILL.md`. Read it before running an everyapp command; never guess a flag. The CLI and the SDK are vendored tarballs (`vendor/README.md`); `pnpm everyapp deploy` from here can't update the Gateway, so deploys run from an Every App checkout (README, "Deploy it").
 
 ## Documentation audience
 
