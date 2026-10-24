@@ -7,7 +7,7 @@ OpenCRM runs behind an Every App gateway. You deploy your own copy (a fork) to a
 - **An Every App gateway.** The gateway is a Worker in your Cloudflare account that signs people in, decides who may open each app, and holds the provider keys apps use. If you don't have one yet, the steps below set it up.
 - **A Cloudflare account on Workers Paid, with a domain on Cloudflare.** The gateway lives at a subdomain of it (for example `apps.your-company.com`) and the CRM one level below (`crm.apps.your-company.com`).
 - **Node.js 22.18 or newer**, and **pnpm 10**.
-- **A checkout of the Every App repository** beside this one, at `../private-every-app`, with `pnpm install` run there. The Every App SDK and CLI are not published yet, so the CRM's `package.json` links them from that checkout by path. The [release notes](release-notes.md) name the Every App commit each release needs.
+- **A checkout of the Every App repository** beside this one, at `../private-every-app`, with `pnpm install` run there first (it builds the SDK), then here. The Every App SDK and CLI are not published yet, so the CRM's `package.json` links them from that checkout by path: a lone clone of the CRM installs with dangling links, and `pnpm dev` fails with `everyapp: command not found`. The [release notes](release-notes.md) name the Every App commit each release needs.
 
 ```text
 projects/
@@ -18,6 +18,8 @@ projects/
 ## Deploy a fork
 
 ```bash
+git clone git@github.com:every-app/private-every-app.git private-every-app
+pnpm -C private-every-app install   # once; builds the SDK
 git clone <your fork of this repository> open-crm
 cd open-crm
 pnpm install
@@ -142,7 +144,7 @@ Research and team agents read web pages only from the record's own site and page
 The tracking tag runs on your own website, for visitors who aren't signed in:
 
 - If your site sends a Content-Security-Policy, allow the CRM's host (`https://<crm host>`) in `script-src` and `connect-src`.
-- If Cloudflare Access protects your gateway's app hosts, bypass `/t/*` and `/health` on the CRM's host. The Every App repository's `docs/runbooks/cloudflare-access.md` shows how.
+- If Cloudflare Access protects your gateway (`pnpm everyapp access on`), there is nothing to add by hand: `access on`, and every deploy after it, lets the routes the CRM's manifest marks `public` (`/t/*`, `/t/e` and `/health`) through without a login.
 - The collector takes at most 600 events a minute from a site and 120 from one visitor, 120 requests a minute from one address to one site (600 across sites), and 50,000 events a day per organization. Forms create at most 50 contacts an hour. Anything over is dropped.
 - Add `data-crm-ignore` to a form or a field to keep it out of tracking. Forms with a password field are never sent.
 
@@ -155,12 +157,10 @@ pnpm dev
 
 This starts the CRM behind a local gateway at http://crm.localhost:8787, signed in as a seeded dev owner. The first visit asks for a workspace name and website. Use `pnpm dev --port 8840` to pick another port.
 
-There is no gateway holding keys locally, so the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from a `.dev.vars` file in this checkout. Both are optional; without them the agent shows as not set up.
+There is no gateway holding keys locally, so the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from a `.dev.vars` file in this checkout. Both are optional; without them the agent shows as not set up, and `pnpm dev` names which are missing.
 
 ```bash
-# .dev.vars
-OPENROUTER_API_KEY=...
-CONTEXT_API_KEY=...
+cp .dev.vars.example .dev.vars   # then fill in OPENROUTER_API_KEY and CONTEXT_API_KEY
 ```
 
 ## Health checks
@@ -227,7 +227,7 @@ pnpm ops requeue <task id>                                # a stuck task, back o
 Releases are tagged (`v0.1.0`), and the [release notes](release-notes.md) list each one's breaking changes, new settings, migrations and the Every App commit it needs.
 
 1. Merge the release's tag into your fork, and update the Every App checkout to at least the commit the notes name. Run `pnpm install` in both.
-2. If the Every App checkout changed, run `pnpm everyapp setup` to upgrade the gateway. It keeps the gateway's data, users and apps.
+2. If the Every App checkout changed, run `pnpm everyapp update` to upgrade the gateway. It keeps the gateway's data, users and apps.
 3. Set any new settings the notes list, then run `pnpm deploy:everyapp` from the CRM checkout.
 
 The deploy migrates the CRM's database after taking a restore point (a D1 Time Travel bookmark, which it prints), then uploads the new version.

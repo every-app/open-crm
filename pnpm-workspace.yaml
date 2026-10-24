@@ -36,6 +36,18 @@ minimumReleaseAgeExclude:
   - "js-yaml"
   - "dompurify@3.4.16"
 
+# Every dependency with an install script must be listed here, or
+# `pnpm install` warns "Ignored build scripts". esbuild and workerd fetch their
+# binaries. The three marked false are not built today and need not be:
+# just-bash's optional natives (@mongodb-js/zstd, node-liblzma) and
+# core-js-pure's funding notice (via @babel/runtime-corejs3).
+allowBuilds:
+  "@mongodb-js/zstd": false
+  core-js-pure: false
+  esbuild: true
+  node-liblzma: false
+  workerd: true
+
 # Security floors for transitive dependencies with published advisories,
 # carried over from OpenSEO. Ranges are major-bounded (^) on purpose: an
 # override REPLACES the parent's range, so an open-ended >= floor would let a

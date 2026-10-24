@@ -1,0 +1,3 @@
+# Copy to .dev.vars (gitignored) and fill in: the agent's keys for local runs, which no gateway holds locally; `pnpm dev` names what is missing.
+OPENROUTER_API_KEY=
+CONTEXT_API_KEY=

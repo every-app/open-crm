@@ -46,7 +46,7 @@ pnpm install
 pnpm dev
 ```
 
-`everyapp dev` applies the D1 migrations to a local database in `.cloudflare/state`, then starts a gateway-lite on `http://crm.localhost:8787` with a seeded owner (`dev@everyapp.localhost` in `dev-org`) and the real identity checks. With no gateway binding locally, the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from `.dev.vars`.
+`everyapp dev` applies the D1 migrations to a local database in `.cloudflare/state`, then starts a gateway-lite on `http://crm.localhost:8787` with a seeded owner (`dev@everyapp.localhost` in `dev-org`) and the real identity checks. With no gateway binding locally, the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from `.dev.vars` (`.dev.vars.example` lists them; `pnpm dev` names any that are missing).
 
 ## Deploy it
 
