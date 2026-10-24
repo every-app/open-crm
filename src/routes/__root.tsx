@@ -13,7 +13,10 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import * as React from "react";
 import { DefaultCatchBoundary } from "@/client/components/DefaultCatchBoundary";
 import { PRODUCT_NAME } from "@/client/lib/page-title";
-import { themePreferenceInitScript } from "@/client/lib/theme";
+import {
+  themePreferenceInitScript,
+  useThemePreference,
+} from "@/client/lib/theme";
 import { NotFound } from "@/client/components/NotFound";
 import { TooltipProvider } from "@/client/components/ui/tooltip";
 import appCss from "@/client/styles/app.css?url";
@@ -78,6 +81,21 @@ function AppLayout() {
   return <Outlet />;
 }
 
+/**
+ * Toasts in the app's theme. Sonner's "system" follows prefers-color-scheme
+ * exactly as the app's "system" preference does.
+ */
+function ThemedToaster() {
+  const { themePreference } = useThemePreference();
+  return (
+    <Toaster
+      theme={themePreference}
+      position="bottom-right"
+      mobileOffset={{ bottom: 100 }}
+    />
+  );
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   const showDevtools =
     import.meta.env.DEV && import.meta.env.VITE_SHOW_DEVTOOLS !== "false";
@@ -96,7 +114,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <QueryClientProvider client={queryClient}>
             <TooltipProvider>
               {children}
-              <Toaster position="bottom-right" mobileOffset={{ bottom: 100 }} />
+              <ThemedToaster />
               {showDevtools ? (
                 <TanStackDevtools
                   config={{ position: "bottom-right" }}

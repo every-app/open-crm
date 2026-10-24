@@ -19,6 +19,7 @@ import {
 } from "@/client/components/ui/popover";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import { EntityLogo, PersonAvatar } from "@/client/features/records/cells";
+import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 import type { getEnrichmentQueue } from "@/serverFunctions/agent";
 import { ENRICHMENT_PAGE, ENRICHMENT_PAGE_MAX } from "@/types/schemas/agent";
 import { enrichmentQueueQueryOptions } from "./agentQueries";
@@ -58,6 +59,7 @@ const QUEUE_BUTTON =
  */
 export function EnrichmentQueue() {
   const { setOpenMobile } = useSidebar();
+  const canManage = useCanManageWorkspace();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [limit, setLimit] = useState(ENRICHMENT_PAGE);
@@ -99,7 +101,8 @@ export function EnrichmentQueue() {
         >
           <span className={cn("size-1.5 rounded-full", STATE_DOTS.waiting)} />
         </span>
-        <span>Needs setup</span>
+        {/* A member can't set anything up: "Needs setup" reads as a task. */}
+        <span>{canManage ? "Needs setup" : "Research paused"}</span>
       </SidebarMenuButton>
     );
   }

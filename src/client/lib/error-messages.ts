@@ -5,8 +5,7 @@ import {
 } from "@/shared/error-codes";
 
 /** Copy for an error we did not expect. */
-const UNEXPECTED_ERROR_MESSAGE =
-  "Something went wrong. Please try again, or check the server logs for details.";
+const UNEXPECTED_ERROR_MESSAGE = "Something went wrong. Try again in a moment.";
 
 const STANDARD_MESSAGES: Record<ErrorCode, string> = {
   UNAUTHENTICATED: "Please sign in on Every App and try again.",
@@ -20,9 +19,9 @@ const STANDARD_MESSAGES: Record<ErrorCode, string> = {
   UPSTREAM_UNAVAILABLE:
     "A provider is temporarily unavailable. Please retry in a moment.",
   AGENT_UNAVAILABLE:
-    "The research agent isn't set up on your Every App gateway yet. An admin sets OPENROUTER_API_KEY with `everyapp secret set OPENROUTER_API_KEY`.",
+    "The research agent isn't set up on this Every App gateway yet. An owner or admin runs: pnpm everyapp secret set OPENROUTER_API_KEY",
   INTEGRATION_UNAVAILABLE:
-    "That connection isn't set up on your Every App gateway yet. An admin sets it up there.",
+    "That connection isn't set up on this Every App gateway yet. An admin sets it up there.",
   TEAM_AGENT_NOT_LIVE:
     "This agent isn't live. Deploy it, or resume it, before it runs.",
   TEAM_AGENT_BUSY:

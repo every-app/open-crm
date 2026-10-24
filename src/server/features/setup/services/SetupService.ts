@@ -2,10 +2,11 @@ import { AgentAvailabilityService } from "@/server/features/agent/services/Agent
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 import type { AgentAvailability } from "@/shared/agent-availability";
 
-// The gateway's keys for the agent, as General's settings rows show them:
-// whether each is there and, while it isn't, how it gets there. Nothing here
-// is ever a key: the gateway holds them all, and an owner or admin sets each
-// with one command.
+// The gateway's keys for the agent, as Settings → AI's rows show them:
+// whether each is there and, while it isn't, what that costs and how it gets
+// there. Nothing here is ever a key: the gateway holds them all, and an owner
+// or admin sets each with one command, which everyone sees (a name, never a
+// value) so a member knows what to ask for.
 
 /** Set up, being found out (the gateway is connected, nothing asked yet), or not. */
 type SetupState = "done" | "checking" | "missing";
@@ -29,11 +30,19 @@ const KEYS: KeySpec[] = [
         : availability.model === "unchecked"
           ? "checking"
           : "missing",
+    // The first words say what being unset costs. The gateway's own refusal
+    // sentence is never relayed: it is written for its operator.
     note: (availability) => {
-      if (availability.model === "missing") {
-        return "In local development, put OPENROUTER_API_KEY in .dev.vars.";
+      switch (availability.model) {
+        case "missing":
+          return "Research is paused until the agent has a model. In local development, put OPENROUTER_API_KEY in .dev.vars.";
+        case "refused":
+          return "Research is paused: this Every App gateway holds no OpenRouter key yet.";
+        case "unchecked":
+          return "Checked on the agent's first run.";
+        default:
+          return null;
       }
-      return availability.modelRefusal;
     },
   },
   {
@@ -47,18 +56,12 @@ type SetupItem = {
   id: KeySpec["id"];
   state: SetupState;
   note: string | null;
-  /** The command that sets it up, for owners and admins. */
+  /** The command that sets it up; an owner or admin runs it. */
   command: string | null;
 };
 
-/**
- * The gateway's keys for the organization, which runs its own gateway.
- * Commands are shown only to those who `canManage`.
- */
-async function checklist(
-  organizationId: string,
-  canManage: boolean,
-): Promise<{
+/** The gateway's keys for the organization, which runs its own gateway. */
+async function checklist(organizationId: string): Promise<{
   items: SetupItem[];
   /** `everyapp dev`: the keys come from .dev.vars, not a gateway. */
   local: boolean;
@@ -68,9 +71,6 @@ async function checklist(
     getOptionalEnvValue("EVERYAPP_DEV"),
   ]);
   const local = Boolean(dev);
-  // The keys go in .dev.vars locally (each item's note says so), else by
-  // command.
-  const showCommands = canManage && !local;
   const items = KEYS.map((spec): SetupItem => {
     const state = spec.check(availability);
     return {
@@ -83,8 +83,10 @@ async function checklist(
             (local && state === "missing"
               ? `In local development, put ${spec.setting} in .dev.vars.`
               : null)),
+      // The keys go in .dev.vars locally (each item's note says so), else by
+      // command, shown until the key is known to be there.
       command:
-        showCommands && state === "missing"
+        !local && state !== "done"
           ? `pnpm everyapp secret set ${spec.setting}`
           : null,
     };

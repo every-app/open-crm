@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Bot } from "lucide-react";
+import { CopyButton } from "@/client/components/CopyButton";
 import { EmptyState } from "@/client/components/EmptyState";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryState } from "@/client/components/QueryState";
@@ -10,6 +11,11 @@ import { LocalDateTime } from "@/client/features/records/LocalDateTime";
 import { teamAgentsQueryOptions } from "./teamAgentQueries";
 import { STATUS_COPY } from "./teamAgentCopy";
 
+// An ask that works on a fresh install: a SCHEDULE trigger and
+// crm.activity.create, nothing that needs Slack or a mailbox connected.
+const EXAMPLE_ASK =
+  "Create a team agent that runs every Monday morning and writes a task on each open deal that hasn't moved in two weeks.";
+
 /** The team's durable automations (the CRM's team agents index). */
 export function AgentsPage() {
   const agents = useQuery(teamAgentsQueryOptions());
@@ -18,7 +24,7 @@ export function AgentsPage() {
     <div className="px-4 pt-6 pb-24 md:px-8 md:pt-8 md:pb-12">
       <div className="mx-auto max-w-5xl space-y-6">
         <PageHeader
-          title="Team agents"
+          title="Agents"
           actions={
             <Button
               variant="outline"
@@ -40,8 +46,25 @@ export function AgentsPage() {
                 media="icon"
                 variant="card"
                 size="lg"
-                title="No team agents yet"
-                description="Ask your AI client to create an agent, then review and deploy its draft here."
+                title="No agents yet"
+                description={
+                  <>
+                    Ask your AI client to create an agent, then review and
+                    deploy its draft here. Try asking:
+                    <div className="mt-3 flex max-w-md items-start gap-2 text-left">
+                      <p className="min-w-0 rounded-lg bg-muted p-3 text-sm text-foreground">
+                        {EXAMPLE_ASK}
+                      </p>
+                      <CopyButton
+                        value={EXAMPLE_ASK}
+                        label="Copy the example"
+                        successMessage="Example copied"
+                        variant="outline"
+                        size="icon-sm"
+                      />
+                    </div>
+                  </>
+                }
                 action={
                   <Button
                     nativeButton={false}

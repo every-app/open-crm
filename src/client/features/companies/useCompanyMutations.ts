@@ -1,7 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  pausedResearchMessage,
+  useAgentPaused,
+} from "@/client/features/agent/AgentPaused";
 import { companyKeys } from "@/client/features/companies/companyQueries";
 import { useInvalidateRecords } from "@/client/features/records/recordQueries";
+import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
@@ -36,6 +41,8 @@ export function useCompanyMutations(
 ) {
   const invalidate = useInvalidateRecords();
   const record = companyKeys.detail(companyId);
+  const paused = useAgentPaused();
+  const canManage = useCanManageWorkspace();
 
   const update = useMutation({
     mutationFn: (patch: CompanyPatch) =>
@@ -75,7 +82,14 @@ export function useCompanyMutations(
   const enrich = useMutation({
     mutationFn: () => enrichCompany({ data: { id: companyId } }),
     onSuccess: async (result) => {
-      toast.success(result.queued ? "Looking it up." : "Already running.");
+      // The request is queued either way; while the agent's model isn't set
+      // up it runs by itself once the key lands, so say so instead of
+      // "Looking it up."
+      if (paused) {
+        toast.warning(pausedResearchMessage(canManage));
+      } else {
+        toast.success(result.queued ? "Looking it up." : "Already running.");
+      }
       await invalidate();
     },
   });

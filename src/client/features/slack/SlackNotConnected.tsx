@@ -122,7 +122,7 @@ export function SlackNotConnected({
         </SettingsSection>
       ) : (
         <SettingsSection
-          title="Slack is not configured"
+          title="Slack isn't set up yet"
           description={
             status.setup ? undefined : notSetUpCopy("Slack", status.settings)
           }

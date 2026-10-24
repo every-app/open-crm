@@ -5,7 +5,7 @@ const STATES = {
   connected: { label: "Connected", variant: "success" },
   attention: { label: "Needs attention", variant: "warning" },
   disconnected: { label: "Not connected", variant: "outline" },
-  unconfigured: { label: "Not configured", variant: "warning" },
+  unconfigured: { label: "Not set up", variant: "warning" },
   paused: { label: "Paused", variant: "secondary" },
 } as const;
 

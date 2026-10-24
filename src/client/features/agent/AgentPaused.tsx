@@ -34,14 +34,25 @@ export function useAgentPaused(): boolean {
 }
 
 /**
- * The agent's model isn't set up, and who sets it up: Settings → General for
- * an owner or admin, an owner or admin for everyone else.
+ * What Refresh research answers while the agent is paused: the request is
+ * queued and runs by itself once the model is set up.
  */
-export function ModelNotSetUp() {
+export function pausedResearchMessage(canManage: boolean): string {
+  return canManage
+    ? "Queued. Research is paused until the agent's model is set up in Settings → AI."
+    : "Queued. Research is paused until an owner or admin sets up the agent's model.";
+}
+
+/**
+ * The agent's model isn't set up, and who sets it up: Settings → AI for an
+ * owner or admin, an owner or admin for everyone else. `consequence` says
+ * what that costs where it matters ("Runs fail until it is.").
+ */
+export function ModelNotSetUp({ consequence }: { consequence?: string }) {
   const canManage = useCanManageWorkspace();
   return (
     <>
-      The agent's model isn't set up.{" "}
+      The agent's model isn't set up. {consequence ? `${consequence} ` : null}
       {canManage ? (
         <Link to="/settings/ai" hash="model" className={LINK}>
           Set up research
@@ -64,7 +75,7 @@ export function WaitingForSetup() {
         openOnHover
         delay={150}
         onClick={(event) => event.stopPropagation()}
-        className="inline-flex cursor-help items-center gap-1.5 rounded-sm text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex cursor-help items-center gap-1.5 rounded-sm text-xs whitespace-nowrap text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span
           aria-hidden
@@ -79,7 +90,7 @@ export function WaitingForSetup() {
       >
         <PopoverTitle className="text-xs">The agent is paused</PopoverTitle>
         <p className="text-muted-foreground">
-          <ModelNotSetUp />
+          <ModelNotSetUp consequence="Research resumes on its own once it is." />
         </p>
       </PopoverContent>
     </Popover>

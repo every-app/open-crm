@@ -19,7 +19,7 @@ import { AgentRunRepository } from "../repositories/AgentRunRepository";
 export const MODEL_UNAVAILABLE = {
   code: "MODEL_UNAVAILABLE",
   message:
-    "The agent's model is not available on this install: the Every App gateway holds no OPENROUTER_API_KEY (in local development, set it in .dev.vars).",
+    "The run couldn't start: the agent's model isn't set up on this Every App gateway yet. An owner or admin runs: pnpm everyapp secret set OPENROUTER_API_KEY",
 } as const;
 
 type Actor = { type: "USER"; userId: string } | { type: "AGENT" | "SYSTEM" };

@@ -1,7 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  pausedResearchMessage,
+  useAgentPaused,
+} from "@/client/features/agent/AgentPaused";
 import { contactKeys } from "@/client/features/contacts/contactQueries";
 import { useInvalidateRecords } from "@/client/features/records/recordQueries";
+import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
@@ -47,6 +52,8 @@ export function useContactMutations(
 ) {
   const invalidate = useInvalidateRecords();
   const record = contactKeys.detail(contactId);
+  const paused = useAgentPaused();
+  const canManage = useCanManageWorkspace();
 
   const update = useMutation({
     mutationFn: (patch: ContactPatch) =>
@@ -86,9 +93,15 @@ export function useContactMutations(
   const enrich = useMutation({
     mutationFn: () => enrichContact({ data: { id: contactId } }),
     onSuccess: async (result) => {
-      toast.success(
-        result.queued ? "Taking another look." : "Already running.",
-      );
+      // Queued either way; while the agent's model isn't set up it runs by
+      // itself once the key lands, so say so instead of "Taking another look."
+      if (paused) {
+        toast.warning(pausedResearchMessage(canManage));
+      } else {
+        toast.success(
+          result.queued ? "Taking another look." : "Already running.",
+        );
+      }
       await invalidate();
     },
   });

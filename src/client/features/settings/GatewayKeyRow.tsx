@@ -11,7 +11,7 @@ import { setupChecklistQueryOptions } from "@/client/features/setup/setupQueries
 const STATUS = {
   done: { label: "Connected", variant: "success" },
   checking: { label: "Not checked yet", variant: "secondary" },
-  missing: { label: "Not connected", variant: "warning" },
+  missing: { label: "Not set up", variant: "warning" },
 } as const;
 
 /**
@@ -40,23 +40,28 @@ export function GatewayKeyRow({
   }
 
   const status = STATUS[item.state];
-  // Who sets it, for a member; an owner or admin gets the command.
-  const fallback =
-    item.state === "missing" && !checklist.local && !canManage
-      ? "An owner or an admin sets it up."
-      : null;
 
   return (
     <SettingsRow
       label={label}
       description={
-        item.note || fallback || item.command ? (
+        item.note || item.command ? (
           <div className="space-y-2">
             {item.note ? <p>{item.note}</p> : null}
-            {fallback ? <p>{fallback}</p> : null}
             {item.command ? (
               <>
-                <p>Run from your Every App gateway:</p>
+                {/* An owner or admin runs it; a member knows what to ask for.
+                    While "checking" (the gateway is connected, nothing has
+                    asked the model yet) the key may already be there. */}
+                <p>
+                  {item.state === "checking"
+                    ? canManage
+                      ? "If it isn't set yet, run from your Every App checkout:"
+                      : "If it isn't set yet, ask an owner or admin to run:"
+                    : canManage
+                      ? "Run from your Every App checkout:"
+                      : "Ask an owner or admin to run:"}
+                </p>
                 <SetupCommand command={item.command} label={label} />
               </>
             ) : null}

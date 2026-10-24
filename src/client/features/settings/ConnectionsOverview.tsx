@@ -99,7 +99,11 @@ export function ConnectionsOverview() {
       <SettingsSection title="Email and Slack">
         <SettingsCard>
           {connections.map((connection) => (
-            <ConnectionRow key={connection.name} connection={connection} />
+            <ConnectionRow
+              key={connection.name}
+              connection={connection}
+              canManage={canManage}
+            />
           ))}
         </SettingsCard>
       </SettingsSection>
@@ -108,10 +112,26 @@ export function ConnectionsOverview() {
   );
 }
 
-function ConnectionRow({ connection }: { connection: Connection }) {
+function ConnectionRow({
+  connection,
+  canManage,
+}: {
+  connection: Connection;
+  canManage: boolean;
+}) {
   const Logo = connection.logo;
   const linked =
     connection.state === "connected" || connection.state === "attention";
+  // While the gateway holds no client there is no Connect on the page the
+  // button opens: an owner or admin finds the setup command there, a member
+  // a sentence naming what an admin sets.
+  const action = linked
+    ? "Manage"
+    : connection.state === "unconfigured"
+      ? canManage
+        ? "Set up"
+        : "Details"
+      : "Connect";
   return (
     <SettingsRow
       label={
@@ -131,7 +151,7 @@ function ConnectionRow({ connection }: { connection: Connection }) {
         nativeButton={false}
         render={<Link to={connection.to} />}
       >
-        {linked ? "Manage" : "Connect"}
+        {action}
       </Button>
     </SettingsRow>
   );

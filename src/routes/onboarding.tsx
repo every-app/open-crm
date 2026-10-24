@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/client/components/ui/card";
@@ -35,6 +36,10 @@ function OnboardingPage() {
       <Card className="w-full max-w-lg">
         <CardHeader>
           <CardTitle className="text-xl">Name your workspace</CardTitle>
+          <CardDescription>
+            Your team sees it in the CRM's sidebar. Change it any time in
+            Settings.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {workspace ? (

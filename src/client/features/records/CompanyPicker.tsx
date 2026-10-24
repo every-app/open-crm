@@ -76,7 +76,7 @@ export function CompanyPicker({
   placeholder?: string;
   disabled?: boolean;
 }) {
-  const { options, setInput } = useCompanySearch();
+  const { query, options, setInput } = useCompanySearch();
 
   return (
     <Combobox
@@ -98,8 +98,13 @@ export function CompanyPicker({
         className="w-full"
       />
       <ComboboxContent>
+        {/* An empty query lists every live company, so nothing then means none exist. */}
         <ComboboxEmpty>
-          {options.isFetching ? "Searching…" : "No company matches."}
+          {options.isFetching
+            ? "Searching…"
+            : query
+              ? "No company matches."
+              : "No companies yet. Add one in Directory first."}
         </ComboboxEmpty>
         <ComboboxList>
           {(company: CompanyOption) => (

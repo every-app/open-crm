@@ -66,7 +66,7 @@ function AutomaticResearchRow() {
           ? "The first research run will verify the model connection."
           : available
             ? undefined
-            : "Available after your model is connected."
+            : "Available once the agent's model is set up."
       }
     >
       {query.data ? (

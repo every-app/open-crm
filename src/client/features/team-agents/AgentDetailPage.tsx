@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Bot, Pause, Play } from "lucide-react";
+import { Bot, Pause, Play, TriangleAlert } from "lucide-react";
 import { sortBy } from "remeda";
 import { EmptyState } from "@/client/components/EmptyState";
 import { PageHeader } from "@/client/components/PageHeader";
@@ -19,6 +19,10 @@ import {
 } from "@/client/components/ui/alert";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
+import {
+  ModelNotSetUp,
+  useAgentPaused,
+} from "@/client/features/agent/AgentPaused";
 import { LocalDateTime } from "@/client/features/records/LocalDateTime";
 import { getErrorCode } from "@/client/lib/error-messages";
 import {
@@ -83,6 +87,7 @@ function UnavailableAgent() {
 
 function LoadedAgent({ agent }: { agent: Agent }) {
   const [runsOpen, setRunsOpen] = useState(false);
+  const paused = useAgentPaused();
   // Saving or discarding the page's changes starts its editor afresh.
   const [resets, setResets] = useState(0);
   const review = agent.reviewVersion;
@@ -200,6 +205,16 @@ function LoadedAgent({ agent }: { agent: Agent }) {
             </>
           }
         />
+
+        {/* Before Run now or Deploy fails: the model every run thinks with. */}
+        {paused ? (
+          <Alert variant="warning">
+            <TriangleAlert aria-hidden />
+            <AlertTitle>
+              <ModelNotSetUp consequence="Runs fail until it is." />
+            </AlertTitle>
+          </Alert>
+        ) : null}
 
         {review ? (
           <div ref={reviewRef} className="scroll-mt-6">

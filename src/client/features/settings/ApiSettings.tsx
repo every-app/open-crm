@@ -14,7 +14,11 @@ import { useCanManageWorkspace } from "@/client/features/settings/settingsQuerie
 const FIRST_REQUEST =
   "List the companies in my CRM, then help me add a real prospect, its first deal and a dated follow-up. Ask me for any missing details.";
 
-/** Connect, authorize, and prove the connection with a real CRM tool result. */
+/**
+ * Connect, authorize, and prove the connection with a real CRM tool result.
+ * The CRM's rendering of everyapp.com/docs/connect-ai: the same clients and
+ * the same Claude Code line, so what a person reads here and there agree.
+ */
 export function ApiSettings() {
   const { data: account } = useQuery(everyAppAccountQueryOptions());
   const canManage = useCanManageWorkspace();
@@ -27,13 +31,20 @@ export function ApiSettings() {
   const mcpUrl = account?.gatewayUrl
     ? `${account.gatewayUrl}/mcp`
     : origin && `${origin}/mcp`;
+  const claudeCodeCommand = mcpUrl
+    ? `claude mcp add --transport http everyapp ${mcpUrl}`
+    : null;
 
   return (
-    <SettingsSection id="ai-clients" title="Connect your AI client">
+    <SettingsSection
+      id="ai-clients"
+      title="Connect your AI client"
+      description="Your Every App gateway has one address for AI assistants. Connected once, an assistant works in the CRM the way you can: companies, contacts, deals, follow-ups and agents."
+    >
       <SettingsCard>
         <SettingsRow
-          label="1. Add a remote MCP server"
-          description="Open your AI client's connection settings and add this server URL."
+          label="1. Claude or ChatGPT"
+          description="Add a custom connector and paste this address."
         >
           {mcpUrl ? (
             <div className="flex max-w-full items-center gap-2">
@@ -51,15 +62,35 @@ export function ApiSettings() {
           ) : null}
         </SettingsRow>
         <SettingsRow
-          label="2. Sign in"
+          stacked
+          label="2. Claude Code"
+          description="Run this in a terminal, then type /mcp, choose everyapp and Authenticate."
+        >
+          {claudeCodeCommand ? (
+            <div className="flex max-w-full items-center gap-2">
+              <code className="min-w-0 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs">
+                {claudeCodeCommand}
+              </code>
+              <CopyButton
+                value={claudeCodeCommand}
+                successMessage="Command copied"
+                label="Copy the Claude Code command"
+                size="icon-xs"
+                variant="ghost"
+              />
+            </div>
+          ) : null}
+        </SettingsRow>
+        <SettingsRow
+          label="3. Sign in"
           description={
             account?.gatewayUrl
-              ? "Sign in with your Every App account and approve CRM access when your client asks."
+              ? "Your Every App sign-in page opens: sign in, allow the CRM, and choose whether the assistant may change things or only read."
               : "This endpoint uses bearer-token authentication. Ask an owner or admin for access."
           }
         />
         <SettingsRow
-          label="3. Try your first request"
+          label="4. Try your first request"
           description="Paste this into your AI client. A successful CRM tool result confirms the connection."
         >
           <div className="flex max-w-md items-start gap-2">
@@ -84,7 +115,7 @@ export function ApiSettings() {
           <SettingsCard>
             <SettingsRow
               label="Bearer-token clients"
-              description="Use a personal access token when your AI client does not support signing in."
+              description="Cursor and other tools add the same address as an MCP server. Tools that can't sign in on their own take a personal access token instead, as the Authorization: Bearer header."
             >
               <OpenLink href={tokensUrl}>Open Tokens on Every App</OpenLink>
             </SettingsRow>

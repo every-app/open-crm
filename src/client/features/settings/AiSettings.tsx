@@ -24,7 +24,7 @@ export function AiSettings() {
           <GatewayKeyRow id="context" label="Context.dev API key" />
         </SettingsCard>
       </SettingsSection>
-      <SettingsSection title="Team agents">
+      <SettingsSection title="Agents">
         <SettingsCard>
           <SettingsRow
             label="Automations"

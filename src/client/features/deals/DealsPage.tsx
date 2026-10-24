@@ -179,6 +179,8 @@ export function DealsPage() {
                   icon: CircleDollarSign,
                   media: "icon",
                   title: "No deals",
+                  description:
+                    "A deal belongs to a company. Add the company first, then its deal from the company's page.",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">
                       {newDeal}

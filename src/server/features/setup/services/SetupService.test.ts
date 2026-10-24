@@ -27,10 +27,44 @@ describe("SetupService.checklist", () => {
   });
 
   it("tells local development where each missing key goes", async () => {
-    const { items } = await SetupService.checklist("org_a", true);
+    const { items } = await SetupService.checklist("org_a");
     expect(items.map((item) => item.note)).toEqual([
-      "In local development, put OPENROUTER_API_KEY in .dev.vars.",
+      "Research is paused until the agent has a model. In local development, put OPENROUTER_API_KEY in .dev.vars.",
       "In local development, put CONTEXT_API_KEY in .dev.vars.",
     ]);
+    expect(items.map((item) => item.command)).toEqual([null, null]);
+  });
+
+  it("gives everyone the command while a key isn't known to be there", async () => {
+    vi.mocked(getOptionalEnvValue).mockResolvedValue(undefined);
+    vi.mocked(AgentAvailabilityService.forOrganization).mockResolvedValue({
+      ...keysMissing,
+      model: "refused",
+      modelRefusal:
+        "Provider is not configured: the gateway needs OPENROUTER_API_KEY for openrouter.",
+    });
+    const { items } = await SetupService.checklist("org_a");
+    expect(items[0]).toEqual({
+      id: "model",
+      state: "missing",
+      note: "Research is paused: this Every App gateway holds no OpenRouter key yet.",
+      command: "pnpm everyapp secret set OPENROUTER_API_KEY",
+    });
+    expect(items[1]?.command).toBe("pnpm everyapp secret set CONTEXT_API_KEY");
+  });
+
+  it("says the first run checks the model while nothing has asked it yet", async () => {
+    vi.mocked(getOptionalEnvValue).mockResolvedValue(undefined);
+    vi.mocked(AgentAvailabilityService.forOrganization).mockResolvedValue({
+      ...keysMissing,
+      model: "unchecked",
+    });
+    const { items } = await SetupService.checklist("org_a");
+    expect(items[0]).toEqual({
+      id: "model",
+      state: "checking",
+      note: "Checked on the agent's first run.",
+      command: "pnpm everyapp secret set OPENROUTER_API_KEY",
+    });
   });
 });

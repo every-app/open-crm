@@ -210,7 +210,7 @@ export function QuickAddDeal({
       }),
     onSuccess: async (deal) => {
       await invalidate();
-      toast.success(`${deal.name} created.`);
+      toast.success(`${deal.name} added.`);
       onDone();
     },
   });
