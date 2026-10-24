@@ -97,7 +97,6 @@ describe("ConnectionService", () => {
       scope:
         "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly",
       access_type: "offline",
-      include_granted_scopes: "true",
       prompt: "consent",
       state: await state("id"),
       code_challenge_method: "S256",

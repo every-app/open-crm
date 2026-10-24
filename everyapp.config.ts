@@ -53,11 +53,15 @@ export default {
     // (src/server/features/mailbox).
     "google-workspace": {
       access: "write",
+      // The scope sets the gateway lets this app obtain tokens for; it refuses
+      // a token carrying more (docs/design/2026-10-oauth-scopes.md there).
+      scopes: ["gmail.read", "calendar.read"],
       optional: true,
       why: "Members connect their Gmail and Google Calendar, read only, so their work conversations and meetings are filed on companies and contacts.",
     },
     "microsoft-365": {
       access: "write",
+      scopes: ["identity", "mail.read"],
       optional: true,
       why: "Members connect their Outlook mail, read only, so their work conversations are filed on companies and contacts.",
     },
@@ -65,6 +69,17 @@ export default {
     // keeps the workspace's tokens (src/server/features/slack).
     slack: {
       access: "write",
+      // Bot sets for src/shared/slack.ts's SLACK_SCOPES, and the user set for
+      // SLACK_USER_SCOPES (inviting the bot to private channels).
+      scopes: [
+        "channels.read",
+        "users.read",
+        "users.email",
+        "messages.write",
+        "channels.join",
+        "channels.manage",
+        "user-channels.manage",
+      ],
       optional: true,
       why: "Connects the workspace's Slack so team agents can post to an approved channel.",
     },

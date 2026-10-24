@@ -91,7 +91,9 @@ async function startConnect(
   params.set("code_challenge_method", "S256");
   if (provider === "google") {
     params.set("access_type", "offline");
-    params.set("include_granted_scopes", "true");
+    // Never include_granted_scopes: it would union this token with every
+    // scope the member granted the shared Google client through another app,
+    // and the gateway refuses a token wider than this app's scope sets.
     // Google only sends a refresh token with a consent screen: ask for one
     // unless the member's connection already holds one.
     const existing = await ConnectionRepository.find(
