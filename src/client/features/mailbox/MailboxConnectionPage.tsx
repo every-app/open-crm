@@ -24,6 +24,7 @@ import {
   COPY,
   connectErrorCopy,
   mailboxState,
+  type ConnectionsStatus,
   type ProviderStatus,
 } from "@/client/features/mailbox/connectionCopy";
 import { connectionsQueryOptions } from "@/client/features/mailbox/mailboxQueries";
@@ -33,13 +34,19 @@ import {
 } from "@/client/features/settings/ConnectionStatus";
 import { GatewaySetupRows } from "@/client/features/settings/GatewaySetupRows";
 import {
+  TOKEN_KEY_TITLE,
+  TokenKeyRows,
+  notSetUpCopy,
+} from "@/client/features/settings/SetupNotices";
+import {
   GoogleLogo,
   MicrosoftLogo,
 } from "@/client/features/settings/brandLogos";
 import type { ConnectError, MailboxProvider } from "@/shared/mailbox";
 
 // Settings → Connections → Google or Microsoft (the CRM's provider pages):
-// the member's own mailbox, read only, or what it takes to connect one.
+// the member's own mailbox, read only, or what it takes to connect one: the
+// gateway's client for the provider, then the CRM's TOKEN_ENCRYPTION_KEY.
 
 const POLL_MS = 3000;
 
@@ -121,7 +128,7 @@ export function MailboxConnectionPage({
                   connection={entry.connection}
                 />
               ) : (
-                <NotConnected status={entry} />
+                <NotConnected status={entry} tokenKey={status.tokenKey} />
               )}
             </>
           );
@@ -131,11 +138,20 @@ export function MailboxConnectionPage({
   );
 }
 
-function NotConnected({ status }: { status: ProviderStatus }) {
+function NotConnected({
+  status,
+  tokenKey,
+}: {
+  status: ProviderStatus;
+  tokenKey: ConnectionsStatus["tokenKey"];
+}) {
   const { provider, ready, setup } = status;
   const copy = COPY[provider];
   const Logo = LOGOS[provider];
   const connect = useConnect(provider);
+  // The gateway holds the client, and the CRM the key the tokens are
+  // encrypted under: without either, what an admin sets stands in for Connect.
+  const keyMissing = ready && !tokenKey.ready;
 
   return (
     <SettingsSection
@@ -147,12 +163,14 @@ function NotConnected({ status }: { status: ProviderStatus }) {
         </TitleWithStatus>
       }
       description={
-        ready || setup
-          ? "Only conversations with companies in the CRM are stored. Everyone in the workspace, their AI clients and the CRM's agents can read them."
-          : undefined
+        keyMissing
+          ? `${TOKEN_KEY_TITLE}.`
+          : ready || setup
+            ? "Only conversations with companies in the CRM are stored. Everyone in the workspace, their AI clients and the CRM's agents can read them."
+            : notSetUpCopy(copy.name, status.settings)
       }
       action={
-        ready ? (
+        ready && !keyMissing ? (
           <Button pending={connect.isPending} onClick={() => connect.mutate()}>
             {connect.isPending ? null : <Logo data-icon="inline-start" />}
             Connect
@@ -167,6 +185,11 @@ function NotConnected({ status }: { status: ProviderStatus }) {
             register={copy.register}
             setup={setup}
           />
+        </SettingsCard>
+      ) : null}
+      {keyMissing ? (
+        <SettingsCard>
+          <TokenKeyRows setup={tokenKey.setup} />
         </SettingsCard>
       ) : null}
     </SettingsSection>

@@ -7,7 +7,9 @@ onto Cloudflare Workers.
 
 The gateway signs people in, decides who may open the CRM, serves the CRM's
 tools to AI clients on its one MCP connector, and holds the model and
-Context.dev keys, so the CRM itself needs no settings.
+Context.dev keys and the OAuth clients. The CRM has four optional settings of
+its own; the [Settings table](docs/maintainers/every-app.md#settings) lists
+every setting with its need and the command that sets it.
 
 ## Run it locally
 

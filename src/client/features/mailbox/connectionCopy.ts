@@ -8,6 +8,7 @@ import type {
 
 // The mail providers' words, from the CRM's connection pages.
 
+export type { ConnectionsStatus };
 export type ProviderStatus = ConnectionsStatus["providers"][number];
 export type Connection = NonNullable<ProviderStatus["connection"]>;
 
@@ -86,7 +87,9 @@ export function connectErrorCopy(
 }
 
 /** The provider's status badge: set up, connected, and working. */
-export function mailboxState(status: ProviderStatus): ConnectionState {
+export function mailboxState(
+  status: Pick<ProviderStatus, "ready" | "connection">,
+): ConnectionState {
   const { connection } = status;
   if (!connection) return status.ready ? "disconnected" : "unconfigured";
   const healthy =

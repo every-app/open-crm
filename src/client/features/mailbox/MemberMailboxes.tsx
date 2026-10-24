@@ -31,17 +31,11 @@ type Entry = MemberMailboxList[number];
 
 const LOGOS = { google: GoogleLogo, microsoft: MicrosoftLogo } as const;
 
-function stateOf({ provider, connection }: Entry): ConnectionState {
+function stateOf({ connection }: Entry): ConnectionState {
   if (connection.sources.some((source) => source.status === "PAUSED")) {
     return "paused";
   }
-  return mailboxState({
-    provider,
-    ready: true,
-    adminConsentUrl: null,
-    setup: null,
-    connection,
-  });
+  return mailboxState({ ready: true, connection });
 }
 
 export function MemberMailboxes() {

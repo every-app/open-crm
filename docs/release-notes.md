@@ -27,7 +27,7 @@ The first tagged release.
 **Settings:**
 
 - On the gateway: `OPENROUTER_API_KEY`, `CONTEXT_API_KEY`, and the Google, Microsoft and Slack OAuth clients ([self-hosting.md](self-hosting.md#give-the-agent-its-keys)).
-- On the CRM: `TOKEN_ENCRYPTION_KEY`, required before anyone connects mail, a calendar or Slack ([self-hosting.md](self-hosting.md#deploy-a-fork)); `GITHUB_TOKEN` and `OPENROUTER_MODEL`, both optional.
+- On the CRM, all optional: `TOKEN_ENCRYPTION_KEY`, needed before anyone connects mail, a calendar or Slack ([self-hosting.md](self-hosting.md#deploy-a-fork)); `GITHUB_TOKEN`; `OPENROUTER_MODEL`.
 - The Slack app no longer needs `channels:history`, `groups:history`, `conversations.connect:write` or `links:write`.
 - Settings → General → Research automatically, on by default.
 

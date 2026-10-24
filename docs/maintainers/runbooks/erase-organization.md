@@ -10,7 +10,7 @@ The work happens in the CRM's Worker, which holds the database, the `CRM_AGENT` 
 2. **Set the secret on the Worker,** a long random value, only for the erasure:
 
    ```bash
-   pnpm everyapp secret set ERASURE_SECRET
+   pnpm everyapp secret set ERASURE_SECRET --app crm
    ```
 
 3. **Write an operator env file,** untracked, holding the same value:
@@ -51,7 +51,7 @@ Every step can run again, so after a failure, fix what the error says (Google no
 
 ## After
 
-- **Unset the secret:** `pnpm everyapp secret unset ERASURE_SECRET`.
+- **Unset the secret:** `pnpm everyapp secret unset ERASURE_SECRET --app crm`.
 
 ## What it can't reach
 

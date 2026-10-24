@@ -10,7 +10,7 @@ import { TeamAgentRepository } from "@/server/features/team-agents/repositories/
 import { AppError } from "@/server/lib/errors";
 import { gatewayCallFor } from "@/server/lib/gateway-attribution";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
-import { requireTokenKey } from "@/server/lib/tokenCrypto";
+import { requireTokenKey, tokenKeyStatus } from "@/server/lib/tokenCrypto";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import {
   missingSlackScopes,
@@ -72,7 +72,10 @@ function canManage(context: Pick<Context, "role">): boolean {
   return hasOrgPermission(context.role, { connection: ["manage"] });
 }
 
-/** The Slack card: set up on the gateway, connected, what it granted. */
+/**
+ * The Slack card: set up on the gateway, the CRM holding the key its tokens
+ * are encrypted under, connected, what it granted.
+ */
 async function status(context: Context) {
   const [client, connection, env] = await Promise.all([
     gatewayClient(),
@@ -86,6 +89,9 @@ async function status(context: Context) {
   const local = Boolean((env as { EVERYAPP_DEV?: string }).EVERYAPP_DEV);
   const base = {
     configured: client.ready,
+    // The gateway settings the client lives under, so a member who can't set
+    // them is still told what an admin sets.
+    settings: SLACK_CLIENT_SETTINGS,
     canManage: manage,
     setup:
       local || manage
@@ -96,6 +102,9 @@ async function status(context: Context) {
             devVars: local ? SLACK_CLIENT_SETTINGS : null,
           }
         : null,
+    // The CRM's own TOKEN_ENCRYPTION_KEY: no connect starts without it, so
+    // the page shows the command that sets it instead of a Connect button.
+    tokenKey: await tokenKeyStatus({ canRun: local || manage, local }),
   };
   if (!connection) return { ...base, connected: false as const };
   const [members, agents] = await Promise.all([

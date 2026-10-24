@@ -1,7 +1,15 @@
 import { waitUntil } from "cloudflare:workers";
 import { runVisibleLane } from "@/server/features/agent/dispatch";
 import { SlackInventoryService } from "@/server/features/slack/services/SlackInventoryService";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 
 // Connecting Slack through the gateway's OAuth client: only an owner or admin,
 // only with a state minted for them, and the tokens stay on the server,
@@ -162,6 +170,41 @@ describe("SlackService", () => {
     expect(await SlackRepository.getTokens("org_a")).toEqual({
       botToken: "xoxb-bot-secret",
       userToken: "xoxp-user-secret",
+    });
+  });
+
+  it("starts no connect while the CRM holds no TOKEN_ENCRYPTION_KEY, and says what an admin sets", async () => {
+    vi.stubEnv("TOKEN_ENCRYPTION_KEY", "");
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    await expect(SlackService.startConnect(owner, web)).rejects.toThrow(
+      "TOKEN_ENCRYPTION_KEY",
+    );
+    expect(await database.rows(`SELECT id FROM slack_oauth_state`)).toEqual([]);
+    // The gateway's client is there; the page says the key isn't, with the
+    // same command for everyone: an owner runs it, a member asks an admin to.
+    expect(await SlackService.status(owner)).toMatchObject({
+      connected: false,
+      configured: true,
+      settings: ["SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET"],
+      tokenKey: {
+        ready: false,
+        setup: {
+          canRun: true,
+          command: "pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --app crm",
+          devVars: null,
+        },
+      },
+    });
+    expect((await SlackService.status(member)).tokenKey).toEqual({
+      ready: false,
+      setup: {
+        canRun: false,
+        command: "pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --app crm",
+        devVars: null,
+      },
     });
   });
 

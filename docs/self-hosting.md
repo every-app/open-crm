@@ -37,16 +37,18 @@ pnpm deploy:everyapp
 
 The deploy registers the CRM with the gateway, creates its D1 database and R2 bucket, builds the Worker, migrates the database, uploads it, and binds it to the gateway. With no gateway in your account, the deploy offers to set one up first. When it finishes, the CRM appears on your gateway for every member of your organization.
 
-The CRM has two optional settings of its own: `OPENROUTER_MODEL` ([below](#give-the-agent-its-keys)), and a GitHub token (any classic token with no scopes), which raises GitHub's rate limit when the agent matches people to GitHub profiles. Set the token after the first deploy:
+The CRM has four optional settings of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `TOKEN_ENCRYPTION_KEY`, `GITHUB_TOKEN`, `OPENROUTER_MODEL` ([below](#give-the-agent-its-keys)) and `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). Each is set with `pnpm everyapp secret set <NAME> --app crm`, from any directory, and the CRM opens without them.
+
+Before anyone connects mail, a calendar or Slack, give the CRM `TOKEN_ENCRYPTION_KEY`, the key it encrypts their tokens with. Until it is set, each page under Settings â†’ Connections says so and shows this command. Keep it safe: if it changes or is lost, everyone connects again.
 
 ```bash
-pnpm everyapp secret set GITHUB_TOKEN
+TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --app crm --from-env TOKEN_ENCRYPTION_KEY
 ```
 
-Before anyone connects mail, a calendar or Slack, give the CRM the key it encrypts their tokens with. Keep it safe: if it changes or is lost, everyone connects again.
+A GitHub token (any classic token with no scopes) raises GitHub's rate limit when the agent matches people to GitHub profiles:
 
 ```bash
-TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --from-env TOKEN_ENCRYPTION_KEY
+pnpm everyapp secret set GITHUB_TOKEN --app crm
 ```
 
 ## Give the agent its keys
@@ -63,7 +65,7 @@ Each command asks for the value at a hidden prompt, so the key never appears in 
 The agent runs on GPT-6 Luna through OpenRouter. To use another OpenRouter model, set its id on the CRM (the key stays on the gateway):
 
 ```bash
-pnpm everyapp secret set OPENROUTER_MODEL
+pnpm everyapp secret set OPENROUTER_MODEL --app crm
 ```
 
 The model must have a Zero Data Retention endpoint on OpenRouter: every call asks for zero retention and no data collection.
@@ -208,7 +210,7 @@ Every deploy turns on Workers Logs and traces. Open them under Workers & Pages â
 
 ### Erasing an organization
 
-To erase an organization and everything it stored, follow `docs/maintainers/runbooks/erase-organization.md`. It needs `ERASURE_SECRET`, set with `pnpm everyapp secret set ERASURE_SECRET` for the erasure and removed afterwards.
+To erase an organization and everything it stored, follow `docs/maintainers/runbooks/erase-organization.md`. It needs `ERASURE_SECRET`, set with `pnpm everyapp secret set ERASURE_SECRET --app crm` for the erasure and removed afterwards.
 
 ### Operator scripts
 

@@ -32,6 +32,8 @@ import { forOrganization } from "@/server/lib/gateway-attribution";
 import { ConnectionService } from "./ConnectionService";
 
 const ORIGIN = "https://crm.example.com";
+/** What sets the key the tokens are encrypted under, from any directory. */
+const KEY_COMMAND = "pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --app crm";
 // Each with the address the gateway signs them in with, which a mailbox's
 // must match in any case.
 const ANA = {
@@ -186,7 +188,7 @@ describe("ConnectionService", () => {
     );
   });
 
-  it("refuses to start a connect without the key its tokens are encrypted under", async () => {
+  it("refuses to start a connect without the key its tokens are encrypted under, and says what an admin sets", async () => {
     vi.stubEnv("TOKEN_ENCRYPTION_KEY", "");
     onTestFinished(() => {
       vi.unstubAllEnvs();
@@ -196,6 +198,36 @@ describe("ConnectionService", () => {
       ConnectionService.startConnect(ANA, "google", ORIGIN),
     ).rejects.toThrow("TOKEN_ENCRYPTION_KEY");
     expect(await database.rows(`SELECT id FROM oauth_state`)).toEqual([]);
+
+    // The page knows before anyone clicks Connect: everyone gets the command,
+    // and only an owner is told to run it themselves (a member asks an admin).
+    const asMember = await ConnectionService.status(
+      { ...ANA, role: "member" },
+      ORIGIN,
+    );
+    expect(asMember.tokenKey).toEqual({
+      ready: false,
+      setup: { canRun: false, command: KEY_COMMAND, devVars: null },
+    });
+    expect(asMember.providers.map((entry) => entry.settings)).toEqual([
+      ["GOOGLE_WORKSPACE_CLIENT_ID", "GOOGLE_WORKSPACE_CLIENT_SECRET"],
+      ["MICROSOFT_365_CLIENT_ID", "MICROSOFT_365_CLIENT_SECRET"],
+    ]);
+    const asOwner = await ConnectionService.status(
+      { ...ANA, role: "owner" },
+      ORIGIN,
+    );
+    expect(asOwner.tokenKey).toEqual({
+      ready: false,
+      setup: { canRun: true, command: KEY_COMMAND, devVars: null },
+    });
+
+    vi.unstubAllEnvs();
+    const withKey = await ConnectionService.status(
+      { ...ANA, role: "member" },
+      ORIGIN,
+    );
+    expect(withKey.tokenKey).toMatchObject({ ready: true });
   });
 
   it("offers a Microsoft member's organization its admin consent when it refused theirs", async () => {

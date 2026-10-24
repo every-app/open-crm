@@ -24,7 +24,7 @@ import { MatchService } from "@/server/features/mailbox/services/MatchService";
 import { AppError } from "@/server/lib/errors";
 import { codeChallenge, randomToken } from "@/server/lib/pkce";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
-import { requireTokenKey } from "@/server/lib/tokenCrypto";
+import { requireTokenKey, tokenKeyStatus } from "@/server/lib/tokenCrypto";
 import { normalizeDomain } from "@/shared/domain";
 import {
   grantedSources,
@@ -239,8 +239,9 @@ export function connectionView(
 
 /**
  * Settings → Connections for the member: each provider, whether this
- * gateway offers it, and the member's own connection with each source's
- * sync. Owners and admins also get what to set on the gateway.
+ * gateway offers it, whether the CRM holds the key their tokens are
+ * encrypted under, and the member's own connection with each source's
+ * sync. Owners and admins also get what to set on the gateway and the CRM.
  */
 async function status(
   member: Member & { role: string; userEmail: string },
@@ -266,6 +267,9 @@ async function status(
     return {
       provider,
       ready: clients[index]?.ready ?? false,
+      // The gateway settings its client lives under, so a member who can't
+      // set them is still told what an admin sets.
+      settings: [...GATEWAY_SECRETS[provider]],
       // Where an admin consents for the member's organization, for when only
       // an admin may (adminConsent.ts).
       adminConsentUrl:
@@ -284,7 +288,10 @@ async function status(
       connection: connection ? connectionView(connection, rows, now) : null,
     };
   });
-  return { providers };
+  // The CRM's own TOKEN_ENCRYPTION_KEY: no connect starts without it, so the
+  // pages show the command that sets it instead of a Connect button.
+  const tokenKey = await tokenKeyStatus({ canRun: showSetup, local });
+  return { providers, tokenKey };
 }
 
 export type ConnectionsStatus = Awaited<ReturnType<typeof status>>;

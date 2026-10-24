@@ -1,25 +1,59 @@
 import { UserFacingError } from "@/server/lib/errors";
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
+import {
+  appSecretCommand,
+  TOKEN_KEY_SETTING,
+  type SettingSetup,
+} from "@/shared/app-settings";
 
 // The mailbox and Slack tokens the CRM stores, encrypted at rest as OpenSEO
 // encrypts its Google grants: under a secret only the Worker holds (OpenSEO's
-// BETTER_AUTH_SECRET; here TOKEN_ENCRYPTION_KEY, set with `everyapp secret
-// set TOKEN_ENCRYPTION_KEY`), whose SHA-256 is the key. AES-256-GCM with a
+// BETTER_AUTH_SECRET; here TOKEN_ENCRYPTION_KEY, set from any directory with
+// `pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --app crm`, the command
+// appSecretCommand builds), whose SHA-256 is the key. AES-256-GCM with a
 // random IV per value, stored as `enc:v1:` and base64(IV ‖ ciphertext ‖ tag).
 // A value without the prefix was stored before tokens were encrypted: it
 // reads as it is, and its next write encrypts it.
 
-const KEY_SECRET = "TOKEN_ENCRYPTION_KEY";
+const KEY_SECRET = TOKEN_KEY_SETTING;
 const PREFIX = "enc:v1:";
 const IV_BYTES = 12;
 const MIN_SECRET_LENGTH = 32;
 
-async function tokenKey(): Promise<CryptoKey> {
+/** The key as set, or null while it is unset or too short to count. */
+async function tokenSecret(): Promise<string | null> {
   const secret = await getOptionalEnvValue(KEY_SECRET);
-  if (!secret || secret.length < MIN_SECRET_LENGTH) {
+  return secret && secret.length >= MIN_SECRET_LENGTH ? secret : null;
+}
+
+/**
+ * Whether the key is there and, while it isn't, what sets it: the connect
+ * pages say so before anyone clicks Connect. The manifest declares the key
+ * optional, so the gateway opens the CRM without it and this is where its
+ * absence shows. Everyone sees the command (a name, never a value); `canRun`
+ * says whether the reader runs it themselves (owners and admins) or asks an
+ * admin to. Under `everyapp dev` (`local`) the key goes in .dev.vars instead.
+ */
+export async function tokenKeyStatus(input: {
+  canRun: boolean;
+  local: boolean;
+}): Promise<{ ready: boolean; setup: SettingSetup }> {
+  return {
+    ready: (await tokenSecret()) !== null,
+    setup: {
+      canRun: input.canRun,
+      command: input.local ? null : appSecretCommand(KEY_SECRET),
+      devVars: input.local ? [KEY_SECRET] : null,
+    },
+  };
+}
+
+async function tokenKey(): Promise<CryptoKey> {
+  const secret = await tokenSecret();
+  if (!secret) {
     throw new UserFacingError(
       "INTEGRATION_UNAVAILABLE",
-      `Connections aren't set up on this CRM yet. An admin sets ${KEY_SECRET}, 32 or more random characters, with \`everyapp secret set ${KEY_SECRET}\`.`,
+      `Connections aren't set up on this CRM yet. An admin sets ${KEY_SECRET}, 32 or more random characters, with \`${appSecretCommand(KEY_SECRET)}\`.`,
     );
   }
   const digest = await crypto.subtle.digest(

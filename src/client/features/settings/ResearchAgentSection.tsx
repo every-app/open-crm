@@ -19,6 +19,7 @@ import {
 } from "@/client/features/settings/settingsQueries";
 import { setupChecklistQueryOptions } from "@/client/features/setup/setupQueries";
 import { setAutomaticResearch } from "@/serverFunctions/settings";
+import { appSecretCommand } from "@/shared/app-settings";
 
 const MODEL_SETTING = "OPENROUTER_MODEL";
 
@@ -102,7 +103,7 @@ function ModelSettings() {
               `In local development, put ${MODEL_SETTING} in .dev.vars.`
             ) : canManage ? (
               <SetupCommand
-                command={`pnpm everyapp secret set ${MODEL_SETTING}`}
+                command={appSecretCommand(MODEL_SETTING)}
                 label="the model"
               />
             ) : undefined

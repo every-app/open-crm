@@ -12,6 +12,11 @@ import { Button } from "@/client/components/ui/button";
 import { ConnectionBadge } from "@/client/features/settings/ConnectionStatus";
 import { GatewaySetupRows } from "@/client/features/settings/GatewaySetupRows";
 import {
+  TOKEN_KEY_TITLE,
+  TokenKeyRows,
+  notSetUpCopy,
+} from "@/client/features/settings/SetupNotices";
+import {
   startSlackConnect,
   type getSlackStatus,
 } from "@/serverFunctions/slack";
@@ -24,7 +29,8 @@ import { ScopeGroups } from "./SlackScopeGroups";
 
 // Settings → Connections → Slack before it is connected (the CRM's Slack
 // page): what connecting hands over and never does, then Connect, or what
-// the gateway needs first.
+// the gateway needs first (its Slack client), or what the CRM needs first
+// (the TOKEN_ENCRYPTION_KEY its tokens are encrypted under).
 
 type Status = Awaited<ReturnType<typeof getSlackStatus>>;
 
@@ -42,7 +48,8 @@ const CONNECT_ERRORS: Record<SlackConnectError, string> = {
   forbidden: "Only an owner or an admin can connect Slack.",
   exchange_failed:
     "Slack rejected the app credentials or redirect URL. Check them, then try again.",
-  not_configured: "Slack is not configured.",
+  not_configured:
+    "Slack isn't set up on this Every App gateway yet. An admin sets SLACK_CLIENT_ID and SLACK_CLIENT_SECRET.",
   rejected: "Slack didn't finish the installation. Try again.",
   failed: "Slack could not be connected. Try again.",
 };
@@ -90,7 +97,7 @@ export function SlackNotConnected({
       <SlackConnectAlert error={connectError} />
       <ScopeGroups title="Slack access" scopes={SLACK_BOT_SCOPES} />
 
-      {status.configured ? (
+      {status.configured && status.tokenKey.ready ? (
         <SettingsCard>
           <SettingsRow
             label="Connect Slack"
@@ -107,13 +114,17 @@ export function SlackNotConnected({
             </Button>
           </SettingsRow>
         </SettingsCard>
+      ) : status.configured ? (
+        <SettingsSection title={TOKEN_KEY_TITLE}>
+          <SettingsCard>
+            <TokenKeyRows setup={status.tokenKey.setup} />
+          </SettingsCard>
+        </SettingsSection>
       ) : (
         <SettingsSection
           title="Slack is not configured"
           description={
-            status.setup
-              ? undefined
-              : "Ask whoever runs your Every App gateway to set up Slack."
+            status.setup ? undefined : notSetUpCopy("Slack", status.settings)
           }
         >
           {status.setup ? (
