@@ -10,8 +10,10 @@ import { hasOrgPermission } from "@/shared/org-permissions";
 // The CRM's health checks, as the CRM had them (apps/api/src/health, and its
 // agent's /internal/crm/dispatch-health):
 //
-// - GET /health is public (everyapp.config.ts) and cheap: one query, to say
-//   whether the Worker and its database answer. No counts, nothing anyone's.
+// - GET /health is private like the rest of the CRM (a signed-in member or a
+//   personal access token reaches it; the gateway's own /health is the public
+//   liveness check) and cheap: one query, to say whether the Worker and its
+//   database answer. No counts, nothing anyone's.
 // - GET /health/dispatch is the dispatcher's, for monitoring. The gateway
 //   turns away anyone not signed in before the CRM sees the request, as the
 //   CRM's agent turned away a caller without its secret. An owner or admin

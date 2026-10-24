@@ -121,12 +121,12 @@ export default {
   // scripts, and the collector they POST to. The tracker never sends a
   // preflight (a text/plain beacon), so OPTIONS stays private. The gateway's
   // tool calls (`/__everyapp/tools/*`) carry their own gateway-signed tokens.
-  // And the health check, which says only whether the CRM and its database
-  // answer (src/server/features/health).
+  // /health is not here: a signed-in member or a personal access token reaches
+  // it, and the gateway's own https://<gateway>/health is the public liveness
+  // check.
   public: [
     { path: "/t/*", methods: ["GET"] },
     { path: "/t/e", methods: ["POST"] },
-    { path: "/health", methods: ["GET"] },
     // An operator erasing an organization, with requests signed by
     // ERASURE_SECRET; 404 while it is unset (src/server/features/erasure).
     { path: "/internal/erase-organization", methods: ["POST"] },

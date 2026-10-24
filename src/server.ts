@@ -126,9 +126,11 @@ async function handleRequest(
     await everyApp<Env>((verified, _env, _ctx, user) => {
       // Website tracking is the CRM's public surface: the gateway forwards
       // it with no identity (a signed-in member's is ignored), and its
-      // organization comes from the site id alone. Beside it only the health
-      // check, which says whether the Worker and its database answer.
-      // Nothing else answers a request without one.
+      // organization comes from the site id alone. The health check reads no
+      // identity either (it says only whether the Worker and its database
+      // answer) but is not public: the gateway forwards it signed in or with
+      // a personal access token. Nothing else answers without an identity
+      // but the erasure route below.
       if (isTrackingPath(new URL(verified.url).pathname)) {
         return serveTracking(verified);
       }

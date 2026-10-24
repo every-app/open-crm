@@ -144,7 +144,7 @@ Research and team agents read web pages only from the record's own site and page
 The tracking tag runs on your own website, for visitors who aren't signed in:
 
 - If your site sends a Content-Security-Policy, allow the CRM's host (`https://<crm host>`) in `script-src` and `connect-src`.
-- If Cloudflare Access protects your gateway (`pnpm everyapp access on`), there is nothing to add by hand: `access on`, and every deploy after it, lets the routes the CRM's manifest marks `public` (`/t/*`, `/t/e` and `/health`) through without a login.
+- If Cloudflare Access protects your gateway (`pnpm everyapp access on`), there is nothing to add by hand: `access on`, and every deploy after it, lets the routes the CRM's manifest marks `public` (`/t/*` and `/t/e`) through without a login.
 - The collector takes at most 600 events a minute from a site and 120 from one visitor, 120 requests a minute from one address to one site (600 across sites), and 50,000 events a day per organization. Forms create at most 50 contacts an hour. Anything over is dropped.
 - Add `data-crm-ignore` to a form or a field to keep it out of tracking. Forms with a password field are never sent.
 
@@ -165,9 +165,11 @@ cp .dev.vars.example .dev.vars   # then fill in OPENROUTER_API_KEY and CONTEXT_A
 
 ## Health checks
 
-`https://<crm host>/health` answers `200 {"status":"ok","database":"up"}` without signing in, or `503` when the database doesn't answer. Point an uptime monitor at it, checking every minute.
+For uptime, point a monitor at your gateway's own `https://<gateway host>/health`, checking every minute: it is public, needs no token, and Cloudflare Access lets it through.
 
-`https://<crm host>/health/dispatch` reports the research agent's queue: when each part last ran, its backlog and recent failures. It answers `503` when a part has stopped or work is overdue. Call it with a personal access token for the CRM, made by an owner or admin on the gateway, in an `Authorization: Bearer` header, every five minutes or so. Tokens expire (after 7 to 180 days, or on a date you pick), and the monitor fails from then on: make a new one before it does.
+`https://<crm host>/health` answers `200 {"status":"ok","database":"up"}`, or `503` when the CRM's database doesn't answer. It is private like the rest of the CRM: call it with a personal access token for the CRM in an `Authorization: Bearer` header, as `/health/dispatch` below.
+
+`https://<crm host>/health/dispatch` reports the research agent's queue: when each part last ran, its backlog and recent failures. It answers `503` when a part has stopped or work is overdue. Call it with a personal access token for the CRM, made by an owner or admin on the gateway, in an `Authorization: Bearer` header, every five minutes or so. Tokens expire (after 7 to 180 days, or on a date you pick), and the monitor fails from then on: make a new one before it does. A token is its member, for everything the CRM lets them do, so keep it in the monitor's secret store. If Cloudflare Access protects your gateway, the CRM's host asks the monitor to log in too; an Access service token is what gets a non-browser client past that (the Every App docs on Cloudflare Access cover it), and the gateway's `/health` needs none.
 
 It also reports the database's size (`"database": {"provider": "d1", "sizeBytes": …}`). D1 refuses every write once a database reaches 10 GB, so watch it.
 

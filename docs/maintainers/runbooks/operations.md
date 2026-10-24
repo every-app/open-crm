@@ -20,5 +20,5 @@ Where they read:
 ## Logs and checks
 
 - Logs are under Workers & Pages → the CRM's Worker → Observability, kept 7 days, with traces of one request in ten. Workers Issues groups the errors.
-- Check `/health` every minute, and `/health/dispatch` with an owner's personal access token every five minutes. Tokens expire, and the check fails from then: make a new one before it does.
+- Check the gateway's `https://<gateway host>/health` every minute (public, no token), and the CRM's `/health` and `/health/dispatch` with an owner's personal access token every five minutes (neither is public). Tokens expire, and the check fails from then: make a new one before it does.
 - Restoring D1 is in [self-hosting.md](../../self-hosting.md#restoring).

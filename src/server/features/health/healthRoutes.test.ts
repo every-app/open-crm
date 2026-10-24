@@ -51,7 +51,7 @@ function person(overrides: Partial<EveryAppUser> = {}): EveryAppUser {
   };
 }
 
-describe("the public health check", () => {
+describe("the health check", () => {
   beforeEach(() => {
     current.databaseDown = false;
   });
