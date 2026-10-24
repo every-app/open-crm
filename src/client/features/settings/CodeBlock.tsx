@@ -4,7 +4,7 @@ import { CopyButton } from "@/client/components/CopyButton";
 /** Text to paste somewhere else (a tag, a command), with its Copy button. */
 export function CodeBlock({
   value,
-  successMessage = "Copied",
+  successMessage = "Copied.",
   wrap = true,
 }: {
   value: string;

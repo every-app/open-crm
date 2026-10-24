@@ -147,7 +147,7 @@ export function CompanyDeals({ company }: { company: Company }) {
       action={
         adding ? null : (
           <AddButton
-            label="New deal"
+            label="Add deal"
             variant="ghost"
             onClick={() => setAdding(true)}
           />

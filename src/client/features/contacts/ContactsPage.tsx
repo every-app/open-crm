@@ -141,6 +141,11 @@ export function ContactsPage() {
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
           title={input.archived ? "Archived contacts" : "Directory"}
+          description={
+            input.archived
+              ? undefined
+              : "Companies and contacts, kept current by the research agent."
+          }
           actions={
             <>
               <CsvMenu

@@ -17,7 +17,7 @@ export function AiSettings() {
       </div>
       <SettingsSection
         id="company-research"
-        title="Optional company enrichment"
+        title="Company profiles (optional)"
         description="Context.dev fills in company profiles from their websites."
       >
         <SettingsCard>
@@ -28,7 +28,7 @@ export function AiSettings() {
         <SettingsCard>
           <SettingsRow
             label="Automations"
-            description="Create drafts with your AI client, then review and deploy them here."
+            description="Your AI client drafts agents. Review and deploy them on the Agents page."
           >
             <Button
               variant="outline"

@@ -78,7 +78,7 @@ function FollowUpDialog({
         subject: value.subject,
         dueAt: endOfLocalDay(value.due),
       });
-      toast.success("Follow-up scheduled.");
+      toast.success("Follow-up added.");
       onClose();
     },
   });
@@ -92,9 +92,7 @@ function FollowUpDialog({
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <form.SubmitButton form={FORM_ID}>
-              Schedule follow-up
-            </form.SubmitButton>
+            <form.SubmitButton form={FORM_ID}>Add follow-up</form.SubmitButton>
           </>
         }
       >

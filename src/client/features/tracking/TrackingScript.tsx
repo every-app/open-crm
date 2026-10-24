@@ -112,7 +112,7 @@ function InstallMethod({
       <AccordionTrigger className="border-0 py-4">{label}</AccordionTrigger>
       <AccordionContent className="space-y-3 pb-4">
         {snippet ? (
-          <CodeBlock value={snippet} successMessage="Script copied." />
+          <CodeBlock value={snippet} successMessage="Copied." />
         ) : null}
         {children}
       </AccordionContent>

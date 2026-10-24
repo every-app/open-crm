@@ -24,9 +24,7 @@ export function GeneralSettings() {
   return (
     <SettingsPage title="Workspace">
       {workspace ? (
-        <SettingsSection title="Workspace">
-          <WorkspaceSettingsCard workspace={workspace} canManage={canManage} />
-        </SettingsSection>
+        <WorkspaceSettingsCard workspace={workspace} canManage={canManage} />
       ) : null}
 
       <SettingsSection title="Appearance">

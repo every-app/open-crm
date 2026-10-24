@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Handshake } from "lucide-react";
+import { ChevronRight, Clock, Handshake, LoaderCircle } from "lucide-react";
 import { cn } from "cn";
 import { QueryError } from "@/client/components/QueryState";
 import { Button } from "@/client/components/ui/button";
-import { SidebarMenuButton, useSidebar } from "@/client/components/ui/sidebar";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/client/components/ui/sidebar";
 import {
   Collapsible,
   CollapsibleContent,
@@ -53,11 +60,33 @@ const QUEUE_BUTTON =
 
 /**
  * What the research agent is working on for the organization, and what it
- * has booked for later (the CRM's EnrichmentQueue): a button with the count,
- * opening the list. Each row opens its record. While the agent's model isn't
- * set up, the status links directly to AI Settings.
+ * has booked for later (the CRM's EnrichmentQueue): a row at the foot of the
+ * nav with a spinner and the count while work runs, a clock and the count
+ * when work is only booked for later, and nothing at all when the agent is
+ * idle, so an idle CRM never looks like something is going on. Opens the
+ * list; each row opens its record. While the agent's model isn't set up, the
+ * row links directly to AI Settings.
  */
 export function EnrichmentQueue() {
+  const queue = useQuery(enrichmentQueueQueryOptions(ENRICHMENT_PAGE));
+  const paused = queue.data?.paused ?? false;
+  const active = (queue.data?.total ?? 0) > 0;
+  const booked = (queue.data?.scheduledTotal ?? 0) > 0;
+  if (!paused && !active && !booked) return null;
+  return (
+    <SidebarGroup className="mt-auto py-2">
+      <SidebarGroupContent>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <QueueRow />
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+function QueueRow() {
   const { setOpenMobile } = useSidebar();
   const canManage = useCanManageWorkspace();
   const [open, setOpen] = useState(false);
@@ -110,19 +139,15 @@ export function EnrichmentQueue() {
   return (
     <Popover open={open} onOpenChange={show}>
       <PopoverTrigger render={<SidebarMenuButton className={QUEUE_BUTTON} />}>
-        {/* In the nav's icon column. */}
-        <span
-          aria-hidden
-          className="flex size-4 shrink-0 items-center justify-center"
-        >
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              total > 0 ? STATE_DOTS.running : STATE_DOTS.queued,
-            )}
-          />
+        {total > 0 ? (
+          <LoaderCircle aria-hidden className="size-4 animate-spin" />
+        ) : (
+          <Clock aria-hidden className="size-4" />
+        )}
+        <span>{total > 0 ? "Researching" : "Research"}</span>
+        <span className="ml-auto text-xs tabular-nums text-sidebar-foreground/50">
+          {total > 0 ? total : (queue.data?.scheduledTotal ?? 0)}
         </span>
-        <span>{total > 0 ? `Researching ${total}` : "Research"}</span>
       </PopoverTrigger>
       <PopoverContent side="right" align="start" className="w-96">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -259,9 +284,7 @@ function Booked({
   return (
     <Collapsible className="border-t border-border">
       <CollapsibleTrigger className="group flex w-full cursor-pointer items-center justify-between px-4 py-3 text-xs outline-none hover:bg-muted focus-visible:bg-muted">
-        <span className="text-muted-foreground">
-          {total} booked for a later look
-        </span>
+        <span className="text-muted-foreground">{total} scheduled</span>
         <span className="text-primary group-data-panel-open:hidden">Show</span>
         <span className="hidden text-primary group-data-panel-open:inline">
           Hide

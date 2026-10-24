@@ -20,7 +20,7 @@ export function NotFound() {
         </CardContent>
         <CardFooter>
           <Button nativeButton={false} render={<Link to="/" />}>
-            Home
+            Overview
           </Button>
         </CardFooter>
       </Card>

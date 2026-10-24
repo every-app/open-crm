@@ -58,7 +58,7 @@ export function CompanyOverview({
               size="xs"
               onClick={() => setShowEmpty((value) => !value)}
             >
-              {showEmpty ? "Hide empty fields" : "Add details"}
+              {showEmpty ? "Hide empty fields" : "Show empty fields"}
             </Button>
             <FieldsSheetButton entity="COMPANY" />
           </div>

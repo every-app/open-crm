@@ -252,8 +252,7 @@ function ContactStats({ contact }: { contact: Contact }) {
 
 /** What deleting a contact forever takes with it, for the confirmation. */
 function purgeConsequence(contact: Contact): string {
-  const gone =
-    "Their notes, agent conversations and everything the agent found go too";
+  const gone = "Their notes and everything the agent found go too";
   return contact.email
     ? `${gone}, and the sync won't bring ${contact.email} back.`
     : `${gone}.`;

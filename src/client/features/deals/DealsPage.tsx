@@ -138,6 +138,11 @@ export function DealsPage() {
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
           title={input.archived ? "Archived deals" : "Deals"}
+          description={
+            input.archived
+              ? undefined
+              : "Every sale in progress with a company, by stage and amount."
+          }
           actions={
             <>
               <CsvMenu
@@ -179,8 +184,7 @@ export function DealsPage() {
                   icon: CircleDollarSign,
                   media: "icon",
                   title: "No deals",
-                  description:
-                    "A deal belongs to a company. Add the company first, then its deal from the company's page.",
+                  description: "Each deal belongs to a company.",
                   action: (
                     <div className="flex flex-wrap justify-center gap-2">
                       {newDeal}

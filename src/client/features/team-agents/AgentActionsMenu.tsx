@@ -39,7 +39,7 @@ export function AgentActionsMenu({ agent }: { agent: Agent }) {
   const remove = useMutation({
     mutationFn: () => deleteTeamAgent({ data: { agentId: agent.id } }),
     onSuccess: async () => {
-      toast.success(`${agent.name} was deleted.`);
+      toast.success(`${agent.name} deleted.`);
       await queryClient.invalidateQueries({ queryKey: teamAgentKeys.list() });
       await navigate({ to: "/agents" });
     },

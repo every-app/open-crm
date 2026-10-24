@@ -68,7 +68,7 @@ export function useContactMutations(
   const archive = useMutation({
     mutationFn: () => archiveContact({ data: { id: contactId } }),
     onSuccess: async (contact) => {
-      toast.success(`${contact.name} was archived.`);
+      toast.success(`${contact.name} archived.`);
       await invalidate();
     },
   });
@@ -76,7 +76,7 @@ export function useContactMutations(
   const restore = useMutation({
     mutationFn: () => restoreContact({ data: { id: contactId } }),
     onSuccess: async (contact) => {
-      toast.success(`${contact.name} was restored.`);
+      toast.success(`${contact.name} restored.`);
       await invalidate();
     },
   });
@@ -84,7 +84,7 @@ export function useContactMutations(
   const purge = useMutation({
     mutationFn: () => purgeContact({ data: { id: contactId } }),
     onSuccess: async (contact) => {
-      toast.success(`${contact.name} was deleted forever.`);
+      toast.success(`${contact.name} deleted forever.`);
       onPurged();
       await invalidate({ gone: record });
     },
@@ -94,13 +94,11 @@ export function useContactMutations(
     mutationFn: () => enrichContact({ data: { id: contactId } }),
     onSuccess: async (result) => {
       // Queued either way; while the agent's model isn't set up it runs by
-      // itself once the key lands, so say so instead of "Taking another look."
+      // itself once the key lands, so say so instead of "Research queued."
       if (paused) {
         toast.warning(pausedResearchMessage(canManage));
       } else {
-        toast.success(
-          result.queued ? "Taking another look." : "Already running.",
-        );
+        toast.success(result.queued ? "Research queued." : "Already running.");
       }
       await invalidate();
     },

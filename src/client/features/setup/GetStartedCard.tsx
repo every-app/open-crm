@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, type LinkOptions } from "@tanstack/react-router";
-import { ArrowRight, Building2, Check } from "lucide-react";
+import { ArrowRight, Building2 } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/client/components/ui/button";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
@@ -46,7 +46,6 @@ export function GetStartedCard({
             <p className="inline-flex max-w-full items-center gap-2 rounded-full bg-primary/5 px-3 py-1.5 text-sm text-primary">
               <Building2 className="size-4 shrink-0" />
               <span className="truncate">{company.name}</span>
-              <Check className="size-3.5 shrink-0" />
             </p>
           ) : null}
           <h2

@@ -45,7 +45,7 @@ export function CompanyBulkActions({
   const enrich = useMutation({
     mutationFn: (selected: string[]) =>
       bulkEnrichCompanies({ data: { ids: selected } }),
-    ...settled((count) => `Looking up ${count}.`),
+    ...settled((count) => `${count} queued for research.`),
   });
   const archive = useMutation({
     mutationFn: (selected: string[]) =>

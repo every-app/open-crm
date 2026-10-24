@@ -11,10 +11,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
     select: (state) => state.id === rootRouteId,
   });
 
-  const message = getStandardErrorMessage(
-    error,
-    "Something went wrong. Please try again.",
-  );
+  const message = getStandardErrorMessage(error, "Something went wrong.");
   return (
     <div className="flex min-w-0 flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -28,7 +25,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
             }}
             size="sm"
           >
-            Try Again
+            Try again
           </Button>
           {isRoot ? (
             <Button
@@ -37,7 +34,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
               size="sm"
               variant="outline"
             >
-              Home
+              Overview
             </Button>
           ) : (
             <Button
@@ -54,7 +51,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
               size="sm"
               variant="outline"
             >
-              Go Back
+              Go back
             </Button>
           )}
         </CardFooter>

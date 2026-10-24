@@ -111,7 +111,9 @@ export function CloseReasonDialog({
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <form.SubmitButton form={FORM_ID}>Save</form.SubmitButton>
+            <form.SubmitButton form={FORM_ID}>
+              {lost ? "Close as lost" : "Mark as unqualified"}
+            </form.SubmitButton>
           </>
         }
       >

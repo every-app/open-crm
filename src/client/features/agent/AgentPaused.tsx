@@ -52,10 +52,10 @@ export function ModelNotSetUp({ consequence }: { consequence?: string }) {
   const canManage = useCanManageWorkspace();
   return (
     <>
-      The agent's model isn't set up. {consequence ? `${consequence} ` : null}
+      The AI model isn't set up. {consequence ? `${consequence} ` : null}
       {canManage ? (
         <Link to="/settings/ai" hash="model" className={LINK}>
-          Set up research
+          Set up the model
         </Link>
       ) : (
         "An owner or admin can set it up."

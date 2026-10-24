@@ -56,7 +56,7 @@ export function useDealMutations(
   const archive = useMutation({
     mutationFn: () => archiveDeal({ data: { id: dealId } }),
     onSuccess: async (deal) => {
-      toast.success(`${deal.name} was archived.`);
+      toast.success(`${deal.name} archived.`);
       await invalidate();
     },
   });
@@ -64,7 +64,7 @@ export function useDealMutations(
   const restore = useMutation({
     mutationFn: () => restoreDeal({ data: { id: dealId } }),
     onSuccess: async (deal) => {
-      toast.success(`${deal.name} was restored.`);
+      toast.success(`${deal.name} restored.`);
       await invalidate();
     },
   });
@@ -72,7 +72,7 @@ export function useDealMutations(
   const purge = useMutation({
     mutationFn: () => purgeDeal({ data: { id: dealId } }),
     onSuccess: async (deal) => {
-      toast.success(`${deal.name} was deleted forever.`);
+      toast.success(`${deal.name} deleted forever.`);
       onPurged();
       await invalidate({ gone: record });
     },

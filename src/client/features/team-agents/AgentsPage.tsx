@@ -14,7 +14,7 @@ import { STATUS_COPY } from "./teamAgentCopy";
 // An ask that works on a fresh install: a SCHEDULE trigger and
 // crm.activity.create, nothing that needs Slack or a mailbox connected.
 const EXAMPLE_ASK =
-  "Create a team agent that runs every Monday morning and writes a task on each open deal that hasn't moved in two weeks.";
+  "Create an agent that runs every Monday morning and writes a task on each open deal that hasn't moved in two weeks.";
 
 /** The team's durable automations (the CRM's team agents index). */
 export function AgentsPage() {
@@ -25,6 +25,7 @@ export function AgentsPage() {
       <div className="mx-auto max-w-5xl space-y-6">
         <PageHeader
           title="Agents"
+          description="Automations your AI client drafts. You review and deploy them here."
           actions={
             <Button
               variant="outline"
@@ -58,7 +59,7 @@ export function AgentsPage() {
                       <CopyButton
                         value={EXAMPLE_ASK}
                         label="Copy the example"
-                        successMessage="Example copied"
+                        successMessage="Copied."
                         variant="outline"
                         size="icon-sm"
                       />

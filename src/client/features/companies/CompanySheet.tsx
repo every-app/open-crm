@@ -236,6 +236,6 @@ function CompanyStats({ company }: { company: Company }) {
 function purgeConsequence(company: Company): string {
   const deals = company.dealCount;
   return deals > 0
-    ? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything filed against the account go too.`
-    : "Everything filed against the account goes too.";
+    ? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything on its record go too.`
+    : "Everything on its record goes too.";
 }

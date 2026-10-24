@@ -20,14 +20,14 @@ const PRESENTATION: Record<
 > = {
   PENDING: { label: "Not researched", tone: "neutral" },
   RUNNING: { label: "Researching", tone: "info", busy: true },
-  COMPLETE: { label: "Enriched", tone: "success" },
-  FAILED: { label: "Enrichment failed", tone: "error" },
+  COMPLETE: { label: "Researched", tone: "success" },
+  FAILED: { label: "Research failed", tone: "error" },
   SKIPPED: { label: "Nothing found", tone: "neutral" },
 };
 
 const QUEUED = { label: "Queued", tone: "neutral" as const, busy: false };
 
-/** The list's Enrichment filter: one choice per state, as the CRM names it. */
+/** The list's Research filter: one choice per state, as the CRM names it. */
 export const ENRICHMENT_OPTIONS = ENRICHMENT_STATUSES.map((value) => ({
   value,
   label: PRESENTATION[value].label,

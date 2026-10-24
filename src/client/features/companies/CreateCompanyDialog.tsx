@@ -102,8 +102,8 @@ export function CreateCompanyDialog({
           <form.AppField name="domain">
             {(field) => (
               <field.TextField
-                label="Website (optional)"
-                placeholder="stripe.com"
+                label="Domain (optional)"
+                placeholder="acme.com"
                 inputMode="url"
                 autoComplete="off"
               />

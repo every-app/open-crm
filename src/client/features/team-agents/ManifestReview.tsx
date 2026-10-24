@@ -52,7 +52,7 @@ export function ManifestReview({ manifest }: { manifest: AgentManifest }) {
           ))}
         </ul>
       </Row>
-      <Row label="Scope">
+      <Row label="Access">
         <ul className="space-y-0.5">
           {manifest.access.map((line) => (
             <li key={line}>{line}</li>

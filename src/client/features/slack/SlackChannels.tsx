@@ -34,7 +34,7 @@ import { slackChannelPagesQueryOptions, slackKeys } from "./slackQueries";
 /**
  * The channels the app can reach (the CRM's Slack channels section): search
  * them, add the app to one or ask for it, or read the list again. Channels
- * are created where an agent picks one (its "Lives in" step).
+ * are created where an agent picks one (its "Where it posts" step).
  */
 export function SlackChannels({ appName }: { appName: string | null }) {
   const queryClient = useQueryClient();
@@ -219,7 +219,7 @@ function AskDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!canInviteItself && command ? (
-          <CodeBlock value={command} successMessage="Command copied." />
+          <CodeBlock value={command} successMessage="Copied." />
         ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
@@ -232,7 +232,7 @@ function AskDialog({
               pending={pending}
               onClick={() => {
                 if (!command) return onConfirm();
-                void copy(command, "Command copied.").then((copied) => {
+                void copy(command, "Copied.").then((copied) => {
                   if (copied) onConfirm();
                 });
               }}

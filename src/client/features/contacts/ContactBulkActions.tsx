@@ -63,7 +63,7 @@ export function ContactBulkActions({
   const enrich = useMutation({
     mutationFn: (selected: string[]) =>
       bulkEnrichContacts({ data: { ids: selected } }),
-    ...settled((count) => `Looking up ${count}.`),
+    ...settled((count) => `${count} queued for research.`),
   });
   const archive = useMutation({
     mutationFn: (selected: string[]) =>

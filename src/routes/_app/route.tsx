@@ -27,10 +27,7 @@ function AppRouteLayout() {
   }
 
   return (
-    <AppLayout
-      workspaceName={workspace?.name ?? null}
-      sidebarHeader={<QuickSwitcher />}
-    >
+    <AppLayout sidebarHeader={<QuickSwitcher />}>
       {workspace ? (
         <>
           <Outlet />

@@ -30,7 +30,7 @@ export const ACTIVITY_PRESENTATION: Record<
   MEETING: { label: "Meeting", icon: CalendarDays },
   TASK: { label: "Task", icon: SquareCheck },
   STAGE_CHANGE: { label: "Stage change", icon: ArrowRight },
-  ENRICHMENT: { label: "Enrichment", icon: WandSparkles },
+  ENRICHMENT: { label: "Research", icon: WandSparkles },
 };
 
 const stageChangeSchema = z

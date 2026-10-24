@@ -191,7 +191,7 @@ export function RecordBulkMenu({
               {onEnrich ? (
                 <DropdownMenuItem onClick={onEnrich}>
                   <RefreshCw />
-                  Re-enrich
+                  Refresh research
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuSeparator />

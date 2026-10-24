@@ -57,7 +57,7 @@ export function useCompanyMutations(
   const archive = useMutation({
     mutationFn: () => archiveCompany({ data: { id: companyId } }),
     onSuccess: async (company) => {
-      toast.success(`${company.name} was archived.`);
+      toast.success(`${company.name} archived.`);
       await invalidate();
     },
   });
@@ -65,7 +65,7 @@ export function useCompanyMutations(
   const restore = useMutation({
     mutationFn: () => restoreCompany({ data: { id: companyId } }),
     onSuccess: async (company) => {
-      toast.success(`${company.name} was restored.`);
+      toast.success(`${company.name} restored.`);
       await invalidate();
     },
   });
@@ -73,7 +73,7 @@ export function useCompanyMutations(
   const purge = useMutation({
     mutationFn: () => purgeCompany({ data: { id: companyId } }),
     onSuccess: async (company) => {
-      toast.success(`${company.name} was deleted forever.`);
+      toast.success(`${company.name} deleted forever.`);
       onPurged();
       await invalidate({ gone: record });
     },
@@ -84,11 +84,11 @@ export function useCompanyMutations(
     onSuccess: async (result) => {
       // The request is queued either way; while the agent's model isn't set
       // up it runs by itself once the key lands, so say so instead of
-      // "Looking it up."
+      // "Research queued."
       if (paused) {
         toast.warning(pausedResearchMessage(canManage));
       } else {
-        toast.success(result.queued ? "Looking it up." : "Already running.");
+        toast.success(result.queued ? "Research queued." : "Already running.");
       }
       await invalidate();
     },

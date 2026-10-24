@@ -39,11 +39,11 @@ export function ApiSettings() {
     <SettingsSection
       id="ai-clients"
       title="Connect your AI client"
-      description="Your Every App gateway has one address for AI assistants. Connected once, an assistant works in the CRM the way you can: companies, contacts, deals, follow-ups and agents."
+      description="Your Every App gateway has one address for AI clients. Connected once, your AI client works in the CRM the way you can: companies, contacts, deals, follow-ups and agents."
     >
       <SettingsCard>
         <SettingsRow
-          label="1. Claude or ChatGPT"
+          label="Claude or ChatGPT"
           description="Add a custom connector and paste this address."
         >
           {mcpUrl ? (
@@ -53,7 +53,7 @@ export function ApiSettings() {
               </code>
               <CopyButton
                 value={mcpUrl}
-                successMessage="Endpoint copied"
+                successMessage="Copied."
                 label="Copy the MCP endpoint"
                 size="icon-xs"
                 variant="ghost"
@@ -63,7 +63,7 @@ export function ApiSettings() {
         </SettingsRow>
         <SettingsRow
           stacked
-          label="2. Claude Code"
+          label="Claude Code"
           description="Run this in a terminal, then type /mcp, choose everyapp and Authenticate."
         >
           {claudeCodeCommand ? (
@@ -73,7 +73,7 @@ export function ApiSettings() {
               </code>
               <CopyButton
                 value={claudeCodeCommand}
-                successMessage="Command copied"
+                successMessage="Copied."
                 label="Copy the Claude Code command"
                 size="icon-xs"
                 variant="ghost"
@@ -82,15 +82,15 @@ export function ApiSettings() {
           ) : null}
         </SettingsRow>
         <SettingsRow
-          label="3. Sign in"
+          label="Sign in"
           description={
             account?.gatewayUrl
-              ? "Your Every App sign-in page opens: sign in, allow the CRM, and choose whether the assistant may change things or only read."
+              ? "Your Every App sign-in page opens: sign in, allow the CRM, and choose whether your AI client may change things or only read."
               : "This endpoint uses bearer-token authentication. Ask an owner or admin for access."
           }
         />
         <SettingsRow
-          label="4. Try your first request"
+          label="Try your first request"
           description="Paste this into your AI client. A successful CRM tool result confirms the connection."
         >
           <div className="flex max-w-md items-start gap-2">
@@ -100,7 +100,7 @@ export function ApiSettings() {
             <CopyButton
               value={FIRST_REQUEST}
               label="Copy first request"
-              successMessage="Request copied"
+              successMessage="Copied."
               variant="outline"
               size="icon-sm"
             />

@@ -33,7 +33,7 @@ export const dashboardSearchSchema = z.object({
 const routeApi = getRouteApi("/_app/");
 
 const SCOPES = [
-  { value: "everyone", label: "All owners" },
+  { value: "everyone", label: "All deals" },
   { value: "me", label: "My deals" },
 ];
 
@@ -71,7 +71,8 @@ export function DashboardPage() {
     <div className="flex min-h-full flex-col px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6">
         <PageHeader
-          title={summary && !summary.hasDeals ? "Welcome" : "Overview"}
+          title="Overview"
+          description="Pipeline, overdue tasks and recent activity, including the agent's research."
           actions={
             summary?.multipleOwners ? (
               <Select
@@ -127,7 +128,7 @@ export function DashboardPage() {
             {query.isError ? (
               <QueryError
                 error={query.error}
-                fallback="Home could not be refreshed."
+                fallback="The overview could not be refreshed."
                 onRetry={() => void query.refetch()}
                 isRetrying={query.isFetching}
               />
@@ -149,7 +150,7 @@ export function DashboardPage() {
         ) : query.isError ? (
           <QueryError
             error={query.error}
-            fallback="Home could not be loaded."
+            fallback="The overview could not be loaded."
             onRetry={() => void query.refetch()}
             isRetrying={query.isFetching}
             variant="page"

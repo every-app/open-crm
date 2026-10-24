@@ -188,7 +188,7 @@ function SaveViewDialog({
       await queryClient.invalidateQueries({
         queryKey: savedViewsQueryOptions(entity).queryKey,
       });
-      toast.success("View saved");
+      toast.success("View saved.");
       onClose();
     },
   });

@@ -290,7 +290,7 @@ function LivesIn({
 
   return (
     <SettingsSection
-      title={<ReviewLabel label="Lives in" inReview={inReview} />}
+      title={<ReviewLabel label="Where it posts" inReview={inReview} />}
       action={
         // Creating and joining channels are an owner's or admin's.
         isChannel && channels.data?.canManage ? (
@@ -358,7 +358,7 @@ function WhatItCanDo({
   onChange: (off: string[]) => void;
 }) {
   return (
-    <SettingsSection title="What it can do there">
+    <SettingsSection title="What it can do">
       <SettingsCard>
         {manifest.actions.map((action) => {
           const label = ACTION_LABELS[action.type] ?? action.type;

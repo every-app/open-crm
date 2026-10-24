@@ -3,7 +3,8 @@ import { PRODUCT_NAME } from "@/client/lib/page-title";
 import type { LinkOptions } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
+import { cn } from "cn";
 import { navItems, settingsNavItem } from "@/client/navigation/items";
 import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
 import { getEveryAppAccount } from "@/serverFunctions/everyApp";
@@ -17,7 +18,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSkeleton,
   useSidebar,
 } from "@/client/components/ui/sidebar";
 
@@ -74,24 +74,23 @@ function SidebarNavLink({
 }
 
 export function Sidebar({
-  workspaceName,
   header,
 }: {
-  workspaceName: string | null;
-  /** Rendered under the workspace name: the quick search. */
+  /** Rendered under the product name: the quick search. */
   header?: React.ReactNode;
 }) {
   const { setOpenMobile } = useSidebar();
 
   return (
     <UiSidebar variant="inset" collapsible="offcanvas" className="md:!p-0">
-      <SidebarHeader className="gap-0 px-3 pb-1 pt-3">
+      <SidebarHeader className="gap-0 px-3 pb-1 pt-2">
+        <EveryAppLink />
         <Link
           to="/"
           onClick={() => setOpenMobile(false)}
           className="truncate px-1 pb-2 text-base font-semibold text-sidebar-foreground"
         >
-          {workspaceName ?? PRODUCT_NAME}
+          {PRODUCT_NAME}
         </Link>
         {header}
       </SidebarHeader>
@@ -114,50 +113,41 @@ export function Sidebar({
             </SidebarGroupContent>
           </SidebarGroup>
         </nav>
-        <SidebarGroup className="mt-auto py-2">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <EnrichmentQueue />
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <EnrichmentQueue />
       </SidebarContent>
-      <SidebarFoot />
+      <UiSidebarFooter className="gap-0 border-t border-sidebar-border pb-safe">
+        <SidebarMenu>
+          <SidebarNavLink
+            icon={settingsNavItem.icon}
+            label={settingsNavItem.label}
+            linkProps={settingsNavItem.link}
+          />
+        </SidebarMenu>
+      </UiSidebarFooter>
     </UiSidebar>
   );
 }
 
-// Workspace utilities sit below the divider; research status stays above it.
-function SidebarFoot() {
+/**
+ * The way back up, first in the sidebar as in every Every App app: the
+ * gateway owns sign-in, organizations, teams and the other apps. The row
+ * keeps its height while the gateway's URL loads so the header doesn't jump.
+ */
+function EveryAppLink() {
   const accountQuery = useQuery(everyAppAccountQueryOptions());
   const gatewayUrl = accountQuery.data?.gatewayUrl;
-
+  if (!accountQuery.isPending && !gatewayUrl) return null;
   return (
-    <UiSidebarFooter className="gap-0 border-t border-sidebar-border pb-safe">
-      <SidebarMenu>
-        <SidebarNavLink
-          icon={settingsNavItem.icon}
-          label={settingsNavItem.label}
-          linkProps={settingsNavItem.link}
-        />
-        {accountQuery.isPending ? (
-          <SidebarMenuItem>
-            <SidebarMenuSkeleton showIcon />
-          </SidebarMenuItem>
-        ) : gatewayUrl ? (
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<a href={gatewayUrl} />}
-              className={navButtonClass}
-            >
-              <ArrowUpRight className="size-4" />
-              <span>Back to Every App</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ) : null}
-      </SidebarMenu>
-    </UiSidebarFooter>
+    <a
+      href={gatewayUrl ?? undefined}
+      aria-label="Back to Every App"
+      className={cn(
+        "mb-1 inline-flex h-7 w-fit items-center gap-0.5 rounded-md pl-0.5 pr-2 text-sm text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground",
+        accountQuery.isPending && "invisible",
+      )}
+    >
+      <ChevronLeft className="size-4" aria-hidden />
+      <span>Every App</span>
+    </a>
   );
 }

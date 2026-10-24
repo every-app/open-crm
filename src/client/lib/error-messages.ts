@@ -8,16 +8,15 @@ import {
 const UNEXPECTED_ERROR_MESSAGE = "Something went wrong. Try again in a moment.";
 
 const STANDARD_MESSAGES: Record<ErrorCode, string> = {
-  UNAUTHENTICATED: "Please sign in on Every App and try again.",
+  UNAUTHENTICATED: "Sign in on Every App and try again.",
   AUTH_CONFIG_MISSING:
     "The CRM isn't set up on your Every App gateway yet. Deploy it with `everyapp deploy`.",
   FORBIDDEN: "Only an owner or an admin can do that.",
   NOT_FOUND: "The requested record was not found.",
-  VALIDATION_ERROR: "Please check your input and try again.",
+  VALIDATION_ERROR: "Check your input and try again.",
   CONFLICT: "This conflicts with an existing record.",
-  RATE_LIMITED: "Too many requests. Please wait and try again.",
-  UPSTREAM_UNAVAILABLE:
-    "A provider is temporarily unavailable. Please retry in a moment.",
+  RATE_LIMITED: "Too many requests. Try again in a moment.",
+  UPSTREAM_UNAVAILABLE: "A provider is unavailable. Try again in a moment.",
   AGENT_UNAVAILABLE:
     "The research agent isn't set up on this Every App gateway yet. An owner or admin runs: pnpm everyapp secret set OPENROUTER_API_KEY",
   INTEGRATION_UNAVAILABLE:

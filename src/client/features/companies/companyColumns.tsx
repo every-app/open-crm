@@ -108,13 +108,13 @@ export function companyColumns({
       id: "contacts",
       header: "Contacts",
       value: (row) => row.contactCount,
-      width: 72,
+      width: 96,
     }),
     countColumn({
       id: "deals",
       header: "Open deals",
       value: (row) => row.openDealCount,
-      width: 80,
+      width: 104,
     }),
     dateColumn({
       id: "lastActivity",
@@ -125,9 +125,9 @@ export function companyColumns({
     }),
     {
       id: "enrichment",
-      header: "Enrichment",
+      header: "Research",
       enableSorting: false,
-      meta: { label: "Enrichment status", width: 112 },
+      meta: { label: "Research status", width: 112 },
       cell: ({ row }) => (
         <EnrichmentIndicator
           status={row.original.enrichmentStatus}

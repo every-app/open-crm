@@ -37,5 +37,4 @@ export function closeDay(value: string | null): string | null {
 }
 
 /** What deleting a deal forever takes with it, for the confirmation. */
-export const PURGE_CONSEQUENCE =
-  "Its stage history, notes and agent conversations go too.";
+export const PURGE_CONSEQUENCE = "Its stage history and notes go too.";

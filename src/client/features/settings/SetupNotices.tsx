@@ -41,7 +41,7 @@ export function TokenKeyRows({ setup }: { setup: SettingSetup }) {
           stacked
           label={setup.canRun ? "Command" : "Ask an admin to run"}
         >
-          <CodeBlock value={setup.command} successMessage="Command copied" />
+          <CodeBlock value={setup.command} successMessage="Copied." />
         </SettingsRow>
       ) : null}
       {setup.devVars ? (

@@ -343,7 +343,7 @@ function RunDetail({ run }: { run: Run }) {
         at: event.emittedAt,
         text: eventLabel(event),
         detail: null as string | null,
-        reference: "event",
+        reference: null as string | null,
       })),
       ...run.actions.map((action) => ({
         key: `action:${action.id}`,

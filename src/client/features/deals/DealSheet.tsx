@@ -144,7 +144,7 @@ function DealStats({ deal }: { deal: Deal }) {
           <EmptyValue />
         )}
       </SheetStat>
-      <SheetStat label="In stage since">
+      <SheetStat label="Stage changed">
         <RelativeTime date={deal.stageChangedAt} />
       </SheetStat>
       <SheetStat label="Owner">

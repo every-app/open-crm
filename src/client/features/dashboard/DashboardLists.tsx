@@ -63,7 +63,7 @@ export function DealsInProgress({ summary }: { summary: DashboardSummary }) {
   return (
     <Card className="min-w-0">
       <CardHeader>
-        <CardTitle>Deals in progress</CardTitle>
+        <CardTitle>Open deals</CardTitle>
         {/* One row, centered on the title: the header is a title's height. */}
         <CardAction className="row-span-1 -my-0.75">
           <Button
@@ -84,7 +84,7 @@ export function DealsInProgress({ summary }: { summary: DashboardSummary }) {
               />
             }
           >
-            Open deals
+            Deals
           </Button>
         </CardAction>
       </CardHeader>
@@ -189,7 +189,7 @@ export function RecentActivity({ summary }: { summary: DashboardSummary }) {
             nativeButton={false}
             render={<Link to="/companies" />}
           >
-            All companies
+            Directory
           </Button>
         </CardAction>
       </CardHeader>

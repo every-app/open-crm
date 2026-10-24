@@ -96,6 +96,7 @@ export function WorkspaceForm({
           {(field) => (
             <field.TextField
               label="Your business website (optional)"
+              description="The research agent reads it to learn what you sell."
               placeholder="acme.com"
               inputMode="url"
               autoComplete="url"
@@ -144,6 +145,7 @@ export function WorkspaceSettingsCard({
             {(field) => (
               <field.RowTextField
                 label="Business website (optional)"
+                description="The research agent reads it to learn what you sell."
                 prefix="https://"
                 placeholder="acme.com"
                 autoComplete="off"

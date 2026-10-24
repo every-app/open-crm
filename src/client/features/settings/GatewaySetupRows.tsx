@@ -25,7 +25,7 @@ export function GatewaySetupRows({
       </SettingsRow>
       {setup.command ? (
         <SettingsRow stacked label="Command">
-          <CodeBlock value={setup.command} successMessage="Command copied" />
+          <CodeBlock value={setup.command} successMessage="Copied." />
         </SettingsRow>
       ) : null}
       {setup.devVars ? (

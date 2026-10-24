@@ -155,7 +155,7 @@ function LoadedAgent({ agent }: { agent: Agent }) {
           actions={
             <>
               <Button variant="outline" onClick={() => setRunsOpen(true)}>
-                Runs
+                History
                 <span className="font-mono text-muted-foreground">
                   {agent.runCount}
                 </span>
@@ -165,7 +165,7 @@ function LoadedAgent({ agent }: { agent: Agent }) {
                 variant="outline"
                 render={<Link to="/settings/connections" hash="ai-clients" />}
               >
-                AI client access
+                Connect your AI client
               </Button>
               {canRunByHand ? (
                 <Button

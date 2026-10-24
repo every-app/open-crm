@@ -114,7 +114,7 @@ export function SetupCommand({
       </code>
       <CopyButton
         value={command}
-        successMessage="Command copied"
+        successMessage="Copied."
         label={`Copy the command that sets up ${label}`}
         size="icon-xs"
         variant="ghost"

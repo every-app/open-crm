@@ -37,7 +37,7 @@ export function companyFilters(
     },
     {
       key: "enrichment",
-      label: "Enrichment",
+      label: "Research",
       icon: Sparkles,
       options: ENRICHMENT_OPTIONS,
       counts: countsFor(facetCounts, "enrichment"),

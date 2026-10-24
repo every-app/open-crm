@@ -186,7 +186,7 @@ function DeleteFieldDialog({
     mutationFn: () => deleteField({ data: { id: field.id } }),
     onSuccess: async () => {
       onClose();
-      toast.success(`${field.label} deleted`);
+      toast.success(`${field.label} deleted.`);
       await onDeleted();
     },
   });
