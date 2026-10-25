@@ -39,7 +39,7 @@ pnpm deploy:everyapp
 
 The deploy registers the CRM with the gateway, creates its D1 database and R2 bucket, builds the Worker, migrates the database, uploads it, and binds it to the gateway. With no gateway in your account, the deploy offers to set one up first. When it finishes, the CRM appears on your gateway for every member of your organization.
 
-The CRM has four optional settings of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `TOKEN_ENCRYPTION_KEY`, `GITHUB_TOKEN`, `OPENROUTER_MODEL` ([below](#give-the-agent-its-keys)) and `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). Each is set with `pnpm everyapp secret set <NAME> --app crm`, from any directory, and the CRM opens without them.
+The CRM has four optional settings of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `TOKEN_ENCRYPTION_KEY`, `GITHUB_TOKEN`, `AGENT_MODEL` ([below](#give-the-agent-its-keys)) and `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). Each is set with `pnpm everyapp secret set <NAME> --app crm`, from any directory, and the CRM opens without them.
 
 Before anyone connects mail, a calendar or Slack, give the CRM `TOKEN_ENCRYPTION_KEY`, the key it encrypts their tokens with. Until it is set, each page under Settings → Connections says so and shows this command. Keep it safe: if it changes or is lost, everyone connects again.
 
@@ -57,20 +57,21 @@ pnpm everyapp secret set GITHUB_TOKEN --app crm
 
 The research agent's keys live on the gateway, never in the CRM. Set each once:
 
-| Setting              | What it unlocks                                                                | Command                                       |
-| -------------------- | ------------------------------------------------------------------------------ | --------------------------------------------- |
-| `OPENROUTER_API_KEY` | The research agent and team agents, including their web research               | `pnpm everyapp secret set OPENROUTER_API_KEY` |
-| `CONTEXT_API_KEY`    | Company logos and brand data, LinkedIn profile lookups, and website extraction | `pnpm everyapp secret set CONTEXT_API_KEY`    |
+| Setting                                             | What it unlocks                                                                                                                      | Command                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| A model provider's key (`OPENROUTER_API_KEY` first) | The research agent and team agents: their model is the gateway's default, and any one provider's key is enough                       | `pnpm everyapp secret set OPENROUTER_API_KEY`, or another provider's key |
+| `OPENROUTER_API_KEY`                                | Web research (Perplexity's Sonar through OpenRouter); optional, and the same key serves the default model when it is the one you set | `pnpm everyapp secret set OPENROUTER_API_KEY`                            |
+| `CONTEXT_API_KEY`                                   | Company logos and brand data, LinkedIn profile lookups, and website extraction                                                       | `pnpm everyapp secret set CONTEXT_API_KEY`                               |
 
 Each command asks for the value at a hidden prompt, so the key never appears in your shell history. The change is live on the gateway at once, with no redeploy of the gateway or the CRM. The CRM notices a newly set key on its own, with no restart: work waiting for the model key starts within about ten minutes, and logos and photos waiting for the Context.dev key within about five.
 
-The agent runs on GPT-6 Luna through OpenRouter. To use another OpenRouter model, set its id on the CRM (the key stays on the gateway):
+The agent runs on the gateway's default model: the gateway picks the provider whose key it holds (OpenRouter first), with that provider's default model. Pick another with `pnpm everyapp ai default <provider>[/<model>]` on the gateway (every app that takes the default follows it), or set a model id for the CRM alone (as the default provider names it):
 
 ```bash
-pnpm everyapp secret set OPENROUTER_MODEL --app crm
+pnpm everyapp secret set AGENT_MODEL --app crm
 ```
 
-The model must have a Zero Data Retention endpoint on OpenRouter: every call asks for zero retention and no data collection.
+Web research still asks OpenRouter for zero retention and no data collection on every call. The agent's own calls go through the default, which sends no provider routing: on OpenRouter, set your key's data policy in [OpenRouter's privacy settings](https://openrouter.ai/settings/privacy) if prompts must not be retained (they carry captured mail).
 
 ### Mail and calendar
 
@@ -125,7 +126,7 @@ On your own gateway, the agent spends your OpenRouter and Context.dev accounts. 
 
 - A new company gets a logo and brand lookup (10 Context.dev credits, $0.025), then a research session for its profile.
 - A new contact gets a research session to identify them, and a photo search when there's somewhere to look (up to $0.05).
-- A new record's research session makes at most two Context.dev lookups ($0.025 for a brand or a site's pages, $0.05 for a LinkedIn profile) and spends at most 500,000 input and 50,000 output tokens: $0.075 on GPT-6 Luna, at $0.10 and $0.50 per million, plus $0.01 for each web search. A company enriched on request, and the brief before a meeting with someone new, may make four or five lookups.
+- A new record's research session makes at most two Context.dev lookups ($0.025 for a brand or a site's pages, $0.05 for a LinkedIn profile) and spends at most 500,000 input and 50,000 output tokens: $0.075 on GPT-6 Luna, at $0.10 and $0.50 per million (the default model's own price applies), plus $0.01 for each web search. A company enriched on request, and the brief before a meeting with someone new, may make four or five lookups.
 
 So researching a record costs at most about $0.25, plus its web searches. Context.dev bills credits at about $0.0025 each on its $19 plan, and its free plan's 1,000 credits a month buy 100 logo lookups. A team agent's run can spend up to 500,000 input and 40,000 output tokens, and its schedule can run as often as every minute.
 
@@ -157,7 +158,7 @@ pnpm dev
 
 This starts the CRM behind a local gateway at http://crm.localhost:8787, signed in as a seeded dev owner. The first visit asks for a workspace name and website. Use `pnpm dev --port 8840` to pick another port.
 
-There is no gateway holding keys locally, so the model and Context.dev calls use your own `OPENROUTER_API_KEY` and `CONTEXT_API_KEY` from a `.dev.vars` file in this checkout. Both are optional; without them the agent shows as not set up, and `pnpm dev` names which are missing.
+There is no gateway holding keys locally, so the model and Context.dev calls use your own `OPENROUTER_API_KEY` (or another model provider's key) and `CONTEXT_API_KEY` from a `.dev.vars` file in this checkout. Both are optional; without them the agent shows as not set up, and `pnpm dev` names which are missing.
 
 ```bash
 cp .dev.vars.example .dev.vars   # then fill in OPENROUTER_API_KEY and CONTEXT_API_KEY
@@ -238,7 +239,7 @@ If your fork changes the schema, change tables only by adding to them. On D1, a 
 
 ## Troubleshooting
 
-**The agent says "Waiting for setup".** The gateway has no model key. Set `OPENROUTER_API_KEY` on the gateway (see [Give the agent its keys](#give-the-agent-its-keys)); the CRM picks it up within about ten minutes. Settings → Workspace shows Connected after the agent's next successful call.
+**The agent says "Waiting for setup".** The gateway has no model provider set up. Set `OPENROUTER_API_KEY` (or another model provider's key) on the gateway (see [Give the agent its keys](#give-the-agent-its-keys)); the CRM picks it up within about ten minutes. Settings → Workspace shows Connected after the agent's next successful call.
 
 **Settings → Workspace says "Not checked yet".** The gateway is connected, and the agent finds out whether it holds a model key the first time it runs. It runs within a minute of new work being queued, for example when you add a company.
 

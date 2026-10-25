@@ -41,7 +41,7 @@ function chatResearch(context: AgentToolContext): ToolSet {
     research_company: researchTools(context).research_company,
     find_contact_socials: socialTools(context).find_contact_socials,
     web_fetch: webFetch,
-    web_search: webSearch,
+    web_search: webSearch(context),
   };
 }
 

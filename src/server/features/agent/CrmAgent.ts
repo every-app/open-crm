@@ -15,10 +15,7 @@ import type {
 import { createCompactFunction } from "agents/experimental/memory/utils";
 import { generateText } from "ai";
 import { z } from "zod";
-import {
-  openRouterCostUsd,
-  staticAssistantModel,
-} from "@/server/lib/chatAgent";
+import { stepCostUsd, staticAssistantModel } from "@/server/lib/chatAgent";
 import { checkedSocketMessage } from "@/server/features/team-agents/runtime/answers";
 import {
   prepareBuilderTurn,
@@ -45,11 +42,7 @@ import {
   tokenLimitStep,
   type Spend,
 } from "./runtime/budget";
-import {
-  buildCrmAgentModel,
-  effortFor,
-  type ModelChoice,
-} from "./runtime/model";
+import { buildCrmAgentModel, type ModelChoice } from "./runtime/model";
 import {
   loadAgentSession,
   type AgentSession,
@@ -134,12 +127,9 @@ export class CrmAgent extends Think {
     return session
       .onCompaction(
         createCompactFunction({
-          // At "low", whoever's turn the summary interrupts.
           summarize: async (prompt) => {
-            const model = buildCrmAgentModel(
-              this.env,
-              () => this.chooseModel(),
-              "low",
+            const model = buildCrmAgentModel(this.env, () =>
+              this.chooseModel(),
             );
             const result = await generateText({ model, prompt });
             return result.text;
@@ -224,10 +214,7 @@ export class CrmAgent extends Think {
         ? spentChatReply(this.ctx.storage.kv, session.conversation.kind)
         : null;
     if (spent) return { model: staticAssistantModel(spent), activeTools: [] };
-    this.modelChoice = {
-      organizationId: session.organizationId,
-      effort: effortFor(session.kind),
-    };
+    this.modelChoice = { organizationId: session.organizationId };
     if (session.kind === "run") {
       const prepared = await prepareRunTurn(session, {
         thinkSystem: turn.system,
@@ -318,7 +305,7 @@ export class CrmAgent extends Think {
   private async chooseModel(): Promise<ModelChoice | null> {
     if (this.modelChoice) return this.modelChoice;
     const name = parseSessionName(this.name);
-    return name ? { organizationId: name.organizationId, effort: "low" } : null;
+    return name ? { organizationId: name.organizationId } : null;
   }
 
   /**
@@ -373,16 +360,10 @@ export class CrmAgent extends Think {
   }
 
   override async onStepFinish(step: StepContext): Promise<void> {
-    const costUsd = openRouterCostUsd(step);
+    const costUsd = stepCostUsd(step);
     const session = this.turnSession;
     if (!session) return;
     addTokens(this.ctx.storage.kv, session.kind, step.usage);
-    // The pages web_search cited, which an unattended web_fetch may read.
-    sessionEgress(this.ctx.storage.kv).noteSearched(
-      step.sources.flatMap((source) =>
-        source.sourceType === "url" ? [source.url] : [],
-      ),
-    );
     await recordStep(session, step, costUsd);
   }
 

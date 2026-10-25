@@ -29,7 +29,7 @@ describe("SetupService.checklist", () => {
   it("tells local development where each missing key goes", async () => {
     const { items } = await SetupService.checklist("org_a");
     expect(items.map((item) => item.note)).toEqual([
-      "Research is paused until the agent has a model. In local development, put OPENROUTER_API_KEY in .dev.vars.",
+      "Research is paused until the agent has a model. In local development, put OPENROUTER_API_KEY (or another model provider's key) in .dev.vars.",
       "In local development, put CONTEXT_API_KEY in .dev.vars.",
     ]);
     expect(items.map((item) => item.command)).toEqual([null, null]);
@@ -47,7 +47,7 @@ describe("SetupService.checklist", () => {
     expect(items[0]).toEqual({
       id: "model",
       state: "missing",
-      note: "Research is paused: this Every App gateway holds no OpenRouter key yet.",
+      note: "Research is paused: this Every App gateway has no model provider set up yet.",
       command: "pnpm everyapp secret set OPENROUTER_API_KEY",
     });
     expect(items[1]?.command).toBe("pnpm everyapp secret set CONTEXT_API_KEY");

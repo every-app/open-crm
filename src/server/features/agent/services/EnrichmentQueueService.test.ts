@@ -7,11 +7,11 @@ const { database } = await vi.hoisted(async () => {
 vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 // The gateway is connected: research isn't waiting for the model's setup.
-vi.mock("@/server/lib/openrouter", () => ({
-  getOpenRouterFetch: vi.fn(),
+vi.mock("@/server/lib/gateway-ai", () => ({
+  getGatewayFetch: vi.fn(),
 }));
 
-import { getOpenRouterFetch } from "@/server/lib/openrouter";
+import { getGatewayFetch } from "@/server/lib/gateway-ai";
 import { EnrichmentQueueService } from "./EnrichmentQueueService";
 
 const PAST = "2026-01-01T00:00:00.000Z";
@@ -19,7 +19,7 @@ const FUTURE = "2999-01-01T00:00:00.000Z";
 
 describe("EnrichmentQueueService", () => {
   beforeEach(async () => {
-    vi.mocked(getOpenRouterFetch).mockReturnValue(fetch);
+    vi.mocked(getGatewayFetch).mockReturnValue(fetch);
     await database.exec(
       `DELETE FROM agent_task; DELETE FROM deal; DELETE FROM contact; DELETE FROM company; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
     );
@@ -96,7 +96,7 @@ describe("EnrichmentQueueService", () => {
   });
 
   it("says research waits while the agent has no model, but logos don't", async () => {
-    vi.mocked(getOpenRouterFetch).mockReturnValue(null);
+    vi.mocked(getGatewayFetch).mockReturnValue(null);
     const queue = await EnrichmentQueueService.queue("org_a", 20);
     expect(queue.paused).toBe(true);
     expect(queue.rows.map((row) => [row.id, row.state])).toEqual([

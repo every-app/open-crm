@@ -158,7 +158,7 @@ describe("a research session", () => {
       "search the web only if the site does not say who",
     );
     expect(firstCall?.tools).toContainEqual(
-      expect.objectContaining({ type: "provider", name: "web_search" }),
+      expect.objectContaining({ type: "function", name: "web_search" }),
     );
 
     const [task] = await database.rows("SELECT * FROM agent_task");

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { asker } from "./perplexity";
+import { asker, NO_OPENROUTER_KEY, webResearchAccess } from "./perplexity";
 
 // Sonar answers through the gateway's OpenRouter proxy; an answer is only as
 // good as its citations, which arrive as OpenRouter's url_citation
@@ -92,5 +92,27 @@ describe("asking Sonar", () => {
     expect(await asker(refused.fetch)("Anything?")).toMatchObject({
       ok: false,
     });
+  });
+
+  // Last: the refusal is remembered for the rest of this module's isolate.
+  it("says web research is unavailable when the gateway holds no OpenRouter key, and stops offering it", async () => {
+    const missing = gateway(
+      Response.json(
+        {
+          code: "ai_provider_not_configured",
+          message:
+            "Provider is not configured: the gateway needs OPENROUTER_API_KEY for openrouter.",
+        },
+        {
+          status: 503,
+          headers: { "x-everyapp-error": "ai_provider_not_configured" },
+        },
+      ),
+    );
+    expect(await asker(missing.fetch)("Anything?")).toEqual({
+      ok: false,
+      reason: NO_OPENROUTER_KEY,
+    });
+    expect(await webResearchAccess()).toBeNull();
   });
 });

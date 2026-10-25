@@ -23,9 +23,12 @@ subscribe("chat", (event) => {
   }
 });
 
-// OpenRouter (with usage accounting on) reports the real USD cost of each
-// response under providerMetadata.openrouter.usage.cost, which the agent's
-// audit trail records with each step.
+// A model called through the gateway's pinned OpenRouter with usage
+// accounting on reports the real USD cost of each response under
+// providerMetadata.openrouter.usage.cost. The agent's own model is the
+// gateway's default route, whose answers carry no cost the CRM can read: the
+// gateway counts that spend (Manage workspace → Usage), so the step records
+// none.
 const openRouterUsageSchema = z.object({
   openrouter: z.object({ usage: z.object({ cost: z.number() }) }),
 });
@@ -34,23 +37,17 @@ const openRouterUsageSchema = z.object({
 const STATIC_MODEL_ID = "static-assistant";
 
 /**
- * A model response's cost. One that carries none counts as $0 and is logged
- * with the model that answered, so a model or provider that stops reporting
- * its cost shows up rather than spending unseen. A static reply costs nothing
- * and logs nothing.
+ * A model response's cost in USD, when the response reports one (a pinned
+ * OpenRouter call); else null, counted by the gateway instead. A static
+ * reply costs nothing.
  */
-export function openRouterCostUsd(answer: {
+export function stepCostUsd(answer: {
   providerMetadata: unknown;
   response: { modelId: string };
-}): number {
+}): number | null {
   const parsed = openRouterUsageSchema.safeParse(answer.providerMetadata);
   if (parsed.success) return parsed.data.openrouter.usage.cost;
-  if (answer.response.modelId !== STATIC_MODEL_ID) {
-    console.warn("[agent] a model response had no cost; recorded $0", {
-      model: answer.response.modelId,
-    });
-  }
-  return 0;
+  return answer.response.modelId === STATIC_MODEL_ID ? 0 : null;
 }
 
 // The provider package re-exports only LanguageModelV3 itself, so the stream

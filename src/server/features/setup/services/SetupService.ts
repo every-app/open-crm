@@ -23,6 +23,8 @@ type KeySpec = {
 const KEYS: KeySpec[] = [
   {
     id: "model",
+    // The gateway's default model takes any provider's key; OpenRouter's is
+    // the one its setup asks for first.
     setting: "OPENROUTER_API_KEY",
     check: (availability) =>
       availability.model === "ready"
@@ -35,9 +37,9 @@ const KEYS: KeySpec[] = [
     note: (availability) => {
       switch (availability.model) {
         case "missing":
-          return "Research is paused until the agent has a model. In local development, put OPENROUTER_API_KEY in .dev.vars.";
+          return "Research is paused until the agent has a model. In local development, put OPENROUTER_API_KEY (or another model provider's key) in .dev.vars.";
         case "refused":
-          return "Research is paused: this Every App gateway holds no OpenRouter key yet.";
+          return "Research is paused: this Every App gateway has no model provider set up yet.";
         case "unchecked":
           return "Checked on the agent's first run.";
         default:

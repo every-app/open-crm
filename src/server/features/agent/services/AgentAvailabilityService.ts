@@ -1,6 +1,6 @@
 import { GATEWAY_ERROR_HEADER } from "@every-app/sdk/internal";
 import { gatewayRefusal } from "@every-app/sdk/server";
-import { getOpenRouterFetch } from "@/server/lib/openrouter";
+import { getGatewayFetch, MODEL_NOT_CONFIGURED } from "@/server/lib/gateway-ai";
 import { hasContextAccess } from "@/server/lib/provider-access";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
 import {
@@ -22,7 +22,8 @@ import {
 // gateway capability, so its status is asked for (integrationStatus). The
 // model is not: the gateway's AI proxy has no status route, only refusals.
 // So the CRM learns it from the gateway's answers to the agent's own calls:
-// a refusal for want of a key (`ai_provider_not_configured`) is recorded for
+// a refusal for want of a key (`ai_default_not_configured` on the default
+// model route, `ai_provider_not_configured` on a pinned one) is recorded for
 // the organization, and the model's next answer clears it. A refusal is
 // believed for a bounded time: the dispatcher tries again after
 // MODEL_RETRY_MS, so a key set on the gateway later is picked up with nobody
@@ -30,9 +31,6 @@ import {
 // when nothing has tried since.
 
 const MINUTE_MS = 60_000;
-
-/** The gateway's refusal when it holds no key for the model. */
-const NOT_CONFIGURED = "ai_provider_not_configured";
 
 /** How long the dispatcher holds an organization's research after a refusal. */
 export const MODEL_RETRY_MS = 10 * MINUTE_MS;
@@ -63,7 +61,7 @@ async function modelOf(organizationId: string) {
   const env = (await getWorkersEnv()) ?? {};
   const sighting = await AgentAvailabilityRepository.read(organizationId);
   const state = modelStateOf(
-    getOpenRouterFetch(env, organizationId) !== null,
+    getGatewayFetch(env, organizationId) !== null,
     sighting,
     Date.now(),
   );
@@ -155,7 +153,9 @@ async function noteModelResponse(
   response: Response,
 ): Promise<void> {
   try {
-    if (response.headers.get(GATEWAY_ERROR_HEADER) === NOT_CONFIGURED) {
+    if (
+      MODEL_NOT_CONFIGURED.has(response.headers.get(GATEWAY_ERROR_HEADER) ?? "")
+    ) {
       const refusal = await gatewayRefusal(response.clone());
       await noteRefusal(
         organizationId,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as GatewayAi from "@/server/lib/gateway-ai";
 import { PRIORITY } from "@/shared/agent-tasks";
 
 // Whether the agent's model can run is learned from the gateway's answers:
@@ -13,8 +14,9 @@ vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 // The gateway binding is there; whether it holds a key is the question.
-vi.mock("@/server/lib/openrouter", () => ({
-  getOpenRouterFetch: () => fetch,
+vi.mock("@/server/lib/gateway-ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof GatewayAi>()),
+  getGatewayFetch: () => fetch,
 }));
 vi.mock("@/server/lib/provider-access", () => ({
   hasContextAccess: async () => false,
@@ -26,16 +28,17 @@ import {
   MODEL_RETRY_MS,
 } from "./AgentAvailabilityService";
 
+// The default model route's refusal when no model provider is set up.
 const refusal = () =>
   Response.json(
     {
-      code: "ai_provider_not_configured",
+      code: "ai_default_not_configured",
       message:
-        "Provider is not configured: the gateway needs OPENROUTER_API_KEY for openrouter.",
+        "The Gateway's default model provider (OpenRouter) isn't configured: the gateway needs OPENROUTER_API_KEY. Its operator sets it with: everyapp secret set OPENROUTER_API_KEY (or picks another provider with everyapp ai default <provider>)",
     },
     {
       status: 503,
-      headers: { "x-everyapp-error": "ai_provider_not_configured" },
+      headers: { "x-everyapp-error": "ai_default_not_configured" },
     },
   );
 

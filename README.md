@@ -7,7 +7,8 @@ onto Cloudflare Workers.
 
 The gateway signs people in, decides who may open the CRM, serves the CRM's
 tools to AI clients on its one MCP connector, and holds the provider keys: the
-model (OpenRouter) and Context.dev keys and the Google, Microsoft and Slack
+model provider (the gateway's default model; OpenRouter for web research) and
+Context.dev keys and the Google, Microsoft and Slack
 OAuth clients. The CRM has a few settings of its own, all optional until a
 feature needs them; `pnpm everyapp secret list` in this directory shows each
 one and whether it is set, and the

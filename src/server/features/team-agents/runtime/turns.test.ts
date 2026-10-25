@@ -31,8 +31,8 @@ vi.mock("@/db", () => ({
 import { agentConversation, agentConversationAttachment } from "@/db/schema";
 import { FREE } from "@/server/features/agent/runtime/budget";
 import type { ChatSession } from "@/server/features/agent/runtime/session";
-import { openRouterCostUsd } from "@/server/lib/chatAgent";
-import { buildAgentModel } from "@/server/lib/openrouter";
+import { stepCostUsd } from "@/server/lib/chatAgent";
+import { buildAgentModel } from "@/server/lib/gateway-ai";
 import { draft } from "../services/teamAgentTestSupport";
 import { prepareBuilderTurn } from "./turns";
 
@@ -109,7 +109,12 @@ async function attach(
 
 const stored = (key: string) => new TextEncoder().encode(key);
 
-const requestBody = z.object({ tools: z.array(z.unknown()) });
+const requestBody = z.looseObject({
+  model: z.string(),
+  tools: z.array(
+    z.object({ type: z.string(), function: z.object({ name: z.string() }) }),
+  ),
+});
 
 describe("a builder chat's turn", () => {
   beforeEach(async () => {
@@ -280,16 +285,18 @@ describe("a builder chat's turn", () => {
     ]);
   });
 
-  it("searches the web at OpenRouter, inside the model call that pays for it, on Parallel's engine", async () => {
-    const sent: unknown[][] = [];
-    const gateway: typeof fetch = async (_url, init) => {
-      const body = requestBody.parse(
-        JSON.parse(typeof init?.body === "string" ? init.body : "null"),
-      );
-      sent.push(body.tools);
+  it("asks the gateway's default model with plain chat completions, and searches the web with a tool of its own", async () => {
+    const sent: { url: string; body: z.infer<typeof requestBody> }[] = [];
+    const gateway: typeof fetch = async (input, init) => {
+      sent.push({
+        url: new Request(input).url,
+        body: requestBody.parse(
+          JSON.parse(typeof init?.body === "string" ? init.body : "null"),
+        ),
+      });
       return Response.json({
         id: "gen-1",
-        model: "anthropic/claude-test",
+        model: "anthropic/claude-haiku-5.5",
         choices: [
           {
             index: 0,
@@ -297,25 +304,29 @@ describe("a builder chat's turn", () => {
             finish_reason: "stop",
           },
         ],
-        usage: {
-          prompt_tokens: 900,
-          completion_tokens: 20,
-          total_tokens: 920,
-          cost: 0.0123,
-        },
+        usage: { prompt_tokens: 900, completion_tokens: 20, total_tokens: 920 },
       });
     };
     const result = await generateText({
-      model: buildAgentModel(gateway, "anthropic/claude-test", "max"),
+      model: buildAgentModel(gateway, "default"),
       tools: turn([said("m1", "What's new at Acme?")]).tools,
       prompt: "What's new at Acme?",
     });
     expect(sent).toHaveLength(1);
-    expect(sent[0]).toContainEqual({
-      type: "openrouter:web_search",
-      engine: "parallel",
-      max_results: 10,
-    });
-    expect(openRouterCostUsd(result)).toBe(0.0123);
+    const [call] = sent;
+    if (!call) throw new Error("The model was not called.");
+    expect(new URL(call.url).pathname).toBe(
+      "/api/ai/default/v1/chat/completions",
+    );
+    expect(call.body.model).toBe("default");
+    // Nothing only OpenRouter reads: the default may be any provider.
+    for (const field of ["provider", "usage", "reasoning", "plugins"]) {
+      expect(call.body).not.toHaveProperty(field);
+    }
+    expect(call.body.tools.map((tool) => tool.function.name)).toContain(
+      "web_search",
+    );
+    // The gateway counts the default route's spend; the step records none.
+    expect(stepCostUsd(result)).toBeNull();
   });
 });

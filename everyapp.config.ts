@@ -1,7 +1,7 @@
 /**
  * OpenCRM on an Every App gateway. The gateway signs people in and decides
  * who may open the CRM, serves its agent tools on the gateway's one MCP
- * connector, and holds the model (OpenRouter) and Context.dev keys and the
+ * connector, and holds the model provider and Context.dev keys and the
  * Google and Microsoft OAuth clients for mail capture, so a deploy needs no
  * settings of its own. Each setting below says whether the CRM opens without
  * it (`optional`) and why it is there (`why`): the gateway, `everyapp status`
@@ -29,12 +29,23 @@ export default {
     config: "drizzle/sqlite.config.ts",
     binding: "DB",
   },
-  // Through the gateway's AI proxy and its OPENROUTER_API_KEY. Required: a
-  // CRM kept up to date by a research agent is not much without its model.
+  // The research agent's model is the gateway's default
+  // (src/server/lib/gateway-ai.ts): its operator picks the provider and the
+  // model, and any one model provider's key opens the CRM. Required: a CRM
+  // kept up to date by a research agent is not much without its model.
+  ai: {
+    chat: {
+      why: "The research agent's model, through the Gateway's default model provider.",
+    },
+  },
+  // Web research stays pinned to OpenRouter (src/server/lib/openrouter.ts):
+  // Perplexity's Sonar models and OpenRouter's web plugin. Optional: without
+  // its key, web research says so where the agent uses it.
   providers: [
     {
       id: "openrouter",
-      why: "The research agent's model and its web research (Perplexity's Sonar models), through the gateway's AI proxy.",
+      optional: true,
+      why: "Web research through Perplexity's Sonar models and OpenRouter's web search tool.",
     },
   ],
   // What the CRM calls with a key only the gateway holds (integrationFetch).
@@ -100,11 +111,11 @@ export default {
       why: "Raises GitHub's rate limit when the agent matches people to GitHub profiles. Any classic token with no scopes will do.",
       docs: "https://github.com/settings/tokens",
     },
-    // src/server/lib/openrouter.ts
+    // src/server/lib/gateway-ai.ts
     {
-      name: "OPENROUTER_MODEL",
+      name: "AGENT_MODEL",
       optional: true,
-      why: "The OpenRouter model the agent runs on, for a deployment that wants another than GPT-6 Luna. The key itself, OPENROUTER_API_KEY, is the gateway's.",
+      why: "The model id the agent runs on, as the Gateway's default provider names it; empty takes the operator's default.",
     },
     // docs/maintainers/runbooks/erase-organization.md
     {

@@ -21,19 +21,19 @@ import { setupChecklistQueryOptions } from "@/client/features/setup/setupQueries
 import { setAutomaticResearch } from "@/serverFunctions/settings";
 import { appSecretCommand } from "@/shared/app-settings";
 
-const MODEL_SETTING = "OPENROUTER_MODEL";
+const MODEL_SETTING = "AGENT_MODEL";
 
 /**
  * Settings → General: whether the research agent researches on its own, the
- * model it thinks with, where to change it (OPENROUTER_MODEL), and whether
- * the gateway holds the key that reaches it.
+ * model it thinks with (the gateway's default unless AGENT_MODEL names one),
+ * where to change it, and whether the gateway has a model provider set up.
  */
 export function ResearchAgentSection() {
   return (
     <SettingsSection title="Research agent">
       <SettingsCard>
         <AutomaticResearchRow />
-        <GatewayKeyRow id="model" label="OpenRouter API key" />
+        <GatewayKeyRow id="model" label="Model provider" />
       </SettingsCard>
       <ModelSettings />
     </SettingsSection>
@@ -110,7 +110,11 @@ function ModelSettings() {
           }
         >
           {model.data ? (
-            <span className="font-mono text-sm">{model.data.id}</span>
+            <span className="font-mono text-sm">
+              {model.data.id === "default"
+                ? "The gateway's default"
+                : model.data.id}
+            </span>
           ) : model.isError ? null : (
             <Skeleton className="h-5 w-40" />
           )}

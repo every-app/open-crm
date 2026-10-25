@@ -10,8 +10,8 @@ vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 // The gateway is connected: research isn't waiting for the model's setup.
-vi.mock("@/server/lib/openrouter", () => ({
-  getOpenRouterFetch: () => fetch,
+vi.mock("@/server/lib/gateway-ai", () => ({
+  getGatewayFetch: () => fetch,
 }));
 
 import { getStandardErrorMessage } from "@/client/lib/error-messages";

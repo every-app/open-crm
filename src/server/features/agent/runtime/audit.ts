@@ -39,12 +39,13 @@ export async function recordEvent(
 
 /**
  * A finished step: its event, and on a team agent's run, its tokens and cost
- * for the runs drawer.
+ * for the runs drawer. A cost of null is one the gateway counts (the default
+ * model route): the event says null and the run adds nothing.
  */
 export async function recordStep(
   session: AgentSession,
   step: StepContext,
-  costUsd: number,
+  costUsd: number | null,
 ): Promise<void> {
   await recordEvent(session, "step.completed", {
     stepNumber: step.stepNumber,
@@ -57,7 +58,7 @@ export async function recordStep(
   await AgentRunRepository.addUsage(session.organizationId, session.run.id, {
     inputTokens: step.usage.inputTokens ?? 0,
     outputTokens: step.usage.outputTokens ?? 0,
-    costUsd,
+    costUsd: costUsd ?? 0,
   });
 }
 

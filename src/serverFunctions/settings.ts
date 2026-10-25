@@ -3,15 +3,16 @@ import { requireOrgPermission } from "@/server/auth/org-gate";
 import { AgentAvailabilityService } from "@/server/features/agent/services/AgentAvailabilityService";
 import { SettingsService } from "@/server/features/settings/services/SettingsService";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
-import { agentModelId } from "@/server/lib/openrouter";
+import { agentModelId } from "@/server/lib/gateway-ai";
 import {
   setArchiveRetentionSchema,
   setAutomaticResearchSchema,
 } from "@/types/schemas/settings";
 
 /**
- * The model the agent runs on. It isn't chosen in the app: Luna, or the
- * deployment's OPENROUTER_MODEL.
+ * The model the agent runs on. It isn't chosen in the app: the deployment's
+ * AGENT_MODEL, or "default", the gateway's default model (its operator picks
+ * it with everyapp ai default).
  */
 export const getAgentModel = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)

@@ -34,6 +34,9 @@ importers:
 
   .:
     dependencies:
+      '@ai-sdk/openai-compatible':
+        specifier: ^2.0.85
+        version: 2.0.85(zod@4.6.5)
       '@ai-sdk/react':
         specifier: ^3.0.211
         version: 3.0.305(react@19.3.0)(zod@4.6.5)
@@ -56,8 +59,8 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.3.0)
       '@every-app/sdk':
-        specifier: 0.3.0-rc.1
-        version: 0.3.0-rc.1(jose@6.2.12)
+        specifier: 0.3.0-rc.3
+        version: 0.3.0-rc.3(jose@6.2.12)
       '@openrouter/ai-sdk-provider':
         specifier: ^2.9.0
         version: 2.10.0(ai@6.0.302(zod@4.6.5))(zod@4.6.5)
@@ -183,8 +186,8 @@ importers:
         specifier: ^0.31.10
         version: 0.31.11
       everyapp:
-        specifier: 0.3.0-rc.1
-        version: 0.3.0-rc.1(@types/node@22.20.5)
+        specifier: 0.3.0-rc.3
+        version: 0.3.0-rc.3(@types/node@22.20.5)
       knip:
         specifier: ^5.88.1
         version: 5.88.1(@types/node@22.20.5)(typescript@5.9.3)
@@ -227,6 +230,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/openai-compatible@2.0.85':
+    resolution: {integrity: sha512-a3FXe1dTNv4XmlIehVl1cJUmOTMHFBSCIy9a6PdWzL7Tj5GgQAs+kEhjhQhEv9AxY1HFjH3EV2aK4NbWcrRJhw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/openai@4.0.91':
     resolution: {integrity: sha512-Nk382R6us0GNxI1cGJUXMryz1XHpyrmC3K/Rmqdx9tIsqAlc7UtuO/hC9dd31F41w8uzoS362HJSDXgAI7zKbA==}
     engines: {node: '>=22'}
@@ -247,6 +256,10 @@ packages:
 
   '@ai-sdk/provider@3.0.18':
     resolution: {integrity: sha512-IpefF5ssZVOZCD4Wu7zxt6PwZoGT2HLVjxpJ10Bjx6EAmRfLYJPjyrfxb0RYDlwvXnDb9nkQ7Do/oJVDuRFzew==}
+    engines: {node: '>=18'}
+
+  '@ai-sdk/provider@3.0.19':
+    resolution: {integrity: sha512-5lWq7zSfRaU5ylDESn3sDQjgGl2AI1vjZKO/6JY3aFW70ct4zcP1kN+ZUYOuTXr28fVsYbyu2YFhddLdIgQFZQ==}
     engines: {node: '>=18'}
 
   '@ai-sdk/provider@4.0.26':
@@ -999,8 +1012,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@every-app/sdk@0.3.0-rc.1':
-    resolution: {integrity: sha512-J1F8eTeJ4m2UMjMO858viohtOTfaRx40+xAfPTHO8dwm8+l5NfEPYnyDQNmkCtBJH4yXxRXT1xd0k7euXxRQ7g==}
+  '@every-app/sdk@0.3.0-rc.3':
+    resolution: {integrity: sha512-BHtPhSfQiGbofN7SUTnJWvLfJHNdZWcOtCvXFCejlKioWWUMCLHohABxqqXU2nPEipfpD1Z+k0tgqJKYnRL8WA==}
     peerDependencies:
       jose: ^6.2.5
 
@@ -3305,8 +3318,8 @@ packages:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
 
-  everyapp@0.3.0-rc.1:
-    resolution: {integrity: sha512-FlwfzFeWKRFCmbOqcli6X6pkllz6nw3roosYDKnU55n+5Q4BmZ59iuRhiV301PGZLqYNEy/kOgPOmMRvaejnNw==}
+  everyapp@0.3.0-rc.3:
+    resolution: {integrity: sha512-vmw46cjOQPAeoQuAcSfQ5fEFhG6MT4aB8P5Xy8lNw9CvfzFBoCsNUwUsT2ChUerkpA3mGbRn9FdgL1nw8c7aPA==}
     engines: {node: '>=22.18.0'}
     hasBin: true
 
@@ -5335,6 +5348,12 @@ snapshots:
       '@vercel/oidc': 3.2.0
       zod: 4.6.5
 
+  '@ai-sdk/openai-compatible@2.0.85(zod@4.6.5)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.19
+      '@ai-sdk/provider-utils': 4.0.57(zod@4.6.5)
+      zod: 4.6.5
+
   '@ai-sdk/openai@4.0.91(zod@4.6.5)':
     dependencies:
       '@ai-sdk/provider': 4.0.26
@@ -5359,6 +5378,10 @@ snapshots:
       zod: 4.6.5
 
   '@ai-sdk/provider@3.0.18':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@3.0.19':
     dependencies:
       json-schema: 0.4.0
 
@@ -6051,7 +6074,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@every-app/sdk@0.3.0-rc.1(jose@6.2.12)':
+  '@every-app/sdk@0.3.0-rc.3(jose@6.2.12)':
     dependencies:
       jose: 6.2.12
 
@@ -8074,7 +8097,7 @@ snapshots:
     dependencies:
       eventsource-parser: 3.1.1
 
-  everyapp@0.3.0-rc.1(@types/node@22.20.5):
+  everyapp@0.3.0-rc.3(@types/node@22.20.5):
     dependencies:
       '@cloudflare/config': 0.24.1
       '@inquirer/prompts': 8.7.3(@types/node@22.20.5)

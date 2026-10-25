@@ -8,7 +8,7 @@ import type { CrmAgent } from "@/server/features/agent/CrmAgent";
 import { sessionName } from "@/server/features/agent/sessionName";
 import { SlackService } from "@/server/features/slack/services/SlackService";
 import { forOrganization } from "@/server/lib/gateway-attribution";
-import { agentModelId, getOpenRouterFetch } from "@/server/lib/openrouter";
+import { agentModelId, getGatewayFetch } from "@/server/lib/gateway-ai";
 import { AGENT_ACTION_TYPES, agentManifest } from "@/shared/team-agents";
 import { AgentRunRepository } from "../repositories/AgentRunRepository";
 import { MODEL_UNAVAILABLE } from "../services/RunSettlement";
@@ -103,7 +103,7 @@ async function cannotStart(
   env: Env,
   run: { organizationId: string; agentId: string; versionId: string },
 ): Promise<{ code: string; message: string } | null> {
-  if (getOpenRouterFetch(env, run.organizationId) === null) {
+  if (getGatewayFetch(env, run.organizationId) === null) {
     return MODEL_UNAVAILABLE;
   }
   const version = await AgentVersionRepository.findVersion(

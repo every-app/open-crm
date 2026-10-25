@@ -1,11 +1,11 @@
-import { getOpenRouterFetch } from "@/server/lib/openrouter";
+import { webResearchAvailable } from "../lib/perplexity";
 import { hasContextAccess } from "@/server/lib/provider-access";
 import { getEnvValueSync } from "@/server/lib/runtime-env";
 
 // What this install can reach, ported from the CRM's lib/capabilities.ts.
 // Every session states it, so the agent plans around what it has: a missing
 // key removes a place to look, and is never an error. The keys themselves live
-// with the Every App gateway (Context.dev, OpenRouter) or in the CRM's own
+// with the Every App gateway (Context.dev, OpenRouter for web research) or in the CRM's own
 // optional GITHUB_TOKEN secret.
 
 export type Capability = {
@@ -32,7 +32,7 @@ export async function readCapabilities(
   });
   let webResearch = false;
   try {
-    webResearch = getOpenRouterFetch(env, organizationId) !== null;
+    webResearch = webResearchAvailable(env, organizationId);
   } catch {
     webResearch = false;
   }

@@ -28,6 +28,7 @@
     "ci:check": "prettier --check . && knip && cf workers types && tsc --noEmit && oxlint . --type-aware && vitest run && pnpm build:prod"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.85",
     "@ai-sdk/react": "^3.0.211",
     "@base-ui/react": "^1.8.0",
     "@cloudflare/think": "0.17.0",
@@ -35,7 +36,7 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@every-app/sdk": "0.3.0-rc.1",
+    "@every-app/sdk": "0.3.0-rc.3",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "@tanstack/query-core": "^5.103.2",
     "@tanstack/react-form": "^1.33.5",
@@ -79,7 +80,7 @@
     "@vitejs/plugin-react": "^4.6.0",
     "cf": "1.0.0-beta.14",
     "drizzle-kit": "^0.31.10",
-    "everyapp": "0.3.0-rc.1",
+    "everyapp": "0.3.0-rc.3",
     "knip": "^5.88.1",
     "oxlint": "^1.50.0",
     "oxlint-tsgolint": "^0.15.0",

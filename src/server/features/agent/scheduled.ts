@@ -1,5 +1,5 @@
 import { getAgentByName } from "agents";
-import { getOpenRouterFetch } from "@/server/lib/openrouter";
+import { getGatewayFetch } from "@/server/lib/gateway-ai";
 import { hasContextAccess } from "@/server/lib/provider-access";
 import { runResearchLane, runVisibleLane, type Defer } from "./dispatch";
 import { DISPATCH } from "./dispatch/config";
@@ -107,7 +107,7 @@ async function startResearchSession(
  * organization it names is a placeholder.
  */
 function modelConfigured(env: Env): boolean {
-  return getOpenRouterFetch(env, "model-check") !== null;
+  return getGatewayFetch(env, "model-check") !== null;
 }
 
 /**
