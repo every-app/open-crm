@@ -1,6 +1,8 @@
 minimumReleaseAge: 11520
 minimumReleaseAgeExclude:
   - "@every-app/*"
+  # The Every App CLI is unscoped, and its releases are days old at most.
+  - "everyapp"
   # TEMPORARY (remove after 2026-10-17): the Every App build uses the
   # Cloudflare CLI and its Vite plugin's 2.0 beta, published 2026-10-09.
   - "cf@1.0.0-beta.14"

@@ -56,8 +56,8 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.3.0)
       '@every-app/sdk':
-        specifier: file:vendor/every-app-sdk-0.3.0.tgz
-        version: file:vendor/every-app-sdk-0.3.0.tgz(jose@6.2.12)
+        specifier: 0.3.0-rc.1
+        version: 0.3.0-rc.1(jose@6.2.12)
       '@openrouter/ai-sdk-provider':
         specifier: ^2.9.0
         version: 2.10.0(ai@6.0.302(zod@4.6.5))(zod@4.6.5)
@@ -183,8 +183,8 @@ importers:
         specifier: ^0.31.10
         version: 0.31.11
       everyapp:
-        specifier: file:vendor/everyapp-0.3.0.tgz
-        version: file:vendor/everyapp-0.3.0.tgz(@types/node@22.20.5)
+        specifier: 0.3.0-rc.1
+        version: 0.3.0-rc.1(@types/node@22.20.5)
       knip:
         specifier: ^5.88.1
         version: 5.88.1(@types/node@22.20.5)(typescript@5.9.3)
@@ -999,9 +999,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@every-app/sdk@file:vendor/every-app-sdk-0.3.0.tgz':
-    resolution: {integrity: sha512-yc+0VPnVIc1C+xF0DfgxzU3zWENN6p42HB15HyawKI7ESRmdlUmVXx6K6ifSFWZYtdYIkqEWmdkXy0Cp760u9A==, tarball: file:vendor/every-app-sdk-0.3.0.tgz}
-    version: 0.3.0
+  '@every-app/sdk@0.3.0-rc.1':
+    resolution: {integrity: sha512-J1F8eTeJ4m2UMjMO858viohtOTfaRx40+xAfPTHO8dwm8+l5NfEPYnyDQNmkCtBJH4yXxRXT1xd0k7euXxRQ7g==}
     peerDependencies:
       jose: ^6.2.5
 
@@ -3306,9 +3305,8 @@ packages:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
 
-  everyapp@file:vendor/everyapp-0.3.0.tgz:
-    resolution: {integrity: sha512-5Ij4lMHLifMFA3ayR9d4E7CRtUe8s12CW5hUL7LBxSHYyvhat2N4n/E37bDtnu9K+yZYo4W4gI7pv2U1UKGtnQ==, tarball: file:vendor/everyapp-0.3.0.tgz}
-    version: 0.3.0
+  everyapp@0.3.0-rc.1:
+    resolution: {integrity: sha512-FlwfzFeWKRFCmbOqcli6X6pkllz6nw3roosYDKnU55n+5Q4BmZ59iuRhiV301PGZLqYNEy/kOgPOmMRvaejnNw==}
     engines: {node: '>=22.18.0'}
     hasBin: true
 
@@ -6053,7 +6051,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@every-app/sdk@file:vendor/every-app-sdk-0.3.0.tgz(jose@6.2.12)':
+  '@every-app/sdk@0.3.0-rc.1(jose@6.2.12)':
     dependencies:
       jose: 6.2.12
 
@@ -8076,7 +8074,7 @@ snapshots:
     dependencies:
       eventsource-parser: 3.1.1
 
-  everyapp@file:vendor/everyapp-0.3.0.tgz(@types/node@22.20.5):
+  everyapp@0.3.0-rc.1(@types/node@22.20.5):
     dependencies:
       '@cloudflare/config': 0.24.1
       '@inquirer/prompts': 8.7.3(@types/node@22.20.5)
