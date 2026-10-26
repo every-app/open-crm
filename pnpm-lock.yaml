@@ -107,7 +107,7 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3
       jose:
-        specifier: ^6.0.12
+        specifier: ^6.2.12
         version: 6.2.12
       lucide-react:
         specifier: ^0.542.0

@@ -52,7 +52,7 @@
     "diff": "^8.0.4",
     "drizzle-orm": "^0.45.2",
     "fflate": "^0.8.3",
-    "jose": "^6.0.12",
+    "jose": "^6.2.12",
     "lucide-react": "^0.542.0",
     "papaparse": "^5.7.0",
     "react": "^19.0.0",
