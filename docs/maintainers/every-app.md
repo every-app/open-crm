@@ -40,7 +40,7 @@ Every model and Context.dev call says whose it is (`src/server/lib/gateway-attri
 
 ## Run it locally
 
-With the Every App repository beside this one (`../private-every-app`, `pnpm install` run there; the SDK and CLI are linked until they're published):
+With Node.js 22.18+ and pnpm 10. The Every App SDK and CLI are the published packages `@every-app/sdk` and `everyapp`, pinned in `package.json`, so no checkout of the Every App repository is needed:
 
 ```bash
 pnpm install
@@ -51,13 +51,13 @@ pnpm dev
 
 ## Deploy it
 
-To the gateway in your Cloudflare account:
+To the gateway in your Cloudflare account, from your Every App checkout (`pnpm everyapp install https://github.com/every-app/open-crm`, then `pnpm everyapp configure crm`; [docs/self-hosting.md](../self-hosting.md)), or with your own changes, from this directory with that checkout's CLI:
 
 ```bash
-pnpm deploy:everyapp
+node ../every-app/packages/cli/bin/everyapp.js deploy
 ```
 
-`everyapp deploy` registers the app, creates its D1 database and R2 bucket, builds the Worker, checks the schema has no migration drift, migrates D1 after a restore point, uploads, and binds it to the gateway. What the CRM needs set is below: the deploy ends by saying which required settings are still missing, `pnpm everyapp status` lists every one, and the gateway's home shows the CRM as "Needs setup" until the required ones are set.
+`everyapp deploy` (which `install` runs for a release) registers the app, creates its D1 database and R2 bucket, builds the Worker, checks the schema has no migration drift, migrates D1 after a restore point, uploads, and binds it to the gateway. What the CRM needs set is below: the deploy ends by saying which required settings are still missing, `pnpm everyapp status` lists every one, and the gateway's home shows the CRM as "Needs setup" until the required ones are set.
 
 ## Settings
 

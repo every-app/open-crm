@@ -1,51 +1,30 @@
 # Self-hosting OpenCRM
 
-OpenCRM runs behind an Every App gateway. You deploy your own copy (a fork) to a gateway in your Cloudflare account, as this page describes.
+OpenCRM runs behind an Every App gateway, in your own Cloudflare account. This page covers installing it on your gateway, its keys, costs, local runs, operations, upgrades and troubleshooting.
 
 ## What you need
 
-- **An Every App gateway.** The gateway is a Worker in your Cloudflare account that signs people in, decides who may open each app, and holds the provider keys apps use. If you don't have one yet, the steps below set it up.
+- **An Every App gateway.** The gateway is a Worker in your Cloudflare account that signs people in, decides who may open each app, and holds the provider keys apps use. If you don't have one yet, [Every App's docs](https://everyapp.com/docs) set it up: `pnpm everyapp setup` from a checkout of [every-app/every-app](https://github.com/every-app/every-app).
 - **A Cloudflare account on Workers Paid, with a domain on Cloudflare.** The gateway lives at a subdomain of it (for example `apps.your-company.com`) and the CRM one level below (`crm.apps.your-company.com`).
-- **Node.js 22.18 or newer**, and **pnpm 10**.
-- **A checkout of the Every App repository** beside this one, at `../private-every-app`, with `pnpm install` run there first (it builds the SDK), then here. The Every App SDK and CLI are not published yet, so the CRM's `package.json` links them from that checkout by path: a lone clone of the CRM installs with dangling links, and `pnpm dev` fails with `everyapp: command not found`. The [release notes](release-notes.md) name the Every App commit each release needs.
+- **R2 enabled** on the account, once, before the install (Cloudflare dashboard → R2 Object Storage → Get started). The agent copies logos and photos into an R2 bucket; without R2 the install stops with `R2_NOT_ENABLED`.
+- **Node.js 22.18 or newer**, and **pnpm 10**, for the Every App checkout. The CRM itself needs no checkout: the Every App SDK and CLI it builds with are the published packages `@every-app/sdk` and `everyapp`, pinned to one exact version in `package.json`.
 
-```text
-projects/
-  private-every-app/   # the Every App repository, `pnpm install` run here
-  open-crm/            # this repository
-```
+## Install it
 
-## Deploy a fork
+From your Every App checkout:
 
 ```bash
-git clone git@github.com:every-app/private-every-app.git private-every-app
-pnpm -C private-every-app install   # once; builds the SDK
-git clone <your fork of this repository> open-crm
-cd open-crm
-pnpm install
+pnpm everyapp install https://github.com/every-app/open-crm
+pnpm everyapp configure crm
 ```
 
-If you don't have a gateway yet, set one up from either checkout. It logs you in to Cloudflare, deploys the gateway at the domain you choose, and opens a one-time link to create your owner account:
+The install registers the CRM with the gateway, creates its D1 database and R2 bucket, migrates the database, uploads the latest release and binds it to the gateway. `configure` then asks for each key the CRM needs, then the optional ones; it does the `secret set` commands on this page for you. When both are done, the CRM appears on your gateway for every member of your organization. Run the install command again later to update; your data stays.
 
-```bash
-pnpm everyapp setup --domain apps.your-company.com
-```
+To deploy a fork with your own changes instead, clone it next to your Every App checkout, run `pnpm install` in it, and from its directory run the checkout's CLI: `node ../every-app/packages/cli/bin/everyapp.js deploy`. A deploy also updates the gateway, which only a checkout can build.
 
-Then deploy the CRM from this checkout:
+The CRM has four optional settings of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `TOKEN_ENCRYPTION_KEY`, `GITHUB_TOKEN`, `AGENT_MODEL` ([below](#give-the-agent-its-keys)) and `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). `pnpm everyapp configure crm` asks for each; any one can also be set alone with `pnpm everyapp secret set <NAME> --app crm`, from any directory. The CRM opens without them.
 
-```bash
-pnpm deploy:everyapp
-```
-
-The deploy registers the CRM with the gateway, creates its D1 database and R2 bucket, builds the Worker, migrates the database, uploads it, and binds it to the gateway. With no gateway in your account, the deploy offers to set one up first. When it finishes, the CRM appears on your gateway for every member of your organization.
-
-The CRM has four optional settings of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `TOKEN_ENCRYPTION_KEY`, `GITHUB_TOKEN`, `AGENT_MODEL` ([below](#give-the-agent-its-keys)) and `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). Each is set with `pnpm everyapp secret set <NAME> --app crm`, from any directory, and the CRM opens without them.
-
-Before anyone connects mail, a calendar or Slack, give the CRM `TOKEN_ENCRYPTION_KEY`, the key it encrypts their tokens with. Until it is set, each page under Settings → Connections says so and shows this command. Keep it safe: if it changes or is lost, everyone connects again.
-
-```bash
-TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --app crm --from-env TOKEN_ENCRYPTION_KEY
-```
+Before anyone connects mail, a calendar or Slack, give the CRM `TOKEN_ENCRYPTION_KEY`, the key it encrypts their tokens with: 32 or more random characters, for example `openssl rand -base64 32`. `pnpm everyapp configure crm` asks for it. Until it is set, each page under Settings → Connections says so. Keep it safe: if it changes or is lost, everyone connects again.
 
 A GitHub token (any classic token with no scopes) raises GitHub's rate limit when the agent matches people to GitHub profiles:
 
@@ -55,7 +34,7 @@ pnpm everyapp secret set GITHUB_TOKEN --app crm
 
 ## Give the agent its keys
 
-The research agent's keys live on the gateway, never in the CRM. Set each once:
+The research agent's keys live on the gateway, never in the CRM. `pnpm everyapp configure crm` asks for each; to set one alone:
 
 | Setting                                             | What it unlocks                                                                                                                      | Command                                                                  |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
@@ -86,7 +65,7 @@ pnpm everyapp secret set GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECR
 pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET
 ```
 
-Settings → Connections shows the exact redirect URI for your CRM to owners and admins, and each card says when its client isn't set up yet.
+Settings → Connections shows the exact redirect URI for your CRM to owners and admins, and each card says when its client isn't set up yet. The redirect URI is on the CRM's host: the CRM runs the consent flow itself and the gateway only completes the token exchange with its client, so this is not the `https://<gateway>/connect/<provider>/callback` address the gateway's own **Add OAuth provider** dialog shows for providers it connects on apps' behalf.
 
 Gmail's read scope is one Google restricts. If everyone who connects is in your own Google Workspace, make the consent screen _Internal_ and no review is needed. An _External_ consent screen needs Google's verification and a yearly security assessment before people outside your Workspace can connect Gmail. Left in _Testing_, it takes at most 100 test users, and their connections stop working after 7 days.
 
@@ -205,7 +184,7 @@ A restore rewinds the whole database in place, so everything written since is lo
 
 To serve the previous version again, open the CRM's Worker in the Cloudflare dashboard (Workers & Pages → `every-<org key>-crm` → Deployments) and choose Rollback beside that version. A rollback leaves the database as it is: the older version runs on the migrated database, because migrations only add tables and columns. To undo a migration's changes to data too, restore the deploy's bookmark.
 
-After a rollback, the CRM serves a version `pnpm deploy:everyapp` didn't upload, so the next deploy asks before replacing it. Run that deploy in a terminal: where it can't ask, as in CI, it stops without changing anything.
+After a rollback, the CRM serves a version `everyapp` didn't upload, so the next install or deploy asks before replacing it. Run that deploy in a terminal: where it can't ask, as in CI, it stops without changing anything.
 
 ### Logs
 
@@ -227,13 +206,13 @@ pnpm ops requeue <task id>                                # a stuck task, back o
 
 ## Upgrading
 
-Releases are tagged (`v0.1.0`), and the [release notes](release-notes.md) list each one's breaking changes, new settings, migrations and the Every App commit it needs.
+Releases are tagged (`v0.1.0`), and the [release notes](release-notes.md) list each one's breaking changes, new settings, migrations and the Every App release it needs.
 
-1. Merge the release's tag into your fork, and update the Every App checkout to at least the commit the notes name. Run `pnpm install` in both.
-2. If the Every App checkout changed, run `pnpm everyapp update` to upgrade the gateway. It keeps the gateway's data, users and apps.
-3. Set any new settings the notes list, then run `pnpm deploy:everyapp` from the CRM checkout.
+1. Run `pnpm everyapp install https://github.com/every-app/open-crm` again from your Every App checkout. It takes a restore point (a D1 Time Travel bookmark, which it prints), migrates the CRM's database, then uploads the new version. Your data stays.
+2. Set any new settings the notes list: `pnpm everyapp configure crm` asks for the ones still missing.
+3. If the notes name a newer Every App release, `git pull` and `pnpm install` in the Every App checkout, then `pnpm everyapp update` upgrades the gateway. It keeps the gateway's data, users and apps.
 
-The deploy migrates the CRM's database after taking a restore point (a D1 Time Travel bookmark, which it prints), then uploads the new version.
+A fork merges the release's tag and deploys with the checkout's CLI, as under [Install it](#install-it).
 
 If your fork changes the schema, change tables only by adding to them. On D1, a migration that rebuilds a table deletes the rows of every table that references it, and `pnpm test` refuses one.
 

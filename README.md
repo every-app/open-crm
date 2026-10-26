@@ -31,13 +31,16 @@ set up).
 
 ## Deploy it
 
-To put it on your Gateway, run `pnpm everyapp install https://github.com/every-app/open-crm` from your [Every App](https://github.com/every-app/every-app) checkout: it installs the latest release, which the Release workflow publishes on every push to the default branch, and the same command updates it later. To deploy your own changes instead, run that checkout's CLI from this directory: `node ../every-app/packages/cli/bin/everyapp.js deploy` (the CLI installed here runs `dev`, `db migrate` and `release`; a deploy also updates the Gateway, which only a checkout can build). Then set the agent's
-keys on the gateway. Before anyone connects mail, a calendar or Slack, give the
-CRM `TOKEN_ENCRYPTION_KEY`, the key their tokens are encrypted under:
+Two commands, from a checkout of [Every App](https://github.com/every-app/every-app) (the folder you ran `pnpm everyapp setup` from), on a Cloudflare account with Workers Paid and R2 enabled:
 
 ```bash
-TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --from-env TOKEN_ENCRYPTION_KEY
+pnpm everyapp install https://github.com/every-app/open-crm
+pnpm everyapp configure crm
 ```
+
+The first installs the latest release, which the Release workflow publishes on every push to the default branch; run it again later to update. The second asks for each key the CRM needs (a model provider's key and a Context.dev key on the gateway), then the optional ones, `TOKEN_ENCRYPTION_KEY` among them: set it before anyone connects mail, a calendar or Slack, since their tokens are encrypted under it. Any one setting can also be set on its own with `pnpm everyapp secret set <NAME>`.
+
+To deploy your own changes instead, run that checkout's CLI from this directory: `node ../every-app/packages/cli/bin/everyapp.js deploy` (the CLI installed here runs `dev`, `db migrate` and `release`; a deploy also updates the Gateway, which only a checkout can build).
 
 [docs/self-hosting.md](docs/self-hosting.md) covers setup, keys, costs, local
 runs, operations, upgrades and troubleshooting, and
