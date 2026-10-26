@@ -1,47 +1,30 @@
 # OpenCRM
 
-An open-source CRM kept up to date by a research agent, running on an
-[Every App](https://everyapp.com) gateway. Ported from
-[Comp AI's CRM](https://github.com/trycompai/crm) (v1.15.3, commit `6d4793d`)
-onto Cloudflare Workers.
+> **A CRM that fills itself in.**
+>
+> Add a company and a research agent finds its website, logo and people. Connect Gmail or Outlook and your conversations and meetings land on the right records.
 
-The gateway signs people in, decides who may open the CRM, serves the CRM's
-tools to AI clients on its one MCP connector, and holds the provider keys: the
-model provider (the gateway's default model; OpenRouter for web research) and
-Context.dev keys and the Google, Microsoft and Slack
-OAuth clients. The CRM has a few settings of its own, all optional until a
-feature needs them; `pnpm everyapp secret list` in this directory shows each
-one and whether it is set, and the
-[Settings table](docs/maintainers/every-app.md#settings) says what each unlocks
-and the command that sets it.
+## Features
 
-## Run it locally
+- Companies, contacts, deals, tasks and notes, with custom fields and saved views.
+- A research agent that profiles new companies and contacts and briefs you before meetings.
+- Gmail, Google Calendar and Outlook capture, read only. It never sends or drafts mail.
+- Website tracking: visitors and form submissions become contacts.
+- CSV import and export.
+- Team agents that post to an approved Slack channel.
+- MCP tools for Claude Code, Cursor and your other AI clients.
 
-With Node.js 22.18+ and pnpm 10. The Every App SDK and CLI it builds with are the published packages `@every-app/sdk` and `everyapp`, pinned to one exact version in `package.json`, so a clone of this repository installs and builds on its own: no checkout of the Every App repository beside it.
-
-```bash
-pnpm install
-pnpm dev        # http://crm.localhost:8787, signed in as a dev owner
-```
-
-No gateway holds the agent's keys locally: copy `.dev.vars.example` to
-`.dev.vars` and fill in your own OpenRouter and Context.dev keys. `pnpm dev`
-names any that are missing, and runs without them (the agent then shows as not
-set up).
-
-## Deploy it
-
-Two commands, from a checkout of [Every App](https://github.com/every-app/every-app) (the folder you ran `pnpm everyapp setup` from), on a Cloudflare account with Workers Paid and R2 enabled:
+## Install on EveryApp
 
 ```bash
 pnpm everyapp install https://github.com/every-app/open-crm
 pnpm everyapp configure crm
 ```
 
-The first installs the latest release, which the Release workflow publishes on every push to the default branch; run it again later to update. The second asks for each key the CRM needs (a model provider's key and a Context.dev key on the gateway), then the optional ones, `TOKEN_ENCRYPTION_KEY` among them: set it before anyone connects mail, a calendar or Slack, since their tokens are encrypted under it. Any one setting can also be set on its own with `pnpm everyapp secret set <NAME>`.
+Needs a model key (OpenRouter first), a Context.dev key, and R2 enabled on your Cloudflare account. Details: [everyapp.com/docs/apps/crm](https://everyapp.com/docs/apps/crm)
 
-To deploy your own changes instead, run that checkout's CLI from this directory: `node ../every-app/packages/cli/bin/everyapp.js deploy` (the CLI installed here runs `dev`, `db migrate` and `release`; a deploy also updates the Gateway, which only a checkout can build).
+Development: [docs/development.md](docs/development.md). Self-hosting: [docs/self-hosting.md](docs/self-hosting.md).
 
-[docs/self-hosting.md](docs/self-hosting.md) covers setup, keys, costs, local
-runs, operations, upgrades and troubleshooting, and
-[docs/release-notes.md](docs/release-notes.md) what each release changes.
+## Thanks
+
+OpenCRM started as a port of [Comp AI's CRM](https://github.com/trycompai/crm) (MIT). Thanks to the Comp AI team for building it. Their copyright and license are kept in [LICENSE](LICENSE).
