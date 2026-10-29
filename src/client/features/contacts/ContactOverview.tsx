@@ -1,16 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "@/client/components/ui/button";
 import { SafeExternalLink } from "@/client/components/SafeExternalLink";
-import {
-  AgentFound,
-  ContactBackground,
-  Suggestion,
-} from "@/client/features/contacts/ContactResearch";
-import {
-  factsByField,
-  sameValue,
-  type Contact,
-} from "@/client/features/contacts/contactFormat";
+import type { Contact } from "@/client/features/contacts/contactFormat";
 import type { useContactMutations } from "@/client/features/contacts/useContactMutations";
 import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import { RecordFields } from "@/client/features/fields/RecordFields";
@@ -31,10 +22,8 @@ type Mutations = ReturnType<typeof useContactMutations>;
 type ContactPatch = Omit<UpdateContactInput, "id">;
 
 /**
- * A contact's Overview tab: their details, with what the agent suggests
- * under the row it would change; the agent's background on them; who and
- * what we know around them; their links and visits. Their deals have a tab
- * of their own.
+ * A contact's Overview tab: their details; who and what we know around them;
+ * their links and visits. Their deals have a tab of their own.
  */
 export function ContactOverview({
   contact,
@@ -52,24 +41,6 @@ export function ContactOverview({
     saving: saving.includes(key),
     onSave: (value: string) => update.mutate({ [key]: value }),
   });
-  const { applied, proposed } = factsByField(contact.facts);
-  // Under a row: the agent's suggestion for the fact it holds.
-  const suggestion = (fact: string): ReactNode => {
-    const proposal = proposed.get(fact);
-    return proposal ? (
-      <Suggestion fact={proposal} mutations={mutations} />
-    ) : undefined;
-  };
-  // Beside a value: where the agent found it.
-  const found =
-    (key: "title" | "linkedinUrl" | "twitterUrl" | "githubUrl") =>
-    (value: string) => {
-      const fact = applied.get(key);
-      return fact && sameValue(fact.value, value) ? (
-        <AgentFound fact={fact} />
-      ) : null;
-    };
-
   return (
     <div>
       <SheetSection
@@ -96,32 +67,23 @@ export function ContactOverview({
             onSave={(firstName) => {
               if (firstName) update.mutate({ firstName });
             }}
-            // The agent suggests their whole name, first and last.
-            suggestion={suggestion("name")}
           />
           {(contact.lastName !== null && contact.lastName !== "") ||
-          showEmpty ||
-          proposed.has("lastName") ? (
+          showEmpty ? (
             <InlineField
               label="Last name"
               value={contact.lastName}
               {...field("lastName")}
             />
           ) : null}
-          {(contact.title !== null && contact.title !== "") ||
-          showEmpty ||
-          proposed.has("title") ? (
+          {(contact.title !== null && contact.title !== "") || showEmpty ? (
             <InlineField
               label="Title"
               value={contact.title}
-              trailing={found("title")}
-              suggestion={suggestion("title")}
               {...field("title")}
             />
           ) : null}
-          {(contact.email !== null && contact.email !== "") ||
-          showEmpty ||
-          proposed.has("email") ? (
+          {(contact.email !== null && contact.email !== "") || showEmpty ? (
             <InlineField
               label="Email"
               type="email"
@@ -129,9 +91,7 @@ export function ContactOverview({
               {...field("email")}
             />
           ) : null}
-          {(contact.phone !== null && contact.phone !== "") ||
-          showEmpty ||
-          proposed.has("phone") ? (
+          {(contact.phone !== null && contact.phone !== "") || showEmpty ? (
             <InlineField
               label="Phone"
               type="tel"
@@ -140,41 +100,32 @@ export function ContactOverview({
             />
           ) : null}
           {(contact.linkedinUrl !== null && contact.linkedinUrl !== "") ||
-          showEmpty ||
-          proposed.has("linkedinUrl") ? (
+          showEmpty ? (
             <InlineField
               label="LinkedIn"
               type="url"
               value={contact.linkedinUrl}
               placeholder="https://www.linkedin.com/in/…"
-              trailing={found("linkedinUrl")}
-              suggestion={suggestion("linkedinUrl")}
               {...field("linkedinUrl")}
             />
           ) : null}
           {(contact.twitterUrl !== null && contact.twitterUrl !== "") ||
-          showEmpty ||
-          proposed.has("twitterUrl") ? (
+          showEmpty ? (
             <InlineField
               label="X"
               type="url"
               value={contact.twitterUrl}
               placeholder="https://x.com/…"
-              trailing={found("twitterUrl")}
-              suggestion={suggestion("twitterUrl")}
               {...field("twitterUrl")}
             />
           ) : null}
           {(contact.githubUrl !== null && contact.githubUrl !== "") ||
-          showEmpty ||
-          proposed.has("githubUrl") ? (
+          showEmpty ? (
             <InlineField
               label="GitHub"
               type="url"
               value={contact.githubUrl}
               placeholder="https://github.com/…"
-              trailing={found("githubUrl")}
-              suggestion={suggestion("githubUrl")}
               {...field("githubUrl")}
             />
           ) : null}
@@ -197,7 +148,6 @@ export function ContactOverview({
         </div>
       </SheetSection>
 
-      <ContactBackground brief={contact.brief} suggestion={suggestion} />
       <WeKnowThem contact={contact} />
       <ContactLinks contact={contact} />
       <WebsiteActivity record={{ contactId: contact.id }} />

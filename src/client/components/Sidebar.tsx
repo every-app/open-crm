@@ -6,7 +6,6 @@ import type { ComponentType } from "react";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "cn";
 import { navItems, settingsNavItem } from "@/client/navigation/items";
-import { EnrichmentQueue } from "@/client/features/agent/EnrichmentQueue";
 import { getEveryAppAccount } from "@/serverFunctions/everyApp";
 import {
   Sidebar as UiSidebar,
@@ -113,7 +112,6 @@ export function Sidebar({
             </SidebarGroupContent>
           </SidebarGroup>
         </nav>
-        <EnrichmentQueue />
       </SidebarContent>
       <UiSidebarFooter className="gap-0 border-t border-sidebar-border pb-safe">
         <SidebarMenu>

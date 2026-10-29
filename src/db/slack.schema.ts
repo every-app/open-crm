@@ -8,8 +8,13 @@ import {
 import { organization, user } from "./auth.schema";
 import { isoNow, timestamp } from "./columns";
 
+// Retired: Slack, which only team agents posted through, which the CRM no longer has. Nothing reads or writes
+// these tables but the organization erasure; they stay until a release after
+// the one that removed the feature, when a `-- everyapp:contract` migration
+// drops them (TODO.md).
+//
 // The organization's Slack workspace, connected by an owner or admin through
-// the Every App gateway's `slack` OAuth client (src/server/features/slack):
+// the Every App gateway's `slack` OAuth client:
 // the tokens Slack issued, the channels the CRM can reach, and which members
 // are which Slack users. Tokens are read on the server only, to call Slack;
 // they never reach a client, a log, the model or an MCP tool.

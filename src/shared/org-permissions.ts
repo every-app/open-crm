@@ -1,21 +1,16 @@
 // What each gateway role may do in the CRM, as OpenSEO gates project and
 // integration management to owners and admins. Members work the pipeline:
-// they create, edit, archive and restore records, talk to the agent and keep
-// their own saved views. The client reads the same table to hide what a role
+// they create, edit, archive and restore records and keep their own saved
+// views. The client reads the same table to hide what a role
 // can't do; the server enforces it (src/server/auth/org-gate.ts).
 const statement = {
-  // Workspace name, website, reporting currency and rates, the agent's model,
-  // archive retention; exporting everything in it is the owner's alone.
+  // Workspace name, website, reporting currency and rates, archive retention; exporting everything in it is the owner's alone.
   workspace: ["manage", "export"],
   // Add, change, reorder, archive and delete custom fields.
   field: ["manage"],
   // Permanently delete archived records.
   record: ["purge"],
-  // Change, pause, archive or delete any team agent (its creator always may),
-  // and stop anyone's run.
-  agent: ["manage"],
-  // Connect or disconnect the workspace's Slack; disconnect any member's
-  // mailbox, or delete what it synced.
+  // Disconnect any member's mailbox, or delete what it synced.
   connection: ["manage"],
 } as const;
 
@@ -29,7 +24,6 @@ const FULL: OrgPermissionRequest = {
   workspace: ["manage"],
   field: ["manage"],
   record: ["purge"],
-  agent: ["manage"],
   connection: ["manage"],
 };
 
@@ -54,7 +48,6 @@ function grants(
     covers(granted.workspace, permissions.workspace) &&
     covers(granted.field, permissions.field) &&
     covers(granted.record, permissions.record) &&
-    covers(granted.agent, permissions.agent) &&
     covers(granted.connection, permissions.connection)
   );
 }

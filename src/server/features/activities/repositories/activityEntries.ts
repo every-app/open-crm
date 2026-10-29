@@ -156,7 +156,7 @@ export function toEntry(row: EntryRow) {
     completedAt: row.completedAt,
     meta: metaSchema.parse(row.meta),
     createdAt: row.createdAt,
-    /** Null when the research agent wrote it. */
+    /** Null for an automated entry. */
     createdBy: author(row),
     company:
       row.companyId !== null && row.companyName !== null

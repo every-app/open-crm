@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
 import { QueryError } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
-import { Button } from "@/client/components/ui/button";
 import { CompanyOverview } from "@/client/features/companies/CompanyOverview";
 import {
   CompanyContacts,
@@ -15,7 +13,6 @@ import {
   type Company,
 } from "@/client/features/companies/companyFormat";
 import { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
-import { EnrichmentIndicator } from "@/client/features/records/EnrichmentStatus";
 import { LocalDay } from "@/client/features/records/LocalDateTime";
 import { RecordActionsMenu } from "@/client/features/records/RecordActionsMenu";
 import {
@@ -65,35 +62,20 @@ export function CompanySheet({ companyId }: { companyId: string }) {
               description: metaLine(domainLink(company), [company.industry]),
               note: companyNote(company),
               actions: (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!company.domain}
-                    title={company.domain ? undefined : "Add a domain first"}
-                    pending={mutations.enrich.isPending}
-                    onClick={() => mutations.enrich.mutate()}
-                  >
-                    {mutations.enrich.isPending ? null : (
-                      <RefreshCw data-icon="inline-start" />
-                    )}
-                    <span className="max-sm:sr-only">Refresh research</span>
-                  </Button>
-                  <RecordActionsMenu
-                    name={company.name}
-                    archived={company.archivedAt !== null}
-                    canPurge={canPurge}
-                    consequence={purgeConsequence(company)}
-                    pending={
-                      mutations.archive.isPending ||
-                      mutations.restore.isPending ||
-                      mutations.purge.isPending
-                    }
-                    onArchive={() => mutations.archive.mutate()}
-                    onRestore={() => mutations.restore.mutate()}
-                    onPurge={() => mutations.purge.mutate()}
-                  />
-                </>
+                <RecordActionsMenu
+                  name={company.name}
+                  archived={company.archivedAt !== null}
+                  canPurge={canPurge}
+                  consequence={purgeConsequence(company)}
+                  pending={
+                    mutations.archive.isPending ||
+                    mutations.restore.isPending ||
+                    mutations.purge.isPending
+                  }
+                  onArchive={() => mutations.archive.mutate()}
+                  onRestore={() => mutations.restore.mutate()}
+                  onPurge={() => mutations.purge.mutate()}
+                />
               ),
             }
           : undefined
@@ -171,24 +153,11 @@ function domainLink(company: Company): ReactNode {
   );
 }
 
-/** "Archived", and the agent's progress until it's done. */
+/** "Archived", on an archived company. */
 function companyNote(company: Company): ReactNode {
-  const archived = company.archivedAt !== null;
-  const enriching = company.enrichmentStatus !== "COMPLETE";
-  if (!archived && !enriching) return null;
-  return (
-    <>
-      {archived ? <Badge variant="secondary">Archived</Badge> : null}
-      {enriching ? (
-        <EnrichmentIndicator
-          status={company.enrichmentStatus}
-          queued={company.queued}
-          waiting={company.waiting}
-          title={company.enrichmentError}
-        />
-      ) : null}
-    </>
-  );
+  return company.archivedAt !== null ? (
+    <Badge variant="secondary">Archived</Badge>
+  ) : null;
 }
 
 function CompanyStats({ company }: { company: Company }) {

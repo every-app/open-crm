@@ -1,9 +1,8 @@
 /**
  * OpenCRM on an Every App gateway. The gateway signs people in and decides
- * who may open the CRM, serves its agent tools on the gateway's one MCP
- * connector, and holds the model provider and Context.dev keys and the
- * Google and Microsoft OAuth clients for mail capture, so a deploy needs no
- * settings of its own. Each setting below says whether the CRM opens without
+ * who may open the CRM, serves its tools on the gateway's one MCP connector,
+ * and holds the Google and Microsoft OAuth clients for mail capture, so a
+ * deploy needs no settings of its own. Each setting below says whether the CRM opens without
  * it (`optional`) and why it is there (`why`): the gateway, `everyapp status`
  * and the end of `everyapp deploy` show them. See docs/maintainers/every-app.md.
  *
@@ -14,14 +13,10 @@ export default {
   id: "crm",
   name: "OpenCRM",
   description:
-    "Companies, contacts and deals, kept up to date by a research agent.",
+    "Companies, contacts and deals, with mail, meetings and website visits filed on them.",
   icon: "/everyapp-icon.svg",
   resources: {
     d1: ["DB"],
-    durableObjects: [
-      // The research agent: one instance per task or record conversation.
-      { name: "CRM_AGENT", className: "CrmAgent" },
-    ],
   },
   migrations: {
     engine: "drizzle" as const,
@@ -29,36 +24,13 @@ export default {
     config: "drizzle/sqlite.config.ts",
     binding: "DB",
   },
-  // The research agent's model is the gateway's default
-  // (src/server/lib/gateway-ai.ts): its operator picks the provider and the
-  // model, and any one model provider's key opens the CRM. Required: a CRM
-  // kept up to date by a research agent is not much without its model.
-  ai: {
-    chat: {
-      why: "The research agent's model, through the Gateway's default model provider.",
-    },
-  },
-  // Web research stays pinned to OpenRouter (src/server/lib/openrouter.ts):
-  // Perplexity's Sonar models and OpenRouter's web plugin. Optional: without
-  // its key, web research says so where the agent uses it.
-  providers: [
-    {
-      id: "openrouter",
-      optional: true,
-      why: "Web research through Perplexity's Sonar models and OpenRouter's web search tool.",
-    },
-  ],
   // What the CRM calls with a key only the gateway holds (integrationFetch).
   // The gateway attributes each call to the organization in the request's
-  // identity, or, from the agent and the cron, in `x-everyapp-org`
-  // (src/server/lib/gateway-attribution.ts). Only Context.dev is required:
-  // mail, calendar and Slack are features whose connect pages say what is
-  // missing until the gateway holds their client.
+  // identity, or, from the cron, in `x-everyapp-org`
+  // (src/server/lib/gateway-attribution.ts). Mail and calendar are features
+  // whose connect pages say what is missing until the gateway holds their
+  // client.
   capabilities: {
-    context: {
-      access: "read",
-      why: "Company brand data, LinkedIn profiles and website extraction for the research agent.",
-    },
     // Each member connects their own mailbox; the gateway completes the
     // token endpoints with its client and the CRM keeps the member's tokens
     // (src/server/features/mailbox).
@@ -76,46 +48,16 @@ export default {
       optional: true,
       why: "Members connect their Outlook mail, read only, so their work conversations are filed on companies and contacts.",
     },
-    // The gateway completes Slack's token endpoint with its client; the CRM
-    // keeps the workspace's tokens (src/server/features/slack).
-    slack: {
-      access: "write",
-      // Bot sets for src/shared/slack.ts's SLACK_SCOPES, and the user set for
-      // SLACK_USER_SCOPES (inviting the bot to private channels).
-      scopes: [
-        "channels.read",
-        "users.read",
-        "users.email",
-        "messages.write",
-        "channels.join",
-        "channels.manage",
-        "user-channels.manage",
-      ],
-      optional: true,
-      why: "Connects the workspace's Slack so team agents can post to an approved channel.",
-    },
   },
   // The CRM's own settings (`everyapp secret set <NAME> --app crm`), all
   // optional: the feature that needs one says so where it is used.
   secrets: [
-    // The key mail, calendar and Slack tokens are encrypted under
+    // The key mail and calendar tokens are encrypted under
     // (src/server/lib/tokenCrypto.ts). Changing it means connecting again.
     {
       name: "TOKEN_ENCRYPTION_KEY",
       optional: true,
-      why: "Needed before anyone connects mail, a calendar or Slack: their tokens are encrypted under it. 32 or more random characters, e.g. openssl rand -base64 32.",
-    },
-    {
-      name: "GITHUB_TOKEN",
-      optional: true,
-      why: "Raises GitHub's rate limit when the agent matches people to GitHub profiles. Any classic token with no scopes will do.",
-      docs: "https://github.com/settings/tokens",
-    },
-    // src/server/lib/gateway-ai.ts
-    {
-      name: "AGENT_MODEL",
-      optional: true,
-      why: "The model id the agent runs on, as the Gateway's default provider names it; empty takes the operator's default.",
+      why: "Needed before anyone connects mail or a calendar: their tokens are encrypted under it. 32 or more random characters, e.g. openssl rand -base64 32.",
     },
     // docs/maintainers/runbooks/erase-organization.md
     {

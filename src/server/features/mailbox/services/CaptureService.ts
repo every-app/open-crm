@@ -1,4 +1,3 @@
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { snippetOf } from "@/server/features/mailbox/lib/messageText";
 import { isMachineAddress, type Participant } from "@/shared/participants";
 import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
@@ -159,8 +158,6 @@ export type IncomingEvent = {
   googleEventId: string | null;
 };
 
-const MEETING_PREP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-
 /**
  * Files one meeting, or removes a cancelled one. Rematched on every change;
  * a meeting the mailbox's owner declined adds no records.
@@ -239,20 +236,6 @@ async function applyEvent(
       contactId: contacts.get(attendee.email) ?? null,
     })),
   );
-
-  const startsIn = Date.parse(event.startsAt) - Date.now();
-  if (startsIn > 0 && startsIn <= MEETING_PREP_WINDOW_MS) {
-    for (const contactId of await MeetingWriteRepository.attendeesWithoutBrief(
-      organizationId,
-      eventId,
-    )) {
-      await AgentTaskService.meetingSoon(
-        organizationId,
-        contactId,
-        event.startsAt,
-      );
-    }
-  }
 
   const createdAt = await MeetingWriteRepository.projectEvent({
     organizationId,

@@ -23,4 +23,4 @@ To see them: `pnpm everyapp db query "select tbl, idx, stat from sqlite_stat1"` 
 
 ## Size
 
-D1 refuses every write once a database reaches 10 GB, with no warning. `/health/dispatch` reports the database and its size, `"database": { "provider": "d1", "sizeBytes": … }`, so watch it.
+D1 refuses every write once a database reaches 10 GB, with no warning. Watch its size in the Cloudflare dashboard (Storage & Databases → D1).

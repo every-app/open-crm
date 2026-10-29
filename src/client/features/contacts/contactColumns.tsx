@@ -5,10 +5,6 @@ import { makeSelectionColumn } from "@/client/components/table/DataTable";
 import type { SelectionAnchor } from "@/client/components/table/tableSelection";
 import { fullName } from "@/client/features/companies/companyFormat";
 import type { ContactRow } from "@/client/features/contacts/contactFormat";
-import {
-  EnrichmentIndicator,
-  hasAgentNote,
-} from "@/client/features/records/EnrichmentStatus";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import {
   EmptyValue,
@@ -95,15 +91,6 @@ export function contactColumns({
                 name={name}
               />
             </RecordLink>
-            {hasAgentNote(contact) ? (
-              <div className="pl-7.5">
-                <EnrichmentIndicator
-                  status={contact.enrichmentStatus}
-                  queued={contact.queued}
-                  waiting={contact.waiting}
-                />
-              </div>
-            ) : null}
           </div>
         );
       },

@@ -1,14 +1,9 @@
-import { env } from "cloudflare:workers";
 import { resolveUserContextFromHeaders } from "@/middleware/ensure-user/resolve";
-import {
-  fetchPublic,
-  readCapped,
-} from "@/server/features/agent/lib/publicFetch";
 
-// Logos and photographs the agent copies so they outlive their source: the
-// URLs vendors hand back expire, and a record that links to them goes blank.
-// Each organization's images live under its own prefix in the R2 bucket, and
-// the record stores the path this module serves them at:
+// Logos and photographs the research agent the CRM used to have copied so
+// they outlive their source. Nothing copies new ones; records still point at
+// these. Each organization's images live under its own prefix in the R2
+// bucket, and the record stores the path this module serves them at:
 //
 //   /api/images/<organizationId>/<name>-<hash>.<ext>
 //
@@ -17,71 +12,6 @@ import {
 // URL, which is why it can be cached for a year.
 
 export const IMAGE_ROUTE_PREFIX = "/api/images/";
-
-const MAX_BYTES = 3 * 1024 * 1024;
-
-const EXTENSIONS: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-  "image/avif": "avif",
-  "image/svg+xml": "svg",
-  "image/x-icon": "ico",
-  "image/vnd.microsoft.icon": "ico",
-};
-
-/** Whether this install has somewhere to keep a copy (the R2 binding). */
-export function imageStorageReady(): boolean {
-  return Boolean(Reflect.get(env, "R2"));
-}
-
-/** The path a record stores for an R2 key (`<organizationId>/<name>`). */
-function imagePath(key: string): string {
-  return `${IMAGE_ROUTE_PREFIX}${key.split("/").map(encodeURIComponent).join("/")}`;
-}
-
-/**
- * Copies the image at `sourceUrl` into the organization's prefix as
- * `<name>-<hash>.<ext>` and returns the path to store on the record, or null
- * when it could not be fetched or is not an image.
- */
-export async function storeImage(
-  organizationId: string,
-  name: string,
-  sourceUrl: string,
-): Promise<string | null> {
-  try {
-    const fetched = await fetchPublic(sourceUrl, "image/*");
-    if (!fetched) return null;
-    const { response } = fetched;
-    const type = response.headers
-      .get("content-type")
-      ?.split(";")[0]
-      ?.trim()
-      .toLowerCase();
-    const extension = type ? EXTENSIONS[type] : undefined;
-    if (!type || !extension) {
-      await response.body?.cancel();
-      return null;
-    }
-    const bytes = await readCapped(response, MAX_BYTES);
-    if (!bytes) return null;
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    const hash = [...new Uint8Array(digest)]
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("")
-      .slice(0, 12);
-    const key = `${organizationId}/${name}-${hash}.${extension}`;
-    await env.R2.put(key, bytes, { httpMetadata: { contentType: type } });
-    return imagePath(key);
-  } catch (error) {
-    console.warn("[images] could not copy an image", {
-      reason: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
-}
 
 /** `<organizationId>/<rest>` from a request path, refusing traversal. */
 function keyFromPath(

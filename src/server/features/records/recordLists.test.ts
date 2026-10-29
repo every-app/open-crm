@@ -11,7 +11,6 @@ const { database } = await vi.hoisted(async () => {
 vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import { ContactService } from "@/server/features/contacts/services/ContactService";
@@ -20,7 +19,6 @@ import { FieldValuesService } from "@/server/features/fields/services/FieldValue
 import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   DEAL_STAGES,
-  ENRICHMENT_STATUSES,
   RECORD_SOURCES,
   type FieldEntity,
 } from "@/shared/crm-enums";
@@ -42,14 +40,12 @@ const addField = (
 ) =>
   FieldsService.create(
     organizationId,
-    createFieldSchema.parse({ type: "TEXT", agentFilled: false, ...input }),
+    createFieldSchema.parse({ type: "TEXT", ...input }),
   );
 
 describe("record lists with custom fields", () => {
   beforeEach(async () => {
-    await database.exec(
-      `DELETE FROM agent_task; DELETE FROM organization; DELETE FROM "user";`,
-    );
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
     await database.seedTwoOrganizations();
     await database.exec(`
         INSERT INTO company (id, organization_id, name, owner_id) VALUES
@@ -116,11 +112,11 @@ describe("record lists with custom fields", () => {
     ).toMatchObject([{ id: "acme_b", fields: {} }]);
   });
 
-  it("narrows the companies list by industry, research state, recent activity and source", async () => {
+  it("narrows the companies list by industry, recent activity and source", async () => {
     await database.exec(`
-        UPDATE company SET industry = 'Software', enrichment_status = 'COMPLETE', last_activity_at = '${daysAgo(3)}' WHERE id = 'acme';
+        UPDATE company SET industry = 'Software', last_activity_at = '${daysAgo(3)}' WHERE id = 'acme';
         UPDATE company SET industry = 'Software', last_activity_at = '${daysAgo(40)}' WHERE id = 'acme_labs';
-        UPDATE company SET industry = 'Fintech', enrichment_status = 'FAILED', source = 'EMAIL' WHERE id = 'globex';
+        UPDATE company SET industry = 'Fintech', source = 'EMAIL' WHERE id = 'globex';
         UPDATE company SET industry = 'Mining', source = 'EMAIL' WHERE id = 'acme_b';
       `);
     const ids = async (input: object) =>
@@ -134,11 +130,6 @@ describe("record lists with custom fields", () => {
     expect(await ids({ industry: ["Software"] })).toEqual([
       "acme",
       "acme_labs",
-    ]);
-    expect(await ids({ enrichment: ["PENDING", "FAILED"] })).toEqual([
-      "acme_co",
-      "acme_labs",
-      "globex",
     ]);
     expect(await ids({ activity: "30" })).toEqual(["acme"]);
     expect(await ids({ source: ["EMAIL"] })).toEqual(["globex"]);
@@ -257,9 +248,7 @@ describe("record lists with custom fields", () => {
 
 describe("the fullest list query", () => {
   beforeEach(async () => {
-    await database.exec(
-      `DELETE FROM agent_task; DELETE FROM organization; DELETE FROM "user";`,
-    );
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
     await database.seedTwoOrganizations();
   });
 
@@ -299,7 +288,6 @@ describe("the fullest list query", () => {
         ...common,
         sort: "deals",
         industry: facet,
-        enrichment: ENRICHMENT_STATUSES,
         activity: "90",
         source: RECORD_SOURCES,
       }),

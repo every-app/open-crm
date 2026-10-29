@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Mail, RefreshCw, Star } from "lucide-react";
+import { Mail, Star } from "lucide-react";
 import { QueryError } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
 import { Button } from "@/client/components/ui/button";
@@ -10,7 +10,6 @@ import { ContactOverview } from "@/client/features/contacts/ContactOverview";
 import type { Contact } from "@/client/features/contacts/contactFormat";
 import { contactQueryOptions } from "@/client/features/contacts/contactQueries";
 import { useContactMutations } from "@/client/features/contacts/useContactMutations";
-import { EnrichmentIndicator } from "@/client/features/records/EnrichmentStatus";
 import { RecordActionsMenu } from "@/client/features/records/RecordActionsMenu";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import {
@@ -110,17 +109,6 @@ function ContactActions({
   const company = contact.company;
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        pending={mutations.enrich.isPending}
-        onClick={() => mutations.enrich.mutate()}
-      >
-        {mutations.enrich.isPending ? null : (
-          <RefreshCw data-icon="inline-start" />
-        )}
-        <span className="max-sm:sr-only">Refresh research</span>
-      </Button>
       {contact.email ? (
         <Button
           variant="outline"
@@ -169,12 +157,11 @@ function metaLine(parts: (string | null | undefined)[]): string | null {
   return shown.length > 0 ? shown.join(" · ") : null;
 }
 
-/** "Archived", "Primary contact at Acme", and the agent's progress. */
+/** "Archived" and "Primary contact at Acme". */
 function contactNote(contact: Contact): ReactNode {
   const archived = contact.archivedAt !== null;
   const primaryAt = contact.isPrimaryContact ? contact.company?.name : null;
-  const enriching = contact.enrichmentStatus !== "COMPLETE";
-  if (!archived && !primaryAt && !enriching) return null;
+  if (!archived && !primaryAt) return null;
   return (
     <>
       {archived ? <Badge variant="secondary">Archived</Badge> : null}
@@ -183,14 +170,6 @@ function contactNote(contact: Contact): ReactNode {
           <Star className="size-3 fill-current text-warning" aria-hidden />
           Primary contact at {primaryAt}
         </span>
-      ) : null}
-      {enriching ? (
-        <EnrichmentIndicator
-          status={contact.enrichmentStatus}
-          queued={contact.queued}
-          waiting={contact.waiting}
-          title={contact.enrichmentError}
-        />
       ) : null}
     </>
   );
@@ -252,7 +231,7 @@ function ContactStats({ contact }: { contact: Contact }) {
 
 /** What deleting a contact forever takes with it, for the confirmation. */
 function purgeConsequence(contact: Contact): string {
-  const gone = "Their notes and everything the agent found go too";
+  const gone = "Their notes go too";
   return contact.email
     ? `${gone}, and the sync won't bring ${contact.email} back.`
     : `${gone}.`;

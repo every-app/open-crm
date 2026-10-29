@@ -1,5 +1,4 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
-import { enrichmentRefetchInterval } from "@/client/features/records/EnrichmentStatus";
 import { getContact, listContacts } from "@/serverFunctions/contacts";
 import type { ContactListInput } from "@/types/schemas/contacts";
 
@@ -17,14 +16,10 @@ export const contactListQueryOptions = (input: ContactListInput) =>
     queryFn: () => listContacts({ data: input }),
     // A new page or filter keeps the rows on screen until it arrives.
     placeholderData: keepPreviousData,
-    refetchInterval: (query) =>
-      enrichmentRefetchInterval(query.state.data?.rows ?? []),
   });
 
 export const contactQueryOptions = (id: string) =>
   queryOptions({
     queryKey: contactKeys.detail(id),
     queryFn: () => getContact({ data: { id } }),
-    refetchInterval: (query) =>
-      enrichmentRefetchInterval(query.state.data ? [query.state.data] : []),
   });

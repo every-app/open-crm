@@ -1,21 +1,13 @@
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { chunk } from "remeda";
-import { db } from "@/db";
-import { agentTask } from "@/db/schema";
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
-import { AGENT_EVENT_KIND } from "@/shared/agent-tasks";
-import {
-  AgentAvailabilityService,
-  taskHold,
-} from "@/server/features/agent/services/AgentAvailabilityService";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
 import { UserFacingError, asAppError } from "@/server/lib/errors";
 import type { FieldEntity } from "@/shared/crm-enums";
 import type { BulkResult } from "@/types/schemas/records";
 
 // Rules every record (company, contact, deal) follows: who may own it, what
-// custom field values its create or update takes, how a bulk action reports,
-// and when its enrichment counts as queued or waiting.
+// custom field values its create or update takes, and how a bulk action
+// reports.
 //
 // Archive and restore only set or clear `archived_at`: the record is hidden,
 // not changed. Purge permanently deletes an archived record, the same way
@@ -130,52 +122,4 @@ export function bulkOutcome(requested: number, succeeded: number): BulkResult {
 /** Splits ids into lists D1 can bind in one statement. */
 export function idChunks(ids: string[]): string[][] {
   return chunk([...new Set(ids)], ID_CHUNK);
-}
-
-/**
- * Of `ids`, the records the agent is on (`queued`: an open, due task that
- * can run, shown as "Queued" until the agent marks the record itself) and
- * those whose research, due or booked for later, waits for the model to be
- * set up (`waiting`). A task held because the organization turned off
- * Research automatically is neither: the record reads as not researched, and
- * "Refresh research" runs it.
- */
-export async function recordAgentStates(
-  organizationId: string,
-  kind: "company" | "contact",
-  ids: string[],
-): Promise<{ queued: Set<string>; waiting: Set<string> }> {
-  const column = kind === "company" ? agentTask.companyId : agentTask.contactId;
-  const queued = new Set<string>();
-  const waiting = new Set<string>();
-  if (ids.length === 0) return { queued, waiting };
-  const hold = await AgentAvailabilityService.researchHold(organizationId);
-  const now = new Date().toISOString();
-  for (const part of idChunks(ids)) {
-    const rows = await db
-      .select({
-        id: column,
-        kind: agentTask.kind,
-        priority: agentTask.priority,
-        dueAt: agentTask.dueAt,
-      })
-      .from(agentTask)
-      .where(
-        and(
-          eq(agentTask.organizationId, organizationId),
-          inArray(column, part),
-          isNull(agentTask.finishedAt),
-          // A CRM event is the team agents' to handle, not research.
-          ne(agentTask.kind, AGENT_EVENT_KIND),
-        ),
-      );
-    for (const row of rows) {
-      if (!row.id) continue;
-      const held = taskHold(row, hold);
-      if (held === "setup") waiting.add(row.id);
-      else if (held === null && row.dueAt <= now) queued.add(row.id);
-    }
-  }
-  for (const id of queued) waiting.delete(id);
-  return { queued, waiting };
 }

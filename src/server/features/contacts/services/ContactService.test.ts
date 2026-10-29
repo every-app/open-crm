@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Contacts: the live-email rule is a partial unique index, facts and briefs
-// are JSON columns, and a fact is settled by a guarded batch.
+// Contacts: the live-email rule is a partial unique index.
 const { database } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return { database: await createSqliteTestDb() };
@@ -9,10 +8,6 @@ const { database } = await vi.hoisted(async () => {
 vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
-// The gateway is connected: research isn't waiting for the model's setup.
-vi.mock("@/server/lib/gateway-ai", () => ({
-  getGatewayFetch: () => fetch,
-}));
 
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
@@ -54,23 +49,11 @@ describe("ContactService", () => {
       lastName: "Zed",
       email: " Ana@Acme.com ",
     });
-    // Filed under the company behind the work email, added for the agent,
-    // and the team agents hear of both.
+    // Filed under the company behind the work email, added for it.
     expect(
       await database.rows("SELECT id, name, domain FROM company"),
     ).toMatchObject([
       { id: ana.companyId, name: "acme.com", domain: "acme.com" },
-    ]);
-    expect(
-      await database.rows(
-        "SELECT kind, reason, contact_id FROM agent_task ORDER BY kind, reason",
-      ),
-    ).toMatchObject([
-      { kind: "agent-event", reason: "company.created" },
-      { kind: "agent-event", reason: "contact.created", contact_id: ana.id },
-      { kind: "brand" },
-      { kind: "company-profile" },
-      { kind: "identify", contact_id: ana.id },
     ]);
 
     // The browser is told who has the email.
@@ -167,6 +150,7 @@ describe("ContactService", () => {
         INSERT INTO activity (id, organization_id, type, company_id, contact_id, created_at) VALUES ('a1', 'org_a', 'NOTE', '${companyId}', '${ana.id}', '2026-10-10T00:00:00.000Z');
         INSERT INTO activity (id, organization_id, type, company_id, created_at) VALUES ('a2', 'org_a', 'NOTE', '${companyId}', '2026-10-01T00:00:00.000Z');
         UPDATE company SET last_activity_at = '2026-10-10T00:00:00.000Z';
+        INSERT INTO agent_task (id, organization_id, contact_id, kind, reason, due_at) VALUES ('t1', 'org_a', '${ana.id}', 'identify', 'x', '2026-10-01T00:00:00.000Z');
         INSERT INTO agent_event (id, organization_id, session_id, contact_id, type, data, emitted_at) VALUES ('e1', 'org_a', 's1', '${ana.id}', 'step', '{}', '2026-10-01T00:00:00.000Z');
       `);
     const agentRows = () =>
@@ -177,7 +161,7 @@ describe("ContactService", () => {
     await expect(ContactService.purgeContact(A, ana.id)).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    expect(await agentRows()).toHaveLength(3);
+    expect(await agentRows()).toHaveLength(2);
 
     await ContactService.archiveContact(A, ana.id);
     await ContactService.purgeContact(A, ana.id);
@@ -266,27 +250,6 @@ describe("ContactService", () => {
     });
   });
 
-  it("sends the agent back when asked, unless it's already on the contact", async () => {
-    const ana = await create(A, { firstName: "Ana" });
-    await expect(ContactService.enrichContact(A, ana.id)).resolves.toEqual({
-      id: ana.id,
-      queued: false,
-    });
-
-    await database.exec(
-      `UPDATE agent_task SET finished_at = '2026-10-01T00:00:00.000Z'; UPDATE contact SET enrichment_status = 'FAILED', enrichment_error = 'Nothing found';`,
-    );
-    await expect(ContactService.enrichContact(A, ana.id)).resolves.toEqual({
-      id: ana.id,
-      queued: true,
-    });
-    expect(await ContactService.getContact(A, ana.id)).toMatchObject({
-      enrichmentStatus: "PENDING",
-      enrichmentError: null,
-      queued: true,
-    });
-  });
-
   it("keeps every contact of one organization out of another's reach", async () => {
     const ana = await create(A, { firstName: "Ana", email: "ana@acme.com" });
     await ContactService.archiveContact(
@@ -301,7 +264,6 @@ describe("ContactService", () => {
       ContactService.getContact(B, ana.id),
       ContactService.updateContact(B, { id: ana.id, firstName: "Mine" }),
       ContactService.archiveContact(B, ana.id),
-      ContactService.enrichContact(B, ana.id),
       ContactService.updateContact(A, { id: ana.id, companyId: theirs.id }),
       create(A, { firstName: "Cy", companyId: theirs.id }),
     ]) {

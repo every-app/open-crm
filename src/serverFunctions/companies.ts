@@ -78,13 +78,6 @@ export const purgeCompany = createServerFn({ method: "POST" })
     return CompanyService.purgeCompany(context.organizationId, data.id);
   });
 
-export const enrichCompany = createServerFn({ method: "POST" })
-  .middleware(requireAuthenticatedContext)
-  .validator(recordIdSchema)
-  .handler(({ data, context }) =>
-    CompanyService.enrichCompany(context.organizationId, data.id),
-  );
-
 export const setPrimaryContact = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
   .validator(setPrimaryContactSchema)
@@ -105,13 +98,6 @@ export const bulkAssignCompanyOwner = createServerFn({ method: "POST" })
       data.ids,
       data.ownerId,
     ),
-  );
-
-export const bulkEnrichCompanies = createServerFn({ method: "POST" })
-  .middleware(requireAuthenticatedContext)
-  .validator(bulkIdsSchema)
-  .handler(({ data, context }) =>
-    CompanyService.bulkEnrich(context.organizationId, data.ids),
   );
 
 export const bulkArchiveCompanies = createServerFn({ method: "POST" })

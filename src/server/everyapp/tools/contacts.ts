@@ -9,7 +9,6 @@ import {
   personOutput,
   sourceOutput,
 } from "@/server/everyapp/crm-tool";
-import { suggestionOutput } from "@/server/everyapp/tools/suggestions";
 import {
   fieldColumnsOutput,
   fieldFiltersInput,
@@ -25,12 +24,7 @@ import {
   type ContactDetail,
   type ContactListRow,
 } from "@/server/features/contacts/services/ContactService";
-import {
-  DEAL_STAGES,
-  ENRICHMENT_STATUSES,
-  FACT_BANDS,
-  RECORD_SOURCES,
-} from "@/shared/crm-enums";
+import { DEAL_STAGES, RECORD_SOURCES } from "@/shared/crm-enums";
 import {
   CONTACT_SORTS,
   NO_COMPANY,
@@ -62,12 +56,6 @@ const companyOutput = z
   .object({ id: z.string(), name: z.string(), domain: z.string().nullable() })
   .nullable();
 
-const enrichment = z
-  .enum(ENRICHMENT_STATUSES)
-  .describe(
-    "The research agent's state: PENDING, RUNNING, COMPLETE, FAILED or SKIPPED (nothing found).",
-  );
-
 const summaryOutput = z.object({
   id: z.string(),
   name: z.string(),
@@ -76,7 +64,6 @@ const summaryOutput = z.object({
   company: companyOutput,
   owner: personOutput.nullable(),
   lastActivityAt: z.string().nullable(),
-  enrichment,
   source: sourceOutput,
   createdAt: z.string(),
   archivedAt: z.string().nullable(),
@@ -92,7 +79,6 @@ function summary(
   return {
     ...row,
     name: fullName(row),
-    enrichment: row.enrichmentStatus,
     fields: mapValues(row.fields, (value, key) => shown(key, value)),
   };
 }
@@ -120,43 +106,7 @@ const detailsOutput = z.object({
     .nullable(),
   primaryContactOfCompany: z.boolean(),
   owner: personOutput.nullable(),
-  enrichment,
-  enrichmentError: z
-    .string()
-    .nullable()
-    .describe("Why the research agent's last look failed."),
-  queued: z.boolean().describe("The research agent has work on them due now."),
   fields: recordValuesOutput,
-  brief: z
-    .object({
-      narrative: z.string().nullable(),
-      currentRole: z.string().optional(),
-      tenure: z.string().optional(),
-      previousRoles: z.array(z.string()).optional(),
-      seniority: z.string().optional(),
-      function: z.string().optional(),
-      location: z.string().optional(),
-      score: z.number().describe("How well its sources back it, 0 to 1."),
-      sourceUrl: z.string().nullable(),
-      refreshedAt: z.string(),
-    })
-    .nullable()
-    .describe("The research agent's brief on them."),
-  facts: z
-    .array(
-      z.object({
-        field: z.string(),
-        value: z.string(),
-        band: z.enum(FACT_BANDS).describe("How sure the agent is."),
-        sourceUrl: z.string().nullable(),
-      }),
-    )
-    .describe(
-      "What the research agent found and applied: a name, title, seniority, function or profile link is on the record; an employer, location or tenure has no field there and stays with the agent.",
-    ),
-  suggestions: z
-    .array(suggestionOutput)
-    .describe("What the research agent found that waits for a person."),
   deals: z.array(
     z.object({
       id: z.string(),
@@ -193,22 +143,13 @@ function details(
   contact: ContactDetail,
   fields: z.input<typeof recordValuesOutput>,
 ): z.input<typeof detailsOutput> {
-  const { relationship, brief } = contact;
+  const { relationship } = contact;
   return {
     ...contact,
     ...relationship,
     name: fullName(contact),
     primaryContactOfCompany: contact.isPrimaryContact,
-    enrichment: contact.enrichmentStatus,
     fields,
-    brief: brief ? { ...brief, ...brief.sections } : null,
-    facts: contact.facts.filter((fact) => fact.status === "APPLIED"),
-    suggestions: contact.facts
-      .filter((fact) => fact.status === "PROPOSED")
-      .map((fact) => ({
-        ...fact,
-        why: fact.evidence.map((item) => item.detail),
-      })),
   };
 }
 
@@ -326,7 +267,7 @@ export const contactTools = {
 
   get_contact: crmTool({
     description:
-      "One contact in full: details, company, owner, custom fields, the research agent's state, brief, what it found and its suggestions waiting for a person, their deals and colleagues, and the mail and meetings captured with them.",
+      "One contact in full: details, company, owner, custom fields, their deals and colleagues, and the mail and meetings captured with them.",
     risk: "read",
     input: z.object({ id: contactId }).strict(),
     output: detailsOutput,
@@ -341,7 +282,7 @@ export const contactTools = {
 
   create_contact: crmTool({
     description:
-      "Add a contact, with their custom field values if given. Their email must not belong to another live contact. Without a companyId, a work email files them under that domain's company, adding it if missing (free mail such as gmail.com files them nowhere). The research agent then looks them up.",
+      "Add a contact, with their custom field values if given. Their email must not belong to another live contact. Without a companyId, a work email files them under that domain's company, adding it if missing (free mail such as gmail.com files them nowhere).",
     risk: "write",
     input: createContactSchema
       .omit({ ownerId: true })

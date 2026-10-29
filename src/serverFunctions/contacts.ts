@@ -1,13 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireOrgPermission } from "@/server/auth/org-gate";
-import { ContactFactService } from "@/server/features/contacts/services/ContactFactService";
 import { ContactService } from "@/server/features/contacts/services/ContactService";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
 import {
   bulkContactCompanySchema,
   contactListSchema,
   createContactSchema,
-  decideFactSchema,
   updateContactSchema,
 } from "@/types/schemas/contacts";
 import {
@@ -16,9 +14,8 @@ import {
   recordIdSchema,
 } from "@/types/schemas/records";
 
-// Members work the pipeline: they add, edit, archive and restore contacts,
-// and settle the agent's suggestions. Deleting an archived contact forever
-// is for owners and admins.
+// Members work the pipeline: they add, edit, archive and restore contacts.
+// Deleting an archived contact forever is for owners and admins.
 
 export const listContacts = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
@@ -70,20 +67,6 @@ export const purgeContact = createServerFn({ method: "POST" })
     return ContactService.purgeContact(context.organizationId, data.id);
   });
 
-export const enrichContact = createServerFn({ method: "POST" })
-  .middleware(requireAuthenticatedContext)
-  .validator(recordIdSchema)
-  .handler(({ data, context }) =>
-    ContactService.enrichContact(context.organizationId, data.id),
-  );
-
-export const decideContactFact = createServerFn({ method: "POST" })
-  .middleware(requireAuthenticatedContext)
-  .validator(decideFactSchema)
-  .handler(({ data, context }) =>
-    ContactFactService.decideFact(context.organizationId, context.userId, data),
-  );
-
 export const bulkAssignContactOwner = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
   .validator(bulkOwnerSchema)
@@ -104,13 +87,6 @@ export const bulkSetContactCompany = createServerFn({ method: "POST" })
       data.ids,
       data.companyId,
     ),
-  );
-
-export const bulkEnrichContacts = createServerFn({ method: "POST" })
-  .middleware(requireAuthenticatedContext)
-  .validator(bulkIdsSchema)
-  .handler(({ data, context }) =>
-    ContactService.bulkEnrich(context.organizationId, data.ids),
   );
 
 export const bulkArchiveContacts = createServerFn({ method: "POST" })

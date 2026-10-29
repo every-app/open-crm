@@ -62,14 +62,14 @@ export const workspace = sqliteTable("workspace", {
   archiveRetentionDays: integer("archive_retention_days")
     .notNull()
     .default(180),
-  // The agent's model as last seen through the gateway: when the gateway
-  // refused it for want of a key (and its message), and when it last
-  // answered. The later of the two is the model's state.
+  // Retired with the research agent, down to researchAutomatically: nothing
+  // reads them, and they are dropped a release later (TODO.md). The agent's
+  // model as last seen through the gateway: when the gateway refused it for
+  // want of a key (and its message), and when it last answered.
   modelRefusedAt: timestamp("model_refused_at"),
   modelRefusal: text("model_refusal"),
   modelAnsweredAt: timestamp("model_answered_at"),
-  // When the enrichment sweep last looked over the organization's records
-  // (src/server/features/agent/dispatch/sweep.ts).
+  // When the enrichment sweep last looked over the organization's records.
   enrichmentSweptAt: timestamp("enrichment_swept_at"),
   // Whether the agent researches on its own (Settings → General): new
   // records, and what the enrichment sweep finds. Off, only what a person
@@ -134,6 +134,8 @@ export const company = sqliteTable(
       { onDelete: "set null" },
     ),
 
+    // Retired with the research agent, down to researchHeldAt: nothing reads
+    // them, and they are dropped a release later (TODO.md).
     enrichmentStatus: text("enrichment_status", { enum: ENRICHMENT_STATUSES })
       .notNull()
       .default("PENDING"),
@@ -181,7 +183,10 @@ export const company = sqliteTable(
   ],
 );
 
-/** The raw Context.dev answer behind a company's brand data. */
+/**
+ * The raw Context.dev answer behind a company's brand data. Retired with the
+ * research agent, and dropped a release later (TODO.md).
+ */
 export const companyEnrichment = sqliteTable("company_enrichment", {
   companyId: text("company_id")
     .primaryKey()
@@ -212,6 +217,8 @@ export const contact = sqliteTable(
 
     socialsCheckedAt: timestamp("socials_checked_at"),
 
+    // Retired with the research agent, down to researchHeldAt: nothing reads
+    // them, and they are dropped a release later (TODO.md).
     enrichmentStatus: text("enrichment_status", { enum: ENRICHMENT_STATUSES })
       .notNull()
       .default("PENDING"),
@@ -275,7 +282,8 @@ export const contact = sqliteTable(
 /**
  * One observation the agent made about a contact, priced by the evidence
  * ledger. Strong evidence is APPLIED to the record; weak evidence is PROPOSED
- * for a person to settle.
+ * for a person to settle. Retired with the research agent, and dropped a
+ * release later (TODO.md).
  */
 export const contactFact = sqliteTable(
   "contact_fact",
@@ -317,7 +325,7 @@ export const contactFact = sqliteTable(
   ],
 );
 
-/** The agent's written brief on a contact. */
+/** The agent's written brief on a contact. Retired with it (TODO.md). */
 export const contactBrief = sqliteTable("contact_brief", {
   contactId: text("contact_id")
     .primaryKey()
@@ -487,6 +495,7 @@ export const fieldDefinition = sqliteTable(
     key: text("key").notNull(),
     label: text("label").notNull(),
     type: text("type", { enum: FIELD_TYPES }).notNull(),
+    // Retired with the research agent, with agentBrief (TODO.md).
     agentFilled: integer("agent_filled", { mode: "boolean" })
       .notNull()
       .default(true),

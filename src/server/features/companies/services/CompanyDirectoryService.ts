@@ -1,9 +1,5 @@
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
-import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { CompanyDirectoryRepository } from "@/server/features/companies/repositories/CompanyDirectoryRepository";
-import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
-import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import type { RecordSource } from "@/shared/crm-enums";
 import { domainFromEmail } from "@/shared/domain";
 
@@ -14,11 +10,10 @@ import { domainFromEmail } from "@/shared/domain";
 
 /**
  * The live company behind a work email's domain, added (named after the
- * domain, for the agent to research) when there isn't one; null for free
- * mail and machine senders. For contacts: `ownerId` is one the caller checked.
- * `source` says where an added company came from (mail capture's EMAIL or
- * CALENDAR, a website form's TRACKING). One a calendar invite or a form
- * added gets no paid research until a person opens it (ResearchHoldService).
+ * domain) when there isn't one; null for free mail and machine senders. For
+ * contacts: `ownerId` is one the caller checked. `source` says where an added
+ * company came from (mail capture's EMAIL or CALENDAR, a website form's
+ * TRACKING).
  */
 async function companyForEmail(
   organizationId: string,
@@ -33,21 +28,15 @@ async function companyForEmail(
     domain,
   );
   if (existing) return existing.id;
-  const researchHeldAt = ResearchHoldService.heldFrom(source);
-  let id: string;
   try {
-    id = await CompanyDirectoryRepository.create(
-      {
-        organizationId,
-        name: domain,
-        domain,
-        website: `https://${domain}`,
-        ownerId,
-        source,
-        researchHeldAt,
-      },
-      [{ type: "company.created", data: { name: domain, domain } }],
-    );
+    return await CompanyDirectoryRepository.create({
+      organizationId,
+      name: domain,
+      domain,
+      website: `https://${domain}`,
+      ownerId,
+      source,
+    });
   } catch (error) {
     // Another request added the domain first.
     const first = isUniqueViolation(error)
@@ -56,15 +45,6 @@ async function companyForEmail(
     if (!first) throw error;
     return first.id;
   }
-  pokeEvents(organizationId);
-  if (researchHeldAt) return id;
-  await AgentTaskService.companyCreated(
-    organizationId,
-    id,
-    `Created from an email domain (${domain}): it has no name but the domain`,
-  );
-  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", id);
-  return id;
 }
 
 export const CompanyDirectoryService = { companyForEmail };

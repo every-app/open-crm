@@ -11,7 +11,6 @@ const { database } = await vi.hoisted(async () => {
 vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import { ContactService } from "@/server/features/contacts/services/ContactService";
@@ -33,27 +32,24 @@ const companyCounts = async (input: object) =>
 
 describe("record list facet counts", () => {
   beforeEach(async () => {
-    await database.exec(
-      `DELETE FROM agent_task; DELETE FROM organization; DELETE FROM "user";`,
-    );
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
     await database.seedTwoOrganizations();
     await database.exec(`
-        INSERT INTO company (id, organization_id, name, owner_id, industry, enrichment_status, last_activity_at, archived_at) VALUES
-          ('acme', 'org_a', 'Acme', 'user_a', 'Software', 'COMPLETE', '${daysAgo(3)}', NULL),
-          ('acme_labs', 'org_a', 'Acme Labs', 'user_a', 'Software', 'PENDING', '${daysAgo(40)}', NULL),
-          ('acme_co', 'org_a', 'Acme Co', NULL, NULL, 'PENDING', NULL, NULL),
-          ('acme_old', 'org_a', 'Acme Old', 'user_a', 'Hardware', 'PENDING', NULL, '${daysAgo(1)}'),
-          ('globex', 'org_a', 'Globex', 'user_a', 'Fintech', 'FAILED', NULL, NULL),
-          ('acme_b', 'org_b', 'Acme', 'user_b', 'Mining', 'PENDING', NULL, NULL);
+        INSERT INTO company (id, organization_id, name, owner_id, industry, last_activity_at, archived_at) VALUES
+          ('acme', 'org_a', 'Acme', 'user_a', 'Software', '${daysAgo(3)}', NULL),
+          ('acme_labs', 'org_a', 'Acme Labs', 'user_a', 'Software', '${daysAgo(40)}', NULL),
+          ('acme_co', 'org_a', 'Acme Co', NULL, NULL, NULL, NULL),
+          ('acme_old', 'org_a', 'Acme Old', 'user_a', 'Hardware', NULL, '${daysAgo(1)}'),
+          ('globex', 'org_a', 'Globex', 'user_a', 'Fintech', NULL, NULL),
+          ('acme_b', 'org_b', 'Acme', 'user_b', 'Mining', NULL, NULL);
       `);
   });
 
-  it("counts the companies list's owners, industries, research states and activity", async () => {
+  it("counts the companies list's owners, industries and activity", async () => {
     // A filter that leaves no rows still counts its search's companies.
     expect(await companyCounts({ q: "acme", industry: ["Fintech"] })).toEqual({
       owner: { user_a: 2, unassigned: 1 },
       industry: { Software: 2 },
-      enrichment: { COMPLETE: 1, PENDING: 2 },
       activity: { "7": 1, "30": 1, "90": 2 },
     });
     expect(
@@ -128,7 +124,6 @@ describe("record list facet counts", () => {
         "org_a",
         createFieldSchema.parse({
           entity: "COMPANY",
-          agentFilled: false,
           ...input,
         }),
       );

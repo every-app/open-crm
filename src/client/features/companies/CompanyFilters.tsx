@@ -1,21 +1,19 @@
-import { Factory, Sparkles } from "lucide-react";
+import { Factory } from "lucide-react";
 import {
   countsFor,
   type ListFilter,
 } from "@/client/components/table/FiltersMenu";
 import type { CompanyListSearch } from "@/client/features/companies/companySearch";
-import { ENRICHMENT_OPTIONS } from "@/client/features/records/EnrichmentStatus";
 import {
   activityFilter,
   chosen,
   valueOptions,
 } from "@/client/features/records/ListFilters";
-import { ENRICHMENT_STATUSES } from "@/shared/crm-enums";
 import { FACET_FILTER_MAX, type FacetCounts } from "@/types/schemas/records";
 
 /**
- * The companies list's own filters, after the owner: industry, where the
- * research agent is with them, and how recently anything happened.
+ * The companies list's own filters, after the owner: industry and how
+ * recently anything happened.
  */
 export function companyFilters(
   search: CompanyListSearch,
@@ -34,21 +32,6 @@ export function companyFilters(
       max: FACET_FILTER_MAX,
       onChange: (industry) =>
         onSearchChange({ industry: chosen(industry), page: undefined }),
-    },
-    {
-      key: "enrichment",
-      label: "Research",
-      icon: Sparkles,
-      options: ENRICHMENT_OPTIONS,
-      counts: countsFor(facetCounts, "enrichment"),
-      value: search.enrichment ?? [],
-      onChange: (values) =>
-        onSearchChange({
-          enrichment: chosen(
-            ENRICHMENT_STATUSES.filter((status) => values.includes(status)),
-          ),
-          page: undefined,
-        }),
     },
     activityFilter({
       value: search.activity,

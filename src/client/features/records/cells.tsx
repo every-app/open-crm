@@ -27,8 +27,8 @@ function initials(name: string): string {
 }
 
 /**
- * An image the app may show: a copy the agent stored (served under
- * /api/images/), or an http(s) URL.
+ * An image the app may show: a stored copy (served under /api/images/), or
+ * an http(s) URL.
  */
 function safeImageUrl(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -76,7 +76,7 @@ function Picture({
   );
 }
 
-/** A company's logo, or its initials until (or unless) the agent finds one. */
+/** A company's logo, or its initials without one. */
 export function EntityLogo({
   src,
   darkSrc,

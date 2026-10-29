@@ -94,7 +94,6 @@ function listWhere(
     scopeWhere(organizationId, input),
     ownerCondition(company.ownerId, input.owner),
     anyOfCondition(company.industry, input.industry),
-    anyOfCondition(company.enrichmentStatus, input.enrichment),
     anyOfCondition(company.source, input.source ?? []),
     activityCondition(company.lastActivityAt, input.activity),
     ...fieldConditions,
@@ -153,7 +152,6 @@ async function list(
         city: company.city,
         stateCode: company.stateCode,
         country: company.country,
-        enrichmentStatus: company.enrichmentStatus,
         source: company.source,
         lastActivityAt: company.lastActivityAt,
         createdAt: company.createdAt,
@@ -195,14 +193,14 @@ async function findById(organizationId: string, id: string) {
 /**
  * How many companies in the list's scope have each value of its filters:
  * each owner (nobody's as UNASSIGNED), the commonest industries, each
- * research state and each activity window.
+ * and each activity window.
  */
 async function facetCounts(
   organizationId: string,
   input: CompanyListInput,
 ): Promise<FacetCounts> {
   const where = scopeWhere(organizationId, input);
-  const [owners, industries, enrichment, [activity]] = await Promise.all([
+  const [owners, industries, [activity]] = await Promise.all([
     db
       .select({ value: company.ownerId, count: count() })
       .from(company)
@@ -216,11 +214,6 @@ async function facetCounts(
       .orderBy(desc(count()), asc(company.industry))
       .limit(FILTER_OPTIONS_MAX),
     db
-      .select({ value: company.enrichmentStatus, count: count() })
-      .from(company)
-      .where(where)
-      .groupBy(company.enrichmentStatus),
-    db
       .select(activityCounts(company.lastActivityAt))
       .from(company)
       .where(where),
@@ -228,7 +221,6 @@ async function facetCounts(
   return {
     owner: countsByValue(owners, UNASSIGNED),
     industry: countsByValue(industries),
-    enrichment: countsByValue(enrichment),
     activity: activity ?? {},
   };
 }
@@ -280,7 +272,6 @@ export type NewCompany = {
     | "phone"
     | "email"
     | "linkedinUrl"
-    | "researchHeldAt"
   >
 >;
 
@@ -289,8 +280,7 @@ export type NewCompany = {
  * domain (the partial unique index company_organization_domain_active_uidx):
  * then `created` is false and the row is that company. One statement on both
  * backends, so two requests racing to add a domain can't both win. For CSV
- * imports, which emit no CRM events (CompanyDirectoryRepository adds the
- * companies that do).
+ * imports.
  */
 async function insert(values: NewCompany) {
   const id = crypto.randomUUID();
@@ -303,8 +293,10 @@ async function insert(values: NewCompany) {
     if (!row) throw new Error("Company row missing after insert");
     return { ...row, created: true };
   }
-  // A no-op upsert rather than DO NOTHING (AgentTaskRepository.insertIfAbsent
-  // says why): RETURNING names the live company that holds the domain.
+  // A no-op upsert rather than DO NOTHING: Drizzle's SQLite builder puts a
+  // DO NOTHING's index predicate after the action, where SQLite refuses it,
+  // while DO UPDATE's `targetWhere` lands in the conflict target. RETURNING
+  // then names the live company that holds the domain.
   const [row] = await db
     .insert(company)
     .values({ ...values, id })
@@ -433,27 +425,6 @@ async function setPrimaryContact(
   ]);
 }
 
-/**
- * Puts the company back to "not researched yet" for the agent's new look,
- * unless something wrote to it since `seenAt`.
- */
-async function markEnrichmentRequested(
-  organizationId: string,
-  id: string,
-  seenAt: string,
-) {
-  await db
-    .update(company)
-    .set({
-      enrichmentStatus: "PENDING",
-      enrichmentError: null,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(
-      and(inOrganization(organizationId, id), eq(company.updatedAt, seenAt)),
-    );
-}
-
 export const CompanyRepository = {
   list,
   facetCounts,
@@ -466,5 +437,4 @@ export const CompanyRepository = {
   restore,
   setOwner,
   setPrimaryContact,
-  markEnrichmentRequested,
 };

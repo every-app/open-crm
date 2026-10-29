@@ -32,8 +32,8 @@ export function TokenKeyRows({ setup }: { setup: SettingSetup }) {
         label={TOKEN_KEY_SETTING}
         description={
           setup.canRun
-            ? `Members' mail, calendar and Slack tokens are encrypted under it: 32 or more random characters (openssl rand -base64 32 makes one). Changing it later means everyone connects again.`
-            : `Members' mail, calendar and Slack tokens are encrypted under it. An admin sets it on the CRM.`
+            ? `Members' mail and calendar tokens are encrypted under it: 32 or more random characters (openssl rand -base64 32 makes one). Changing it later means everyone connects again.`
+            : `Members' mail and calendar tokens are encrypted under it. An admin sets it on the CRM.`
         }
       />
       {setup.command ? (

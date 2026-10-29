@@ -30,7 +30,6 @@ export const ENRICHMENT_STATUSES = [
   "FAILED",
   "SKIPPED",
 ] as const;
-export type EnrichmentStatus = (typeof ENRICHMENT_STATUSES)[number];
 
 export const RECORD_SOURCES = [
   "MANUAL",
@@ -42,7 +41,6 @@ export const RECORD_SOURCES = [
 export type RecordSource = (typeof RECORD_SOURCES)[number];
 
 export const FACT_BANDS = ["VERIFIED", "PROBABLE", "POSSIBLE"] as const;
-export type FactBand = (typeof FACT_BANDS)[number];
 
 export const FACT_STATUSES = [
   "APPLIED",
@@ -50,7 +48,6 @@ export const FACT_STATUSES = [
   "DISMISSED",
   "SUPERSEDED",
 ] as const;
-export type FactStatus = (typeof FACT_STATUSES)[number];
 
 export const FIELD_ENTITIES = ["COMPANY", "CONTACT", "DEAL"] as const;
 export type FieldEntity = (typeof FIELD_ENTITIES)[number];
@@ -70,4 +67,3 @@ export const FIELD_TYPES = [
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 export const EMAIL_DIRECTIONS = ["INBOUND", "OUTBOUND"] as const;
-export const AGENT_CONVERSATION_KINDS = ["RECORD", "BUILDER"] as const;

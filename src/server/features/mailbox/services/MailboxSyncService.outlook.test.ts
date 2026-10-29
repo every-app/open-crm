@@ -21,7 +21,6 @@ vi.mock("cloudflare:workers", () => ({
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 // The dispatcher's background lane isn't under test.
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
 import { CaptureRepository } from "@/server/features/activities/repositories/CaptureRepository";
 import {

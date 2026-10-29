@@ -37,8 +37,7 @@ function OnboardingPage() {
         <CardHeader>
           <CardTitle className="text-xl">Name your workspace</CardTitle>
           <CardDescription>
-            The research agent uses it as your company's name. Change it any
-            time in Settings.
+            Your company's name. Change it any time in Settings.
           </CardDescription>
         </CardHeader>
         <CardContent>

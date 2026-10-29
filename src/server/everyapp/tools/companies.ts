@@ -26,11 +26,7 @@ import {
   type CompanyDetail,
   type CompanyListRow,
 } from "@/server/features/companies/services/CompanyService";
-import {
-  DEAL_STAGES,
-  ENRICHMENT_STATUSES,
-  RECORD_SOURCES,
-} from "@/shared/crm-enums";
+import { DEAL_STAGES, RECORD_SOURCES } from "@/shared/crm-enums";
 import {
   COMPANY_SORTS,
   companyListSchema,
@@ -58,12 +54,6 @@ function location(company: {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-const enrichment = z
-  .enum(ENRICHMENT_STATUSES)
-  .describe(
-    "The research agent's state: PENDING, RUNNING, COMPLETE, FAILED or SKIPPED (nothing found).",
-  );
-
 const summaryOutput = z.object({
   id: z.string(),
   name: z.string(),
@@ -74,8 +64,6 @@ const summaryOutput = z.object({
   contacts: z.number(),
   openDeals: z.number(),
   lastActivityAt: z.string().nullable(),
-  enrichment,
-  queued: z.boolean().describe("The research agent has work on it due now."),
   source: sourceOutput,
   createdAt: z.string(),
   archivedAt: z.string().nullable(),
@@ -93,7 +81,6 @@ function summary(
     location: location(row),
     contacts: row.contactCount,
     openDeals: row.openDealCount,
-    enrichment: row.enrichmentStatus,
     fields: mapValues(row.fields, (value, key) => shown(key, value)),
   };
 }
@@ -119,16 +106,6 @@ const detailsOutput = z.object({
   careersUrl: z.string().nullable(),
   owner: personOutput.nullable(),
   source: sourceOutput,
-  enrichment,
-  enrichmentError: z
-    .string()
-    .nullable()
-    .describe("Why the research agent's last look failed."),
-  enrichedAt: z
-    .string()
-    .nullable()
-    .describe("When the research agent last finished with it."),
-  queued: z.boolean().describe("The research agent has work on it due now."),
   fields: recordValuesOutput,
   primaryContact: z
     .object({
@@ -172,7 +149,6 @@ function details(
 ): z.input<typeof detailsOutput> {
   return {
     ...company,
-    enrichment: company.enrichmentStatus,
     fields,
     primaryContact: company.primaryContact
       ? {
@@ -221,10 +197,6 @@ export const companyTools = {
           .unwrap()
           .optional()
           .describe("Only companies in these industries, as listed."),
-        enrichment: companyListSchema.shape.enrichment
-          .unwrap()
-          .optional()
-          .describe("Only companies in these research states."),
         sources: z
           .array(z.enum(RECORD_SOURCES))
           .max(RECORD_SOURCES.length)
@@ -272,7 +244,6 @@ export const companyTools = {
         q: input.query,
         owner: owners,
         industry: input.industries,
-        enrichment: input.enrichment,
         source: input.sources,
         activity: input.activeWithinDays?.toString(),
         archived: input.archived,
@@ -297,7 +268,7 @@ export const companyTools = {
 
   get_company: crmTool({
     description:
-      "One company in full: its details and links (pricing and careers pages included), owner, custom fields, the research agent's state, primary contact, and the people who work there and its deals with their owners.",
+      "One company in full: its details and links (pricing and careers pages included), owner, custom fields, primary contact, and the people who work there and its deals with their owners.",
     risk: "read",
     input: z.object({ id: companyId }).strict(),
     output: detailsOutput,
@@ -312,7 +283,7 @@ export const companyTools = {
 
   create_company: crmTool({
     description:
-      "Add a company, owned by the caller unless ownerEmail is given, with its custom field values if given. Its domain (or a website, reduced to its host) must not belong to another live company. The research agent then fetches its logo and writes its profile.",
+      "Add a company, owned by the caller unless ownerEmail is given, with its custom field values if given. Its domain (or a website, reduced to its host) must not belong to another live company.",
     risk: "write",
     input: createCompanySchema
       .omit({ ownerId: true })
@@ -333,7 +304,7 @@ export const companyTools = {
 
   update_company: crmTool({
     description:
-      "Change a company's details and custom field values, in one write. Only what is given changes; an empty string clears a detail. A new domain sends the research agent to look again.",
+      "Change a company's details and custom field values, in one write. Only what is given changes; an empty string clears a detail.",
     risk: "write",
     input: updateCompanySchema
       .omit({ ownerId: true })

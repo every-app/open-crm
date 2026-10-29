@@ -20,9 +20,7 @@ import {
 import {
   GoogleLogo,
   MicrosoftLogo,
-  SlackLogo,
 } from "@/client/features/settings/brandLogos";
-import { slackStatusQueryOptions } from "@/client/features/slack/slackQueries";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { ApiSettings } from "./ApiSettings";
@@ -30,10 +28,7 @@ import { ApiSettings } from "./ApiSettings";
 type Connection = {
   name: string;
   logo: ComponentType<SVGProps<SVGSVGElement>>;
-  to:
-    | "/settings/connections/google"
-    | "/settings/connections/slack"
-    | "/settings/connections/microsoft";
+  to: "/settings/connections/google" | "/settings/connections/microsoft";
   /** Null while it loads. */
   state: ConnectionState | null;
   label?: string;
@@ -46,7 +41,6 @@ type Connection = {
  */
 export function ConnectionsOverview() {
   const mailbox = useQuery(connectionsQueryOptions());
-  const slack = useQuery(slackStatusQueryOptions());
   const workspace = useQuery(workspaceQueryOptions());
   const canManage = hasOrgPermission(workspace.data?.role ?? "", {
     connection: ["manage"],
@@ -64,18 +58,6 @@ export function ConnectionsOverview() {
       state: google ? mailboxState(google) : null,
     },
     {
-      name: "Slack",
-      logo: SlackLogo,
-      to: "/settings/connections/slack",
-      state: slack.data
-        ? slack.data.connected
-          ? "connected"
-          : slack.data.configured
-            ? "disconnected"
-            : "unconfigured"
-        : null,
-    },
-    {
       name: COPY.microsoft.title,
       logo: MicrosoftLogo,
       to: "/settings/connections/microsoft",
@@ -85,18 +67,15 @@ export function ConnectionsOverview() {
 
   return (
     <SettingsPage title="Connections">
-      {mailbox.isError || slack.isError ? (
+      {mailbox.isError ? (
         <QueryError
-          error={mailbox.error ?? slack.error}
+          error={mailbox.error}
           fallback="The connections could not be loaded."
-          onRetry={() => {
-            void mailbox.refetch();
-            void slack.refetch();
-          }}
+          onRetry={() => void mailbox.refetch()}
         />
       ) : null}
       <ApiSettings />
-      <SettingsSection title="Email and Slack">
+      <SettingsSection title="Email">
         <SettingsCard>
           {connections.map((connection) => (
             <ConnectionRow

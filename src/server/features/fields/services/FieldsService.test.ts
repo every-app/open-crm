@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
@@ -9,10 +8,7 @@ const { database } = await vi.hoisted(async () => {
 vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
-import { db } from "@/db";
-import { agentTask } from "@/db/schema";
 import { createFieldSchema } from "@/types/schemas/fields";
 import { FieldsService } from "./FieldsService";
 import { FieldValuesService } from "./FieldValuesService";
@@ -26,7 +22,6 @@ const addField = (
     createFieldSchema.parse({
       entity: "COMPANY",
       type: "TEXT",
-      agentFilled: false,
       ...input,
     }),
   );
@@ -48,17 +43,9 @@ describe("FieldsService", () => {
         )
         .join(", ")};`,
     );
-  const backfillTasks = () =>
-    db
-      .select({ companyId: agentTask.companyId, payload: agentTask.payload })
-      .from(agentTask)
-      .where(eq(agentTask.kind, "field-backfill"))
-      .orderBy(agentTask.companyId);
 
   beforeEach(async () => {
-    await database.exec(
-      `DELETE FROM agent_task; DELETE FROM organization; DELETE FROM "user";`,
-    );
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
     await database.seedTwoOrganizations();
   });
 
@@ -163,30 +150,6 @@ describe("FieldsService", () => {
       filled: 1,
       total: 3,
       values: 2,
-    });
-  });
-
-  it("asks the agent to fill every live record missing a value, past one chunk", async () => {
-    const ids = Array.from(
-      { length: 130 },
-      (_, index) => `co_${String(index).padStart(3, "0")}`,
-    );
-    await addCompanies("org_a", ids);
-    await addCompanies("org_a", ["gone"], "2026-01-01T00:00:00.000Z");
-    const field = await addField({ label: "Runs on", agentFilled: true });
-
-    const tasks = await backfillTasks();
-    expect(tasks.map((task) => task.companyId)).toEqual(ids);
-    expect(tasks[0]?.payload).toEqual({
-      entity: "COMPANY",
-      keys: ["runs_on"],
-    });
-
-    await database.exec("DELETE FROM agent_task");
-    await setValues("co_000", { runs_on: "AWS" });
-    expect(await FieldsService.fill("org_a", field.id)).toEqual({
-      queued: 129,
-      merged: 0,
     });
   });
 

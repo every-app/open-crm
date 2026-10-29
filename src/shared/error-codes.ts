@@ -9,19 +9,8 @@ const ERROR_CODES = [
   "CONFLICT",
   "RATE_LIMITED",
   "UPSTREAM_UNAVAILABLE",
-  // The gateway holds no key for the agent's model or Context.dev, or the
-  // agent isn't set up on this deployment.
-  "AGENT_UNAVAILABLE",
   // The gateway holds no OAuth client for the mailbox provider asked for.
   "INTEGRATION_UNAVAILABLE",
-  // A team agent that isn't live (a draft, paused or archived) was asked to run.
-  "TEAM_AGENT_NOT_LIVE",
-  // The team agent already has a run queued or running.
-  "TEAM_AGENT_BUSY",
-  // Slack isn't set up on the gateway, or the workspace isn't connected.
-  "SLACK_UNAVAILABLE",
-  // Slack refused the request (a channel name taken, a missing permission).
-  "SLACK_REJECTED",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -35,12 +24,7 @@ const NON_REPORTABLE_ERROR_CODES = new Set<ErrorCode>([
   "NOT_FOUND",
   "VALIDATION_ERROR",
   "CONFLICT",
-  "AGENT_UNAVAILABLE",
   "INTEGRATION_UNAVAILABLE",
-  "TEAM_AGENT_NOT_LIVE",
-  "TEAM_AGENT_BUSY",
-  "SLACK_UNAVAILABLE",
-  "SLACK_REJECTED",
   // An external provider failing on its own side: nothing in the app to fix.
   "UPSTREAM_UNAVAILABLE",
 ]);

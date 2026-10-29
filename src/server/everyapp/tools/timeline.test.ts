@@ -13,11 +13,6 @@ vi.mock("cloudflare:workers", () => ({
 }));
 vi.mock("@/db", () => ({ db: testDb.db }));
 vi.mock("@/db/runBatch", () => testDb.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
-vi.mock("@/server/features/team-agents/runtime/poke", () => ({
-  pokeEvents: vi.fn(),
-  pokeRuns: vi.fn(),
-}));
 
 import {
   READ_WRITE,

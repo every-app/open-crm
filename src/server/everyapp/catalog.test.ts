@@ -54,7 +54,6 @@ describe("the MCP catalog", () => {
         "delete_activity",
         "delete_field",
         "delete_saved_view",
-        "delete_team_agent",
         "set_archive_retention",
       ]),
     );
@@ -80,11 +79,7 @@ describe("the MCP catalog", () => {
       await failure("create_company", { name: "Acme" }, readOnly),
     ).toContain("mcp:write");
     expect(
-      await failure(
-        "delete_team_agent",
-        { agentId: "x" },
-        { scopes: READ_WRITE },
-      ),
+      await failure("delete_field", { id: "x" }, { scopes: READ_WRITE }),
     ).toContain("mcp:destructive");
   });
 });

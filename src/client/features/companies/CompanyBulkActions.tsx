@@ -8,7 +8,6 @@ import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   bulkArchiveCompanies,
   bulkAssignCompanyOwner,
-  bulkEnrichCompanies,
   bulkPurgeCompanies,
   bulkRestoreCompanies,
 } from "@/serverFunctions/companies";
@@ -42,11 +41,6 @@ export function CompanyBulkActions({
       bulkAssignCompanyOwner({ data: input }),
     ...settled((count) => `${count} reassigned.`),
   });
-  const enrich = useMutation({
-    mutationFn: (selected: string[]) =>
-      bulkEnrichCompanies({ data: { ids: selected } }),
-    ...settled((count) => `${count} queued for research.`),
-  });
   const archive = useMutation({
     mutationFn: (selected: string[]) =>
       bulkArchiveCompanies({ data: { ids: selected } }),
@@ -69,11 +63,10 @@ export function CompanyBulkActions({
       count={ids.length}
       archived={archived}
       canPurge={canPurge}
-      pending={[assign, enrich, archive, restore, purge].some(
+      pending={[assign, archive, restore, purge].some(
         (mutation) => mutation.isPending,
       )}
       onAssignOwner={(ownerId) => assign.mutate({ ids, ownerId })}
-      onEnrich={() => enrich.mutate(ids)}
       onArchive={() => archive.mutate(ids)}
       onRestore={() => restore.mutate(ids)}
       onPurge={() => purge.mutate(ids)}

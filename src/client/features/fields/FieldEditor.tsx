@@ -18,10 +18,7 @@ import {
 } from "@/client/features/fields/FieldOptionsEditor";
 import { Coverage, FieldHeader } from "@/client/features/fields/FieldSections";
 import {
-  AGENT_HELP,
-  AGENT_LABEL,
   ARCHIVE,
-  BRIEF_LABEL,
   CREATE_FIELD,
   FILTER_PLACEMENT,
   KEY_HELP,
@@ -48,7 +45,6 @@ import {
 } from "@/serverFunctions/fields";
 import { FIELD_TYPES, type FieldEntity } from "@/shared/crm-enums";
 import {
-  FIELD_BRIEF_MAX,
   FIELD_LABEL_MAX,
   FIELD_TYPE_LABELS,
   fieldKeyFromLabel,
@@ -65,8 +61,6 @@ const draftSchema = z
         (label) => fieldKeyFromLabel(label) !== "",
         "Use at least one letter or digit.",
       ),
-    agentFilled: z.boolean(),
-    agentBrief: z.string().max(FIELD_BRIEF_MAX),
     type: z.enum(FIELD_TYPES),
     options: z.array(
       z.object({
@@ -92,8 +86,6 @@ type Draft = z.infer<typeof draftSchema>;
 function draftFrom(field: Field | undefined): Draft {
   return {
     label: field?.label ?? "",
-    agentFilled: field?.agentFilled ?? true,
-    agentBrief: field?.agentBrief ?? "",
     type: field?.type ?? "TEXT",
     options: field?.options.map(draftOption) ?? [],
     showOnSheet: field?.showOnSheet ?? true,
@@ -105,8 +97,6 @@ function draftFrom(field: Field | undefined): Draft {
 function settingsFrom(draft: Draft) {
   return {
     label: draft.label.trim(),
-    agentFilled: draft.agentFilled,
-    agentBrief: draft.agentBrief.trim() || null,
     type: draft.type,
     showOnSheet: draft.showOnSheet,
     showOnTable: draft.showOnTable,
@@ -121,8 +111,8 @@ const optionsFrom = (draft: Draft) =>
   }));
 
 /**
- * Creates a field, or edits one: its label (the key follows, once), whether
- * and how the agent fills it, its type and options, and where it shows.
+ * Creates a field, or edits one: its label (the key follows, once), its type
+ * and options, and where it shows.
  */
 export function FieldEditor({
   entity,
@@ -254,34 +244,6 @@ export function FieldEditor({
                 ) : null
               }
             </form.Subscribe>
-            <form.AppField name="agentFilled">
-              {(input) => (
-                <input.SwitchField
-                  label={AGENT_LABEL}
-                  description={AGENT_HELP}
-                />
-              )}
-            </form.AppField>
-            <form.Subscribe selector={(state) => state.values.agentFilled}>
-              {(enabled) =>
-                enabled ? (
-                  <details className="space-y-3">
-                    <summary className="cursor-pointer text-sm font-medium">
-                      Research instructions
-                    </summary>
-                    <form.AppField name="agentBrief">
-                      {(input) => (
-                        <input.TextareaField
-                          label={BRIEF_LABEL}
-                          maxLength={FIELD_BRIEF_MAX}
-                          rows={3}
-                        />
-                      )}
-                    </form.AppField>
-                  </details>
-                ) : null
-              }
-            </form.Subscribe>
             <details className="space-y-4 border-t border-border pt-4">
               <summary className="cursor-pointer text-sm font-medium">
                 Advanced
@@ -312,7 +274,7 @@ export function FieldEditor({
               </div>
             </details>
             {field && coverage.data ? (
-              <Coverage field={field} coverage={coverage.data} canFill />
+              <Coverage field={field} coverage={coverage.data} />
             ) : null}
           </div>
 

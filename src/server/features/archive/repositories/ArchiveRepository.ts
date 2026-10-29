@@ -29,8 +29,9 @@ import {
 // conversations); the rest goes in the same batch, and only while the record
 // is still archived at or before the cutoff, so a restore that lands first
 // wins:
-// - the agent's queued work and journal about it (agent_task and agent_event
-//   carry record ids without foreign keys), a company's deals' included,
+// - the retired research agent's queued work and journal about it (agent_task
+//   and agent_event carry record ids without foreign keys, and keep their
+//   rows until the tables are dropped), a company's deals' included,
 // - a contact's website form submissions, filed under them or sent from
 //   their address (the database would only unlink them),
 // - a contact's address onto the suppression list, so captured mail never
@@ -115,7 +116,8 @@ async function purge(
       .select({ id: table.id })
       .from(table)
       .where(expired(table, organizationId, before, ids));
-    // The agent's rows about the purged records: a company's deals' too.
+    // The retired agent's rows about the purged records, which the tables
+    // keep until they are dropped: a company's deals' too.
     const about = (row: typeof agentTask | typeof agentEvent): SQL => {
       if (kind === "contact") return inArray(row.contactId, purged);
       if (kind === "deal") return inArray(row.dealId, purged);

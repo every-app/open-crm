@@ -1,7 +1,5 @@
-# Copy to .dev.vars (gitignored) and fill in: the agent's keys for local runs, which no gateway holds locally; `pnpm dev` names what is missing.
-# The agent's model is the gateway's default: the SDK resolves it on these keys,
-# OpenRouter first (another provider's key, e.g. WORKERS_AI_API_TOKEN with
-# CLOUDFLARE_ACCOUNT_ID, works too). Needs everyapp/@every-app/sdk 0.3.0-rc.2 or
-# later. Web research needs OPENROUTER_API_KEY itself.
-OPENROUTER_API_KEY=
-CONTEXT_API_KEY=
+# Copy to .dev.vars (gitignored) for local runs. Everything here is optional:
+# `pnpm dev` runs without it and names what a feature is missing.
+# The key mail and calendar tokens are encrypted under: 32 or more random
+# characters, e.g. openssl rand -base64 32.
+TOKEN_ENCRYPTION_KEY=

@@ -44,17 +44,6 @@ describe("CompanyService", () => {
   it("keeps one live company per domain; an archived one keeps its domain", async () => {
     const acme = await create(A, "Acme", "https://www.Acme.com/pricing");
     expect(acme.domain).toBe("acme.com");
-    // The agent goes to fetch the brand and write the profile, and the
-    // team agents hear of it.
-    expect(
-      await database.rows(
-        "SELECT kind, reason FROM agent_task WHERE organization_id = 'org_a' ORDER BY kind",
-      ),
-    ).toMatchObject([
-      { kind: "agent-event", reason: "company.created" },
-      { kind: "brand" },
-      { kind: "company-profile" },
-    ]);
 
     // The browser is told which company has the domain.
     const taken = await create(A, "Acme again", "acme.com").catch(
@@ -164,10 +153,11 @@ describe("CompanyService", () => {
     });
   });
 
-  it("purges only an archived company, with the agent's rows, and restamps its contacts", async () => {
+  it("purges only an archived company, with the retired agent's rows, and restamps its contacts", async () => {
     const acme = await create(A, "Acme", "acme.com");
     const other = await create(A, "Other", "other.com");
     await database.exec(`
+        INSERT INTO agent_task (id, organization_id, company_id, kind, reason, due_at) VALUES ('t2', 'org_a', '${other.id}', 'brand', 'x', '2026-10-01T00:00:00.000Z');
         INSERT INTO contact (id, organization_id, first_name, company_id, last_activity_at) VALUES ('p1', 'org_a', 'Ana', '${acme.id}', '2026-10-10T00:00:00.000Z');
         INSERT INTO deal (id, organization_id, name, company_id, owner_id) VALUES ('d1', 'org_a', 'Renewal', '${acme.id}', 'user_a');
         INSERT INTO activity (id, organization_id, type, company_id, contact_id, created_at) VALUES ('a1', 'org_a', 'NOTE', '${acme.id}', 'p1', '2026-10-10T00:00:00.000Z');
@@ -183,17 +173,13 @@ describe("CompanyService", () => {
     await expect(CompanyService.purgeCompany(A, acme.id)).rejects.toMatchObject(
       { code: "CONFLICT" },
     );
-    expect(await agentRows()).toHaveLength(8);
+    expect(await agentRows()).toHaveLength(3);
 
     await CompanyService.archiveCompany(A, acme.id);
     await CompanyService.purgeCompany(A, acme.id);
 
-    // Only the other company's brand, profile and event tasks are left.
-    expect(await agentRows()).toMatchObject([
-      { about: other.id },
-      { about: other.id },
-      { about: other.id },
-    ]);
+    // Only the other company's task is left.
+    expect(await agentRows()).toEqual([{ about: other.id }]);
     expect(await database.rows("SELECT id FROM deal")).toHaveLength(0);
     expect(
       await database.rows("SELECT company_id, last_activity_at FROM contact"),
@@ -227,11 +213,11 @@ describe("CompanyService", () => {
     ]);
   });
 
-  it("sends the agent back when the domain changes, refusing a taken one", async () => {
+  it("drops the old logo when the domain changes, refusing a taken one", async () => {
     const acme = await create(A, "Acme", "acme.com");
     await create(A, "Beta", "beta.io");
     await database.exec(
-      `UPDATE agent_task SET finished_at = '2026-10-01T00:00:00.000Z'; UPDATE company SET enrichment_status = 'COMPLETE', icon_url = 'https://acme.com/icon.png';`,
+      `UPDATE company SET icon_url = 'https://acme.com/icon.png';`,
     );
 
     await expect(
@@ -245,9 +231,7 @@ describe("CompanyService", () => {
     const company = await CompanyService.getCompany(A, acme.id);
     expect(company).toMatchObject({
       domain: "acme.dev",
-      enrichmentStatus: "PENDING",
       iconUrl: null,
-      queued: true,
     });
   });
 
@@ -262,7 +246,6 @@ describe("CompanyService", () => {
       CompanyService.getCompany(B, acme.id),
       CompanyService.updateCompany(B, { id: acme.id, name: "Mine" }),
       CompanyService.archiveCompany(B, acme.id),
-      CompanyService.enrichCompany(B, acme.id),
       CompanyService.setPrimaryContact(B, acme.id, null),
     ]) {
       await expect(attempt).rejects.toMatchObject({ code: "NOT_FOUND" });

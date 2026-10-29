@@ -28,10 +28,6 @@ minimumReleaseAgeExclude:
   - "@tanstack/start-server-core@1.169.39"
   - "@tanstack/start-storage-context@1.167.36"
   - "@tanstack/store@0.11.2"
-  # The chat-agent framework (@cloudflare/think 0.17.0, agents 0.22.0) is the
-  # same release OpenSEO's SAM runs on.
-  - "@cloudflare/think"
-  - "agents"
   # Security releases required to clear current high-severity advisories.
   - "brace-expansion"
   - "fast-uri"
@@ -40,14 +36,9 @@ minimumReleaseAgeExclude:
 
 # Every dependency with an install script must be listed here, or
 # `pnpm install` warns "Ignored build scripts". esbuild and workerd fetch their
-# binaries. The three marked false are not built today and need not be:
-# just-bash's optional natives (@mongodb-js/zstd, node-liblzma) and
-# core-js-pure's funding notice (via @babel/runtime-corejs3).
+# binaries.
 allowBuilds:
-  "@mongodb-js/zstd": false
-  core-js-pure: false
   esbuild: true
-  node-liblzma: false
   workerd: true
 
 # Security floors for transitive dependencies with published advisories,
@@ -73,17 +64,10 @@ overrides:
   smol-toml: "^1.7.1"
   undici: "^7.29.1"
   "@esbuild-kit/core-utils>esbuild": "^0.25.12"
-  "@ai-sdk/provider-utils@4": "^4.0.33"
   "@hono/node-server@1": "^1.19.15"
   "body-parser@2": "^2.3.0"
   browserslist: "^4.28.7"
   baseline-browser-mapping: "^2.11.0"
   "nanoid@3": "^3.3.18"
-  # GHSA-6qxp-vccf-f47h. agents 0.22 asks for exactly 2.0.0 and 1.30.0 as
-  # peers; nothing in the CRM uses its MCP client.
-  "@modelcontextprotocol/client": "^2.2.0"
+  # GHSA-6qxp-vccf-f47h.
   "@modelcontextprotocol/sdk": "^1.31.0"
-  # GHSA-hp3w-g68c-fv3c has no patched release. just-bash imports sprintf-js
-  # only for its printf command, and the Worker never ships just-bash
-  # (vite-plugin-lean-worker-bundle.ts).
-  "just-bash>sprintf-js": "-"

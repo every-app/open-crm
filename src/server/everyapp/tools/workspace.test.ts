@@ -1,8 +1,7 @@
-import { waitUntil } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 // The workspace's tools: its members, archive retention and currencies,
-// website tracking and Slack, through the SDK's tools endpoint on real SQL.
+// and website tracking, through the SDK's tools endpoint on real SQL.
 const { testDb } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return { testDb: await createSqliteTestDb() };
@@ -13,11 +12,6 @@ vi.mock("cloudflare:workers", () => ({
 }));
 vi.mock("@/db", () => ({ db: testDb.db }));
 vi.mock("@/db/runBatch", () => testDb.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
-vi.mock("@/server/features/team-agents/runtime/poke", () => ({
-  pokeEvents: vi.fn(),
-  pokeRuns: vi.fn(),
-}));
 
 import {
   READ_WRITE,
@@ -205,135 +199,5 @@ describe("workspace tools", () => {
     expect(await failure("get_traffic_sources", {}, { as: member })).toBe(
       OWNERS_ONLY,
     );
-  });
-
-  it("slack: its status and people without a connection; with one, its channels, joining and creating one, and reading Slack again: when a join finds a channel changed, and when someone joined since the people were matched", async () => {
-    expect(await call("get_slack_status", {}, readOnly)).toMatchObject({
-      available: false,
-      connected: false,
-      agents: [],
-    });
-    expect(await call("list_slack_people")).toMatchObject({
-      sync: "idle",
-      people: [
-        {
-          email: ana.email,
-          reviewed: false,
-          slackUserId: null,
-          slackHandle: null,
-        },
-        { email: member.email },
-      ],
-    });
-    expect(await failure("list_slack_channels")).toBe(
-      "Slack isn't connected. An owner or admin connects it in Settings → Connections.",
-    );
-
-    // Connected, read a moment ago: Ana matched, one channel the app isn't in.
-    const at = new Date().toISOString();
-    await testDb.exec(`
-      INSERT INTO slack_connection (id, organization_id, team_id, team_name, bot_user_id, bot_name, bot_token, bot_scopes, connected_at, synced_at) VALUES ('sc', 'org_a', 'T1', 'Acme HQ', 'UBOT', 'Acme CRM', 'xoxb-test', 'chat:write', '${at}', '${at}');
-      INSERT INTO slack_member_match (id, organization_id, user_id, slack_user_id, slack_handle, updated_at) VALUES ('mm_a', 'org_a', 'user_a', 'U1', '@ana', '${at}'), ('mm_c', 'org_a', 'user_c', NULL, NULL, '${at}');
-      INSERT INTO slack_channel (id, organization_id, slack_channel_id, name) VALUES ('ch_1', 'org_a', 'C1', 'sales'), ('ch_3', 'org_a', 'C3', 'ops');
-    `);
-    // Slack has #ops as private now; the list has it as public.
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: URL) => {
-        const method = url.pathname.split("/").pop();
-        if (method === "conversations.info") {
-          return Response.json({
-            ok: true,
-            channel: {
-              is_private: url.searchParams.get("channel") === "C3",
-              is_member: false,
-            },
-          });
-        }
-        if (method === "conversations.create") {
-          return Response.json({
-            ok: true,
-            channel: { id: "C2", name: "deal-alerts" },
-          });
-        }
-        return Response.json({ ok: true, members: [], channels: [] });
-      }),
-    );
-    expect(await call("get_slack_status", {}, readOnly)).toMatchObject({
-      connected: true,
-      workspace: "Acme HQ",
-      appName: "Acme CRM",
-      sync: "idle",
-      people: { matched: 1, total: 2 },
-    });
-    expect(await call("list_slack_people")).toMatchObject({
-      people: [
-        {
-          email: ana.email,
-          reviewed: true,
-          slackUserId: "U1",
-          slackHandle: "@ana",
-        },
-        { email: member.email, reviewed: true, slackUserId: null },
-      ],
-    });
-    const reads = () =>
-      testDb.rows(`SELECT id FROM agent_task WHERE kind = 'slack-sync'`);
-    const settled = () =>
-      Promise.all(vi.mocked(waitUntil).mock.calls.map(([read]) => read));
-    await settled();
-    expect(await reads()).toEqual([]);
-    // Someone who opens the CRM after the people were matched is matched
-    // when they are listed, as the status would.
-    const newcomer = { ...member, sub: "user_d", email: "di@a.test" };
-    await call("get_workspace", {}, { as: newcomer });
-    expect(await call("list_slack_people")).toMatchObject({
-      people: [
-        { email: ana.email },
-        { email: member.email },
-        { email: newcomer.email, reviewed: false, slackUserId: null },
-      ],
-    });
-    await settled();
-    expect(await reads()).toHaveLength(1);
-    await testDb.exec(`DELETE FROM agent_task WHERE kind = 'slack-sync'`);
-    expect(await call("join_slack_channel", { channelId: "C1" })).toEqual({
-      outcome: "joined",
-      reason: null,
-    });
-    await settled();
-    expect(await reads()).toEqual([]);
-    expect(await call("join_slack_channel", { channelId: "C3" })).toEqual({
-      outcome: "asked",
-      reason: null,
-    });
-    await settled();
-    expect(await reads()).toHaveLength(1);
-    expect(await call("create_slack_channel", { name: "deal-alerts" })).toEqual(
-      {
-        created: true,
-        channel: { id: "C2", name: "deal-alerts" },
-        reason: null,
-      },
-    );
-    const asked: unknown = expect.any(String);
-    expect(await call("list_slack_channels")).toMatchObject({
-      channels: [
-        { id: "C2", name: "deal-alerts", isMember: true },
-        { id: "C1", isMember: true, classified: true, inviteRequestedAt: null },
-        {
-          id: "C3",
-          isPrivate: true,
-          isMember: false,
-          inviteRequestedAt: asked,
-        },
-      ],
-    });
-    expect(await call("get_slack_status", {}, { as: bo })).toMatchObject({
-      connected: false,
-    });
-
-    expect(await call("refresh_slack")).toEqual({ requested: true });
-    await settled();
   });
 });

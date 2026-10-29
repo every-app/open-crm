@@ -16,8 +16,6 @@ const importRowSchema = z.object({
 export const importChunkSchema = z.object({
   entity: z.enum(FIELD_ENTITIES),
   duplicates: z.enum(IMPORT_DUPLICATES),
-  /** Queue the research agent for the records it creates. */
-  research: z.boolean(),
   dryRun: z.boolean().default(false),
   rows: z.array(importRowSchema).min(1).max(IMPORT_CHUNK_SIZE),
 });

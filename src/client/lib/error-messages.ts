@@ -17,18 +17,8 @@ const STANDARD_MESSAGES: Record<ErrorCode, string> = {
   CONFLICT: "This conflicts with an existing record.",
   RATE_LIMITED: "Too many requests. Try again in a moment.",
   UPSTREAM_UNAVAILABLE: "A provider is unavailable. Try again in a moment.",
-  AGENT_UNAVAILABLE:
-    "The research agent isn't set up on this Every App gateway yet. An owner or admin runs: pnpm everyapp secret set OPENROUTER_API_KEY",
   INTEGRATION_UNAVAILABLE:
     "That connection isn't set up on this Every App gateway yet. An admin sets it up there.",
-  TEAM_AGENT_NOT_LIVE:
-    "This agent isn't live. Deploy it, or resume it, before it runs.",
-  TEAM_AGENT_BUSY:
-    "This agent already has an active run. Stop it or wait for it to finish.",
-  SLACK_UNAVAILABLE:
-    "Slack isn't connected. An owner or admin connects it in Settings → Connections.",
-  SLACK_REJECTED:
-    "Slack refused that. Check the channel name, or reconnect Slack, and try again.",
   INTERNAL_ERROR: UNEXPECTED_ERROR_MESSAGE,
 };
 

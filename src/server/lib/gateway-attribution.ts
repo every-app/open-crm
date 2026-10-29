@@ -4,7 +4,7 @@ import type { EveryAppUser, GatewayCallFor } from "@every-app/sdk/server";
 import { decodeJwt } from "jose";
 
 // Whom the CRM's calls through the Every App gateway are for. The gateway
-// counts each Context or OpenRouter call against an organization, so every
+// counts each call against an organization, so every
 // call says whose it is. The SDK takes that as `for` (packages/sdk/README.md,
 // "Whom a call is for"):
 //
@@ -12,7 +12,7 @@ import { decodeJwt } from "jose";
 //   signed identity is forwarded with the call (`for: request`), so the call
 //   is that person's, in their organization. src/server.ts and
 //   src/server/everyapp/tools.ts open that scope with serveEveryAppRequest.
-// - Work no request started (the agent's sessions, the minute cron) names the
+// - Work no request started (the minute cron) names the
 //   organization that owns it with forOrganization(), which sends it as
 //   `x-everyapp-org` (`for: { background: true, organizationId }`).
 //

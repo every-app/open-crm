@@ -5,13 +5,11 @@ import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { rolesOf, roleRank } from "@/client/features/members/memberRoles";
 import type { EnsuredUserContext } from "@/middleware/ensure-user/types";
 import { crmTool, pageInput, pageOf } from "@/server/everyapp/crm-tool";
-import { EnrichmentQueueService } from "@/server/features/agent/services/EnrichmentQueueService";
 import { CurrencyService } from "@/server/features/currency/services/CurrencyService";
 import { SettingsService } from "@/server/features/settings/services/SettingsService";
 import { WorkspaceService } from "@/server/features/workspace/services/WorkspaceService";
 import { AppError } from "@/server/lib/errors";
 import { CURRENCY_CODES } from "@/shared/currency";
-import { enrichmentQueueSchema } from "@/types/schemas/agent";
 import {
   removeManualRateSchema,
   setManualRateSchema,
@@ -23,8 +21,7 @@ import { setArchiveRetentionSchema } from "@/types/schemas/settings";
 import { updateWorkspaceSchema } from "@/types/schemas/workspace";
 
 // The workspace around the records: its name and website, how long it keeps
-// archived records, its members, its currencies and the research agent's
-// queue. Changing the workspace and its currencies is for owners and admins,
+// archived records, its members and its currencies. Changing the workspace and its currencies is for owners and admins,
 // as in Settings. Members, roles and invitations themselves are the Every App
 // gateway's.
 
@@ -110,12 +107,6 @@ const MEMBER_ORDER: Record<
   joinedAt: (member) => member.joinedAt,
 };
 
-const subjectOutput = z.object({
-  kind: z.enum(["company", "contact", "deal"]),
-  id: z.string(),
-  name: z.string(),
-});
-
 export const workspaceTools = {
   get_workspace: crmTool({
     description:
@@ -128,7 +119,7 @@ export const workspaceTools = {
 
   update_workspace: crmTool({
     description:
-      "Rename the workspace or change its website (owners and admins only); only what is given changes. A new website sends the research agent to learn the business.",
+      "Rename the workspace or change its website (owners and admins only); only what is given changes.",
     risk: "write",
     input: z
       .object({
@@ -321,44 +312,5 @@ export const workspaceTools = {
       requireOrgPermission(context, manage);
       return CurrencyService.refreshRates(context.organizationId);
     },
-  }),
-
-  get_enrichment_queue: crmTool({
-    description:
-      "What the research agent is doing for the organization: its tasks running, waiting or out of attempts (most urgent first) and the research booked for later, with totals. `paused` when its model isn't set up.",
-    risk: "read",
-    input: z
-      .object({
-        limit: enrichmentQueueSchema.shape.limit
-          .optional()
-          .describe("How many of each list, 20 unless said (at most 200)."),
-      })
-      .strict(),
-    output: z.object({
-      paused: z.boolean(),
-      total: z.number(),
-      rows: z.array(
-        z.object({
-          kind: z.string(),
-          state: z.enum(["running", "queued", "failed", "waiting"]),
-          startedAt: z.string().nullable(),
-          subject: subjectOutput,
-        }),
-      ),
-      scheduledTotal: z.number(),
-      scheduled: z.array(
-        z.object({
-          kind: z.string(),
-          dueAt: z.string(),
-          reason: z.string().nullable(),
-          subject: subjectOutput,
-        }),
-      ),
-    }),
-    handler: ({ limit }, context) =>
-      EnrichmentQueueService.queue(
-        context.organizationId,
-        enrichmentQueueSchema.parse({ limit }).limit,
-      ),
   }),
 };

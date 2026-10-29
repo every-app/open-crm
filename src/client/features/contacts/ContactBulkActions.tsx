@@ -15,7 +15,6 @@ import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import {
   bulkArchiveContacts,
   bulkAssignContactOwner,
-  bulkEnrichContacts,
   bulkPurgeContacts,
   bulkRestoreContacts,
   bulkSetContactCompany,
@@ -60,11 +59,6 @@ export function ContactBulkActions({
       bulkSetContactCompany({ data: input }),
     ...settled((count) => `${count} moved.`),
   });
-  const enrich = useMutation({
-    mutationFn: (selected: string[]) =>
-      bulkEnrichContacts({ data: { ids: selected } }),
-    ...settled((count) => `${count} queued for research.`),
-  });
   const archive = useMutation({
     mutationFn: (selected: string[]) =>
       bulkArchiveContacts({ data: { ids: selected } }),
@@ -87,13 +81,12 @@ export function ContactBulkActions({
       count={ids.length}
       archived={archived}
       canPurge={canPurge}
-      pending={[assign, move, enrich, archive, restore, purge].some(
+      pending={[assign, move, archive, restore, purge].some(
         (mutation) => mutation.isPending,
       )}
       open={menuOpen}
       onOpenChange={setMenuOpen}
       onAssignOwner={(ownerId) => assign.mutate({ ids, ownerId })}
-      onEnrich={() => enrich.mutate(ids)}
       onArchive={() => archive.mutate(ids)}
       onRestore={() => restore.mutate(ids)}
       onPurge={() => purge.mutate(ids)}

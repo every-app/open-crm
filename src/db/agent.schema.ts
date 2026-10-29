@@ -6,11 +6,14 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { AGENT_CONVERSATION_KINDS } from "../shared/crm-enums";
 import { organization, user } from "./auth.schema";
 import { isoNow, timestamp } from "./columns";
 import { company, contact, deal } from "./crm.schema";
 
+// Retired: the research agent (its task queue, events and conversations), which the CRM no longer has. Nothing reads or writes
+// these tables but the organization erasure; they stay until a release after
+// the one that removed the feature, when a `-- everyapp:contract` migration
+// drops them (TODO.md).
 const organizationId = () =>
   text("organization_id")
     .notNull()
@@ -140,9 +143,7 @@ export const agentConversation = sqliteTable(
   {
     id: text("id").primaryKey(),
     organizationId: organizationId(),
-    kind: text("kind", { enum: AGENT_CONVERSATION_KINDS })
-      .notNull()
-      .default("RECORD"),
+    kind: text("kind").notNull().default("RECORD"),
     contactId: text("contact_id").references(() => contact.id, {
       onDelete: "cascade",
     }),

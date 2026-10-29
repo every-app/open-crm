@@ -1,12 +1,9 @@
 import {
-  and,
   count,
   eq,
   getTableColumns,
   getTableName,
   inArray,
-  isNotNull,
-  isNull,
   type Column,
 } from "drizzle-orm";
 import { db } from "@/db";
@@ -15,11 +12,8 @@ import * as schema from "@/db/schema";
 import {
   activity,
   agentAction,
-  agentConversation,
   agentEvent,
-  agentRun,
   agentTask,
-  agentTrigger,
   calendarAttendee,
   contactFact,
   emailMessage,
@@ -86,12 +80,10 @@ async function members(organizationId: string) {
 
 /**
  * Stops the work that would write more of the organization while it is
- * erased: the enrichment sweep (it starts from the workspace row), mailbox
- * checks, the tracking collector (it starts from the site), team agents'
- * schedules and events, open research and queued runs.
+ * erased: mailbox checks and the tracking collector (it starts from the
+ * site).
  */
 async function freeze(organizationId: string) {
-  const now = new Date().toISOString();
   await runBatch((tx) => [
     tx.delete(workspace).where(eq(workspace.organizationId, organizationId)),
     tx
@@ -100,75 +92,14 @@ async function freeze(organizationId: string) {
     tx
       .delete(trackingSite)
       .where(eq(trackingSite.organizationId, organizationId)),
-    tx
-      .delete(agentTrigger)
-      .where(eq(agentTrigger.organizationId, organizationId)),
-    tx
-      .update(agentTask)
-      .set({ finishedAt: now, outcome: "erased" })
-      .where(
-        and(
-          eq(agentTask.organizationId, organizationId),
-          isNull(agentTask.finishedAt),
-        ),
-      ),
-    tx
-      .update(agentRun)
-      .set({ status: "CANCELLED", finishedAt: now })
-      .where(
-        and(
-          eq(agentRun.organizationId, organizationId),
-          eq(agentRun.status, "QUEUED"),
-        ),
-      ),
   ]);
 }
 
-const SESSION_SOURCES = () => [
-  { table: agentConversation, column: agentConversation.sessionId },
-  { table: agentRun, column: agentRun.sessionId },
-  { table: agentTask, column: agentTask.sessionId },
-  { table: agentEvent, column: agentEvent.sessionId },
-];
-
 /**
- * Up to `limit` names of the organization's agent sessions (each a CrmAgent
- * Durable Object) that rows still name: chats, research tasks, runs, and
- * whatever the journal remembers.
+ * The tables that grow largest, none referenced by another. agent_event,
+ * agent_task and agent_action are retired with the research agent and team
+ * agents, and still hold their rows until they are dropped.
  */
-async function sessionNames(organizationId: string, limit: number) {
-  const names = new Set<string>();
-  for (const { table, column } of SESSION_SOURCES()) {
-    if (names.size >= limit) break;
-    const rows = await db
-      .selectDistinct({ name: column })
-      .from(table)
-      .where(and(eq(table.organizationId, organizationId), isNotNull(column)))
-      .limit(limit - names.size);
-    for (const row of rows) if (row.name) names.add(row.name);
-  }
-  return [...names];
-}
-
-/** Forgets the rows that name these sessions, once they are destroyed. */
-async function forgetSessions(organizationId: string, names: string[]) {
-  for (const part of idChunks(names)) {
-    await runBatch((tx) =>
-      SESSION_SOURCES().map(({ table, column }) =>
-        tx
-          .delete(table)
-          .where(
-            and(
-              eq(table.organizationId, organizationId),
-              inArray(column, part),
-            ),
-          ),
-      ),
-    );
-  }
-}
-
-/** The tables that grow largest, none referenced by another. */
 const HEAVY = () => [
   trackedEvent,
   agentEvent,
@@ -225,8 +156,6 @@ export const ErasureRepository = {
   organizationExists,
   members,
   freeze,
-  sessionNames,
-  forgetSessions,
   deleteHeavyBatch,
   deleteOrganization,
 };

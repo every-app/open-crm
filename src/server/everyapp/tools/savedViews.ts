@@ -9,7 +9,6 @@ import { SavedViewService } from "@/server/features/saved-views/services/SavedVi
 import { AppError } from "@/server/lib/errors";
 import {
   DEAL_STAGES,
-  ENRICHMENT_STATUSES,
   FIELD_ENTITIES,
   type FieldEntity,
 } from "@/shared/crm-enums";
@@ -58,10 +57,6 @@ const filtersInput = z
       .describe("A sort the list tools take for this list."),
     direction: z.enum(SORT_DIRECTIONS).optional(),
     industries: values.describe("Companies only."),
-    enrichment: z
-      .array(z.enum(ENRICHMENT_STATUSES))
-      .optional()
-      .describe("Companies only: research states."),
     companyIds: values.describe(
       `Contacts only: company ids, "${NO_COMPANY}" for contacts at none.`,
     ),
@@ -90,7 +85,6 @@ type FiltersInput = z.infer<typeof filtersInput>;
 /** The filters only some lists have, and those lists. */
 const LIST_FILTERS = {
   industries: ["COMPANY"],
-  enrichment: ["COMPANY"],
   companyIds: ["CONTACT"],
   titles: ["CONTACT"],
   seniorities: ["CONTACT"],
@@ -163,7 +157,6 @@ async function savedFilters(
     sort: input.sort,
     dir: input.direction,
     industry: input.industries,
-    enrichment: input.enrichment,
     company: input.companyIds,
     title: input.titles,
     seniority: input.seniorities,

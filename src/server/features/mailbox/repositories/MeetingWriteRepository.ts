@@ -1,12 +1,8 @@
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
-import {
-  activity,
-  calendarAttendee,
-  calendarEvent,
-  contactBrief,
-} from "@/db/schema";
+import { activity, calendarAttendee, calendarEvent } from "@/db/schema";
+
 // Captured meetings: calendar_event, calendar_attendee and their one MEETING
 // activity each. Every statement names the organization.
 
@@ -134,32 +130,6 @@ async function upsertAttendees(
   );
 }
 
-/** The meeting's contacts the agent has written no brief on. */
-async function attendeesWithoutBrief(
-  organizationId: string,
-  eventId: string,
-): Promise<string[]> {
-  const rows = await db
-    .selectDistinct({ contactId: calendarAttendee.contactId })
-    .from(calendarAttendee)
-    .leftJoin(
-      contactBrief,
-      and(
-        eq(contactBrief.contactId, calendarAttendee.contactId),
-        eq(contactBrief.organizationId, organizationId),
-      ),
-    )
-    .where(
-      and(
-        eq(calendarAttendee.organizationId, organizationId),
-        eq(calendarAttendee.eventId, eventId),
-        isNotNull(calendarAttendee.contactId),
-        isNull(contactBrief.contactId),
-      ),
-    );
-  return rows.flatMap((row) => (row.contactId ? [row.contactId] : []));
-}
-
 /** The meeting's one MEETING activity; its creation time. */
 async function projectEvent(input: {
   organizationId: string;
@@ -208,6 +178,5 @@ export const MeetingWriteRepository = {
   deleteGoogleEvent,
   upsertEvent,
   upsertAttendees,
-  attendeesWithoutBrief,
   projectEvent,
 };

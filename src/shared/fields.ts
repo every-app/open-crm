@@ -34,7 +34,6 @@ export const ENTITY_NOUNS = {
 >;
 
 export const FIELD_LABEL_MAX = 80;
-export const FIELD_BRIEF_MAX = 2000;
 export const FIELD_OPTION_LABEL_MAX = 100;
 export const FIELD_OPTIONS_MAX = 100;
 

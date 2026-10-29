@@ -1,10 +1,7 @@
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
-import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
-import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
 import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import {
@@ -15,7 +12,6 @@ import {
   type ExternalFilterOptions,
   type Participant,
 } from "@/shared/participants";
-import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import { TrackingEventRepository } from "@/server/features/tracking/repositories/TrackingEventRepository";
 import {
   CONTACTS_PER_HOUR,
@@ -29,11 +25,10 @@ import { domainFromEmail, normalizeDomain } from "@/shared/domain";
 // MailboxMatchService. In order: a contact with one of the people's
 // addresses; else the company behind the people's dominant work domain;
 // else, only when the source may add records, a new company (named after the
-// domain, for the agent to research) and the person as its contact. Nobody
-// in `externalParticipants`' discard pile is ever matched or created. Anyone
-// can send an invite, so a calendar adds at most CONTACTS_PER_HOUR people an
-// hour to an organization, as website forms may, and what it adds gets no
-// paid research until a person opens it (ResearchHoldService).
+// domain) and the person as its contact. Nobody in `externalParticipants`'
+// discard pile is ever matched or created. Anyone can send an invite, so a
+// calendar adds at most CONTACTS_PER_HOUR people an hour to an organization,
+// as website forms may.
 
 export type MatchContext = ExternalFilterOptions;
 
@@ -207,10 +202,8 @@ async function resolve(
 
 /**
  * The person at `domain` as a contact of the company: the live contact with
- * their address, or a new one, written with its contact.created event. A
- * name the mail carries replaces one only made from the address; a new
- * contact with no name at all is the agent's to identify, unless a calendar
- * invite added them (held for a person: ResearchHoldService).
+ * their address, or a new one. A name the mail carries replaces one only
+ * made from the address.
  */
 async function createContact(
   organizationId: string,
@@ -229,36 +222,20 @@ async function createContact(
     organizationId,
     person.email,
   );
-  const researchHeldAt = ResearchHoldService.heldFrom(request.source);
   let created = false;
   if (!contact) {
     try {
-      const id = await ContactRepository.insert(
-        {
-          organizationId,
-          firstName,
-          lastName,
-          email: person.email,
-          phone: null,
-          title: null,
-          companyId,
-          ownerId: request.ownerId,
-          source: request.source,
-          researchHeldAt,
-        },
-        [
-          {
-            type: "contact.created",
-            data: {
-              firstName,
-              lastName,
-              email: person.email,
-              companyId,
-              source: request.source,
-            },
-          },
-        ],
-      );
+      const id = await ContactRepository.insert({
+        organizationId,
+        firstName,
+        lastName,
+        email: person.email,
+        phone: null,
+        title: null,
+        companyId,
+        ownerId: request.ownerId,
+        source: request.source,
+      });
       contact = { id, firstName, lastName };
       created = true;
     } catch (error) {
@@ -273,7 +250,6 @@ async function createContact(
   }
 
   if (created) {
-    pokeEvents(organizationId);
     await ActivityRepository.insert({
       organizationId,
       type: "ENRICHMENT",
@@ -287,32 +263,16 @@ async function createContact(
       createdById: request.ownerId,
       meta: { source: request.source, automated: true },
     });
-    if (!researchHeldAt) {
-      await FieldsService.queueFillForNewRecord(
-        organizationId,
-        "CONTACT",
-        contact.id,
-      );
-    }
   }
 
-  const hasRealName = Boolean(person.name?.trim());
-  const placeholder = isDerivedName(
-    person.email,
-    contact.firstName,
-    contact.lastName,
-  );
-  if (hasRealName && placeholder) {
+  if (
+    person.name?.trim() &&
+    isDerivedName(person.email, contact.firstName, contact.lastName)
+  ) {
     await ContactRepository.update(organizationId, contact.id, {
       firstName,
       lastName,
     });
-  } else if (created && placeholder && !researchHeldAt) {
-    await AgentTaskService.contactCreated(
-      organizationId,
-      contact.id,
-      "Created by the sync from an address, with no name on it",
-    );
   }
   return contact.id;
 }

@@ -35,7 +35,6 @@ import {
   ERROR_TITLE,
   FILTER_NOTE,
   MANAGE_HINT,
-  MANUAL_ONLY,
   NEW_FIELD,
   STANDARD_FIELDS,
   STANDARD_ROW,
@@ -50,11 +49,8 @@ const ROW = "flex items-center gap-2.5 border-b px-4 py-2";
 
 function summaryOf(field: Field): string {
   const parts: string[] = [];
-  if (!field.agentFilled) {
-    parts.push(field.required ? `${MANUAL_ONLY} · required` : MANUAL_ONLY);
-  } else if (field.agentBrief) {
-    parts.push(field.agentBrief);
-  } else if (field.options.length > 0) {
+  if (field.required) parts.push("required");
+  if (field.options.length > 0) {
     parts.push(`${field.options.length} options`);
   }
   if (field.showOnTable) parts.push(TABLE_NOTE);

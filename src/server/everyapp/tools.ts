@@ -9,10 +9,6 @@ import { fieldTools } from "@/server/everyapp/tools/fields";
 import { mailTools } from "@/server/everyapp/tools/mail";
 import { savedViewTools } from "@/server/everyapp/tools/savedViews";
 import { searchTools } from "@/server/everyapp/tools/search";
-import { slackTools } from "@/server/everyapp/tools/slack";
-import { suggestionTools } from "@/server/everyapp/tools/suggestions";
-import { teamAgentRunTools } from "@/server/everyapp/tools/teamAgentRuns";
-import { teamAgentTools } from "@/server/everyapp/tools/teamAgents";
 import { trackingTools } from "@/server/everyapp/tools/tracking";
 import { workspaceTools } from "@/server/everyapp/tools/workspace";
 
@@ -25,7 +21,7 @@ import { workspaceTools } from "@/server/everyapp/tools/workspace";
 // itself.
 
 const INSTRUCTIONS =
-  "The CRM's companies, contacts and deals, their timelines, custom fields, captured email and meetings, website activity, team agents and settings. Never guess ids: search_records or a list tool first. People are named by email. Everything is scoped to the caller's organization.";
+  "The CRM's companies, contacts and deals, their timelines, custom fields, captured email and meetings, website activity and settings. Never guess ids: search_records or a list tool first. People are named by email. Everything is scoped to the caller's organization.";
 
 // Each feature declares its tools in src/server/everyapp/tools/<feature>.ts
 // with crmTool() and adds its map here.
@@ -34,7 +30,6 @@ const tools = {
   ...searchTools,
   ...companyTools,
   ...contactTools,
-  ...suggestionTools,
   ...dealTools,
   ...fieldTools,
   ...activityTools,
@@ -43,9 +38,6 @@ const tools = {
   ...dashboardTools,
   ...bulkTools,
   ...savedViewTools,
-  ...teamAgentTools,
-  ...teamAgentRunTools,
-  ...slackTools,
 };
 
 /**

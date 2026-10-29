@@ -13,11 +13,6 @@ vi.mock("cloudflare:workers", () => ({
 }));
 vi.mock("@/db", () => ({ db: testDb.db }));
 vi.mock("@/db/runBatch", () => testDb.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
-vi.mock("@/server/features/team-agents/runtime/poke", () => ({
-  pokeEvents: vi.fn(),
-  pokeRuns: vi.fn(),
-}));
 
 import {
   ana,
@@ -49,7 +44,6 @@ describe("record tools", () => {
             domain: "acme.com",
             industry: "Software",
             owner: { email: ana.email },
-            queued: true,
           },
         ],
       });
@@ -131,53 +125,6 @@ describe("record tools", () => {
     );
   });
 
-  it("contact suggestions: lists the organization's waiting ones, and accepting one writes it on the contact", async () => {
-    const id = await idFrom("create_contact", {
-      firstName: "Mia",
-      email: "mia@globex.test",
-      title: "Engineer",
-    });
-    await testDb.exec(
-      `INSERT INTO contact_fact (id, organization_id, contact_id, field, value, score, band, evidence, method) VALUES ('fact_1', 'org_a', '${id}', 'title', 'VP Engineering', 0.6, 'PROBABLE', '[{"kind":"web","detail":"Their profile says so"}]', 'web')`,
-    );
-    expect(await call("list_contact_suggestions")).toMatchObject({
-      total: 1,
-      suggestions: [
-        {
-          id: "fact_1",
-          field: "title",
-          value: "VP Engineering",
-          why: ["Their profile says so"],
-          contact: { id, name: "Mia" },
-        },
-      ],
-    });
-    expect(await call("list_contact_suggestions", {}, { as: bo })).toEqual({
-      total: 0,
-      page: 1,
-      pageSize: 25,
-      suggestions: [],
-    });
-    expect(
-      await failure(
-        "decide_contact_suggestion",
-        { id: "fact_1", decision: "accept" },
-        { as: bo },
-      ),
-    ).toBe("No suggestion with id fact_1.");
-
-    expect(
-      await call("decide_contact_suggestion", {
-        id: "fact_1",
-        decision: "accept",
-      }),
-    ).toEqual({ contactId: id, field: "title", applied: true });
-    expect(await call("get_contact", { id })).toMatchObject({
-      title: "VP Engineering",
-      suggestions: [],
-    });
-  });
-
   it("deals: added to a company, moved through stages, with people on them", async () => {
     const companyId = await idFrom("create_company", { name: "Initech" });
     const bill = await idFrom("create_contact", {
@@ -215,7 +162,7 @@ describe("record tools", () => {
     });
   });
 
-  it("full reads: a company's people and deals with their owners and converted amounts; a contact's applied facts apart from their suggestions, and their deals' owners", async () => {
+  it("full reads: a company's people and deals with their owners and converted amounts, and a contact's deals' owners", async () => {
     const companyId = await idFrom("create_company", { name: "Initrode" });
     const jo = await idFrom("create_contact", {
       firstName: "Jo",
@@ -229,9 +176,6 @@ describe("record tools", () => {
       currency: "USD",
     });
     await call("add_deal_contact", { dealId, contactId: jo });
-    await testDb.exec(
-      `INSERT INTO contact_fact (id, organization_id, contact_id, field, value, score, band, evidence, method, status) VALUES ('fact_cto', 'org_a', '${jo}', 'title', 'CTO', 0.9, 'VERIFIED', '[]', 'web', 'APPLIED'), ('fact_ceo', 'org_a', '${jo}', 'title', 'CEO', 0.6, 'PROBABLE', '[]', 'web', 'PROPOSED')`,
-    );
     const owner = { name: "Ana", email: ana.email };
     expect(await call("get_company", { id: companyId })).toMatchObject({
       contacts: [{ id: jo, owner }],
@@ -244,8 +188,6 @@ describe("record tools", () => {
       ],
     });
     expect(await call("get_contact", { id: jo })).toMatchObject({
-      facts: [{ field: "title", value: "CTO", band: "VERIFIED" }],
-      suggestions: [{ id: "fact_ceo" }],
       deals: [{ id: dealId, owner }],
     });
   });
@@ -333,14 +275,12 @@ describe("saved view tools", () => {
         name: "Software",
         filters: {
           industries: ["Software"],
-          enrichment: ["COMPLETE"],
           activeWithinDays: 30,
         },
       }),
     ).toMatchObject({
       filters: {
         industry: ["Software"],
-        enrichment: ["COMPLETE"],
         activity: 30,
       },
     });

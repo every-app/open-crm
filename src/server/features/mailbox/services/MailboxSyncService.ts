@@ -1,4 +1,3 @@
-import { runLimited } from "@/server/features/agent/dispatch/pool";
 import { clientStatus } from "@/server/features/mailbox/providers/oauth";
 import { syncCalendar } from "@/server/features/mailbox/providers/calendar";
 import { syncGmail } from "@/server/features/mailbox/providers/gmail";
@@ -25,6 +24,7 @@ import {
   type MailboxProvider,
   type SyncSource,
 } from "@/shared/mailbox";
+import { runLimited } from "@/server/lib/pool";
 
 // Runs mailbox checks, ported from the CRM's MailboxSyncService: the minute
 // cron's sweep across every organization, and a member's "Check now". Each

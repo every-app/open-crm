@@ -22,7 +22,6 @@ export const Route = createFileRoute("/_app/settings")({
 
 const sections = [
   { to: "/settings", label: "Workspace", exact: true },
-  { to: "/settings/ai", label: "AI", exact: false },
   { to: "/settings/connections", label: "Connections", exact: false },
 ] as const;
 

@@ -144,7 +144,7 @@ export function ContactsPage() {
           description={
             input.archived
               ? undefined
-              : "Companies and contacts, kept current by the research agent."
+              : "Companies and contacts, with the mail and meetings filed on them."
           }
           actions={
             <>

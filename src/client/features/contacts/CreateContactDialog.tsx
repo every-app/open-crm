@@ -60,7 +60,7 @@ const defaultValues: FormValues = {
   owner: UNASSIGNED,
 };
 
-/** A person's name, email, title, company and owner; the agent finds the rest. */
+/** A person's name, email, title, company and owner. */
 export function CreateContactDialog({
   onClose,
   onCreated,

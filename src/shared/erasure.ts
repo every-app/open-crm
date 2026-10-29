@@ -1,6 +1,6 @@
 // Erasing one organization: the operator's script
 // (scripts/erase-organization.ts) asks the CRM's Worker, which holds the
-// database, the agents' Durable Objects, the R2 bucket and the tokens, to
+// database, the R2 bucket and the tokens, to
 // list or erase it (src/server/features/erasure). Each request is signed
 // with ERASURE_SECRET over its timestamp and body, as OpenSEO signs its GDPR
 // erasure. The script runs this file as is under Node, so it imports

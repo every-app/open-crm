@@ -7,12 +7,10 @@ export async function getOptionalEnvValue(
 }
 
 /**
- * Sync variant for callers that already hold an env record (e.g. a Durable
- * Object's `this.env`, needed because Think's `getModel()` hook is sync).
- * Same policy as the async form: process.env first (where local secrets land
- * in dev), skipping empty strings, then the given env.
+ * process.env first (where local secrets land in dev), skipping empty
+ * strings, then the given env.
  */
-export function getEnvValueSync(
+function getEnvValueSync(
   // `object` so interface-typed envs (e.g. Cloudflare.Env) are accepted
   // without a cast.
   env: object,

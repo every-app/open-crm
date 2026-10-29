@@ -7,7 +7,6 @@ import {
   recordListSearchSchema,
   valuesParam,
 } from "@/client/features/records/listSearch";
-import { ENRICHMENT_STATUSES } from "@/shared/crm-enums";
 import {
   COMPANY_SORTS,
   type CompanyListInput,
@@ -17,7 +16,6 @@ import {
 export const companyListSearchSchema = recordListSearchSchema.extend({
   sort: z.enum(COMPANY_SORTS).optional().catch(undefined),
   industry: valuesParam,
-  enrichment: z.array(z.enum(ENRICHMENT_STATUSES)).optional().catch(undefined),
   activity: activityParam,
 });
 
@@ -27,7 +25,6 @@ export type CompanyListSearch = z.infer<typeof companyListSearchSchema>;
 export const COMPANY_FILTER_KEYS = [
   ...SHARED_FILTER_KEYS,
   "industry",
-  "enrichment",
   "activity",
 ] as const;
 
@@ -36,7 +33,6 @@ export function companyListInput(search: CompanyListSearch): CompanyListInput {
   return {
     ...listInputFromSearch(search, { sort: "createdAt", dir: "desc" }),
     industry: search.industry ?? [],
-    enrichment: search.enrichment ?? [],
     activity: activityWindow(search.activity),
   };
 }

@@ -20,7 +20,6 @@ vi.mock("cloudflare:workers", () => ({
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 // The dispatcher's background lane isn't under test.
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
 import {
   daysFromNow,
@@ -92,7 +91,7 @@ describe("Calendar capture", () => {
       `UPDATE mailbox_sync SET next_sync_at = '2000-01-01T00:00:00.000Z'`,
     );
 
-  it("files the next 180 days' meetings, the people it adds waiting for a person before the agent researches them", async () => {
+  it("files the next 180 days' meetings and the people it adds", async () => {
     const fetched = stubProviders({
       [EVENTS]: () => ({
         items: [
@@ -141,13 +140,6 @@ describe("Calendar capture", () => {
     ).toEqual([
       { type: "MEETING", subject: "Call soon", body: "Location: Room 4" },
     ]);
-    // Anyone can send an invite: no identify and no meeting prep until a
-    // person opens the contact, but team agents hear of them.
-    expect(
-      await database.rows(
-        `SELECT t.kind FROM agent_task t JOIN contact c ON c.id = t.contact_id ORDER BY t.kind`,
-      ),
-    ).toEqual([{ kind: "agent-event" }]);
     expect(
       await firstValue(
         database.rows(`SELECT cursor FROM mailbox_sync`),

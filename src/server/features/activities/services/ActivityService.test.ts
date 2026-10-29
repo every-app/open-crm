@@ -131,7 +131,7 @@ describe("ActivityService", () => {
       occurredAt: "2026-10-05T09:00:00Z",
     });
     await ActivityService.completeTask(A, demo.id, true);
-    // What the deals and the agent write: a stage change, and a finding
+    // What the deals and automations write: a stage change, and an entry
     // that says only when it was written.
     await database.exec(`
         INSERT INTO activity (id, organization_id, type, company_id, deal_id, created_by_id, meta, occurred_at)

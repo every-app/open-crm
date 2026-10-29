@@ -1,4 +1,3 @@
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { AppError } from "@/server/lib/errors";
 import { normalizeDomain } from "@/shared/domain";
@@ -21,7 +20,7 @@ async function getWorkspace(organizationId: string): Promise<Workspace> {
 
 /**
  * Names the workspace and says what its website is. The first save finishes
- * onboarding; a new website sends the agent to learn the business behind it.
+ * onboarding.
  */
 async function updateWorkspace(
   organizationId: string,
@@ -40,15 +39,6 @@ async function updateWorkspace(
     website,
     onboardedAt: before.onboardedAt ?? new Date().toISOString(),
   });
-  if (website && website !== before.website) {
-    await AgentTaskService.workspaceChanged(
-      organizationId,
-      website,
-      before.website
-        ? "The company using this CRM changed its website"
-        : "The company using this CRM said what its website is",
-    );
-  }
   return getWorkspace(organizationId);
 }
 

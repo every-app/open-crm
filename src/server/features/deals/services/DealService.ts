@@ -5,7 +5,6 @@ import { DealContactRepository } from "@/server/features/deals/repositories/Deal
 import { DealListRepository } from "@/server/features/deals/repositories/DealListRepository";
 import { DealRepository } from "@/server/features/deals/repositories/DealRepository";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
-import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   assertOwner,
   blankToNull,
@@ -16,8 +15,6 @@ import {
 import { AppError, UserFacingError } from "@/server/lib/errors";
 import { normalizeCurrency, roundMoney } from "@/shared/currency";
 import { isClosedStage, isLosingStage } from "@/shared/deal-stages";
-import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
-import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import type {
   AttachDealContactInput,
   CreateDealInput,
@@ -130,21 +127,11 @@ async function createDeal(organizationId: string, input: CreateDealInput) {
   const amount =
     input.amount == null ? null : roundMoney(input.amount, currency);
   const now = new Date().toISOString();
-  const { companyId } = input;
-  const events: CrmEvent[] = [
-    { type: "deal.created", data: { companyId, stage } },
-  ];
-  if (isClosedStage(stage)) {
-    events.push({
-      type: "deal.closed",
-      data: { companyId, from: null, to: stage },
-    });
-  }
   const row = await DealRepository.insert(
     {
       organizationId,
       name: input.name.trim(),
-      companyId,
+      companyId: input.companyId,
       ownerId: input.ownerId,
       stage,
       stageChangedAt: now,
@@ -154,12 +141,9 @@ async function createDeal(organizationId: string, input: CreateDealInput) {
       ...(await ConversionService.dealFields(organizationId, amount, currency)),
       expectedCloseDate: closeDateOf(input.expectedCloseDate),
     },
-    events,
     fields,
   );
   console.log("[deals] created", { organizationId, dealId: row.id, stage });
-  pokeEvents(organizationId);
-  await FieldsService.queueFillForNewRecord(organizationId, "DEAL", row.id);
   return row;
 }
 
@@ -228,18 +212,12 @@ async function setStage(
     );
   }
   const move = { companyId: found.companyId, from: found.stage, to: stage };
-  const events: CrmEvent[] = [{ type: "deal.stage.changed", data: move }];
-  if (isClosedStage(stage) !== isClosedStage(found.stage)) {
-    events.push({
-      type: isClosedStage(stage) ? "deal.closed" : "deal.opened",
-      data: move,
-    });
-  }
-  const moved = await DealRepository.moveStage(
-    organizationId,
-    { ...move, id, reason, movedById },
-    events,
-  );
+  const moved = await DealRepository.moveStage(organizationId, {
+    ...move,
+    id,
+    reason,
+    movedById,
+  });
   if (!moved) {
     // Someone moved it first: fine if they moved it here too.
     const now = await requireDeal(organizationId, id);
@@ -255,7 +233,6 @@ async function setStage(
     from: found.stage,
     to: stage,
   });
-  pokeEvents(organizationId);
   return { id, stage, changed: true };
 }
 

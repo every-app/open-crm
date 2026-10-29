@@ -10,7 +10,7 @@ import { errorCodeSchema } from "@/shared/error-codes";
 import { RECORD_KINDS } from "@/shared/records";
 import { bulkIdsSchema } from "@/types/schemas/records";
 
-// The list's bulk actions, which also restore, enrich and delete one record
+// The list's bulk actions, which also restore and delete one record
 // (pass one id). Each says how many records it changed of how many it was
 // given, and the code of the first failure. The same rules as the app's:
 // anyone archives, restores and reassigns; only owners and admins delete
@@ -135,25 +135,6 @@ export const bulkTools = {
           );
       }
     },
-  }),
-
-  bulk_enrich: crmTool({
-    description:
-      "Ask the research agent to research up to 100 companies or contacts again. It works in the background (get_enrichment_queue).",
-    risk: "write",
-    input: z
-      .object({
-        kind: z
-          .enum(["company", "contact"])
-          .describe("Which records: company or contact."),
-        ids,
-      })
-      .strict(),
-    output: bulkOutput,
-    handler: (input, context) =>
-      input.kind === "company"
-        ? CompanyService.bulkEnrich(context.organizationId, input.ids)
-        : ContactService.bulkEnrich(context.organizationId, input.ids),
   }),
 
   bulk_set_deal_stage: crmTool({

@@ -96,7 +96,7 @@ export function WorkspaceForm({
           {(field) => (
             <field.TextField
               label="Your business website (optional)"
-              description="The research agent reads it to learn what you sell."
+              description="Your own domain: mail and website forms from it never become contacts."
               placeholder="acme.com"
               inputMode="url"
               autoComplete="url"
@@ -145,7 +145,7 @@ export function WorkspaceSettingsCard({
             {(field) => (
               <field.RowTextField
                 label="Business website (optional)"
-                description="The research agent reads it to learn what you sell."
+                description="Your own domain: mail and website forms from it never become contacts."
                 prefix="https://"
                 placeholder="acme.com"
                 autoComplete="off"

@@ -4,8 +4,6 @@ import { Check } from "lucide-react";
 import { Coverage, FieldHeader } from "@/client/features/fields/FieldSections";
 import { fieldCoverageQueryOptions } from "@/client/features/fields/fieldQueries";
 import {
-  AGENT_LABEL,
-  BRIEF_LABEL,
   FILTER_PLACEMENT,
   KEY_LABEL,
   OPTIONS_LABEL,
@@ -42,16 +40,6 @@ export function FieldDetails({
             <span className="font-mono text-xs">{field.key}</span>
           </Row>
           <div className="space-y-3">
-            <Row label={AGENT_LABEL}>
-              <Flag on={field.agentFilled} />
-            </Row>
-            {field.agentBrief ? (
-              <Row label={BRIEF_LABEL} stacked>
-                <span className="whitespace-pre-line">{field.agentBrief}</span>
-              </Row>
-            ) : null}
-          </div>
-          <div className="space-y-3">
             <Row label={TYPE_LABEL}>{field.typeLabel}</Row>
             {field.type === "SELECT" ? (
               <Row label={OPTIONS_LABEL} stacked>
@@ -79,7 +67,7 @@ export function FieldDetails({
           </div>
         </dl>
         {coverage.data ? (
-          <Coverage field={field} coverage={coverage.data} canFill={false} />
+          <Coverage field={field} coverage={coverage.data} />
         ) : null}
       </div>
     </>

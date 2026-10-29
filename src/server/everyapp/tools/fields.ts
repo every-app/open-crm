@@ -23,8 +23,8 @@ import {
 } from "@/types/schemas/fields";
 
 // Custom fields: everyone reads them and sets their values on records;
-// owners and admins add, change, reorder, archive and delete them and ask the
-// research agent to fill them, as in the app.
+// owners and admins add, change, reorder, archive and delete them, as in the
+// app.
 
 const entityInput = fieldEntitySchema.describe(
   "Which records: COMPANY, CONTACT or DEAL.",
@@ -51,11 +51,6 @@ const fieldOutput = z.object({
   options: z
     .array(z.object({ id: z.string(), label: z.string() }))
     .describe("A select's options."),
-  agentFilled: z.boolean().describe("The research agent fills it."),
-  agentBrief: z
-    .string()
-    .nullable()
-    .describe("What counts as an answer, for the agent."),
   required: z.boolean(),
   showOnSheet: z.boolean().describe("A record's details show it."),
   showOnTable: z.boolean().describe("The list tools return its values."),
@@ -96,7 +91,7 @@ const manage = { field: ["manage" as const] };
 export const fieldTools = {
   list_fields: crmTool({
     description:
-      "The custom fields on companies, contacts or deals, in the order records show them: each one's key, label, type, a select's options and the brief the research agent fills it from. Archived fields only when asked.",
+      "The custom fields on companies, contacts or deals, in the order records show them: each one's key, label, type, a select's options. Archived fields only when asked.",
     risk: "read",
     input: z
       .object({
@@ -152,7 +147,7 @@ export const fieldTools = {
 
   create_field: crmTool({
     description:
-      "Add a custom field to every company, contact or deal (owners and admins only). Its key comes from the label and never changes. A select needs options. The research agent fills it from the label, type and brief unless agentFilled is false, starting with the existing records.",
+      "Add a custom field to every company, contact or deal (owners and admins only). Its key comes from the label and never changes. A select needs options.",
     risk: "write",
     input: createFieldSchema.strict(),
     output: fieldOutput,
@@ -237,7 +232,7 @@ export const fieldTools = {
 
   get_field_coverage: crmTool({
     description:
-      "How many live records have a value for a custom field, of how many: what fill_field would have left to do.",
+      "How many live records have a value for a custom field, of how many.",
     risk: "read",
     input: fieldIdInput,
     output: z.object({
@@ -246,22 +241,5 @@ export const fieldTools = {
     }),
     handler: ({ id }, context) =>
       FieldsService.coverage(context.organizationId, id),
-  }),
-
-  fill_field: crmTool({
-    description:
-      "Ask the research agent to fill a custom field on records with no value yet, up to 500 at a time (owners and admins only, fields the agent fills).",
-    risk: "write",
-    input: fieldIdInput,
-    output: z.object({
-      queued: z.number().describe("Records newly queued."),
-      merged: z
-        .number()
-        .describe("Records already queued that had the field added."),
-    }),
-    handler: async ({ id }, context) => {
-      requireOrgPermission(context, manage);
-      return FieldsService.fill(context.organizationId, id);
-    },
   }),
 };

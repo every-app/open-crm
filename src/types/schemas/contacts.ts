@@ -91,11 +91,3 @@ export const bulkContactCompanySchema = bulkIdsSchema.extend({
   /** Null takes the contacts off whatever company they were at. */
   companyId: z.string().min(1).nullable(),
 });
-
-/** A person settling one of the agent's suggestions about a contact. */
-export const decideFactSchema = z.object({
-  factId: z.string().min(1),
-  decision: z.enum(["accept", "dismiss"]),
-});
-
-export type DecideFactInput = z.infer<typeof decideFactSchema>;

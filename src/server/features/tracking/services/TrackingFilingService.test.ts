@@ -9,7 +9,6 @@ const { database } = await vi.hoisted(async () => {
 vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { ContactService } from "@/server/features/contacts/services/ContactService";
@@ -112,13 +111,6 @@ describe("TrackingFilingService", () => {
         created_by_id: "user_a",
       },
     ]);
-    // Anyone can submit a form: the agent researches nobody until a person
-    // opens them.
-    expect(
-      await database.rows(
-        "SELECT kind FROM agent_task WHERE contact_id IS NOT NULL",
-      ),
-    ).toEqual([]);
 
     const contactId =
       (await ContactRepository.findLiveByEmail(A, "jane.doe@northwind.example"))

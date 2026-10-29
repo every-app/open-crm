@@ -9,7 +9,6 @@ const { database } = await vi.hoisted(async () => {
 vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
 
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { db } from "@/db";
@@ -28,7 +27,6 @@ const addField = (
     createFieldSchema.parse({
       entity: "COMPANY",
       type: "TEXT",
-      agentFilled: false,
       ...input,
     }),
   );
@@ -45,9 +43,7 @@ describe("FieldValuesService", () => {
     );
 
   beforeEach(async () => {
-    await database.exec(
-      `DELETE FROM agent_task; DELETE FROM organization; DELETE FROM "user";`,
-    );
+    await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
     await database.seedTwoOrganizations();
     await addCompanies("org_a", ["acme"]);
   });
@@ -159,30 +155,6 @@ describe("FieldValuesService", () => {
       runs_on: null,
     });
     expect(await database.rows("SELECT id FROM field_value")).toHaveLength(0);
-  });
-
-  it("fills only blanks when asked to, and says what it left alone", async () => {
-    await addField({ label: "Runs on" });
-    await addField({ label: "Region" });
-    await FieldValuesService.setValues("org_a", "COMPANY", "acme", {
-      runs_on: "AWS",
-    });
-
-    const result = await FieldValuesService.setValues(
-      "org_a",
-      "COMPANY",
-      "acme",
-      { runs_on: "GCP", region: "EU" },
-      { onlyIfEmpty: true },
-    );
-
-    expect(result).toEqual({ written: ["region"], skipped: ["runs_on"] });
-    const values = await FieldValuesService.recordFields(
-      "org_a",
-      "COMPANY",
-      "acme",
-    );
-    expect(values.map((field) => field.value)).toEqual(["AWS", "EU"]);
   });
 
   it("reads table values for a page of records larger than one query", async () => {

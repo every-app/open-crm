@@ -65,7 +65,6 @@ export function SuggestedFields({
           options: ("options" in template ? template.options : []).map(
             (label) => ({ label }),
           ),
-          agentFilled: template.type === "SELECT",
         },
       }),
     onSuccess: onAdded,

@@ -1,12 +1,11 @@
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 
-// Whether the CRM may fetch a URL a model asked for (team agents' web_fetch).
+// Whether the CRM may fetch a host (website tracking's installation check).
 // The Worker's global_fetch_strictly_public flag only sends a fetch to the
 // Worker's own zone through Cloudflare's front door, not straight to its
 // origin; it checks no address, and nothing here resolves a name. This
 // refuses, before anything is fetched:
 //
-// - anything but https, and a URL carrying credentials;
 // - an IP address for a host (a page is fetched by its name, and https to an
 //   address can't show a certificate for it), localhost, and a name with no
 //   dot;
@@ -33,19 +32,9 @@ async function gatewayHosts(): Promise<string[]> {
   return hosts;
 }
 
-/** Why `url` may not be fetched for a model, or null when it may. */
-export async function refusedUrl(url: URL): Promise<string | null> {
-  if (url.protocol !== "https:") return "Only https:// pages can be read.";
-  if (url.username || url.password) {
-    return "A URL with credentials in it can't be read.";
-  }
-  return refusedHost(url);
-}
-
 /**
  * Why `url`'s host may not be fetched at all (an address, a local name, the
- * gateway's hosts), or null when it may. The agent's own reads of logos and
- * pages (fetchPublic) check every redirect with it.
+ * gateway's hosts), or null when it may.
  */
 export async function refusedHost(url: URL): Promise<string | null> {
   const host = url.hostname.toLowerCase().replace(/\.$/, "");

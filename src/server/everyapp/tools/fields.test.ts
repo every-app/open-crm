@@ -14,11 +14,6 @@ vi.mock("cloudflare:workers", () => ({
 }));
 vi.mock("@/db", () => ({ db: testDb.db }));
 vi.mock("@/db/runBatch", () => testDb.runBatchModule);
-vi.mock("@/server/features/agent/poke", () => ({ pokeDispatcher: vi.fn() }));
-vi.mock("@/server/features/team-agents/runtime/poke", () => ({
-  pokeEvents: vi.fn(),
-  pokeRuns: vi.fn(),
-}));
 
 import {
   ana,
@@ -45,7 +40,6 @@ describe("custom field tools", () => {
       label: "Segment",
       type: "SELECT",
       options: [{ label: "Enterprise" }, { label: "SMB" }],
-      agentFilled: false,
       showOnTable: true,
     };
     expect(await failure("create_field", segment, { as: member })).toBe(
@@ -56,7 +50,6 @@ describe("custom field tools", () => {
       entity: "COMPANY",
       label: "Account manager",
       type: "USER",
-      agentFilled: false,
       showOnTable: true,
     });
     const id = await idFrom("create_company", { name: "Hooli" });
@@ -129,7 +122,6 @@ describe("custom field tools", () => {
         entity,
         label: "Champion",
         type: "USER",
-        agentFilled: false,
       });
     }
     // A member's first call makes them one of the CRM's members.
@@ -192,7 +184,6 @@ describe("custom field tools", () => {
         entity: "COMPANY",
         label: "Champion",
         type: "USER",
-        agentFilled: false,
       },
       { as: bo },
     );
@@ -208,23 +199,5 @@ describe("custom field tools", () => {
         `SELECT id FROM field_value WHERE organization_id = 'org_b'`,
       ),
     ).toEqual([]);
-  });
-
-  it("a value given at creation isn't queued for the research agent to find", async () => {
-    await call("create_field", {
-      entity: "COMPANY",
-      label: "Founded",
-      type: "NUMBER",
-    });
-    const given = await idFrom("create_company", {
-      name: "Endframe",
-      fields: { founded: 2014 },
-    });
-    const blank = await idFrom("create_company", { name: "Nucleus" });
-    expect(
-      await testDb.rows(
-        `SELECT company_id FROM agent_task WHERE kind = 'field-backfill' AND company_id IN ('${given}', '${blank}')`,
-      ),
-    ).toEqual([{ company_id: blank }]);
   });
 });

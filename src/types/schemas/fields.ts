@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { FIELD_ENTITIES, FIELD_TYPES } from "@/shared/crm-enums";
 import {
-  FIELD_BRIEF_MAX,
   FIELD_LABEL_MAX,
   FIELD_OPTION_LABEL_MAX,
   FIELD_OPTIONS_MAX,
@@ -35,16 +34,11 @@ const label = z
   .min(1, "A field needs a label.")
   .max(FIELD_LABEL_MAX);
 
-// Empty means "work from the label and type alone"; the service stores null.
-const agentBrief = z.string().trim().max(FIELD_BRIEF_MAX).nullable();
-
 export const createFieldSchema = z.object({
   entity: fieldEntitySchema,
   label,
   type: z.enum(FIELD_TYPES),
   options: z.array(fieldOptionInputSchema).max(FIELD_OPTIONS_MAX).default([]),
-  agentFilled: z.boolean().default(true),
-  agentBrief: agentBrief.default(null),
   required: z.boolean().default(false),
   showOnSheet: z.boolean().default(true),
   showOnTable: z.boolean().default(false),
@@ -59,8 +53,6 @@ export const updateFieldSchema = z.object({
   label: label.optional(),
   type: z.enum(FIELD_TYPES).optional(),
   options: z.array(fieldOptionInputSchema).max(FIELD_OPTIONS_MAX).optional(),
-  agentFilled: z.boolean().optional(),
-  agentBrief: agentBrief.optional(),
   required: z.boolean().optional(),
   showOnSheet: z.boolean().optional(),
   showOnTable: z.boolean().optional(),

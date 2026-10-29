@@ -1,5 +1,4 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
-import { enrichmentRefetchInterval } from "@/client/features/records/EnrichmentStatus";
 import {
   companyOptions,
   getCompany,
@@ -22,16 +21,12 @@ export const companyListQueryOptions = (input: CompanyListInput) =>
     queryFn: () => listCompanies({ data: input }),
     // A new page or filter keeps the rows on screen until it arrives.
     placeholderData: keepPreviousData,
-    refetchInterval: (query) =>
-      enrichmentRefetchInterval(query.state.data?.rows ?? []),
   });
 
 export const companyQueryOptions = (id: string) =>
   queryOptions({
     queryKey: companyKeys.detail(id),
     queryFn: () => getCompany({ data: { id } }),
-    refetchInterval: (query) =>
-      enrichmentRefetchInterval(query.state.data ? [query.state.data] : []),
   });
 
 /** Live companies whose name or domain contains `q`, for pickers. */

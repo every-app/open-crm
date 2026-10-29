@@ -13,8 +13,8 @@ export default defineConfig((ctx) => {
     manifest,
     entrypoint,
     ctx,
-    // The research agent's dispatcher: leases due tasks every minute
-    // (src/server/features/agent/dispatch.ts).
+    // The minute cron: mailbox syncs and the hourly and daily upkeep
+    // (src/server/cron.ts).
     crons: ["* * * * *"],
   });
   return {
@@ -26,8 +26,9 @@ export default defineConfig((ctx) => {
       ],
       env: {
         ...worker.env,
-        // Logos and photographs the agent copies so they outlive their
-        // source, in a bucket named after the app's Worker.
+        // Logos and photographs the research agent the CRM used to have
+        // copied so they outlive their source, in a bucket named after the
+        // app's Worker. Records still point at them (src/server/lib/images.ts).
         R2: bindings.r2({ name: worker.name }),
       },
     },

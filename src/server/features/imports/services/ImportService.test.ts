@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
-import { PRIORITY } from "@/shared/agent-tasks";
 import type { ImportChunkInput } from "@/types/schemas/imports";
 
 // CSV import: duplicates are found through partial unique
@@ -27,7 +25,6 @@ function chunk(
   return {
     entity,
     duplicates: "skip",
-    research: false,
     dryRun: false,
     rows: rows.map((values, index) => ({ line: index + 2, values })),
     ...options,
@@ -40,7 +37,7 @@ const outcomes = (result: { results: { outcome: string }[] }) =>
 describe("ImportService", () => {
   beforeEach(async () => {
     await database.exec(
-      `DELETE FROM agent_task; DELETE FROM field_value; DELETE FROM activity; DELETE FROM deal; DELETE FROM contact; DELETE FROM company; DELETE FROM workspace; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
+      `DELETE FROM field_value; DELETE FROM activity; DELETE FROM deal; DELETE FROM contact; DELETE FROM company; DELETE FROM workspace; DELETE FROM member; DELETE FROM organization; DELETE FROM "user";`,
     );
     await database.seedTwoOrganizations();
   });
@@ -228,7 +225,7 @@ describe("ImportService", () => {
     ]);
   });
 
-  it("writes nothing on a dry run, and paces the research for what it creates", async () => {
+  it("writes nothing on a dry run", async () => {
     const rows = [
       { name: "Acme", domain: "acme.com" },
       { name: "Globex", domain: "globex.com" },
@@ -244,33 +241,5 @@ describe("ImportService", () => {
     expect(await database.rows("SELECT count(*) AS n FROM company")).toEqual([
       { n: 0 },
     ]);
-
-    await ImportService.importChunk(
-      A,
-      chunk("COMPANY", rows, { research: true }),
-    );
-    const tasks = z
-      .array(
-        z.object({
-          kind: z.string(),
-          priority: z.number(),
-          due_at: z.string(),
-        }),
-      )
-      .parse(
-        await database.rows(
-          "SELECT kind, priority, due_at FROM agent_task WHERE organization_id = 'org_a' ORDER BY kind, due_at",
-        ),
-      );
-    expect(tasks.map((task) => [task.kind, task.priority])).toEqual([
-      ["brand", PRIORITY.importedBrand],
-      ["brand", PRIORITY.importedBrand],
-      ["company-profile", PRIORITY.imported],
-      ["company-profile", PRIORITY.imported],
-    ]);
-    const [first, second] = tasks
-      .filter((task) => task.kind === "company-profile")
-      .map((task) => Date.parse(task.due_at));
-    expect(second - first).toBe(30_000);
   });
 });

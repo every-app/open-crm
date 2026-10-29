@@ -2,7 +2,7 @@ import { z } from "zod";
 import { RECORD_KINDS } from "@/shared/records";
 
 // The timeline: what happened on a company, contact or deal (notes, calls,
-// emails, meetings, tasks, stage changes, the agent's findings), and the
+// emails, meetings, tasks, stage changes, automated entries), and the
 // tasks people set themselves.
 
 /** What a person logs from a record's timeline. */

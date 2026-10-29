@@ -125,7 +125,6 @@ export async function importCompanies(
         existing.set(key, inserted.id);
         // Another request added the domain first: it's a duplicate.
         if (!inserted.created) return "skipped";
-        run.created.COMPANY.push(inserted.id);
         await FieldValueRepository.write(
           run.organizationId,
           "COMPANY",

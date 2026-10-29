@@ -2,7 +2,6 @@ import { useState, type ReactNode } from "react";
 import {
   Archive,
   ChevronDown,
-  RefreshCw,
   Trash2,
   Undo2,
   UserRound,
@@ -27,8 +26,8 @@ import { ownerIdOf, useOwnerOptions } from "@/client/features/records/owners";
 import { UNASSIGNED, type BulkResult } from "@/types/schemas/records";
 
 // What a list does to its selected rows, from the Actions menu that takes
-// the toolbar's place while rows are selected: live ones get an owner, the
-// agent, or the archive; archived ones come back or (owners and admins) go
+// the toolbar's place while rows are selected: live ones get an owner or the
+// archive; archived ones come back or (owners and admins) go
 // for good.
 
 export type RecordNoun = { one: string; many: string };
@@ -103,7 +102,6 @@ export function RecordBulkMenu({
   onOpenChange,
   ownerRequired = false,
   onAssignOwner,
-  onEnrich,
   onArchive,
   onRestore,
   onPurge,
@@ -124,8 +122,6 @@ export function RecordBulkMenu({
   /** Records that always have an owner (deals) aren't offered "Nobody". */
   ownerRequired?: boolean;
   onAssignOwner: (ownerId: string | null) => void;
-  /** Companies and contacts send the agent; deals have no enrichment. */
-  onEnrich?: () => void;
   onArchive: () => void;
   onRestore: () => void;
   onPurge: () => void;
@@ -188,12 +184,6 @@ export function RecordBulkMenu({
                 ))}
               </BulkSubmenu>
               {children}
-              {onEnrich ? (
-                <DropdownMenuItem onClick={onEnrich}>
-                  <RefreshCw />
-                  Refresh research
-                </DropdownMenuItem>
-              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onArchive}>
                 <Archive />

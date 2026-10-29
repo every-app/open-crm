@@ -176,7 +176,6 @@ export async function importContacts(
           throw error;
         }
         existing.set(key, id);
-        run.created.CONTACT.push(id);
         await FieldValueRepository.write(
           run.organizationId,
           "CONTACT",

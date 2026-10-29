@@ -127,40 +127,20 @@ async function checkValues(
 }
 
 /**
- * Sets custom field values on one record, by field key, for people and the
- * agent: every value is checked (checkValues) before any is written, then
- * they are written together.
- *
- * With `onlyIfEmpty` (the agent filling blanks), a value is written only
- * where the record has none, so nobody's value is ever overwritten; the keys
- * it left alone come back as `skipped`.
+ * Sets custom field values on one record, by field key: every value is
+ * checked (checkValues) before any is written, then they are written
+ * together. The keys written.
  */
 async function setValues(
   organizationId: string,
   entity: FieldEntity,
   recordId: string,
   values: Record<string, unknown>,
-  { onlyIfEmpty = false }: { onlyIfEmpty?: boolean } = {},
-): Promise<{ written: string[]; skipped: string[] }> {
+): Promise<{ written: string[] }> {
   await requireRecord(organizationId, entity, recordId);
   const writes = await checkValues(organizationId, entity, values);
-
-  if (!onlyIfEmpty) {
-    await FieldValueRepository.write(organizationId, entity, recordId, writes);
-    return { written: writes.map((write) => write.key), skipped: [] };
-  }
-  const written: string[] = [];
-  const skipped: string[] = [];
-  for (const write of writes) {
-    const inserted = await FieldValueRepository.insertIfEmpty(
-      organizationId,
-      entity,
-      recordId,
-      write,
-    );
-    (inserted ? written : skipped).push(write.key);
-  }
-  return { written, skipped };
+  await FieldValueRepository.write(organizationId, entity, recordId, writes);
+  return { written: writes.map((write) => write.key) };
 }
 
 /**

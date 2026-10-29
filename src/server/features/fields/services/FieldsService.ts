@@ -4,7 +4,6 @@ import {
   type OptionChanges,
 } from "@/server/features/fields/repositories/FieldDefinitionRepository";
 import { FieldValueRepository } from "@/server/features/fields/repositories/FieldValueRepository";
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
 import { AppError } from "@/server/lib/errors";
 import {
@@ -27,11 +26,6 @@ type FieldCoverage = {
   /** Every value the field holds, archived records' included. */
   values: number;
 };
-
-// "Ask the agent to fill" queues records in chunks, up to a cap per ask (the
-// CRM's maxRecordsPerRun): each record is a row in the agent's queue.
-const BACKFILL_CHUNK = 100;
-const BACKFILL_MAX_RECORDS = 500;
 
 async function requireDefinition(
   organizationId: string,
@@ -76,65 +70,7 @@ async function list(
   return definitions.map(serializeField);
 }
 
-/**
- * Queues the agent to fill `definition` on live records that have no value,
- * a chunk at a time up to the cap. Records that already have an open
- * backfill get this field's key merged in.
- */
-async function queueFill(
-  organizationId: string,
-  definition: FieldDefinitionWithOptions,
-  reason: string,
-): Promise<{ queued: number; merged: number }> {
-  let queued = 0;
-  let merged = 0;
-  let after: string | undefined;
-  for (let seen = 0; seen < BACKFILL_MAX_RECORDS; ) {
-    const limit = Math.min(BACKFILL_CHUNK, BACKFILL_MAX_RECORDS - seen);
-    const ids = await FieldValueRepository.missingRecordIds(
-      organizationId,
-      definition.entity,
-      definition.id,
-      { after, limit },
-    );
-    if (ids.length === 0) break;
-    const result = await AgentTaskService.fieldBackfillRecords(
-      organizationId,
-      definition.entity,
-      [definition.key],
-      ids,
-      reason,
-    );
-    queued += result.queued;
-    merged += result.merged;
-    seen += ids.length;
-    after = ids.at(-1);
-    if (ids.length < limit) break;
-  }
-  return { queued, merged };
-}
-
-/** A fill nobody asked for (a new or re-briefed field) never fails the save. */
-async function queueFillQuietly(
-  organizationId: string,
-  definition: FieldDefinitionWithOptions,
-  reason: string,
-): Promise<void> {
-  try {
-    await queueFill(organizationId, definition, reason);
-  } catch (error) {
-    console.error(
-      "[fields] could not queue the agent to fill a field",
-      { organizationId, fieldId: definition.id },
-      error,
-    );
-  }
-}
-
-/**
- * Adds a field. Its key comes from the label and never changes; a field the
- * agent fills is queued for the records that exist.
- */
+/** Adds a field. Its key comes from the label and never changes. */
 async function create(
   organizationId: string,
   input: CreateFieldInput,
@@ -164,8 +100,6 @@ async function create(
         key,
         label: input.label,
         type: input.type,
-        agentFilled: input.agentFilled,
-        agentBrief: input.agentBrief || null,
         required: input.required,
         showOnSheet: input.showOnSheet,
         showOnTable: input.showOnTable,
@@ -187,15 +121,7 @@ async function create(
     throw error;
   }
 
-  const definition = await requireDefinition(organizationId, id);
-  if (definition.agentFilled) {
-    await queueFillQuietly(
-      organizationId,
-      definition,
-      `New field: ${definition.label}`,
-    );
-  }
-  return serializeField(definition);
+  return serializeField(await requireDefinition(organizationId, id));
 }
 
 function optionChanges(
@@ -228,7 +154,6 @@ function optionChanges(
 /**
  * Changes a field. Its type can only change while it holds no values;
  * removing a select's option retires it (values that use it keep reading).
- * A new brief, or the agent turned on, queues the agent again.
  */
 async function update(
   organizationId: string,
@@ -264,9 +189,6 @@ async function update(
     {
       label: input.label,
       type: input.type,
-      agentFilled: input.agentFilled,
-      agentBrief:
-        input.agentBrief === undefined ? undefined : input.agentBrief || null,
       required: input.required,
       showOnSheet: input.showOnSheet,
       showOnTable: input.showOnTable,
@@ -275,23 +197,7 @@ async function update(
     options,
   );
 
-  const definition = await requireDefinition(organizationId, existing.id);
-  const briefChanged = definition.agentBrief !== existing.agentBrief;
-  const turnedOn = definition.agentFilled && !existing.agentFilled;
-  if (
-    definition.agentFilled &&
-    definition.archivedAt === null &&
-    (briefChanged || turnedOn)
-  ) {
-    await queueFillQuietly(
-      organizationId,
-      definition,
-      briefChanged
-        ? `Brief changed: ${definition.label}`
-        : `Turned on: ${definition.label}`,
-    );
-  }
-  return serializeField(definition);
+  return serializeField(await requireDefinition(organizationId, existing.id));
 }
 
 /** Puts an entity's live fields in the order of `ids`, which names each once. */
@@ -364,71 +270,6 @@ async function coverage(
   return { ...live, values };
 }
 
-/** "Ask the agent to fill": queues the live records still missing a value. */
-async function fill(
-  organizationId: string,
-  id: string,
-): Promise<{ queued: number; merged: number }> {
-  const definition = await requireDefinition(organizationId, id);
-  if (!definition.agentFilled || definition.archivedAt !== null) {
-    throw new AppError(
-      "VALIDATION_ERROR",
-      "The agent does not fill this field, so there is nothing to run.",
-    );
-  }
-  return queueFill(organizationId, definition, "Asked to fill the rest");
-}
-
-/**
- * For a record that was just created: the fields the agent fills that it
- * wasn't created with a value for, queued once for all of them, where the
- * agent researches on its own (Research automatically). Never fails the
- * caller.
- */
-async function queueFillForNewRecord(
-  organizationId: string,
-  entity: FieldEntity,
-  recordId: string,
-): Promise<void> {
-  try {
-    if (!(await AgentTaskService.researchesAutomatically(organizationId))) {
-      return;
-    }
-    const agentFilled = (
-      await FieldDefinitionRepository.list(organizationId, entity, {
-        includeArchived: false,
-      })
-    ).filter((definition) => definition.agentFilled);
-    if (agentFilled.length === 0) return;
-    const given = new Set(
-      (
-        await FieldValueRepository.listForRecord(
-          organizationId,
-          entity,
-          recordId,
-        )
-      ).map((value) => value.fieldId),
-    );
-    const keys = agentFilled
-      .filter((definition) => !given.has(definition.id))
-      .map((definition) => definition.key);
-    if (keys.length === 0) return;
-    await AgentTaskService.fieldBackfillRecords(
-      organizationId,
-      entity,
-      keys,
-      [recordId],
-      "New record",
-    );
-  } catch (error) {
-    console.error(
-      "[fields] could not queue the agent for a new record",
-      { organizationId, entity, recordId },
-      error,
-    );
-  }
-}
-
 export const FieldsService = {
   list,
   create,
@@ -438,6 +279,4 @@ export const FieldsService = {
   restore,
   remove,
   coverage,
-  fill,
-  queueFillForNewRecord,
 };

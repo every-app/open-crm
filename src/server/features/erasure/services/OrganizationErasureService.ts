@@ -1,12 +1,7 @@
 import { env } from "cloudflare:workers";
-import { getAgentByName } from "agents";
-import type { CrmAgent } from "@/server/features/agent/CrmAgent";
-import { parseSessionName } from "@/server/features/agent/sessionName";
 import { ErasureRepository } from "@/server/features/erasure/repositories/ErasureRepository";
 import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { ConnectionService } from "@/server/features/mailbox/services/ConnectionService";
-import { slackCall } from "@/server/features/slack/lib/slackApi";
-import { SlackRepository } from "@/server/features/slack/repositories/SlackRepository";
 
 // Erasing one organization for good, for the operator's script
 // (scripts/erase-organization.ts, docs/maintainers/runbooks/erase-organization.md).
@@ -16,32 +11,18 @@ import { SlackRepository } from "@/server/features/slack/repositories/SlackRepos
 //
 // 1. stops what would write more of the organization (ErasureRepository.freeze);
 // 2. withdraws its grants: every member's mailbox, as Disconnect does
-//    (Google's grant only where no other workspace uses the account), and
-//    Slack's tokens (auth.revoke);
-// 3. destroys its agents' Durable Objects (chats, research, runs), then
-//    forgets the rows that named them;
-// 4. deletes its R2 objects (logos and photos, builder attachments);
-// 5. deletes its rows, the largest tables in batches, then the organization,
+//    (Google's grant only where no other workspace uses the account);
+// 3. deletes its R2 objects (logos and photos, builder attachments);
+// 4. deletes its rows, the largest tables in batches, then the organization,
 //    which cascades to the rest, with its members' users.
 //
 // Every step is idempotent, so a call that fails is simply made again.
 
 const BUDGET_MS = 20_000;
-const SESSIONS_PER_PASS = 50;
 const ROWS_PER_PASS = 2_000;
-
-/** Slack's answers for a token that no longer works: nothing to revoke. */
-const SLACK_GONE = new Set([
-  "invalid_auth",
-  "token_revoked",
-  "account_inactive",
-  "not_authed",
-]);
 
 type Erased = {
   mailboxes: number;
-  slackTokens: number;
-  sessions: number;
   objects: number;
   users: number;
 };
@@ -73,16 +54,13 @@ async function objectCount(organizationId: string): Promise<number> {
 
 /** What erasing the organization would remove: the dry run. */
 async function inventory(organizationId: string) {
-  const [exists, rows, members, mailboxes, slack, sessions, objects] =
-    await Promise.all([
-      ErasureRepository.organizationExists(organizationId),
-      ErasureRepository.rowCounts(organizationId),
-      ErasureRepository.members(organizationId),
-      ConnectionRepository.listForOrganization(organizationId),
-      SlackRepository.getConnection(organizationId),
-      ErasureRepository.sessionNames(organizationId, 10_000),
-      objectCount(organizationId),
-    ]);
+  const [exists, rows, members, mailboxes, objects] = await Promise.all([
+    ErasureRepository.organizationExists(organizationId),
+    ErasureRepository.rowCounts(organizationId),
+    ErasureRepository.members(organizationId),
+    ConnectionRepository.listForOrganization(organizationId),
+    objectCount(organizationId),
+  ]);
   return {
     organizationId,
     exists,
@@ -98,43 +76,8 @@ async function inventory(organizationId: string) {
       provider: one.provider,
       accountEmail: one.accountEmail,
     })),
-    slack: slack ? { teamName: slack.teamName } : null,
-    sessions: sessions.length,
     objects,
   };
-}
-
-async function revokeSlack(organizationId: string): Promise<number> {
-  const tokens = await SlackRepository.getTokens(organizationId);
-  if (!tokens) return 0;
-  let revoked = 0;
-  for (const token of [tokens.botToken, tokens.userToken]) {
-    if (!token) continue;
-    const reply = await slackCall(token, "auth.revoke");
-    if (!reply.ok && !SLACK_GONE.has(reply.error ?? "")) {
-      throw new Error(`Slack did not revoke a token: ${reply.error}`);
-    }
-    revoked += 1;
-  }
-  await SlackRepository.deleteConnection(organizationId);
-  return revoked;
-}
-
-function agents(): DurableObjectNamespace<CrmAgent> {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- CRM_AGENT is always the CrmAgent class (everyapp.config.ts); only its generated type lacks the class
-  return env.CRM_AGENT as unknown as DurableObjectNamespace<CrmAgent>;
-}
-
-/** Empties a session's Durable Object: its messages, state and alarms. */
-async function destroySession(name: string) {
-  const agent = await getAgentByName(agents(), name);
-  try {
-    await agent.destroy();
-  } catch (error) {
-    // destroy() ends the object once its storage is gone, which can reach
-    // the caller as this error.
-    if (!String(error).includes("destroyed")) throw error;
-  }
 }
 
 /** The next bounded step of erasing the organization. */
@@ -144,8 +87,6 @@ async function eraseNext(
   const deadline = Date.now() + BUDGET_MS;
   const erased: Erased = {
     mailboxes: 0,
-    slackTokens: 0,
-    sessions: 0,
     objects: 0,
     users: 0,
   };
@@ -162,23 +103,6 @@ async function eraseNext(
       one.provider,
     );
     erased.mailboxes += 1;
-  }
-  erased.slackTokens = await revokeSlack(organizationId);
-
-  for (;;) {
-    if (late()) return { done: false, erased };
-    const names = await ErasureRepository.sessionNames(
-      organizationId,
-      SESSIONS_PER_PASS,
-    );
-    if (names.length === 0) break;
-    for (const name of names) {
-      // Never another organization's object, whatever a row says.
-      if (parseSessionName(name)?.organizationId !== organizationId) continue;
-      await destroySession(name);
-      erased.sessions += 1;
-    }
-    await ErasureRepository.forgetSessions(organizationId, names);
   }
 
   const r2 = bucket();

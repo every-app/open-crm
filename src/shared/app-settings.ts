@@ -6,7 +6,7 @@
 const APP_ID = "crm";
 
 /**
- * The key mailbox and Slack tokens are encrypted under
+ * The key mailbox tokens are encrypted under
  * (src/server/lib/tokenCrypto.ts): nothing connects until it is set.
  */
 export const TOKEN_KEY_SETTING = "TOKEN_ENCRYPTION_KEY";

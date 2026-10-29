@@ -72,7 +72,7 @@ export function DashboardPage() {
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6">
         <PageHeader
           title="Overview"
-          description="Pipeline, overdue tasks and recent activity, including the agent's research."
+          description="Pipeline, overdue tasks and recent activity."
           actions={
             summary?.multipleOwners ? (
               <Select

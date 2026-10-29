@@ -210,7 +210,6 @@ export async function importDeals(
           source: "IMPORT",
         });
         existing.set(key, inserted.id);
-        run.created.DEAL.push(inserted.id);
         await FieldValueRepository.write(
           run.organizationId,
           "DEAL",

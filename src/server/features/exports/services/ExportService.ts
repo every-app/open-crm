@@ -216,7 +216,7 @@ const DEAL: Column<DealRow>[] = [
 
 type ActivityRow = Rows<typeof ExportRepository.activities>;
 
-/** What an activity is on, and who wrote it (none for the agent). */
+/** What an activity is on, and who wrote it (none for an automated entry). */
 const ON: Column<ActivityRow>[] = [
   ["Company", (row) => row.companyName],
   [

@@ -2,7 +2,6 @@ import {
   BookUser,
   CircleDollarSign,
   LayoutDashboard,
-  Bot,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -37,11 +36,6 @@ export const navItems: NavItem[] = [
     label: "Deals",
     icon: CircleDollarSign,
     link: linkOptions({ to: "/deals" }),
-  },
-  {
-    label: "Agents",
-    icon: Bot,
-    link: linkOptions({ to: "/agents" }),
   },
 ];
 

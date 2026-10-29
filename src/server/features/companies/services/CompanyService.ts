@@ -1,21 +1,16 @@
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
-import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CompanyDirectoryRepository } from "@/server/features/companies/repositories/CompanyDirectoryRepository";
 import { CompanyRelationsRepository } from "@/server/features/companies/repositories/CompanyRelationsRepository";
 import { CompanyRepository } from "@/server/features/companies/repositories/CompanyRepository";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
-import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   assertOwner,
   blankToNull,
   bulkOutcome,
   fieldWrites,
   isUniqueViolation,
-  recordAgentStates,
   runBulk,
 } from "@/server/features/records/recordRules";
-import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { AppError, UserFacingError } from "@/server/lib/errors";
 import { normalizeDomain } from "@/shared/domain";
@@ -28,8 +23,7 @@ import type { BulkResult } from "@/types/schemas/records";
 
 // Companies: the accounts in the pipeline. A live company's domain is unique
 // in its organization (an archived one keeps its domain, so a restore can
-// conflict). A new company, or one whose domain changed, sends the research
-// agent to fetch its brand and write its profile.
+// conflict).
 
 function notFound(id: string): never {
   throw new AppError("NOT_FOUND", `No company with id ${id}.`);
@@ -74,15 +68,14 @@ async function listCompanies(organizationId: string, input: CompanyListInput) {
     ),
   ]);
   const ids = rows.map((row) => row.id);
-  const [agent, fields] = await Promise.all([
-    recordAgentStates(organizationId, "company", ids),
-    FieldValuesService.tableValues(organizationId, "COMPANY", ids),
-  ]);
+  const fields = await FieldValuesService.tableValues(
+    organizationId,
+    "COMPANY",
+    ids,
+  );
   return {
     rows: rows.map((row) => ({
       ...row,
-      queued: agent.queued.has(row.id),
-      waiting: agent.waiting.has(row.id),
       fields: fields[row.id] ?? {},
     })),
     total,
@@ -94,15 +87,13 @@ export type CompanyListRow = Awaited<
   ReturnType<typeof listCompanies>
 >["rows"][number];
 
-/** A company with what its sheet shows: owner, people, deals, queue state. */
+/** A company with what its sheet shows: owner, people and deals. */
 async function getCompany(organizationId: string, id: string) {
   const { organizationId: _, ...found } = await requireCompany(
     organizationId,
     id,
   );
-  // Opening one a website form or a calendar invite added lets its research go.
-  await ResearchHoldService.opened(organizationId, "company", found);
-  const [contacts, deals, dealCount, primaryContact, agent, workspace] =
+  const [contacts, deals, dealCount, primaryContact, workspace] =
     await Promise.all([
       CompanyRelationsRepository.listContacts(organizationId, id),
       CompanyRelationsRepository.listDeals(organizationId, id),
@@ -113,7 +104,6 @@ async function getCompany(organizationId: string, id: string) {
             found.primaryContactId,
           )
         : null,
-      recordAgentStates(organizationId, "company", [id]),
       WorkspaceRepository.getOrCreate(organizationId),
     ]);
   return {
@@ -123,8 +113,6 @@ async function getCompany(organizationId: string, id: string) {
     deals,
     // Archived deals too: deleting the company forever deletes them all.
     dealCount,
-    queued: agent.queued.has(id),
-    waiting: agent.waiting.has(id),
     // Deal totals are summed in the workspace's reporting currency.
     reportingCurrency: workspace.reportingCurrency ?? "USD",
   };
@@ -154,7 +142,6 @@ async function createCompany(
         website: domain ? `https://${domain}` : null,
         ownerId: input.ownerId ?? null,
       },
-      [{ type: "company.created", data: { name, domain } }],
       fields,
     );
   } catch (error) {
@@ -169,9 +156,6 @@ async function createCompany(
     );
   }
   console.log("[companies] created", { organizationId, companyId: id, domain });
-  pokeEvents(organizationId);
-  await AgentTaskService.companyAddedByPerson(organizationId, id);
-  await FieldsService.queueFillForNewRecord(organizationId, "COMPANY", id);
   return { id, name, domain };
 }
 
@@ -206,16 +190,12 @@ async function updateCompany(
     patch.ownerId = ownerId;
   }
   const fields = await fieldWrites(organizationId, "COMPANY", input.fields, id);
-  let domainChanged = false;
   if (domain !== undefined) {
     patch.domain = domainOf(domain);
     const current = await requireCompany(organizationId, id);
     if (current.domain !== patch.domain) {
-      // Everything known was about a different company.
-      domainChanged = true;
+      // The logo was a different company's.
       Object.assign(patch, {
-        enrichmentStatus: "PENDING",
-        enrichmentError: null,
         iconUrl: null,
         iconDarkUrl: null,
         iconTone: null,
@@ -234,15 +214,7 @@ async function updateCompany(
     }
     throw error;
   }
-  if (!updated) notFound(id);
-  if (domainChanged) {
-    await AgentTaskService.companyAddedByPerson(
-      organizationId,
-      id,
-      "Domain changed: anything known was about a different company",
-    );
-  }
-  return updated;
+  return updated ?? notFound(id);
 }
 
 async function archiveCompany(organizationId: string, id: string) {
@@ -295,28 +267,6 @@ async function purgeCompany(organizationId: string, id: string) {
   }
   console.log("[companies] purged", { organizationId, companyId: id });
   return { id, name: found.name };
-}
-
-/**
- * A person asked the agent to look at the company again. True when anything
- * was queued; false when the agent is already on it.
- */
-async function enrichCompany(organizationId: string, id: string) {
-  const found = await requireCompany(organizationId, id);
-  const queued = await AgentTaskService.companyRequested(
-    organizationId,
-    id,
-    "A person asked for a fresh look",
-  );
-  if (queued) {
-    await CompanyRepository.markEnrichmentRequested(
-      organizationId,
-      id,
-      found.updatedAt,
-    );
-  }
-  await ResearchHoldService.asked(organizationId, "company", id);
-  return { id, queued };
 }
 
 async function setPrimaryContact(
@@ -372,10 +322,6 @@ async function bulkArchive(
   return bulkOutcome(unique.length, archived.length);
 }
 
-async function bulkEnrich(organizationId: string, ids: string[]) {
-  return runBulk(ids, (id) => enrichCompany(organizationId, id));
-}
-
 function bulkRestore(organizationId: string, ids: string[]) {
   return runBulk(ids, (id) => restoreCompany(organizationId, id));
 }
@@ -393,11 +339,9 @@ export const CompanyService = {
   archiveCompany,
   restoreCompany,
   purgeCompany,
-  enrichCompany,
   setPrimaryContact,
   bulkAssignOwner,
   bulkArchive,
-  bulkEnrich,
   bulkRestore,
   bulkPurge,
 };

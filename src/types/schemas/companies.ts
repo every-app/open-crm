@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ENRICHMENT_STATUSES, RECORD_SOURCES } from "@/shared/crm-enums";
+import { RECORD_SOURCES } from "@/shared/crm-enums";
 import { fieldValuesSchema } from "@/types/schemas/fields";
 import {
   ACTIVITY_WINDOWS,
@@ -28,11 +28,6 @@ export const companyListSchema = listInputSchema.extend({
   sort: z.enum(COMPANY_SORTS).default("createdAt"),
   dir: z.enum(SORT_DIRECTIONS).default("desc"),
   industry: facetFilterSchema,
-  /** Where the research agent is with them. */
-  enrichment: z
-    .array(z.enum(ENRICHMENT_STATUSES))
-    .max(ENRICHMENT_STATUSES.length)
-    .default([]),
   activity: z.enum(ACTIVITY_WINDOWS).optional(),
   /** How they came in: the MCP tools' filter (the list page has none). */
   source: z.array(z.enum(RECORD_SOURCES)).max(RECORD_SOURCES.length).optional(),

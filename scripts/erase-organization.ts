@@ -26,8 +26,6 @@ type Inventory = {
   members: unknown[];
   rows: Record<string, number>;
   mailboxes: unknown[];
-  slack: unknown;
-  sessions: number;
   objects: number;
 };
 
@@ -91,8 +89,6 @@ const nothingLeft = (inventory: Inventory) =>
   Object.keys(inventory.rows).length === 0 &&
   inventory.members.length === 0 &&
   inventory.mailboxes.length === 0 &&
-  inventory.slack === null &&
-  inventory.sessions === 0 &&
   inventory.objects === 0;
 
 async function main() {
@@ -153,7 +149,7 @@ async function main() {
         completedAt: new Date().toISOString(),
         organizationId,
         erased: totals,
-        verified: "No rows, members, connections, sessions or objects remain.",
+        verified: "No rows, members, connections or objects remain.",
         manual: ["Unset ERASURE_SECRET on the Worker."],
       },
       null,

@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/client/components/ui/select";
-import { Switch } from "@/client/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -220,45 +219,31 @@ export function ImportOptions({
   entity,
   duplicates,
   onDuplicatesChange,
-  research,
-  onResearchChange,
 }: {
   entity: FieldEntity;
   duplicates: ImportDuplicates;
   onDuplicatesChange: (value: ImportDuplicates) => void;
-  research: boolean;
-  onResearchChange: (value: boolean) => void;
 }) {
   return (
-    <div className="grid gap-5 sm:grid-cols-2">
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Duplicates</legend>
-        <p className="text-xs text-muted-foreground">
-          {DUPLICATE_RULES[entity]}
-        </p>
-        <RadioGroup
-          value={duplicates}
-          onValueChange={(value) =>
-            onDuplicatesChange(value === "update" ? "update" : "skip")
-          }
-        >
-          <Label className="flex items-center gap-2 text-sm font-normal">
-            <RadioGroupItem value="skip" />
-            Skip
-          </Label>
-          <Label className="flex items-center gap-2 text-sm font-normal">
-            <RadioGroupItem value="update" />
-            Update (blank cells change nothing)
-          </Label>
-        </RadioGroup>
-      </fieldset>
-      <div className="space-y-2">
-        <Label className="flex items-center gap-2 text-sm font-medium">
-          <Switch checked={research} onCheckedChange={onResearchChange} />
-          Research new records
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">Duplicates</legend>
+      <p className="text-xs text-muted-foreground">{DUPLICATE_RULES[entity]}</p>
+      <RadioGroup
+        value={duplicates}
+        onValueChange={(value) =>
+          onDuplicatesChange(value === "update" ? "update" : "skip")
+        }
+      >
+        <Label className="flex items-center gap-2 text-sm font-normal">
+          <RadioGroupItem value="skip" />
+          Skip
         </Label>
-      </div>
-    </div>
+        <Label className="flex items-center gap-2 text-sm font-normal">
+          <RadioGroupItem value="update" />
+          Update (blank cells change nothing)
+        </Label>
+      </RadioGroup>
+    </fieldset>
   );
 }
 

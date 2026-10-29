@@ -16,13 +16,3 @@ export async function refreshStatistics(): Promise<void> {
     durationMs: result.meta.duration,
   });
 }
-
-/** The database's size, for the dispatcher's health check. */
-export async function databaseSize(): Promise<{
-  provider: "d1";
-  sizeBytes: number;
-}> {
-  // D1 reports the database's size with every statement it runs.
-  const result = await db.run(sql`select 1`);
-  return { provider: "d1", sizeBytes: result.meta.size_after };
-}

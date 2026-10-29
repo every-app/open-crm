@@ -21,7 +21,7 @@ import {
 // contact or a deal is filed under their company too, so the company's
 // timeline tells the whole account's story. What a person logged is theirs
 // to change or delete, and any of it an owner's or admin's; captured mail
-// and meetings, stage changes and the agent's entries stay as they are.
+// and meetings, stage changes and automated entries stay as they are.
 
 type Actor = Pick<EnsuredUserContext, "organizationId" | "userId" | "role">;
 

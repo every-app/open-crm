@@ -1,6 +1,5 @@
 import { AuthRepository } from "@/server/auth/repositories/AuthRepository";
 import { ActivityRepository } from "@/server/features/activities/repositories/ActivityRepository";
-import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { MatchService } from "@/server/features/mailbox/services/MatchService";
@@ -24,9 +23,7 @@ import {
 // stored; filing it may decline, and the reason is kept on the row. It
 // applies the rules captured mail does (machine and automated addresses, our
 // own domains, deleted contacts and suppressed domains stay out), and bounds
-// a scripted form's damage with CONTACTS_PER_HOUR. Anyone can submit a form,
-// so a new contact and its company get no paid research until a person opens
-// one (ResearchHoldService).
+// a scripted form's damage with CONTACTS_PER_HOUR.
 
 type Submission = {
   id: string;
@@ -191,7 +188,6 @@ async function file(
       ),
       ownerId: null,
       source: "TRACKING",
-      researchHeldAt: ResearchHoldService.heldFrom("TRACKING"),
     });
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;

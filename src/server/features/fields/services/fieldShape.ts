@@ -5,7 +5,7 @@ import { FIELD_TYPE_LABELS, type FieldValueJson } from "@/shared/fields";
 
 export type FieldOption = { id: string; label: string; position: number };
 
-/** A custom field as the app, the API and the agent see it. */
+/** A custom field as the app and the API see it. */
 export type Field = {
   id: string;
   entity: FieldEntity;
@@ -13,8 +13,6 @@ export type Field = {
   label: string;
   type: FieldType;
   typeLabel: string;
-  agentFilled: boolean;
-  agentBrief: string | null;
   required: boolean;
   showOnSheet: boolean;
   showOnTable: boolean;
@@ -40,8 +38,6 @@ export function serializeField(definition: FieldDefinitionWithOptions): Field {
     label: definition.label,
     type: definition.type,
     typeLabel: FIELD_TYPE_LABELS[definition.type],
-    agentFilled: definition.agentFilled,
-    agentBrief: definition.agentBrief,
     required: definition.required,
     showOnSheet: definition.showOnSheet,
     showOnTable: definition.showOnTable,

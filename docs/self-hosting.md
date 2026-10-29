@@ -1,12 +1,12 @@
 # Self-hosting OpenCRM
 
-OpenCRM runs behind an Every App gateway, in your own Cloudflare account. This page covers installing it on your gateway, its keys, costs, local runs, operations, upgrades and troubleshooting.
+OpenCRM runs behind an Every App gateway, in your own Cloudflare account. This page covers installing it on your gateway, its settings, local runs, operations, upgrades and troubleshooting.
 
 ## What you need
 
 - **An Every App gateway.** The gateway is a Worker in your Cloudflare account that signs people in, decides who may open each app, and holds the provider keys apps use. If you don't have one yet, [Every App's docs](https://everyapp.com/docs) set it up: `pnpm everyapp setup` from a checkout of [every-app/every-app](https://github.com/every-app/every-app).
 - **A Cloudflare account on Workers Paid, with a domain on Cloudflare.** The gateway lives at a subdomain of it (for example `apps.your-company.com`) and the CRM one level below (`crm.apps.your-company.com`).
-- **R2 enabled** on the account, once, before the install (Cloudflare dashboard → R2 Object Storage → Get started). The agent copies logos and photos into an R2 bucket; without R2 the install stops with `R2_NOT_ENABLED`.
+- **R2 enabled** on the account, once, before the install (Cloudflare dashboard → R2 Object Storage → Get started). The CRM keeps logos and photos in an R2 bucket; without R2 the install stops with `R2_NOT_ENABLED`.
 - **Node.js 22.18 or newer**, and **pnpm 10**, for the Every App checkout. The CRM itself needs no checkout: the Every App SDK and CLI it builds with are the published packages `@every-app/sdk` and `everyapp`, pinned to one exact version in `package.json`.
 
 ## Install it
@@ -18,43 +18,17 @@ pnpm everyapp install https://github.com/every-app/open-crm
 pnpm everyapp configure crm
 ```
 
-The install registers the CRM with the gateway, creates its D1 database and R2 bucket, migrates the database, uploads the latest release and binds it to the gateway. `configure` then asks for each key the CRM needs, then the optional ones; it does the `secret set` commands on this page for you. When both are done, the CRM appears on your gateway for every member of your organization. Run the install command again later to update; your data stays.
+The install registers the CRM with the gateway, creates its D1 database and R2 bucket, migrates the database, uploads the latest release and binds it to the gateway. `configure` then asks for the CRM's optional settings; it does the `secret set` commands on this page for you. When both are done, the CRM appears on your gateway for every member of your organization. Run the install command again later to update; your data stays.
 
 To deploy a fork with your own changes instead, clone it next to your Every App checkout, run `pnpm install` in it, and from its directory run the checkout's CLI: `node ../every-app/packages/cli/bin/everyapp.js deploy`. A deploy also updates the gateway, which only a checkout can build.
 
-The CRM has four optional settings of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `TOKEN_ENCRYPTION_KEY`, `GITHUB_TOKEN`, `AGENT_MODEL` ([below](#give-the-agent-its-keys)) and `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). `pnpm everyapp configure crm` asks for each; any one can also be set alone with `pnpm everyapp secret set <NAME> --app crm`, from any directory. The CRM opens without them.
+The CRM has two optional settings of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `TOKEN_ENCRYPTION_KEY` and `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). `pnpm everyapp configure crm` asks for each; any one can also be set alone with `pnpm everyapp secret set <NAME> --app crm`, from any directory. The CRM opens without them.
 
-Before anyone connects mail, a calendar or Slack, give the CRM `TOKEN_ENCRYPTION_KEY`, the key it encrypts their tokens with: 32 or more random characters, for example `openssl rand -base64 32`. `pnpm everyapp configure crm` asks for it. Until it is set, each page under Settings → Connections says so. Keep it safe: if it changes or is lost, everyone connects again.
+Before anyone connects mail or a calendar, give the CRM `TOKEN_ENCRYPTION_KEY`, the key it encrypts their tokens with: 32 or more random characters, for example `openssl rand -base64 32`. `pnpm everyapp configure crm` asks for it. Until it is set, each page under Settings → Connections says so. Keep it safe: if it changes or is lost, everyone connects again.
 
-A GitHub token (any classic token with no scopes) raises GitHub's rate limit when the agent matches people to GitHub profiles:
+## Mail and calendar
 
-```bash
-pnpm everyapp secret set GITHUB_TOKEN --app crm
-```
-
-## Give the agent its keys
-
-The research agent's keys live on the gateway, never in the CRM. `pnpm everyapp configure crm` asks for each; to set one alone:
-
-| Setting                                             | What it unlocks                                                                                                                      | Command                                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| A model provider's key (`OPENROUTER_API_KEY` first) | The research agent and team agents: their model is the gateway's default, and any one provider's key is enough                       | `pnpm everyapp secret set OPENROUTER_API_KEY`, or another provider's key |
-| `OPENROUTER_API_KEY`                                | Web research (Perplexity's Sonar through OpenRouter); optional, and the same key serves the default model when it is the one you set | `pnpm everyapp secret set OPENROUTER_API_KEY`                            |
-| `CONTEXT_API_KEY`                                   | Company logos and brand data, LinkedIn profile lookups, and website extraction                                                       | `pnpm everyapp secret set CONTEXT_API_KEY`                               |
-
-Each command asks for the value at a hidden prompt, so the key never appears in your shell history. The change is live on the gateway at once, with no redeploy of the gateway or the CRM. The CRM notices a newly set key on its own, with no restart: work waiting for the model key starts within about ten minutes, and logos and photos waiting for the Context.dev key within about five.
-
-The agent runs on the gateway's default model: the gateway picks the provider whose key it holds (OpenRouter first), with that provider's default model. Pick another with `pnpm everyapp ai default <provider>[/<model>]` on the gateway (every app that takes the default follows it), or set a model id for the CRM alone (as the default provider names it):
-
-```bash
-pnpm everyapp secret set AGENT_MODEL --app crm
-```
-
-Web research still asks OpenRouter for zero retention and no data collection on every call. The agent's own calls go through the default, which sends no provider routing: on OpenRouter, set your key's data policy in [OpenRouter's privacy settings](https://openrouter.ai/settings/privacy) if prompts must not be retained (they carry captured mail).
-
-### Mail and calendar
-
-Members connect their own Gmail and Google Calendar, or Outlook, from Settings → Connections, and the CRM files their work conversations and meetings on companies and contacts. It only reads: it never sends, changes or drafts mail. The OAuth clients live on the gateway too, so set up whichever you want people to use:
+Members connect their own Gmail and Google Calendar, or Outlook, from Settings → Connections, and the CRM files their work conversations and meetings on companies and contacts. It only reads: it never sends, changes or drafts mail. The OAuth clients live on the gateway, so set up whichever you want people to use:
 
 1. **Google.** In the [Google Cloud console](https://console.cloud.google.com/apis/credentials), enable the Gmail API and the Google Calendar API, create an OAuth client of type _Web application_, and add the redirect URI `https://<crm host>/integrations/google/callback` (for example `https://crm.apps.your-company.com/integrations/google/callback`). On the consent screen, add the scopes `gmail.readonly` and `calendar.readonly`.
 2. **Microsoft.** In [Microsoft Entra](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade), register an application for _accounts in any organizational directory and personal Microsoft accounts_, add the _Web_ redirect URI `https://<crm host>/integrations/microsoft/callback`, add the delegated Microsoft Graph permissions `User.Read`, `Mail.Read` and `offline_access`, and create a client secret.
@@ -73,16 +47,6 @@ Microsoft client secrets expire after the period you pick when you create one, f
 
 Organizations that let only admins consent send members to an approval page. An admin opens the **Grant admin consent** link on the member's Microsoft page in the CRM, or in Microsoft Entra goes to _Enterprise applications_, the app, _Permissions_, **Grant admin consent**.
 
-### Slack
-
-Team agents post to Slack through a Slack app whose client the gateway holds. At [api.slack.com/apps](https://api.slack.com/apps), create an app, add the redirect URL `https://<crm host>/integrations/slack/callback` under _OAuth & Permissions_, and add the bot token scopes `users:read`, `users:read.email`, `channels:read`, `groups:read`, `chat:write`, `chat:write.public`, `im:write`, `channels:join`, `channels:manage`, `groups:write`, `channels:write.invites` and `groups:write.invites`, and the user token scopes `channels:read`, `channels:write`, `groups:read` and `groups:write`. Then give the gateway its client:
-
-```bash
-pnpm everyapp secret set SLACK_CLIENT_ID SLACK_CLIENT_SECRET
-```
-
-An owner or admin then connects the workspace's Slack from Settings → Connections. Joining and creating channels is theirs too, since it uses the token of whoever connected.
-
 ## Invite your team
 
 Everyone in your organization on the gateway can open the CRM. Owners and admins invite people on the gateway, under Users → Invite user (`https://<gateway>/admin/users`). If the gateway can't send email, copy the invite link it shows and send it yourself. Settings → Workspace → Members links to that access management page.
@@ -91,33 +55,9 @@ To remove someone, remove them on the gateway, then disconnect their mailbox und
 
 Owners can export all of the workspace's data from Settings → Workspace.
 
-## What works without keys
+## What works without OAuth clients
 
-The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking, and the MCP tools AI clients use. Clients that sign in with OAuth, such as claude.ai and ChatGPT, connect to your gateway's `/mcp`; the CRM's own `https://<crm host>/mcp` takes only a personal access token. Mail and calendar capture and posting to Slack need the OAuth clients above, and team agents need the model key.
-
-Without a model key, the research agent pauses. Records it would research say "Waiting for setup", and the sidebar says "Needs setup". Clicking that status opens Settings → AI, which shows which key is missing and, on your own gateway, the command that sets it. Nothing is lost while it waits: the agent does the work once the key is set.
-
-With a model key but no Context.dev key, the agent still researches. Each company shows its website's favicon as its logo, and brand data stays empty.
-
-## What the agent costs
-
-On your own gateway, the agent spends your OpenRouter and Context.dev accounts. At their prices in October 2026:
-
-- A new company gets a logo and brand lookup (10 Context.dev credits, $0.025), then a research session for its profile.
-- A new contact gets a research session to identify them, and a photo search when there's somewhere to look (up to $0.05).
-- A new record's research session makes at most two Context.dev lookups ($0.025 for a brand or a site's pages, $0.05 for a LinkedIn profile) and spends at most 500,000 input and 50,000 output tokens: $0.075 on GPT-6 Luna, at $0.10 and $0.50 per million (the default model's own price applies), plus $0.01 for each web search. A company enriched on request, and the brief before a meeting with someone new, may make four or five lookups.
-
-So researching a record costs at most about $0.25, plus its web searches. Context.dev bills credits at about $0.0025 each on its $19 plan, and its free plan's 1,000 credits a month buy 100 logo lookups. A team agent's run can spend up to 500,000 input and 40,000 output tokens, and its schedule can run as often as every minute.
-
-The agent researches every record you add and, every five minutes, up to 500 records of each kind that were never researched. To bound the spend:
-
-- Give the OpenRouter key the gateway holds a credit limit that resets daily, in [OpenRouter's key settings](https://openrouter.ai/settings/keys). $10 a day covers a team adding a few dozen records a day, and holds a large import to $300 a month.
-- Turn off **Research automatically** in Settings → Workspace (owners and admins). The agent then researches only what someone asks for, and new records wait.
-- Import a large CSV with **Research new records** off. Those records are never researched automatically.
-
-Records a website form or a calendar invite adds aren't researched until someone opens or enriches them, and a calendar adds at most 50 people an hour. With **Research automatically** off, an import's research waits even when **Research new records** is on. Agent tasks and their step logs older than 30 days are deleted daily.
-
-Research and team agents read web pages only from the record's own site and pages their searches returned, and none once they've read captured mail.
+The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking, and the MCP tools AI clients use. Clients that sign in with OAuth, such as claude.ai and ChatGPT, connect to your gateway's `/mcp`; the CRM's own `https://<crm host>/mcp` takes only a personal access token. Mail and calendar capture need the OAuth clients above.
 
 ## Website tracking
 
@@ -137,21 +77,13 @@ pnpm dev
 
 This starts the CRM behind a local gateway at http://crm.localhost:8787, signed in as a seeded dev owner. The first visit asks for a workspace name and website. Use `pnpm dev --port 8840` to pick another port.
 
-There is no gateway holding keys locally, so the model and Context.dev calls use your own `OPENROUTER_API_KEY` (or another model provider's key) and `CONTEXT_API_KEY` from a `.dev.vars` file in this checkout. Both are optional; without them the agent shows as not set up, and `pnpm dev` names which are missing.
-
-```bash
-cp .dev.vars.example .dev.vars   # then fill in OPENROUTER_API_KEY and CONTEXT_API_KEY
-```
+The CRM's own settings for local runs go in a `.dev.vars` file in this checkout (copy `.dev.vars.example`). All are optional.
 
 ## Health checks
 
 For uptime, point a monitor at your gateway's own `https://<gateway host>/health`, checking every minute: it is public, needs no token, and Cloudflare Access lets it through.
 
-`https://<crm host>/health` answers `200 {"status":"ok","database":"up"}`, or `503` when the CRM's database doesn't answer. It is private like the rest of the CRM: call it with a personal access token for the CRM in an `Authorization: Bearer` header, as `/health/dispatch` below.
-
-`https://<crm host>/health/dispatch` reports the research agent's queue: when each part last ran, its backlog and recent failures. It answers `503` when a part has stopped or work is overdue. Call it with a personal access token for the CRM, made by an owner or admin on the gateway, in an `Authorization: Bearer` header, every five minutes or so. Tokens expire (after 7 to 180 days, or on a date you pick), and the monitor fails from then on: make a new one before it does. A token is its member, for everything the CRM lets them do, so keep it in the monitor's secret store. If Cloudflare Access protects your gateway, the CRM's host asks the monitor to log in too; an Access service token is what gets a non-browser client past that (the Every App docs on Cloudflare Access cover it), and the gateway's `/health` needs none.
-
-It also reports the database's size (`"database": {"provider": "d1", "sizeBytes": …}`). D1 refuses every write once a database reaches 10 GB, so watch it.
+`https://<crm host>/health` answers `200 {"status":"ok","database":"up"}`, or `503` when the CRM's database doesn't answer. It is private like the rest of the CRM: call it with a personal access token for the CRM in an `Authorization: Bearer` header. Tokens expire (after 7 to 180 days, or on a date you pick), and the monitor fails from then on: make a new one before it does. A token is its member, for everything the CRM lets them do, so keep it in the monitor's secret store. If Cloudflare Access protects your gateway, the CRM's host asks the monitor to log in too; an Access service token is what gets a non-browser client past that (the Every App docs on Cloudflare Access cover it), and the gateway's `/health` needs none.
 
 ## Operations
 
@@ -167,7 +99,7 @@ npx wrangler d1 export every-<org key>-crm --remote --output crm-backup.sql
 
 The export is SQL, which `npx wrangler d1 execute <database> --remote --file crm-backup.sql` loads into an empty database.
 
-Neither covers two things outside the database: agent chats and the research agent's transcripts, which live in the CRM's Durable Objects, and logos, photos and files attached to builder chats, in its R2 bucket. They aren't backed up.
+Neither covers the logos and photos in the CRM's R2 bucket. They aren't backed up.
 
 ### Restoring
 
@@ -178,7 +110,7 @@ pnpm exec cf d1 time-travel restore <database id> --timestamp 2026-10-19T09:00:0
 pnpm exec cf d1 time-travel restore <database id> --bookmark <bookmark the deploy printed>
 ```
 
-A restore rewinds the whole database in place, so everything written since is lost. It prints a bookmark that undoes it. Chats and images aren't rewound, so a chat may mention a record the restore removed.
+A restore rewinds the whole database in place, so everything written since is lost. It prints a bookmark that undoes it. Images aren't rewound.
 
 ### Rolling back
 
@@ -199,9 +131,7 @@ To erase an organization and everything it stored, follow `docs/maintainers/runb
 From this checkout, with your Cloudflare login, these read the deployed CRM's database and print JSON:
 
 ```bash
-pnpm ops organization <organization id or member email>   # records, members, connections and the agent's queue
-pnpm ops dispatch                                         # when the agent's lanes last ran, and the work waiting
-pnpm ops requeue <task id>                                # a stuck task, back on the queue; add --execute to do it
+pnpm ops organization <organization id or member email>   # records, members and connections
 ```
 
 ## Upgrading
@@ -217,11 +147,5 @@ A fork merges the release's tag and deploys with the checkout's CLI, as under [I
 If your fork changes the schema, change tables only by adding to them. On D1, a migration that rebuilds a table deletes the rows of every table that references it, and `pnpm test` refuses one.
 
 ## Troubleshooting
-
-**The agent says "Waiting for setup".** The gateway has no model provider set up. Set `OPENROUTER_API_KEY` (or another model provider's key) on the gateway (see [Give the agent its keys](#give-the-agent-its-keys)); the CRM picks it up within about ten minutes. Settings → Workspace shows Connected after the agent's next successful call.
-
-**Settings → Workspace says "Not checked yet".** The gateway is connected, and the agent finds out whether it holds a model key the first time it runs. It runs within a minute of new work being queued, for example when you add a company.
-
-**No logos.** Logos and brand data come from Context.dev, and without it only a company's favicon. Set `CONTEXT_API_KEY` on the gateway.
 
 **Can't sign in, or the app isn't found.** Run `pnpm everyapp status`. It shows the gateway's address and release, its owner, the apps it lists and whether it binds them, each address's certificate, any deploy in progress, and the command to run when something is off.

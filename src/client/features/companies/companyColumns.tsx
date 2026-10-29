@@ -7,10 +7,6 @@ import {
   location,
   type CompanyRow,
 } from "@/client/features/companies/companyFormat";
-import {
-  EnrichmentIndicator,
-  hasAgentNote,
-} from "@/client/features/records/EnrichmentStatus";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import {
   EntityLogo,
@@ -23,12 +19,11 @@ import {
 } from "@/client/features/records/cells";
 
 /** The columns the companies list hides until the Columns menu shows them. */
-export const COMPANY_HIDDEN_COLUMNS = ["location", "createdAt", "enrichment"];
+export const COMPANY_HIDDEN_COLUMNS = ["location", "createdAt"];
 
 /**
- * The companies table. Every column but the location and the research
- * state sorts on the server; the page adds the custom field columns
- * (useFieldColumns) after these.
+ * The companies table. Every column but the location sorts on the server;
+ * the page adds the custom field columns (useFieldColumns) after these.
  */
 export function companyColumns({
   archived,
@@ -69,15 +64,6 @@ export function companyColumns({
                 name={company.name}
               />
             </RecordLink>
-            {hasAgentNote(company) ? (
-              <div className="pl-7.5">
-                <EnrichmentIndicator
-                  status={company.enrichmentStatus}
-                  queued={company.queued}
-                  waiting={company.waiting}
-                />
-              </div>
-            ) : null}
           </div>
         );
       },
@@ -123,19 +109,6 @@ export function companyColumns({
       sortable: true,
       width: 112,
     }),
-    {
-      id: "enrichment",
-      header: "Research",
-      enableSorting: false,
-      meta: { label: "Research status", width: 112 },
-      cell: ({ row }) => (
-        <EnrichmentIndicator
-          status={row.original.enrichmentStatus}
-          queued={row.original.queued}
-          waiting={row.original.waiting}
-        />
-      ),
-    },
     ...recordDateColumns<CompanyRow>(archived),
   ];
 }

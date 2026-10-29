@@ -1,7 +1,6 @@
 import type { FieldEntity } from "@/shared/crm-enums";
 
-// The fields sheet's words, from the CRM. The product says "your agents",
-// never the runtime's name.
+// The fields sheet's words, from the CRM.
 
 export const SHEET_TITLE = "Fields";
 
@@ -10,7 +9,6 @@ export const SUGGESTED_ROW = "Suggested fields";
 export const CUSTOM_GROUP = "Custom fields";
 export const ARCHIVED_ROW = "Archived";
 export const NEW_FIELD = "New field";
-export const MANUAL_ONLY = "Manual only";
 export const TABLE_NOTE = "table column";
 export const FILTER_NOTE = "filter";
 export const MANAGE_HINT = "Only an owner or an admin can change fields.";
@@ -23,9 +21,6 @@ export const ERROR_BODY = "Try again before you create a field.";
 export const LABEL_LABEL = "Name";
 export const KEY_LABEL = "Key";
 export const KEY_HELP = "Fixed once saved.";
-export const AGENT_LABEL = "Let your agents fill this";
-export const AGENT_HELP = "Only where it's empty.";
-export const BRIEF_LABEL = "What counts as an answer";
 export const TYPE_LABEL = "Type";
 export const TYPE_LOCKED = "Fixed once it holds values.";
 export const OPTIONS_LABEL = "Options";
@@ -33,8 +28,6 @@ export const ADD_OPTION = "Add option";
 export const CREATE_FIELD = "Create field";
 export const SAVE = "Save";
 export const ARCHIVE = "Archive";
-export const FILL = "Ask the agent to fill";
-export const ALL_FILLED = "Nothing left to fill";
 
 export const SHEET_PLACEMENT = "Show in record details";
 export const TABLE_PLACEMENT = "Offer as a column";

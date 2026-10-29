@@ -43,8 +43,6 @@ export type ImportRun = {
   members: { userId: string; name: string; email: string }[];
   /** The live custom fields of the entity being imported. */
   fields: FieldDefinitionWithOptions[];
-  /** Records this chunk created, by kind, for the research agent. */
-  created: Record<FieldEntity, string[]>;
 };
 
 export async function openRun(input: {
@@ -64,7 +62,6 @@ export async function openRun(input: {
     ...input,
     members,
     fields,
-    created: { COMPANY: [], CONTACT: [], DEAL: [] },
   };
 }
 
@@ -266,7 +263,6 @@ export async function companyResolver(run: ImportRun, refs: CompanyRef[]) {
       ownerId: null,
       source: "IMPORT",
     });
-    if (row.created) run.created.COMPANY.push(row.id);
     remember(ref, row.id);
     return row.id;
   };

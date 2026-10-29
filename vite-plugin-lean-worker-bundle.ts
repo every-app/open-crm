@@ -1,35 +1,14 @@
-import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 
-// Literal `new URL(..., import.meta.url)` per stub (rather than a path
-// helper) so knip sees the stub files as used.
-const JUST_BASH_STUB = fileURLToPath(
-  new URL("./src/server/lib/just-bash-stub.ts", import.meta.url),
-);
-const WORKERS_AI_PROVIDER_STUB = fileURLToPath(
-  new URL("./src/server/lib/workers-ai-provider-stub.ts", import.meta.url),
-);
 /**
  * Dependencies that must never be reachable from the workers' eager startup
  * module graphs. The 128 MB isolate limit is shared by everything evaluated at
  * startup (production OOM bursts trace back to baseline heap, not leaks), so
- * each of these is either loaded lazily behind a dynamic import or stubbed
- * out. `generateBundle` below fails the build if one sneaks back in via a
- * static import chain.
+ * each of these is either loaded lazily behind a dynamic import or kept out.
+ * `generateBundle` below fails the build if one sneaks back in via a static
+ * import chain.
  */
 const EAGER_DENYLIST: Array<{ pattern: RegExp; expected: string }> = [
-  {
-    pattern:
-      /node_modules\/(workers-ai-provider|@ai-sdk\/(openai|anthropic))\//,
-    expected:
-      "aliased to workers-ai-provider-stub.ts (@cloudflare/think's default " +
-      "provider path is dead code — our agents construct OpenRouter models)",
-  },
-  {
-    pattern: /node_modules\/just-bash\//,
-    expected:
-      "aliased to just-bash-stub.ts (Think's workspace bash tool is disabled)",
-  },
   {
     // The barrel (index.*) is allowed — the load hook rewrites its content to
     // re-export English only — as is en.* itself. Every other locale module
@@ -50,23 +29,20 @@ const CLIENT_ENTRY_DENYLIST: Array<{ pattern: RegExp; expected: string }> = [
   {
     pattern: /node_modules\/(react-markdown|remark-gfm)\//,
     expected:
-      "imported only from route components and the agent chat, which are " +
-      "code-split. Route options like loader and validateSearch are not, so " +
+      "imported only from route components, which are code-split. Route options like loader and validateSearch are not, so " +
       "they must import from markdown-free modules",
   },
 ];
 
 /**
- * Keeps the worker's eager server bundle lean, in three parts:
+ * Keeps the worker's eager server bundle lean, in two parts:
  *
- * 1. `resolve.alias` stubs for packages that are pure dead weight (dead code
- *    paths in @cloudflare/think).
- * 2. A `load`-hook swap of zod v4's all-languages locales barrel for an
+ * 1. A `load`-hook swap of zod v4's all-languages locales barrel for an
  *    en-only barrel (the barrel is imported via relative specifiers inside
  *    zod itself, and pre-enforced resolvers in this plugin stack win the
  *    resolveId race, so matching the resolved file path in `load` is the
  *    reliable seam).
- * 3. A `generateBundle` assertion that walks the static-import closure of the
+ * 2. A `generateBundle` assertion that walks the static-import closure of the
  *    worker entry chunk and fails the build if any EAGER_DENYLIST module is
  *    reachable — turning "we verified the chunk by grepping a sourcemap once"
  *    into a permanent regression test. The client build gets the same check
@@ -75,23 +51,6 @@ const CLIENT_ENTRY_DENYLIST: Array<{ pattern: RegExp; expected: string }> = [
 export function leanWorkerBundle(): Plugin {
   return {
     name: "lean-worker-bundle",
-    config() {
-      return {
-        resolve: {
-          alias: {
-            // Rationale for each stub lives in its docblock. TODO: remove the
-            // just-bash workaround once @cloudflare/think stops eagerly
-            // importing it (https://github.com/cloudflare/agents/issues/1673).
-            "just-bash": JUST_BASH_STUB,
-            // Subpaths must precede the bare specifier, which would otherwise
-            // prefix-match them.
-            "workers-ai-provider/anthropic": WORKERS_AI_PROVIDER_STUB,
-            "workers-ai-provider/openai": WORKERS_AI_PROVIDER_STUB,
-            "workers-ai-provider": WORKERS_AI_PROVIDER_STUB,
-          },
-        },
-      };
-    },
     load(id) {
       // zod v4's core/classic entrypoints re-export the full locales barrel
       // (`export * as locales from "../locales/index.js"`, every language,

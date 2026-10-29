@@ -30,7 +30,7 @@ export const ACTIVITY_PRESENTATION: Record<
   MEETING: { label: "Meeting", icon: CalendarDays },
   TASK: { label: "Task", icon: SquareCheck },
   STAGE_CHANGE: { label: "Stage change", icon: ArrowRight },
-  ENRICHMENT: { label: "Research", icon: WandSparkles },
+  ENRICHMENT: { label: "Automated", icon: WandSparkles },
 };
 
 const stageChangeSchema = z
@@ -53,12 +53,12 @@ export function activityHeadline(entry: ActivityEntry): string | null {
     : entry.subject;
 }
 
-/** Who logged it: a person, the agent, or the capture that brought it in. */
+/** Who logged it: a person, an automation, or the capture that brought it in. */
 export function activityAuthor(entry: ActivityEntry): string {
   if (entry.meta?.synced === true) {
     return entry.emailThread ? "via email" : "via calendar";
   }
-  return entry.createdBy?.name ?? "Agent";
+  return entry.createdBy?.name ?? "Automated";
 }
 
 /** When it sits on a timeline: when it happened, else when it was logged. */

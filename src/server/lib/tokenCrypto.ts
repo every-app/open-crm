@@ -6,7 +6,7 @@ import {
   type SettingSetup,
 } from "@/shared/app-settings";
 
-// The mailbox and Slack tokens the CRM stores, encrypted at rest as OpenSEO
+// The mailbox tokens the CRM stores, encrypted at rest as OpenSEO
 // encrypts its Google grants: under a secret only the Worker holds (OpenSEO's
 // BETTER_AUTH_SECRET; here TOKEN_ENCRYPTION_KEY, set from any directory with
 // `pnpm everyapp secret set TOKEN_ENCRYPTION_KEY --app crm`, the command

@@ -12,8 +12,6 @@ import {
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
 import { activity, company, deal, user } from "@/db/schema";
-import { queueCrmEvents } from "@/server/features/team-agents/repositories/CrmEventRepository";
-import type { CrmEvent } from "@/server/features/team-agents/repositories/CrmEventRepository";
 import { idChunks } from "@/server/features/records/recordRules";
 import { fieldValueWrites } from "@/server/features/fields/repositories/FieldValueRepository";
 import type { FieldWrite } from "@/server/features/fields/repositories/FieldValueRepository";
@@ -71,19 +69,17 @@ async function findById(organizationId: string, id: string) {
 }
 
 /**
- * Inserts the deal with the CRM events its creation emits and the custom
- * field values it is created with, in one batch.
+ * Inserts the deal with the custom field values it is created with, in one
+ * batch.
  */
 async function insert(
   values: Omit<typeof deal.$inferInsert, "id">,
-  events: CrmEvent[] = [],
   fields: FieldWrite[] = [],
 ) {
   const { organizationId } = values;
   const id = crypto.randomUUID();
   await runBatch((tx) => [
     tx.insert(deal).values({ ...values, id }),
-    ...queueCrmEvents(tx, { organizationId, recordId: id, events }),
     ...fieldValueWrites(tx, organizationId, "DEAL", id, fields),
   ]);
   return { id, name: values.name, companyId: values.companyId };
@@ -127,16 +123,14 @@ type StageMove = {
 
 /**
  * Moves the deal from `from` to `to`, files the move on its timeline (a
- * STAGE_CHANGE activity) and queues the CRM events it emits, in one batch.
- * The move lands only while the deal is still in `from`, so of two people
- * moving it at once one wins, and the loser's activity and events are taken
- * back out in the same batch. Moving into an outcome stamps when it closed;
+ * STAGE_CHANGE activity), in one batch. The move lands only while the deal
+ * is still in `from`, so of two people moving it at once one wins, and the
+ * loser's activity is taken back out in the same batch. Moving into an outcome stamps when it closed;
  * moving out of one clears it. True when this call moved the deal.
  */
 async function moveStage(
   organizationId: string,
   move: StageMove,
-  events: CrmEvent[] = [],
 ): Promise<boolean> {
   const at = new Date().toISOString();
   const closed = isClosedStage(move.to);
@@ -204,13 +198,6 @@ async function moveStage(
             exists(moved),
           ),
         ),
-      ...queueCrmEvents(tx, {
-        organizationId,
-        recordId: move.id,
-        occurredAt: at,
-        events,
-        landed: exists(moved),
-      }),
     ];
   });
   const [filed] = await db

@@ -1,22 +1,16 @@
-import { AgentTaskService } from "@/server/features/agent/services/AgentTaskService";
-import { ResearchHoldService } from "@/server/features/agent/services/ResearchHoldService";
 import { ArchiveService } from "@/server/features/archive/services/ArchiveService";
 import { CompanyDirectoryService } from "@/server/features/companies/services/CompanyDirectoryService";
-import { ContactFactRepository } from "@/server/features/contacts/repositories/ContactFactRepository";
 import { ContactRelationsRepository } from "@/server/features/contacts/repositories/ContactRelationsRepository";
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
-import { FieldsService } from "@/server/features/fields/services/FieldsService";
 import {
   assertOwner,
   blankToNull,
   bulkOutcome,
   fieldWrites,
   isUniqueViolation,
-  recordAgentStates,
   runBulk,
 } from "@/server/features/records/recordRules";
-import { pokeEvents } from "@/server/features/team-agents/runtime/poke";
 import { AppError, UserFacingError } from "@/server/lib/errors";
 import { normalizeEmail } from "@/shared/domain";
 import type {
@@ -29,8 +23,7 @@ import type { BulkResult } from "@/types/schemas/records";
 // Contacts: the people in the pipeline. A live contact's email is stored
 // lowercased and is unique in its organization (an archived one keeps its
 // email, so a restore can conflict). A new contact without a company is
-// filed under the company behind its work email, and sends the research
-// agent to identify the person (ContactFactService settles what it finds).
+// filed under the company behind its work email.
 
 function notFound(id: string): never {
   throw new AppError("NOT_FOUND", `No contact with id ${id}.`);
@@ -84,15 +77,14 @@ async function listContacts(organizationId: string, input: ContactListInput) {
     ),
   ]);
   const ids = rows.map((row) => row.id);
-  const [agent, fields] = await Promise.all([
-    recordAgentStates(organizationId, "contact", ids),
-    FieldValuesService.tableValues(organizationId, "CONTACT", ids),
-  ]);
+  const fields = await FieldValuesService.tableValues(
+    organizationId,
+    "CONTACT",
+    ids,
+  );
   return {
     rows: rows.map((row) => ({
       ...row,
-      queued: agent.queued.has(row.id),
-      waiting: agent.waiting.has(row.id),
       fields: fields[row.id] ?? {},
     })),
     total,
@@ -105,37 +97,28 @@ export type ContactListRow = Awaited<
 >["rows"][number];
 
 /**
- * A contact with what its sheet shows: owner, company, the agent's brief
- * and open facts, the deals they're on, the colleagues and mail around them,
- * and whether the agent is queued for them.
+ * A contact with what its sheet shows: owner, company, the deals they're on,
+ * and the colleagues and mail around them.
  */
 async function getContact(organizationId: string, id: string) {
   const { organizationId: _, ...found } = await requireContact(
     organizationId,
     id,
   );
-  // Opening one a website form or a calendar invite added lets its research go.
-  await ResearchHoldService.opened(organizationId, "contact", found);
-  const [facts, brief, deals, colleagues, relationship, agent] =
-    await Promise.all([
-      ContactFactRepository.listOpen(organizationId, id),
-      ContactFactRepository.findBrief(organizationId, id),
-      ContactRelationsRepository.listDeals(organizationId, id),
-      found.companyId
-        ? ContactRelationsRepository.listColleagues(
-            organizationId,
-            id,
-            found.companyId,
-          )
-        : [],
-      ContactRelationsRepository.relationship(organizationId, id),
-      recordAgentStates(organizationId, "contact", [id]),
-    ]);
+  const [deals, colleagues, relationship] = await Promise.all([
+    ContactRelationsRepository.listDeals(organizationId, id),
+    found.companyId
+      ? ContactRelationsRepository.listColleagues(
+          organizationId,
+          id,
+          found.companyId,
+        )
+      : [],
+    ContactRelationsRepository.relationship(organizationId, id),
+  ]);
   return {
     ...found,
     isPrimaryContact: found.company?.primaryContactId === id,
-    brief,
-    facts,
     deals,
     relationship: {
       ...relationship,
@@ -145,8 +128,6 @@ async function getContact(organizationId: string, id: string) {
         title: colleague.title,
       })),
     },
-    queued: agent.queued.has(id),
-    waiting: agent.waiting.has(id),
   };
 }
 
@@ -199,12 +180,6 @@ async function createContact(
         companyId,
         ownerId,
       },
-      [
-        {
-          type: "contact.created",
-          data: { firstName, lastName, email, companyId },
-        },
-      ],
       fields,
     );
   } catch (error) {
@@ -221,13 +196,6 @@ async function createContact(
     contactId: id,
     companyId,
   });
-  pokeEvents(organizationId);
-  await AgentTaskService.contactCreated(
-    organizationId,
-    id,
-    "Added by a person, with nothing on the record yet",
-  );
-  await FieldsService.queueFillForNewRecord(organizationId, "CONTACT", id);
   return { id, firstName, lastName, companyId };
 }
 
@@ -338,31 +306,6 @@ async function purgeContact(organizationId: string, id: string) {
   return { id, name: nameOf(found) };
 }
 
-/**
- * A person asked the agent to look at the contact again. True when it was
- * queued; false when the agent is already on it.
- */
-async function enrichContact(organizationId: string, id: string) {
-  const found = await requireContact(organizationId, id);
-  const queued = await AgentTaskService.contactCreated(
-    organizationId,
-    id,
-    found.linkedinUrl && !found.imageUrl
-      ? "A person asked for a fresh look: they have a LinkedIn profile on file but no picture"
-      : "A person asked for a fresh look",
-    true,
-  );
-  if (queued) {
-    await ContactRepository.markEnrichmentRequested(
-      organizationId,
-      id,
-      found.updatedAt,
-    );
-  }
-  await ResearchHoldService.asked(organizationId, "contact", id);
-  return { id, queued };
-}
-
 async function bulkAssignOwner(
   organizationId: string,
   ids: string[],
@@ -403,10 +346,6 @@ async function bulkArchive(
   return bulkOutcome(unique.length, archived.length);
 }
 
-async function bulkEnrich(organizationId: string, ids: string[]) {
-  return runBulk(ids, (id) => enrichContact(organizationId, id));
-}
-
 function bulkRestore(organizationId: string, ids: string[]) {
   return runBulk(ids, (id) => restoreContact(organizationId, id));
 }
@@ -423,11 +362,9 @@ export const ContactService = {
   archiveContact,
   restoreContact,
   purgeContact,
-  enrichContact,
   bulkAssignOwner,
   bulkSetCompany,
   bulkArchive,
-  bulkEnrich,
   bulkRestore,
   bulkPurge,
 };

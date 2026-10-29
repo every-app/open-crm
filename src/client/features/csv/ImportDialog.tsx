@@ -80,7 +80,6 @@ export function ImportDialog({
   );
   const [mapping, setMapping] = useState<(string | null)[]>([]);
   const [duplicates, setDuplicates] = useState<ImportDuplicates>("skip");
-  const [research, setResearch] = useState(true);
   const stopRef = useRef(false);
 
   const rows = useMemo(
@@ -102,7 +101,7 @@ export function ImportDialog({
 
   const send = (chunk: typeof rows, dryRun: boolean) =>
     importRecords({
-      data: { entity, duplicates, research, dryRun, rows: chunk },
+      data: { entity, duplicates, dryRun, rows: chunk },
     });
 
   const pick = async (picked: File | undefined) => {
@@ -185,8 +184,8 @@ export function ImportDialog({
   // Every list could hold a new record: contacts and deals add companies.
   const settle = () =>
     Promise.all(
-      [["companies"], ["contacts"], ["deals"], ["agent"], ["dashboard"]].map(
-        (queryKey) => queryClient.invalidateQueries({ queryKey }),
+      [["companies"], ["contacts"], ["deals"], ["dashboard"]].map((queryKey) =>
+        queryClient.invalidateQueries({ queryKey }),
       ),
     );
 
@@ -278,8 +277,6 @@ export function ImportDialog({
               entity={entity}
               duplicates={duplicates}
               onDuplicatesChange={setDuplicates}
-              research={research}
-              onResearchChange={setResearch}
             />
             {missing.length > 0 ? (
               <p className="text-sm text-destructive">

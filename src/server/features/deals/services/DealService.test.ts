@@ -312,7 +312,7 @@ describe("DealService", () => {
     ).toMatchObject({ openValue: null, unconverted: { count: 0 } });
   });
 
-  it("purges only an archived deal, with the agent's rows, and restamps its company", async () => {
+  it("purges only an archived deal, with the retired agent's rows, and restamps its company", async () => {
     const deal = await create("Renewal");
     await database.exec(`
         INSERT INTO activity (id, organization_id, type, company_id, created_at) VALUES ('older', 'org_a', 'NOTE', 'acme', '2026-01-01T00:00:00.000Z');

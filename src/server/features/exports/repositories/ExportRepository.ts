@@ -109,7 +109,7 @@ async function dealContacts(organizationId: string, dealIds: string[]) {
 }
 
 /**
- * Notes (what people and the agent logged: notes, calls, emails and
+ * Notes (what people and automations logged: notes, calls, emails and
  * meetings, not the captured ones) or tasks, with what each is on.
  */
 async function activities(

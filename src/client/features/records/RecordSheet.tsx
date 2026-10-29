@@ -72,7 +72,7 @@ type RecordHeader = {
   title: string;
   /** Under the name: the domain, location and industry, for example. */
   description?: ReactNode;
-  /** A status line: enrichment, "Archived". */
+  /** A status line: "Archived". */
   note?: ReactNode;
   actions?: ReactNode;
 };

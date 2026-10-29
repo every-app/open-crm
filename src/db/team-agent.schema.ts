@@ -7,24 +7,14 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import {
-  ACTION_STATUSES,
-  AGENT_VERSION_STATUSES,
-  ARTIFACT_STATUSES,
-  CRM_EVENT_TYPES,
-  FEEDBACK_RATINGS,
-  RUN_STATUSES,
-  TEAM_AGENT_STATUSES,
-  TRIGGER_TYPES,
-} from "../shared/team-agents";
 import { agentConversation } from "./agent.schema";
 import { organization, user } from "./auth.schema";
 import { isoNow, timestamp } from "./columns";
 
-// Team agents (src/shared/team-agents.ts): an agent a team built in a private
-// builder chat, its immutable versions and their files, the triggers that run
-// it, its runs and the ledger of what each run did, and the audit of every
-// change. Every table hangs off `organization_id`.
+// Retired: team agents, which the CRM no longer has. Nothing reads or writes
+// these tables but the organization erasure; they stay until a release after
+// the one that removed the feature, when a `-- everyapp:contract` migration
+// drops them (TODO.md).
 
 const organizationId = () =>
   text("organization_id")
@@ -41,9 +31,7 @@ export const agentDefinition = sqliteTable(
     organizationId: organizationId(),
     name: text("name").notNull(),
     description: text("description"),
-    status: text("status", { enum: TEAM_AGENT_STATUSES })
-      .notNull()
-      .default("DRAFT"),
+    status: text("status").notNull().default("DRAFT"),
     createdById: text("created_by_id")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -79,9 +67,7 @@ export const agentVersion = sqliteTable(
       .notNull()
       .references(() => agentDefinition.id, { onDelete: "cascade" }),
     number: integer("number").notNull(),
-    status: text("status", { enum: AGENT_VERSION_STATUSES })
-      .notNull()
-      .default("READY"),
+    status: text("status").notNull().default("READY"),
     instructions: text("instructions").notNull(),
     manifest: text("manifest", { mode: "json" }).$type<unknown>().notNull(),
     sourceConversationId: text("source_conversation_id").references(
@@ -124,9 +110,7 @@ export const agentBuilderArtifact = sqliteTable(
     content: text("content").notNull(),
     previousContent: text("previous_content"),
     revision: integer("revision").notNull(),
-    status: text("status", { enum: ARTIFACT_STATUSES })
-      .notNull()
-      .default("WRITING"),
+    status: text("status").notNull().default("WRITING"),
     createdAt: createdAt(),
   },
   (table) => [
@@ -155,10 +139,10 @@ export const agentTrigger = sqliteTable(
     versionId: text("version_id")
       .notNull()
       .references(() => agentVersion.id, { onDelete: "cascade" }),
-    type: text("type", { enum: TRIGGER_TYPES }).notNull(),
+    type: text("type").notNull(),
     name: text("name").notNull(),
     summary: text("summary").notNull(),
-    event: text("event", { enum: CRM_EVENT_TYPES }),
+    event: text("event"),
     intervalMinutes: integer("interval_minutes"),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
     nextRunAt: timestamp("next_run_at"),
@@ -203,8 +187,8 @@ export const agentRun = sqliteTable(
     initiatedById: text("initiated_by_id").references(() => user.id, {
       onDelete: "set null",
     }),
-    triggerType: text("trigger_type", { enum: TRIGGER_TYPES }).notNull(),
-    status: text("status", { enum: RUN_STATUSES }).notNull().default("QUEUED"),
+    triggerType: text("trigger_type").notNull(),
+    status: text("status").notNull().default("QUEUED"),
     sessionId: text("session_id"),
     // What made it: the person's request id, the schedule slot, the event.
     idempotencyKey: text("idempotency_key").notNull(),
@@ -263,9 +247,7 @@ export const agentAction = sqliteTable(
     targetLabel: text("target_label"),
     summary: text("summary").notNull(),
     metadata: text("metadata", { mode: "json" }).$type<unknown>(),
-    status: text("status", { enum: ACTION_STATUSES })
-      .notNull()
-      .default("PLANNED"),
+    status: text("status").notNull().default("PLANNED"),
     idempotencyKey: text("idempotency_key").notNull(),
     requestHash: text("request_hash"),
     externalId: text("external_id"),
@@ -336,7 +318,7 @@ export const agentConversationFeedback = sqliteTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     messageId: text("message_id").notNull(),
-    rating: text("rating", { enum: FEEDBACK_RATINGS }).notNull(),
+    rating: text("rating").notNull(),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at").notNull().default(isoNow),
   },

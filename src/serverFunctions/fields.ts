@@ -81,15 +81,6 @@ export const getFieldCoverage = createServerFn({ method: "GET" })
     FieldsService.coverage(context.organizationId, data.id),
   );
 
-/** "Ask the agent to fill": the agent's research costs the organization. */
-export const fillField = createServerFn({ method: "POST" })
-  .middleware(requireAuthenticatedContext)
-  .validator(fieldIdSchema)
-  .handler(({ data, context }) => {
-    requireOrgPermission(context, { field: ["manage"] });
-    return FieldsService.fill(context.organizationId, data.id);
-  });
-
 export const getRecordFields = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
   .validator(recordFieldsSchema)

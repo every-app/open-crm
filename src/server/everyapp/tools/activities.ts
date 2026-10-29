@@ -42,7 +42,9 @@ export const activityOutput = z.object({
   createdAt: z.string(),
   author: personOutput
     .nullable()
-    .describe("Who logged it; null when the research agent or a form did."),
+    .describe(
+      "Who logged it; null for an automated entry (mail capture, a form).",
+    ),
   company: recordRefOutput.nullable(),
   contact: recordRefOutput.nullable(),
   deal: recordRefOutput.nullable(),
@@ -144,7 +146,7 @@ const timelineRecord = {
 export const activityTools = {
   list_activities: crmTool({
     description:
-      "A company's, contact's or deal's timeline, newest first: notes, calls, emails, meetings, tasks, stage changes and the research agent's findings. A company's includes its people's and deals'. Filters go by type, and captured mail and meetings are EMAIL and MEETING entries (with a threadId or meetingId), so `email` and `meetings` each hold both logged and captured ones. `notes` holds notes only. 30 a page unless `limit` says (at most 100); pass nextCursor for older entries.",
+      "A company's, contact's or deal's timeline, newest first: notes, calls, emails, meetings, tasks, stage changes and automated entries. A company's includes its people's and deals'. Filters go by type, and captured mail and meetings are EMAIL and MEETING entries (with a threadId or meetingId), so `email` and `meetings` each hold both logged and captured ones. `notes` holds notes only. 30 a page unless `limit` says (at most 100); pass nextCursor for older entries.",
     risk: "read",
     input: z
       .object({

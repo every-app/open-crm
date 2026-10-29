@@ -23,8 +23,6 @@ type DefinitionPatch = Partial<
     FieldDefinitionRow,
     | "label"
     | "type"
-    | "agentFilled"
-    | "agentBrief"
     | "required"
     | "showOnSheet"
     | "showOnTable"

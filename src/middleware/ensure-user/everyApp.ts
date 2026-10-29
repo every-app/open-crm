@@ -48,7 +48,7 @@ export async function resolveEveryAppContext(
     throw new AppError("UNAUTHENTICATED");
   }
   if (!user) throw new AppError("UNAUTHENTICATED");
-  // The app's own server functions and the agent's chats assume everything a
+  // The app's own server functions and routes assume everything a
   // signed-in member may do, so they take only a credential that holds all
   // of it: a browser session, or a personal access token made without
   // scopes. A token limited by scopes reaches the CRM through its MCP tools

@@ -1,19 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  pausedResearchMessage,
-  useAgentPaused,
-} from "@/client/features/agent/AgentPaused";
 import { companyKeys } from "@/client/features/companies/companyQueries";
 import { useInvalidateRecords } from "@/client/features/records/recordQueries";
-import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 import {
   getErrorCode,
   getStandardErrorMessage,
 } from "@/client/lib/error-messages";
 import {
   archiveCompany,
-  enrichCompany,
   purgeCompany,
   restoreCompany,
   setPrimaryContact,
@@ -41,8 +35,6 @@ export function useCompanyMutations(
 ) {
   const invalidate = useInvalidateRecords();
   const record = companyKeys.detail(companyId);
-  const paused = useAgentPaused();
-  const canManage = useCanManageWorkspace();
 
   const update = useMutation({
     mutationFn: (patch: CompanyPatch) =>
@@ -79,26 +71,11 @@ export function useCompanyMutations(
     },
   });
 
-  const enrich = useMutation({
-    mutationFn: () => enrichCompany({ data: { id: companyId } }),
-    onSuccess: async (result) => {
-      // The request is queued either way; while the agent's model isn't set
-      // up it runs by itself once the key lands, so say so instead of
-      // "Research queued."
-      if (paused) {
-        toast.warning(pausedResearchMessage(canManage));
-      } else {
-        toast.success(result.queued ? "Research queued." : "Already running.");
-      }
-      await invalidate();
-    },
-  });
-
   const setPrimary = useMutation({
     mutationFn: (contactId: string | null) =>
       setPrimaryContact({ data: { companyId, contactId } }),
     onSuccess: () => invalidate(),
   });
 
-  return { update, archive, restore, purge, enrich, setPrimary };
+  return { update, archive, restore, purge, setPrimary };
 }

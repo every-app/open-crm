@@ -232,36 +232,6 @@ async function write(
   );
 }
 
-/**
- * Writes a value only where the record has none for the field yet, in one
- * statement, so a value someone saved meanwhile is never overwritten. True
- * when it was written.
- */
-async function insertIfEmpty(
-  organizationId: string,
-  entity: FieldEntity,
-  recordId: string,
-  { fieldId, type, value }: FieldWrite,
-): Promise<boolean> {
-  if (value === null) return false;
-  const record = records(entity);
-  const inserted = await db
-    .insert(fieldValue)
-    .values({
-      id: crypto.randomUUID(),
-      organizationId,
-      fieldId,
-      ...recordReference(entity, recordId),
-      ...storedColumns(type, value),
-      updatedAt: new Date().toISOString(),
-    })
-    .onConflictDoNothing({
-      target: [fieldValue.fieldId, record.valueRecordId],
-    })
-    .returning({ id: fieldValue.id });
-  return inserted.length > 0;
-}
-
 /** How many records hold a value for the field, archived ones included. */
 async function countForField(
   organizationId: string,
@@ -350,7 +320,6 @@ export const FieldValueRepository = {
   listForRecord,
   listForRecords,
   write,
-  insertIfEmpty,
   countForField,
   coverage,
   missingRecordIds,

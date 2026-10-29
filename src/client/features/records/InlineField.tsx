@@ -31,36 +31,22 @@ export const PROPERTY_LABEL = "truncate text-xs text-muted-foreground";
 export const PROPERTY_CONTROL =
   "h-8 w-full justify-start border border-transparent px-2 text-sm font-normal hover:border-input hover:bg-transparent";
 
-/**
- * A property row: its label, then the value or its editor, and under it
- * what the agent suggests for it.
- */
+/** A property row: its label, then the value or its editor. */
 export function PropertyRow({
   label,
   htmlFor,
-  suggestion,
   children,
 }: {
   label: string;
   htmlFor?: string;
-  suggestion?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <div
-      className={cn(PROPERTY_ROW, suggestion ? "items-start" : "items-center")}
-    >
-      <label
-        htmlFor={htmlFor}
-        className={cn(PROPERTY_LABEL, suggestion && "leading-8")}
-      >
+    <div className={cn(PROPERTY_ROW, "items-center")}>
+      <label htmlFor={htmlFor} className={PROPERTY_LABEL}>
         {label}
       </label>
-      <div className="min-w-0">
-        {children}
-        {/* Under the value's text, its buttons on the section's edge. */}
-        {suggestion ? <div className="pl-2">{suggestion}</div> : null}
-      </div>
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
@@ -103,9 +89,7 @@ export function InlineField({
   saving = false,
   placeholder,
   type = "text",
-  trailing,
   format,
-  suggestion,
 }: {
   label: string;
   value: string | null;
@@ -113,12 +97,8 @@ export function InlineField({
   saving?: boolean;
   placeholder?: string;
   type?: "text" | "url" | "email" | "tel" | "date";
-  /** Beside a saved value: where the agent found it, for example. */
-  trailing?: (value: string) => ReactNode;
   /** How a value reads when it isn't being edited: an amount in its currency. */
   format?: (value: string) => ReactNode;
-  /** Under the row: a value the agent suggests for it. */
-  suggestion?: ReactNode;
 }) {
   const id = useId();
   const field = useInlineDraft(value, onSave);
@@ -126,7 +106,7 @@ export function InlineField({
   const shown = saving ? field.draft.trim() : (value ?? "");
 
   return (
-    <PropertyRow label={label} htmlFor={id} suggestion={suggestion}>
+    <PropertyRow label={label} htmlFor={id}>
       {field.editing ? (
         <Input
           id={id}
@@ -162,7 +142,6 @@ export function InlineField({
               <span className="truncate text-muted-foreground">—</span>
             )}
           </Button>
-          {shown && trailing && !saving ? trailing(shown) : null}
         </div>
       )}
     </PropertyRow>
