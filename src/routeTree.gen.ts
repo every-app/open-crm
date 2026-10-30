@@ -15,6 +15,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppCompaniesRouteImport } from './routes/_app/companies'
 import { Route as AppContactsRouteImport } from './routes/_app/contacts'
 import { Route as AppDealsRouteImport } from './routes/_app/deals'
+import { Route as AppOverviewRouteImport } from './routes/_app/overview'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AppCompaniesCompanyIdRouteImport } from './routes/_app/companies_.$companyId'
 import { Route as AppContactsContactIdRouteImport } from './routes/_app/contacts_.$contactId'
@@ -54,6 +55,11 @@ const AppContactsRoute = AppContactsRouteImport.update({
 const AppDealsRoute = AppDealsRouteImport.update({
   id: '/deals',
   path: '/deals',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppOverviewRoute = AppOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/companies': typeof AppCompaniesRoute
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
+  '/overview': typeof AppOverviewRoute
   '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/companies': typeof AppCompaniesRoute
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
+  '/overview': typeof AppOverviewRoute
   '/': typeof AppIndexRoute
   '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AppContactsContactIdRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/_app/companies': typeof AppCompaniesRoute
   '/_app/contacts': typeof AppContactsRoute
   '/_app/deals': typeof AppDealsRoute
+  '/_app/overview': typeof AppOverviewRoute
   '/_app/': typeof AppIndexRoute
   '/_app/companies_/$companyId': typeof AppCompaniesCompanyIdRoute
   '/_app/contacts_/$contactId': typeof AppContactsContactIdRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/contacts'
     | '/deals'
+    | '/overview'
     | '/companies/$companyId'
     | '/contacts/$contactId'
     | '/deals/$dealId'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/contacts'
     | '/deals'
+    | '/overview'
     | '/'
     | '/companies/$companyId'
     | '/contacts/$contactId'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/_app/companies'
     | '/_app/contacts'
     | '/_app/deals'
+    | '/_app/overview'
     | '/_app/'
     | '/_app/companies_/$companyId'
     | '/_app/contacts_/$contactId'
@@ -278,6 +290,13 @@ declare module '@tanstack/react-router' {
       path: '/deals'
       fullPath: '/deals'
       preLoaderRoute: typeof AppDealsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/overview': {
+      id: '/_app/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof AppOverviewRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/settings': {
@@ -384,6 +403,7 @@ interface AppRouteRouteChildren {
   AppCompaniesRoute: typeof AppCompaniesRoute
   AppContactsRoute: typeof AppContactsRoute
   AppDealsRoute: typeof AppDealsRoute
+  AppOverviewRoute: typeof AppOverviewRoute
   AppIndexRoute: typeof AppIndexRoute
   AppCompaniesCompanyIdRoute: typeof AppCompaniesCompanyIdRoute
   AppContactsContactIdRoute: typeof AppContactsContactIdRoute
@@ -395,6 +415,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppCompaniesRoute: AppCompaniesRoute,
   AppContactsRoute: AppContactsRoute,
   AppDealsRoute: AppDealsRoute,
+  AppOverviewRoute: AppOverviewRoute,
   AppIndexRoute: AppIndexRoute,
   AppCompaniesCompanyIdRoute: AppCompaniesCompanyIdRoute,
   AppContactsContactIdRoute: AppContactsContactIdRoute,

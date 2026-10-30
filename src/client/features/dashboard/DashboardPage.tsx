@@ -30,7 +30,7 @@ export const dashboardSearchSchema = z.object({
   scope: z.enum(DASHBOARD_SCOPES).optional().catch(undefined),
 });
 
-const routeApi = getRouteApi("/_app/");
+const routeApi = getRouteApi("/_app/overview");
 
 const SCOPES = [
   { value: "everyone", label: "All deals" },
@@ -58,7 +58,7 @@ export function DashboardPage() {
   if (summary && !summary.multipleOwners && scope === "me") {
     return (
       <Navigate
-        to="/"
+        to="/overview"
         search={(prev) => ({ ...prev, scope: undefined })}
         replace
       />

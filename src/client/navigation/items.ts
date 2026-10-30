@@ -14,23 +14,21 @@ type NavItem = {
   activePaths?: readonly string[];
 };
 
-/** The primary navigation, in the original CRM's order. */
+/** The primary navigation. Contacts come first: opening the CRM lands there. */
 export const navItems: NavItem[] = [
-  {
-    label: "Overview",
-    icon: LayoutDashboard,
-    // Without exact matching, the index path is a prefix of every route and
-    // Overview would render active everywhere.
-    link: linkOptions({
-      to: "/",
-      activeOptions: { exact: true, includeSearch: false },
-    }),
-  },
   {
     label: "Directory",
     icon: BookUser,
-    link: linkOptions({ to: "/companies" }),
-    activePaths: ["/contacts"],
+    link: linkOptions({ to: "/contacts" }),
+    activePaths: ["/companies"],
+  },
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    link: linkOptions({
+      to: "/overview",
+      activeOptions: { includeSearch: false },
+    }),
   },
   {
     label: "Deals",

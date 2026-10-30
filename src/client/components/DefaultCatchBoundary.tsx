@@ -34,7 +34,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
               size="sm"
               variant="outline"
             >
-              Overview
+              Contacts
             </Button>
           ) : (
             <Button

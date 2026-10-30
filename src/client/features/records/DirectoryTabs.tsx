@@ -33,8 +33,8 @@ export function DirectoryTabs({
       }}
     >
       <TabsList aria-label="Directory views">
-        <TabsTrigger value={DirectoryView.Companies}>Companies</TabsTrigger>
         <TabsTrigger value={DirectoryView.Contacts}>Contacts</TabsTrigger>
+        <TabsTrigger value={DirectoryView.Companies}>Companies</TabsTrigger>
       </TabsList>
       <TabsContent value={view} className="flex min-h-0 flex-1 flex-col">
         {children}

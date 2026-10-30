@@ -28,7 +28,7 @@ function OnboardingPage() {
   const workspace = workspaceQuery.data;
 
   if (workspace && !needsOnboarding(workspace)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/contacts" replace />;
   }
 
   return (
@@ -45,7 +45,7 @@ function OnboardingPage() {
             <WorkspaceForm
               initial={{ name: "", website: null }}
               submitLabel="Continue"
-              onSaved={() => void navigate({ to: "/" })}
+              onSaved={() => void navigate({ to: "/contacts" })}
             />
           ) : workspaceQuery.isError ? (
             <QueryError

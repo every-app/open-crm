@@ -187,7 +187,7 @@ export function RecentActivity({ summary }: { summary: DashboardSummary }) {
             variant="outline"
             size="sm"
             nativeButton={false}
-            render={<Link to="/companies" />}
+            render={<Link to="/contacts" />}
           >
             Directory
           </Button>
