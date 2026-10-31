@@ -1,6 +1,14 @@
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { everyAppAccountQueryOptions } from "@/client/components/Sidebar";
+import {
+  readThemeCookie,
+  readThemeCookieScript,
+  type ThemePreference,
+  writeThemeCookie,
+} from "@/client/lib/themeCookie";
 
-export type ThemePreference = "system" | "light" | "dark";
+export type { ThemePreference };
 
 const LIGHT_THEME_NAME = "openseo";
 const DARK_THEME_NAME = "openseo-dark";
@@ -21,6 +29,15 @@ function readThemePreference(): ThemePreference {
     return unsavedThemePreference;
   }
 
+  // The shared cookie first: a pick made in the launcher or any app counts.
+  const shared = readThemeCookie(document.cookie);
+  if (shared) {
+    return shared;
+  }
+  return readStoredThemePreference();
+}
+
+function readStoredThemePreference(): ThemePreference {
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (stored === "light" || stored === "dark") {
@@ -32,7 +49,36 @@ function readThemePreference(): ThemePreference {
   }
 }
 
-function writeThemePreference(themePreference: ThemePreference) {
+/**
+ * The Gateway's hostname, from GATEWAY_URL on the server (the account query).
+ * Null until it loads, or without one: the pick then stays in localStorage.
+ */
+function useGatewayHostname(): string | null {
+  const { data } = useQuery(everyAppAccountQueryOptions());
+  if (!data?.gatewayUrl) return null;
+  try {
+    return new URL(data.gatewayUrl).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/** Copies a pick saved before the shared cookie existed into it, once. */
+function migrateStoredThemePreference(gatewayHostname: string | null) {
+  if (!gatewayHostname || readThemeCookie(document.cookie)) {
+    return;
+  }
+  const stored = readStoredThemePreference();
+  if (stored !== "system") {
+    writeThemeCookie(stored, gatewayHostname);
+  }
+}
+
+function writeThemePreference(
+  themePreference: ThemePreference,
+  gatewayHostname: string | null,
+) {
+  writeThemeCookie(themePreference, gatewayHostname);
   try {
     if (themePreference === "system") {
       window.localStorage.removeItem(THEME_STORAGE_KEY);
@@ -87,6 +133,14 @@ function subscribeToThemePreference(onStoreChange: () => void) {
     onStoreChange();
   };
 
+  // A pick made in another app's tab only reaches this one through the
+  // cookie, which fires no event: read it again when the tab comes back.
+  const handleVisibility = () => {
+    if (document.visibilityState === "visible") {
+      onStoreChange();
+    }
+  };
+
   const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
   const handleMediaChange = () => {
     // Re-apply when OS preference changes so "system" mode stays in sync
@@ -96,11 +150,13 @@ function subscribeToThemePreference(onStoreChange: () => void) {
 
   window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
   window.addEventListener("storage", handleStorage);
+  document.addEventListener("visibilitychange", handleVisibility);
   mediaQuery.addEventListener("change", handleMediaChange);
 
   return () => {
     window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
     window.removeEventListener("storage", handleStorage);
+    document.removeEventListener("visibilitychange", handleVisibility);
     mediaQuery.removeEventListener("change", handleMediaChange);
   };
 }
@@ -111,6 +167,11 @@ export function useThemePreference() {
     readThemePreference,
     () => "system",
   );
+  const gatewayHostname = useGatewayHostname();
+
+  React.useEffect(() => {
+    migrateStoredThemePreference(gatewayHostname);
+  }, [gatewayHostname]);
 
   React.useEffect(() => {
     applyThemePreference(themePreference);
@@ -118,11 +179,11 @@ export function useThemePreference() {
 
   const setThemePreference = React.useCallback(
     (nextThemePreference: ThemePreference) => {
-      writeThemePreference(nextThemePreference);
+      writeThemePreference(nextThemePreference, gatewayHostname);
       applyThemePreference(nextThemePreference);
       window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
     },
-    [],
+    [gatewayHostname],
   );
 
   return { themePreference, setThemePreference };
@@ -130,7 +191,8 @@ export function useThemePreference() {
 
 export const themePreferenceInitScript = `(() => {
   try {
-    var p = window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
+    ${readThemeCookieScript}
+    if (!p) p = window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
     var t;
     if (p === "light") t = ${JSON.stringify(LIGHT_THEME_NAME)};
     else if (p === "dark") t = ${JSON.stringify(DARK_THEME_NAME)};
