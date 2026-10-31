@@ -79,7 +79,14 @@ export function ListBoard({
   }
   return (
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
+      {/*
+        The columns scroll sideways when they don't fit. The ::-webkit-scrollbar
+        styles make Chrome and Safari draw a classic scrollbar that always
+        shows (an overlay one hides until scrolled, so a column past the edge
+        looks cut). The app's scrollbar-color (app.css) would turn them off,
+        so it is reset here.
+      */}
+      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-3 [scrollbar-color:auto] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
         {columns.map((column) => {
           const cards = rows.filter(
             (row) => columnOf(row.stageId) === column.id,
@@ -142,7 +149,7 @@ function BoardColumn({
       ref={setNodeRef}
       aria-label={name}
       className={cn(
-        "flex min-w-56 flex-1 flex-col gap-2 rounded-xl bg-muted/60 p-2 transition-colors",
+        "flex w-64 shrink-0 grow flex-col gap-2 rounded-xl bg-muted/60 p-2 transition-colors",
         isOver && "bg-primary/10 ring-2 ring-primary/30",
       )}
     >

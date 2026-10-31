@@ -15,6 +15,8 @@ pnpm dev        # http://crm.localhost:8787, signed in as a dev owner
 
 The CRM's own settings for local runs go in `.dev.vars` (copy `.dev.vars.example`). All are optional: `pnpm dev` runs without them.
 
+In `pnpm dev` the light/dark pick stays in this browser's localStorage. The shared `everyapp-theme` cookie is only written on a host under the Gateway's (`crm.<gateway host>` once deployed), and the dev Gateway's stand-in host, `gateway.dev.localhost`, isn't a parent of `crm.localhost`.
+
 ### Demo data
 
 `pnpm db:seed:local` fills the local database with a demo workspace, Bramblewood (a made-up coffee-gear brand): companies and contacts, a "Backlink outreach" list of publications and a "Networking" list of people, each with stages and a few Due, one deal (so deals are on), notes, an overdue task and stage changes. It writes into the organization `pnpm dev` signs you in as, so run `pnpm dev` once first (it applies the migrations), then the seed, and reload. Running it again resets the demo records and leaves the rest. The SQL is [scripts/seed-demo.sql](../scripts/seed-demo.sql); it runs `everyapp db query --local`, never against a deployed database (with its comment lines taken out: the CLI reads SQL that starts with `--` as a flag).

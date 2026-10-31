@@ -4,6 +4,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
 import { Building2, Plus, Upload } from "lucide-react";
 import { findLast } from "remeda";
+import { cn } from "cn";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -169,7 +170,13 @@ export function CompaniesPage() {
   return (
     <div className="flex h-full flex-col overflow-auto px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
       {/* The rows scroll inside the table's card, under its header. */}
-      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
+      {/* A board takes the full width, its columns scrolling sideways past it. */}
+      <div
+        className={cn(
+          "mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4",
+          !board && "max-w-7xl",
+        )}
+      >
         <PageHeader
           title={
             openList ? (
