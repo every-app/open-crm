@@ -22,6 +22,13 @@ import {
   withMemberIds,
 } from "@/server/everyapp/tools/fieldFilters";
 import {
+  listChipsOutput,
+  listFilterInput,
+  listFilters,
+  recordLists,
+  recordListsOutput,
+} from "@/server/everyapp/tools/listFilters";
+import {
   CompanyService,
   type CompanyDetail,
   type CompanyListRow,
@@ -68,6 +75,7 @@ const summaryOutput = z.object({
   createdAt: z.string(),
   archivedAt: z.string().nullable(),
   fields: fieldColumnsOutput,
+  lists: listChipsOutput,
 });
 
 type Shown = Awaited<ReturnType<typeof userFieldsByEmail>>;
@@ -107,6 +115,7 @@ const detailsOutput = z.object({
   owner: personOutput.nullable(),
   source: sourceOutput,
   fields: recordValuesOutput,
+  lists: recordListsOutput,
   primaryContact: z
     .object({
       id: z.string(),
@@ -146,10 +155,12 @@ const detailsOutput = z.object({
 function details(
   company: CompanyDetail,
   fields: z.input<typeof recordValuesOutput>,
+  lists: z.input<typeof recordListsOutput>,
 ): z.input<typeof detailsOutput> {
   return {
     ...company,
     fields,
+    lists,
     primaryContact: company.primaryContact
       ? {
           ...company.primaryContact,
@@ -178,41 +189,65 @@ const companyId = z
   .min(1)
   .describe("The company's id, from list_companies or search_records.");
 
+/** list_companies' filters, which add_to_list's matchingCompanies takes too. */
+export const companyFiltersInput = z.object({
+  query: z
+    .string()
+    .max(200)
+    .optional()
+    .describe("Part of a company's name or domain."),
+  owners: ownersInput.describe(
+    `Only companies these members own, by email or id; "${UNASSIGNED}" for companies nobody owns.`,
+  ),
+  industries: companyListSchema.shape.industry
+    .unwrap()
+    .optional()
+    .describe("Only companies in these industries, as listed."),
+  sources: z
+    .array(z.enum(RECORD_SOURCES))
+    .max(RECORD_SOURCES.length)
+    .optional()
+    .describe("Only companies that came in these ways."),
+  activeWithinDays: z
+    .literal([7, 30, 90])
+    .optional()
+    .describe("Only companies with activity in the last 7, 30 or 90 days."),
+  fields: fieldFiltersInput,
+  ...listFilterInput,
+});
+
+/** The companies list input's filters for companyFiltersInput's. */
+export async function companyListFilters(
+  organizationId: string,
+  input: z.output<typeof companyFiltersInput>,
+) {
+  const owners = await Promise.all(
+    (input.owners ?? []).map((value) =>
+      value === UNASSIGNED ? UNASSIGNED : memberId(organizationId, value),
+    ),
+  );
+  return {
+    fields: await resolveFieldFilters(organizationId, "COMPANY", input.fields),
+    q: input.query,
+    owner: owners,
+    industry: input.industries,
+    source: input.sources,
+    activity: input.activeWithinDays?.toString(),
+    ...(await listFilters(organizationId, "COMPANY", input)),
+  };
+}
+
 export const companyTools = {
   list_companies: crmTool({
     description:
-      "Search and list companies (accounts) with their domain, industry, location, owner, people, open deals and last activity, and the custom fields shown as table columns. `query` matches part of the name or domain. 25 a page unless pageSize says, newest first unless sorted.",
+      "Search and list companies (accounts) with their domain, industry, location, owner, people, open deals, last activity and lists, and the custom fields shown as table columns. `query` matches part of the name or domain. 25 a page unless pageSize says, newest first unless sorted.",
     risk: "read",
-    input: z
-      .object({
-        query: z
-          .string()
-          .max(200)
-          .optional()
-          .describe("Part of a company's name or domain."),
-        owners: ownersInput.describe(
-          `Only companies these members own, by email or id; "${UNASSIGNED}" for companies nobody owns.`,
-        ),
-        industries: companyListSchema.shape.industry
-          .unwrap()
-          .optional()
-          .describe("Only companies in these industries, as listed."),
-        sources: z
-          .array(z.enum(RECORD_SOURCES))
-          .max(RECORD_SOURCES.length)
-          .optional()
-          .describe("Only companies that came in these ways."),
-        activeWithinDays: z
-          .literal([7, 30, 90])
-          .optional()
-          .describe(
-            "Only companies with activity in the last 7, 30 or 90 days.",
-          ),
+    input: companyFiltersInput
+      .extend({
         archived: z
           .boolean()
           .optional()
           .describe("List archived companies instead of live ones."),
-        fields: fieldFiltersInput,
         sort: z.enum(COMPANY_SORTS).optional(),
         direction: z.enum(SORT_DIRECTIONS).optional(),
         page: z.number().int().min(1).optional(),
@@ -226,26 +261,10 @@ export const companyTools = {
       companies: z.array(summaryOutput),
     }),
     handler: async (input, context) => {
-      const owners = await Promise.all(
-        (input.owners ?? []).map((value) =>
-          value === UNASSIGNED
-            ? UNASSIGNED
-            : memberId(context.organizationId, value),
-        ),
-      );
       // Only fills in the list's defaults: the input took each filter by the
       // list's own rules.
       const list = companyListSchema.parse({
-        fields: await resolveFieldFilters(
-          context.organizationId,
-          "COMPANY",
-          input.fields,
-        ),
-        q: input.query,
-        owner: owners,
-        industry: input.industries,
-        source: input.sources,
-        activity: input.activeWithinDays?.toString(),
+        ...(await companyListFilters(context.organizationId, input)),
         archived: input.archived,
         sort: input.sort,
         // As the list pages: a chosen sort runs ascending unless said.
@@ -268,16 +287,17 @@ export const companyTools = {
 
   get_company: crmTool({
     description:
-      "One company in full: its details and links (pricing and careers pages included), owner, custom fields, primary contact, and the people who work there and its deals with their owners.",
+      "One company in full: its details and links (pricing and careers pages included), owner, custom fields, the lists it is in with its stage in each, primary contact, and the people who work there and its deals with their owners.",
     risk: "read",
     input: z.object({ id: companyId }).strict(),
     output: detailsOutput,
     handler: async ({ id }, context) => {
-      const [company, fields] = await Promise.all([
+      const [company, fields, lists] = await Promise.all([
         CompanyService.getCompany(context.organizationId, id),
         recordValues(context.organizationId, "COMPANY", id),
+        recordLists(context.organizationId, "COMPANY", id),
       ]);
-      return details(company, fields);
+      return details(company, fields, lists);
     },
   }),
 

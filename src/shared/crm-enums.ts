@@ -52,6 +52,17 @@ export const FACT_STATUSES = [
 export const FIELD_ENTITIES = ["COMPANY", "CONTACT", "DEAL"] as const;
 export type FieldEntity = (typeof FIELD_ENTITIES)[number];
 
+/** What a list holds: people or companies, chosen when it's made. */
+export const LIST_ENTITIES = ["CONTACT", "COMPANY"] as const;
+export type ListEntity = (typeof LIST_ENTITIES)[number];
+
+/**
+ * What reaching a list stage means: still in progress, finished well, or
+ * given up. "Everything open, across lists" and Due read it.
+ */
+export const STAGE_KINDS = ["OPEN", "DONE", "DROPPED"] as const;
+export type StageKind = (typeof STAGE_KINDS)[number];
+
 export const FIELD_TYPES = [
   "TEXT",
   "LONG_TEXT",

@@ -150,7 +150,7 @@ export async function importContacts(
             id,
             person.writes,
           );
-          return "updated";
+          return { outcome: "updated", recordId: id };
         }
         if (run.dryRun) {
           existing.set(key, null);
@@ -182,7 +182,7 @@ export async function importContacts(
           id,
           person.writes,
         );
-        return "created";
+        return { outcome: "created", recordId: id };
       }),
     );
   }

@@ -19,10 +19,12 @@ import {
   OverdueTasks,
   RecentActivity,
 } from "@/client/features/dashboard/DashboardLists";
+import { ListsCard } from "@/client/features/dashboard/ListsCard";
 import { SalesSummary } from "@/client/features/dashboard/SalesSummary";
 import { FirstFollowUp } from "@/client/features/dashboard/FirstFollowUp";
 import { GetStartedCard } from "@/client/features/setup/GetStartedCard";
 import { dashboardSummaryQueryOptions } from "@/client/features/dashboard/dashboardQueries";
+import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { DASHBOARD_SCOPES } from "@/types/schemas/dashboard";
 
 /** /: whose numbers Home shows, in the URL so a link brings it back. */
@@ -37,14 +39,21 @@ const SCOPES = [
   { value: "me", label: "My deals" },
 ];
 
-/** Home: the viewer's (or the team's) sales at a glance. */
+/**
+ * Home: the viewer's (or the team's) sales at a glance, and the lists. While
+ * deals are off it's the lists, overdue tasks and recent activity.
+ */
 export function DashboardPage() {
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
-  const scope = search.scope ?? "everyone";
+  const dealsEnabled =
+    useQuery(workspaceQueryOptions()).data?.dealsEnabled ?? false;
+  // Whose deals: everyone's while there are none to tell apart.
+  const scope = dealsEnabled ? (search.scope ?? "everyone") : "everyone";
   const query = useQuery(dashboardSummaryQueryOptions(scope));
   const summary = query.data;
   const hasSales =
+    dealsEnabled &&
     summary &&
     (summary.pipeline.count > 0 ||
       summary.performance.winRate !== null ||
@@ -65,16 +74,22 @@ export function DashboardPage() {
     );
   }
   const firstDeal =
-    summary?.pipeline.count === 1 ? summary.biggestOpen[0] : undefined;
+    dealsEnabled && summary?.pipeline.count === 1
+      ? summary.biggestOpen[0]
+      : undefined;
 
   return (
     <div className="flex min-h-full flex-col px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6">
         <PageHeader
           title="Overview"
-          description="Pipeline, overdue tasks and recent activity."
+          description={
+            dealsEnabled
+              ? "Pipeline, lists, overdue tasks and recent activity."
+              : "Lists, overdue tasks and recent activity."
+          }
           actions={
-            summary?.multipleOwners ? (
+            dealsEnabled && summary?.multipleOwners ? (
               <Select
                 items={SCOPES}
                 value={scope}
@@ -105,7 +120,8 @@ export function DashboardPage() {
           }
         />
 
-        {summary && !hasSales ? (
+        {/* With deals off, only a workspace with no company yet is prompted. */}
+        {summary && !hasSales && (dealsEnabled || !summary.firstCompany) ? (
           <GetStartedCard
             company={summary.firstCompany}
             hasDeals={summary.hasDeals}
@@ -134,18 +150,36 @@ export function DashboardPage() {
               />
             ) : null}
             {hasSales ? <SalesSummary summary={summary} /> : null}
-            <div
-              className={cn(
-                "grid gap-6",
-                summary.biggestOpen.length > 0 &&
-                  summary.overdueTasks.length > 0 &&
-                  "lg:grid-cols-2",
-              )}
-            >
-              <DealsInProgress summary={summary} />
-              <OverdueTasks summary={summary} />
-            </div>
-            <RecentActivity summary={summary} />
+            {dealsEnabled ? (
+              <>
+                <div
+                  className={cn(
+                    "grid gap-6",
+                    summary.biggestOpen.length > 0 &&
+                      summary.overdueTasks.length > 0 &&
+                      "lg:grid-cols-2",
+                  )}
+                >
+                  <DealsInProgress summary={summary} />
+                  <OverdueTasks summary={summary} />
+                </div>
+                <RecentActivity summary={summary} dealsEnabled />
+                <ListsCard />
+              </>
+            ) : (
+              <>
+                <div
+                  className={cn(
+                    "grid gap-6",
+                    summary.overdueTasks.length > 0 && "lg:grid-cols-2",
+                  )}
+                >
+                  <ListsCard />
+                  <OverdueTasks summary={summary} />
+                </div>
+                <RecentActivity summary={summary} dealsEnabled={false} />
+              </>
+            )}
           </div>
         ) : query.isError ? (
           <QueryError

@@ -26,6 +26,7 @@ import {
   type DealDetail,
   type DealListRow,
 } from "@/server/features/deals/services/DealService";
+import { WorkspaceService } from "@/server/features/workspace/services/WorkspaceService";
 import { DEAL_STAGES } from "@/shared/crm-enums";
 import { CURRENCY_CODES } from "@/shared/currency";
 import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
@@ -45,6 +46,22 @@ import { SORT_DIRECTIONS } from "@/types/schemas/records";
 
 // The deals (the pipeline) as an AI client sees them. People are named by
 // email here, as a model knows them; the app's own forms use member ids.
+
+/**
+ * A tool on deals, which are opt-in: refused while the workspace has them
+ * turned off, with where to turn them on.
+ */
+export function dealTool<Input extends z.ZodObject, Output extends z.ZodObject>(
+  definition: Parameters<typeof crmTool<Input, Output>>[0],
+) {
+  return crmTool({
+    ...definition,
+    handler: async (input, context, call) => {
+      await WorkspaceService.requireDealsEnabled(context.organizationId);
+      return definition.handler(input, context, call);
+    },
+  });
+}
 
 const STAGES_NOTE = `Stages in pipeline order: ${OPEN_DEAL_STAGES.join(", ")} are open; CLOSED_WON, CLOSED_LOST and UNQUALIFIED_TO_BUY are outcomes.`;
 
@@ -174,7 +191,7 @@ const stageMoveOutput = z.object({
 });
 
 export const dealTools = {
-  list_deals: crmTool({
+  list_deals: dealTool({
     description: `Search and list deals with their company, stage, amount, owner and expected close date, and the custom fields shown as table columns. \`query\` matches part of the deal's or its company's name. Each page comes with the open pipeline's value in the reporting currency. ${STAGES_NOTE} 25 a page unless pageSize says, newest first unless sorted.`,
     risk: "read",
     input: z
@@ -269,7 +286,7 @@ export const dealTools = {
     },
   }),
 
-  get_deal: crmTool({
+  get_deal: dealTool({
     description:
       "One deal in full: its company, owner, stage and when it last moved, why it closed, its amount (and in the reporting currency), custom fields, and the people on it with their roles.",
     risk: "read",
@@ -284,7 +301,7 @@ export const dealTools = {
     },
   }),
 
-  create_deal: crmTool({
+  create_deal: dealTool({
     description: `Add a deal to a company, with its custom field values if given. The owner defaults to you, the currency to the reporting currency, the stage to DEMO_BOOKED. ${STAGES_NOTE}`,
     risk: "write",
     input: createDealSchema
@@ -308,7 +325,7 @@ export const dealTools = {
       }),
   }),
 
-  update_deal: crmTool({
+  update_deal: dealTool({
     description:
       "Change a deal's details and custom field values, in one write. Only what is given changes; null clears the amount, description or close date. A new amount or currency is converted at today's rate. Move its stage with set_deal_stage.",
     risk: "write",
@@ -335,7 +352,7 @@ export const dealTools = {
       }),
   }),
 
-  set_deal_stage: crmTool({
+  set_deal_stage: dealTool({
     description: `Move a deal to another stage; the move goes on its timeline. CLOSED_LOST and UNQUALIFIED_TO_BUY take a closedReason. ${STAGES_NOTE}`,
     risk: "write",
     input: setDealStageSchema
@@ -355,7 +372,7 @@ export const dealTools = {
       DealService.setStage(context.organizationId, input, context.userId),
   }),
 
-  add_deal_contact: crmTool({
+  add_deal_contact: dealTool({
     description:
       "Put someone who works at the deal's company on the deal, optionally with their role (Champion, Economic buyer). Someone already on it gets the new role; set_deal_contact_role clears one.",
     risk: "write",
@@ -373,7 +390,7 @@ export const dealTools = {
       DealService.attachContact(context.organizationId, input),
   }),
 
-  set_deal_contact_role: crmTool({
+  set_deal_contact_role: dealTool({
     description:
       "Change the role of someone on a deal (Champion, Economic buyer), or clear it with null.",
     risk: "write",
@@ -389,7 +406,7 @@ export const dealTools = {
       DealService.setContactRole(context.organizationId, input),
   }),
 
-  remove_deal_contact: crmTool({
+  remove_deal_contact: dealTool({
     description: "Take someone off a deal. The contact stays in the CRM.",
     risk: "write",
     input: detachDealContactSchema
@@ -400,7 +417,7 @@ export const dealTools = {
       DealService.detachContact(context.organizationId, id, contactId),
   }),
 
-  archive_deal: crmTool({
+  archive_deal: dealTool({
     description:
       "Archive a deal: it leaves every list and pipeline total. bulk_restore brings it back.",
     risk: "write",

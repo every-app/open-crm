@@ -38,6 +38,16 @@ const stageChangeSchema = z
   .nullable()
   .catch(null);
 
+/** A list stage change's meta: the list and stages, named as they were. */
+const listStageChangeSchema = z
+  .object({
+    list: z.string(),
+    from: z.string().nullable(),
+    to: z.string().nullable(),
+  })
+  .nullable()
+  .catch(null);
+
 /** A deal's move between stages, from a STAGE_CHANGE's meta. */
 function stageChange(entry: ActivityEntry) {
   return entry.type === "STAGE_CHANGE"
@@ -45,12 +55,22 @@ function stageChange(entry: ActivityEntry) {
     : null;
 }
 
+/** A move between a list's stages, from a STAGE_CHANGE's meta. */
+function listStageChange(entry: ActivityEntry) {
+  return entry.type === "STAGE_CHANGE"
+    ? listStageChangeSchema.parse(entry.meta)
+    : null;
+}
+
 /** The line an activity leads with: a stage move, its subject, or nothing. */
 export function activityHeadline(entry: ActivityEntry): string | null {
   const change = stageChange(entry);
-  return change
-    ? `${DEAL_STAGE_LABELS[change.from]} → ${DEAL_STAGE_LABELS[change.to]}`
-    : entry.subject;
+  if (change)
+    return `${DEAL_STAGE_LABELS[change.from]} → ${DEAL_STAGE_LABELS[change.to]}`;
+  const listChange = listStageChange(entry);
+  if (listChange)
+    return `${listChange.list}: ${listChange.from ?? "No stage"} → ${listChange.to ?? "No stage"}`;
+  return entry.subject;
 }
 
 /** Who logged it: a person, an automation, or the capture that brought it in. */

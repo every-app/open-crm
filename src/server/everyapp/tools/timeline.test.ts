@@ -50,6 +50,8 @@ describe("timeline tools", () => {
   let companyId: string;
   beforeAll(async () => {
     await testDb.seedTwoOrganizations();
+    // Deals are opt-in, and get_sales_summary needs them.
+    await call("set_deals_enabled", { enabled: true });
     companyId = await idFrom("create_company", { name: "Acme" });
   });
 

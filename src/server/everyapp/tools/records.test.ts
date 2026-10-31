@@ -22,7 +22,11 @@ import {
   idFrom,
 } from "@/server/everyapp/toolTestSupport";
 
-beforeAll(() => testDb.seedTwoOrganizations());
+beforeAll(async () => {
+  await testDb.seedTwoOrganizations();
+  // Deals are opt-in, and these tests use them.
+  await call("set_deals_enabled", { enabled: true });
+});
 
 describe("record tools", () => {
   it("companies: create, change, find (owners by email or id), read with its people, archive; another organization can't reach one", async () => {

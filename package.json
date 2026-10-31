@@ -18,6 +18,7 @@
     "format:write": "prettier . --write",
     "db:generate": "drizzle-kit generate --config drizzle/sqlite.config.ts",
     "db:migrate:local": "everyapp db migrate",
+    "db:seed:local": "sed '/^[[:space:]]*--/d' scripts/seed-demo.sql | everyapp db query --local --file -",
     "db:studio:local": "drizzle-kit studio --config drizzle/sqlite.config.ts",
     "deploy:everyapp": "everyapp deploy",
     "ops": "node scripts/ops.ts",

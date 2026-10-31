@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      Lists with stages: recommended (outreach + networking, deals off)
+    </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #fafafa;
+        --card: #fff;
+        --fg: #18181b;
+        --muted: #71717a;
+        --border: #e4e4e7;
+        --primary: #18181b;
+        --accent: #f4f4f5;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          14px/1.45 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        min-height: 100vh;
+      }
+      aside {
+        border-right: 1px solid var(--border);
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .brand {
+        font-weight: 600;
+        font-size: 15px;
+        padding: 4px 8px 8px;
+      }
+      .search {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 8px;
+        color: var(--muted);
+        margin-bottom: 8px;
+        background: #fff;
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        color: #3f3f46;
+      }
+      .nav:hover {
+        background: var(--accent);
+      }
+      .nav.active {
+        background: #e4e4e7;
+        color: var(--fg);
+        font-weight: 500;
+      }
+      .nav .count {
+        margin-left: auto;
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .nav .ent {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .section {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        padding: 12px 8px 4px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: none;
+        display: inline-block;
+      }
+      .spacer {
+        flex: 1;
+      }
+      main {
+        padding: 20px 28px;
+        min-width: 0;
+      }
+      .crumbs {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 2px 0 2px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .desc {
+        color: var(--muted);
+        margin: 0 0 14px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+        font: inherit;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      .btn.on {
+        background: var(--fg);
+        color: #fff;
+        border-color: var(--fg);
+      }
+      .seg {
+        display: inline-flex;
+        background: var(--accent);
+        border-radius: 8px;
+        padding: 3px;
+      }
+      .seg span {
+        padding: 4px 12px;
+        border-radius: 6px;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .seg span.on {
+        background: #fff;
+        color: var(--fg);
+        box-shadow: 0 1px 2px #0001;
+      }
+      .input {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+        width: 200px;
+        color: var(--muted);
+        background: #fff;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 12px;
+        background: #fff;
+        white-space: nowrap;
+      }
+      .due {
+        background: #fef3c7;
+        border-color: #fcd34d;
+        color: #92400e;
+      }
+      .board {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(200px, 1fr);
+        gap: 12px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+      }
+      .col {
+        background: #f4f4f5;
+        border-radius: 10px;
+        padding: 8px;
+        min-height: 260px;
+      }
+      .col h4 {
+        margin: 2px 4px 8px;
+        font-size: 12px;
+        font-weight: 600;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .col h4 .n {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .col h4 .kind {
+        margin-left: auto;
+        color: var(--muted);
+        font-weight: 400;
+        font-size: 11px;
+      }
+      .cardx {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+        cursor: pointer;
+      }
+      .cardx:hover {
+        border-color: #a1a1aa;
+      }
+      .cardx b {
+        display: block;
+      }
+      .cardx .sub {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .cardx .meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      th {
+        font-weight: 500;
+        color: var(--muted);
+        font-size: 12px;
+        background: #fcfcfc;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      tbody tr {
+        cursor: pointer;
+      }
+      tbody tr:hover {
+        background: #fafafa;
+      }
+      .sheet {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 420px;
+        background: #fff;
+        border-left: 1px solid var(--border);
+        box-shadow: -12px 0 32px #0001;
+        padding: 20px;
+        overflow: auto;
+        transform: translateX(100%);
+        transition: transform 0.15s;
+      }
+      .sheet.open {
+        transform: none;
+      }
+      .sheet h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+      .sheet .sub {
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+      .box {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+      .box h3 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 0;
+      }
+      .row select {
+        margin-left: auto;
+        font: inherit;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 3px 6px;
+        background: #fff;
+      }
+      .tl {
+        border-left: 2px solid var(--border);
+        margin-left: 6px;
+        padding-left: 14px;
+      }
+      .tl > div {
+        position: relative;
+        padding: 6px 0;
+      }
+      .tl > div::before {
+        content: "";
+        position: absolute;
+        left: -20px;
+        top: 12px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid #a1a1aa;
+      }
+      .tl .when {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .tl > .stage::before {
+        border-color: #3b82f6;
+      }
+      .extras {
+        margin-top: 28px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .card h3 {
+        margin: 0 0 4px;
+        font-size: 14px;
+      }
+      .card p {
+        margin: 0 0 10px;
+        color: var(--muted);
+      }
+      .select {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        margin-bottom: 8px;
+      }
+      .toggle {
+        width: 34px;
+        height: 20px;
+        border-radius: 999px;
+        background: #d4d4d8;
+        position: relative;
+        flex: none;
+      }
+      .toggle::after {
+        content: "";
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      .label {
+        position: fixed;
+        bottom: 12px;
+        left: 12px;
+        background: #fef3c7;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-size: 12px;
+        z-index: 2;
+      }
+      .close {
+        float: right;
+        cursor: pointer;
+        color: var(--muted);
+        border: 0;
+        background: none;
+        font-size: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="label">Recommended: Lists with optional stages · Deals off</div>
+    <div class="app">
+      <aside>
+        <div class="brand">OpenCRM</div>
+        <div class="search">Search… ⌘K</div>
+        <div class="nav" data-list="contacts">👤 <span>Contacts</span></div>
+        <div class="nav" data-list="companies">🏢 <span>Companies</span></div>
+        <div class="nav">📊 <span>Overview</span></div>
+        <div class="section">
+          <span>Lists</span><span style="cursor: pointer">＋</span>
+        </div>
+        <div id="lists"></div>
+        <div class="spacer"></div>
+        <div class="nav">⚙️ <span>Settings</span></div>
+      </aside>
+      <main>
+        <div class="crumbs" id="crumbs"></div>
+        <h1 id="title"></h1>
+        <p class="desc" id="desc"></p>
+        <div class="toolbar" id="toolbar"></div>
+        <div id="body"></div>
+
+        <div class="extras">
+          <div class="card">
+            <h3>Import: last step</h3>
+            <p>
+              CSV and LinkedIn imports land in a list, at a stage. LinkedIn
+              still records who on the team is connected.
+            </p>
+            <div class="select">
+              <span>Add to list: <b>Networking</b></span
+              ><span>▾</span>
+            </div>
+            <div class="select">
+              <span>Starting stage: <b>Met</b></span
+              ><span>▾</span>
+            </div>
+            <div style="color: var(--muted); font-size: 12px">
+              412 new · 38 already here (stage kept)
+            </div>
+          </div>
+          <div class="card">
+            <h3>New list</h3>
+            <p>
+              Pick what it holds and a starting template. Stages are editable
+              later.
+            </p>
+            <div class="select">
+              <span>Holds: <b>Companies</b></span
+              ><span>▾</span>
+            </div>
+            <div class="select">
+              <span
+                >Template: <b>Outreach</b> (To contact → Contacted → Replied →
+                Done / Not interested)</span
+              ><span>▾</span>
+            </div>
+            <div class="select">
+              <span>Follow up after: <b>14 days quiet</b></span
+              ><span>▾</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Settings → General</h3>
+            <p>
+              Deals are an opt-in extra for teams that sell. Off for new
+              installs; on if you already have deals.
+            </p>
+            <div class="row">
+              <div class="toggle"></div>
+              <div>
+                <b>Deals</b>
+                <div style="color: var(--muted); font-size: 12px">
+                  Track sales with amounts, close dates and a pipeline.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div class="sheet" id="sheet"></div>
+
+    <script>
+      const LISTS = [
+        {
+          id: "backlinks",
+          name: "Backlink outreach",
+          entity: "Companies",
+          color: "#3b82f6",
+          followUp: 14,
+          desc: "Coffee publications we're asking to link to Bramble's brewing guide.",
+          stages: [
+            ["To contact", "open"],
+            ["Contacted", "open"],
+            ["Replied", "open"],
+            ["Done ✓", "done"],
+            ["Not interested", "dropped"],
+          ],
+        },
+        {
+          id: "networking",
+          name: "Networking",
+          entity: "People",
+          color: "#10b981",
+          followUp: 60,
+          desc: "People worth staying in touch with. Due = no contact in 60 days.",
+          stages: [
+            ["To meet", "open"],
+            ["Met", "open"],
+            ["Keep in touch", "open"],
+            ["Dormant", "dropped"],
+          ],
+        },
+        {
+          id: "agencies",
+          name: "Agencies (LinkedIn)",
+          entity: "People",
+          color: "#a855f7",
+          followUp: null,
+          desc: "Agency founders from Ben's LinkedIn connections.",
+          stages: [],
+        },
+        {
+          id: "youtubers",
+          name: "YouTubers",
+          entity: "People",
+          color: "#ef4444",
+          followUp: null,
+          desc: "Creators for sponsored reviews. A plain list: works like a tag.",
+          stages: [],
+        },
+      ];
+      // [name, sub, {listId: stage|null}, lastActivityDays]
+      const RECORDS = [
+        [
+          "Standart",
+          "standartmag.com · Ed. Lena Ross",
+          { backlinks: "To contact" },
+          5,
+        ],
+        [
+          "Roast Magazine",
+          "roastmagazine.com · Ed. Paul K.",
+          { backlinks: "To contact" },
+          6,
+        ],
+        [
+          "Daily Coffee News",
+          "dailycoffeenews.com · Nick B.",
+          { backlinks: "Contacted" },
+          16,
+        ],
+        [
+          "Barista Magazine",
+          "baristamagazine.com · Ashley R.",
+          { backlinks: "Contacted" },
+          9,
+        ],
+        [
+          "Perfect Daily Grind",
+          "perfectdailygrind.com · Sam T.",
+          { backlinks: "Replied" },
+          2,
+        ],
+        ["Sprudge", "sprudge.com · Jordan M.", { backlinks: "Replied" }, 7],
+        [
+          "Home Grounds",
+          "homegrounds.co · Alex W.",
+          { backlinks: "Done ✓" },
+          3,
+        ],
+        [
+          "Serious Eats",
+          "seriouseats.com",
+          { backlinks: "Not interested" },
+          20,
+        ],
+        [
+          "Maya Chen",
+          "Founder · Northbeam Studio",
+          { networking: "Met", agencies: null },
+          74,
+        ],
+        [
+          "Jonas Weber",
+          "Managing Partner · Brightline",
+          { networking: "Keep in touch", agencies: null },
+          12,
+        ],
+        ["Lena Ross", "Editor · Standart", { networking: "Met" }, 5],
+        [
+          "Hannah Lee",
+          "Creator · @hannahcodes",
+          { networking: "To meet", youtubers: null },
+          90,
+        ],
+        ["Diego Santos", "Creator · @diegobuilds", { youtubers: null }, 3],
+        [
+          "Priya Nair",
+          "Head of Growth · Loop & Co",
+          { networking: "Keep in touch", agencies: null },
+          65,
+        ],
+        ["Sam Okafor", "Host · Ship It Weekly", { networking: "Dormant" }, 200],
+      ];
+      let current = "backlinks",
+        view = "board",
+        dueOnly = false;
+      const byId = Object.fromEntries(LISTS.map((l) => [l.id, l]));
+      const kindOf = (l, s) => (l.stages.find((x) => x[0] === s) || [])[1];
+      const isDue = (l, r) =>
+        l.followUp && r[3] > l.followUp && kindOf(l, r[2][l.id]) === "open";
+      const ago = (d) =>
+        d < 1
+          ? "today"
+          : d === 1
+            ? "yesterday"
+            : d < 30
+              ? `${d}d ago`
+              : `${Math.round(d / 30)}mo ago`;
+      const members = (l) => RECORDS.filter((r) => l.id in r[2]);
+
+      function renderSidebar() {
+        document.getElementById("lists").innerHTML = LISTS.map(
+          (l) =>
+            `<div class="nav" data-list="${l.id}"><span class="dot" style="background:${l.color}"></span><span>${l.name}</span><span class="count">${members(l).length}</span></div>`,
+        ).join("");
+        document.querySelectorAll("[data-list]").forEach((el) => {
+          el.classList.toggle("active", el.dataset.list === current);
+          el.onclick = () => {
+            if (byId[el.dataset.list]) {
+              current = el.dataset.list;
+              view = byId[current].stages.length ? "board" : "table";
+              dueOnly = false;
+              render();
+            }
+          };
+        });
+      }
+      function render() {
+        renderSidebar();
+        const l = byId[current];
+        document.getElementById("crumbs").textContent = `Lists · ${l.entity}`;
+        document.getElementById("title").innerHTML =
+          `<span class="dot" style="background:${l.color};width:12px;height:12px"></span>${l.name} <button class="btn" style="font-size:12px;padding:2px 8px">⋯</button>`;
+        document.getElementById("desc").textContent = l.desc;
+        const dueCount = members(l).filter((r) => isDue(l, r)).length;
+        document.getElementById("toolbar").innerHTML =
+          (l.stages.length
+            ? `<span class="seg"><span data-v="board" class="${view === "board" ? "on" : ""}">Board</span><span data-v="table" class="${view === "table" ? "on" : ""}">Table</span></span>`
+            : "") +
+          `<span class="input">Search ${l.entity.toLowerCase()}…</span><button class="btn">⚲ Filter</button>` +
+          (l.followUp
+            ? `<button class="btn ${dueOnly ? "on" : ""}" id="duebtn">⏰ Due <span class="chip due">${dueCount}</span></button>`
+            : "") +
+          `<button class="btn">🔖 Views ▾</button><span style="flex:1"></span><button class="btn">Import</button><button class="btn primary">＋ Add ${l.entity === "Companies" ? "company" : "person"}</button>`;
+        document.querySelectorAll("[data-v]").forEach(
+          (el) =>
+            (el.onclick = () => {
+              view = el.dataset.v;
+              render();
+            }),
+        );
+        const db = document.getElementById("duebtn");
+        if (db)
+          db.onclick = () => {
+            dueOnly = !dueOnly;
+            render();
+          };
+        const rows = members(l).filter((r) => !dueOnly || isDue(l, r));
+        const body = document.getElementById("body");
+        if (view === "board" && l.stages.length) {
+          body.innerHTML = `<div class="board">${l.stages
+            .map(([s, kind]) => {
+              const inStage = rows.filter((r) => r[2][l.id] === s);
+              return `<div class="col"><h4>${s} <span class="n">${inStage.length}</span><span class="kind">${kind}</span></h4>${inStage
+                .map(
+                  (r) =>
+                    `<div class="cardx" data-r="${RECORDS.indexOf(r)}"><b>${r[0]}</b><span class="sub">${r[1]}</span><div class="meta"><span>${ago(r[3])}</span>${isDue(l, r) ? `<span class="chip due">Due</span>` : ""}</div></div>`,
+                )
+                .join("")}</div>`;
+            })
+            .join("")}</div>`;
+        } else {
+          body.innerHTML = `<table><thead><tr><th>Name</th><th>Details</th>${l.stages.length ? "<th>Stage</th>" : ""}<th>Other lists</th><th>Last activity</th></tr></thead><tbody>${rows
+            .map(
+              (r) =>
+                `<tr data-r="${RECORDS.indexOf(r)}"><td><b>${r[0]}</b></td><td style="color:var(--muted)">${r[1]}</td>${l.stages.length ? `<td>${r[2][l.id]}</td>` : ""}<td>${Object.keys(
+                  r[2],
+                )
+                  .filter((k) => k !== l.id)
+                  .map(
+                    (k) =>
+                      `<span class="chip"><span class="dot" style="background:${byId[k].color}"></span>${byId[k].name}${r[2][k] ? ` · ${r[2][k]}` : ""}</span>`,
+                  )
+                  .join(
+                    " ",
+                  )}</td><td style="color:var(--muted)">${ago(r[3])} ${isDue(l, r) ? `<span class="chip due">Due</span>` : ""}</td></tr>`,
+            )
+            .join("")}</tbody></table>`;
+        }
+        document
+          .querySelectorAll("[data-r]")
+          .forEach(
+            (el) => (el.onclick = () => openSheet(RECORDS[+el.dataset.r])),
+          );
+      }
+      function openSheet(r) {
+        const memberships = Object.keys(r[2])
+          .map((k) => {
+            const l = byId[k];
+            const control = l.stages.length
+              ? `<select>${l.stages.map(([s]) => `<option ${s === r[2][k] ? "selected" : ""}>${s}</option>`).join("")}</select>`
+              : `<span style="margin-left:auto;color:var(--muted);font-size:12px">no stages</span>`;
+            return `<div class="row"><span class="dot" style="background:${l.color}"></span>${l.name}${isDue(l, r) ? ` <span class="chip due">Due</span>` : ""}${control}</div>`;
+          })
+          .join("");
+        const firstStaged = Object.keys(r[2]).find(
+          (k) => byId[k].stages.length,
+        );
+        const l = firstStaged && byId[firstStaged];
+        document.getElementById("sheet").innerHTML = `
+    <button class="close" onclick="document.getElementById('sheet').classList.remove('open')">✕</button>
+    <h2>${r[0]}</h2><div class="sub">${r[1]}</div>
+    <div class="box"><h3><span>Lists</span><span style="color:var(--muted);font-weight:400;cursor:pointer">＋ Add to list</span></h3>${memberships}</div>
+    <div class="box"><h3><span>Next step</span></h3><div class="row">☐ ${firstStaged === "networking" ? "Send her the intro to Jonas" : "Follow up on the draft"} <span class="chip" style="margin-left:auto">Fri</span></div></div>
+    <div class="box"><h3><span>Timeline</span><span style="color:var(--muted);font-weight:400">Note · Task · Email</span></h3>
+      <div class="tl">
+        ${l ? `<div class="stage"><b>${l.name}:</b> ${l.stages[Math.max(0, l.stages.findIndex((s) => s[0] === r[2][firstStaged]) - 1)][0]} → ${r[2][firstStaged]}<div class="when">${ago(r[3])} · ben</div></div>` : ""}
+        <div>📧 <b>${firstStaged === "networking" ? "Re: Great to meet you at SF Coffee Fest" : "Re: A guide your readers might like"}</b><div class="when">${ago(r[3])} · captured from Gmail</div></div>
+        <div>📝 Prefers a short pitch with a ready-made paragraph.<div class="when">${ago(r[3] + 4)} · note by ben</div></div>
+        <div>📅 Coffee chat, SF Coffee Fest<div class="when">${ago(r[3] + 30)} · from Google Calendar</div></div>
+        <div style="color:var(--muted)">Added to ${Object.keys(r[2])
+          .map((k) => byId[k].name)
+          .join(", ")}<div class="when">${ago(r[3] + 45)}</div></div>
+      </div>
+    </div>
+    <div class="box" style="color:var(--muted)">Deals are off. Turn them on in Settings to "Create deal" from here.</div>`;
+        document.getElementById("sheet").classList.add("open");
+      }
+      // #networking or #networking/Maya Chen opens a list (and a sheet) directly.
+      const [hashList, hashName] = decodeURIComponent(
+        location.hash.slice(1),
+      ).split("/");
+      if (byId[hashList]) {
+        current = hashList;
+        view = byId[current].stages.length ? "board" : "table";
+      }
+      render();
+      const hashRecord = RECORDS.find((r) => r[0] === hashName);
+      if (hashRecord) openSheet(hashRecord);
+    </script>
+  </body>
+</html>

@@ -11,6 +11,7 @@ import { ArchivedRecordsSection } from "@/client/features/settings/ArchivedRecor
 import { SettingsDisclosure } from "@/client/components/SettingsDisclosure";
 import { MembersSettings } from "./MembersSettings";
 import { CurrencySettings } from "./CurrencySettings";
+import { DealsSetting } from "./DealsSetting";
 import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 import { WorkspaceSettingsCard } from "@/client/features/workspace/WorkspaceForm";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
@@ -25,6 +26,9 @@ export function GeneralSettings() {
     <SettingsPage title="Workspace">
       {workspace ? (
         <WorkspaceSettingsCard workspace={workspace} canManage={canManage} />
+      ) : null}
+      {workspace ? (
+        <DealsSetting enabled={workspace.dealsEnabled} canManage={canManage} />
       ) : null}
 
       <SettingsSection title="Appearance">

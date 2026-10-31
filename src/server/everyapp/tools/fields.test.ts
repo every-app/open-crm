@@ -31,7 +31,11 @@ const member: Caller = {
   orgRole: "member",
 };
 
-beforeAll(() => testDb.seedTwoOrganizations());
+beforeAll(async () => {
+  await testDb.seedTwoOrganizations();
+  // Deals are opt-in, and these tests use them.
+  await call("set_deals_enabled", { enabled: true });
+});
 
 describe("custom field tools", () => {
   it("custom fields: owners and admins define them, anyone sets values, selects go by label and people by email", async () => {

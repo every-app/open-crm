@@ -37,6 +37,7 @@ export function CompanySheet({ companyId }: { companyId: string }) {
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
+  const dealsEnabled = workspace.data?.dealsEnabled ?? false;
   const { back } = useRecordStack();
   // Deleted forever: its sheet goes, and the one under it shows again.
   const mutations = useCompanyMutations(companyId, { onPurged: back });
@@ -90,7 +91,11 @@ export function CompanySheet({ companyId }: { companyId: string }) {
           />
         ) : undefined
       }
-      stats={company ? <CompanyStats company={company} /> : undefined}
+      // Its stats are its pipeline: none while deals are off (the owner is
+      // in its details too).
+      stats={
+        company && dealsEnabled ? <CompanyStats company={company} /> : undefined
+      }
       overview={
         company ? (
           <CompanyOverview company={company} mutations={mutations} />
@@ -105,10 +110,14 @@ export function CompanySheet({ companyId }: { companyId: string }) {
                   <CompanyContacts company={company} mutations={mutations} />
                 ),
               },
-              {
-                value: "deals",
-                content: <CompanyDeals company={company} />,
-              },
+              ...(dealsEnabled
+                ? [
+                    {
+                      value: "deals" as const,
+                      content: <CompanyDeals company={company} />,
+                    },
+                  ]
+                : []),
             ]
           : undefined
       }

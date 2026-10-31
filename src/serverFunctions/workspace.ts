@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireOrgPermission } from "@/server/auth/org-gate";
 import { WorkspaceService } from "@/server/features/workspace/services/WorkspaceService";
 import { requireAuthenticatedContext } from "@/serverFunctions/middleware";
-import { updateWorkspaceSchema } from "@/types/schemas/workspace";
+import {
+  setDealsEnabledSchema,
+  updateWorkspaceSchema,
+} from "@/types/schemas/workspace";
 
 export const getWorkspace = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
@@ -17,4 +20,15 @@ export const updateWorkspace = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     requireOrgPermission(context, { workspace: ["manage"] });
     return WorkspaceService.updateWorkspace(context.organizationId, data);
+  });
+
+export const setDealsEnabled = createServerFn({ method: "POST" })
+  .middleware(requireAuthenticatedContext)
+  .validator(setDealsEnabledSchema)
+  .handler(async ({ data, context }) => {
+    requireOrgPermission(context, { workspace: ["manage"] });
+    return WorkspaceService.setDealsEnabled(
+      context.organizationId,
+      data.enabled,
+    );
   });

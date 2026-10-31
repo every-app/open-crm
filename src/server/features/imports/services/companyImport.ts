@@ -107,7 +107,7 @@ export async function importCompanies(
             id,
             company.writes,
           );
-          return "updated";
+          return { outcome: "updated", recordId: id };
         }
         if (run.dryRun) {
           existing.set(key, null);
@@ -131,7 +131,7 @@ export async function importCompanies(
           inserted.id,
           company.writes,
         );
-        return "created";
+        return { outcome: "created", recordId: inserted.id };
       }),
     );
   }

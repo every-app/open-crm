@@ -34,6 +34,7 @@ import {
   RelativeDay,
   RelativeTime,
 } from "@/client/features/records/LocalDateTime";
+import { fullName } from "@/client/features/companies/companyFormat";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import { EmptyValue, EntityLogo } from "@/client/features/records/cells";
 import { DEAL_STAGE_LABELS } from "@/shared/deal-stages";
@@ -175,7 +176,14 @@ export function OverdueTasks({ summary }: { summary: DashboardSummary }) {
   );
 }
 
-export function RecentActivity({ summary }: { summary: DashboardSummary }) {
+/** What happened last; its third column is the deal, or the person while deals are off. */
+export function RecentActivity({
+  summary,
+  dealsEnabled,
+}: {
+  summary: DashboardSummary;
+  dealsEnabled: boolean;
+}) {
   const entries = summary.recentActivity;
   if (entries.length === 0) return null;
   return (
@@ -198,7 +206,9 @@ export function RecentActivity({ summary }: { summary: DashboardSummary }) {
           <TableRow>
             <TableHead>Activity</TableHead>
             <TableHead className="hidden w-44 md:table-cell">Company</TableHead>
-            <TableHead className="hidden w-48 lg:table-cell">Deal</TableHead>
+            <TableHead className="hidden w-48 lg:table-cell">
+              {dealsEnabled ? "Deal" : "Contact"}
+            </TableHead>
             <TableHead className="hidden w-32 md:table-cell">Who</TableHead>
             <TableHead className="w-28 text-right">When</TableHead>
           </TableRow>
@@ -232,12 +242,19 @@ export function RecentActivity({ summary }: { summary: DashboardSummary }) {
                   )}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
-                  {entry.deal ? (
+                  {dealsEnabled && entry.deal ? (
                     <RecordLink
                       record={{ kind: "deal", id: entry.deal.id }}
                       className="block"
                     >
                       {entry.deal.name}
+                    </RecordLink>
+                  ) : !dealsEnabled && entry.contact ? (
+                    <RecordLink
+                      record={{ kind: "contact", id: entry.contact.id }}
+                      className="block"
+                    >
+                      {fullName(entry.contact)}
                     </RecordLink>
                   ) : (
                     <EmptyValue />

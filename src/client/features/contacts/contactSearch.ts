@@ -2,8 +2,11 @@ import { z } from "zod";
 import {
   SHARED_FILTER_KEYS,
   activityParam,
+  LIST_MEMBERSHIP_FILTER_KEYS,
   activityWindow,
   listInputFromSearch,
+  listMembershipInput,
+  listMembershipParams,
   recordListSearchSchema,
   valuesParam,
 } from "@/client/features/records/listSearch";
@@ -17,6 +20,7 @@ export const contactListSearchSchema = recordListSearchSchema.extend({
   seniority: valuesParam,
   persona: valuesParam,
   activity: activityParam,
+  ...listMembershipParams,
 });
 
 export type ContactListSearch = z.infer<typeof contactListSearchSchema>;
@@ -29,6 +33,7 @@ export const CONTACT_FILTER_KEYS = [
   "seniority",
   "persona",
   "activity",
+  ...LIST_MEMBERSHIP_FILTER_KEYS,
 ] as const;
 
 /** Newest first, as the CRM lists contacts. */
@@ -40,5 +45,6 @@ export function contactListInput(search: ContactListSearch): ContactListInput {
     seniority: search.seniority ?? [],
     persona: search.persona ?? [],
     activity: activityWindow(search.activity),
+    ...listMembershipInput(search),
   };
 }

@@ -18,10 +18,13 @@ import {
 import { MEMBER_ROLES, MEMBER_SORTS } from "@/types/schemas/members";
 import { SORT_DIRECTIONS } from "@/types/schemas/records";
 import { setArchiveRetentionSchema } from "@/types/schemas/settings";
-import { updateWorkspaceSchema } from "@/types/schemas/workspace";
+import {
+  setDealsEnabledSchema,
+  updateWorkspaceSchema,
+} from "@/types/schemas/workspace";
 
 // The workspace around the records: its name and website, how long it keeps
-// archived records, its members and its currencies. Changing the workspace and its currencies is for owners and admins,
+// archived records, whether deals are on, its members and its currencies. Changing the workspace and its currencies is for owners and admins,
 // as in Settings. Members, roles and invitations themselves are the Every App
 // gateway's.
 
@@ -36,6 +39,11 @@ const workspaceOutput = z.object({
     .number()
     .describe(
       "Archived companies, contacts and deals are deleted for good this many days after they were archived.",
+    ),
+  dealsEnabled: z
+    .boolean()
+    .describe(
+      "Deals are on: while off, the deal tools refuse and set_deals_enabled turns them on.",
     ),
 });
 
@@ -110,7 +118,7 @@ const MEMBER_ORDER: Record<
 export const workspaceTools = {
   get_workspace: crmTool({
     description:
-      "The workspace this CRM belongs to: the company's name and website, who the caller is and their role in it, and how long archived records are kept.",
+      "The workspace this CRM belongs to: the company's name and website, who the caller is and their role in it, how long archived records are kept, and whether deals are on.",
     risk: "read",
     input: z.object({}).strict(),
     output: workspaceOutput,
@@ -149,6 +157,19 @@ export const workspaceTools = {
         context.organizationId,
         changed.data,
       );
+      return workspace(context);
+    },
+  }),
+
+  set_deals_enabled: crmTool({
+    description:
+      "Turn deals on or off for the workspace (owners and admins only). Off hides the Deals page and refuses the deal tools; no deal is deleted, and turning them back on brings every one back.",
+    risk: "write",
+    input: setDealsEnabledSchema.strict(),
+    output: workspaceOutput,
+    handler: async ({ enabled }, context) => {
+      requireOrgPermission(context, manage);
+      await WorkspaceService.setDealsEnabled(context.organizationId, enabled);
       return workspace(context);
     },
   }),

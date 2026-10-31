@@ -15,6 +15,10 @@ pnpm dev        # http://crm.localhost:8787, signed in as a dev owner
 
 The CRM's own settings for local runs go in `.dev.vars` (copy `.dev.vars.example`). All are optional: `pnpm dev` runs without them.
 
+### Demo data
+
+`pnpm db:seed:local` fills the local database with a demo workspace, Bramblewood (a made-up coffee-gear brand): companies and contacts, a "Backlink outreach" list of publications and a "Networking" list of people, each with stages and a few Due, one deal (so deals are on), notes, an overdue task and stage changes. It writes into the organization `pnpm dev` signs you in as, so run `pnpm dev` once first (it applies the migrations), then the seed, and reload. Running it again resets the demo records and leaves the rest. The SQL is [scripts/seed-demo.sql](../scripts/seed-demo.sql); it runs `everyapp db query --local`, never against a deployed database (with its comment lines taken out: the CLI reads SQL that starts with `--` as a flag).
+
 ## Deploy your own changes
 
 `pnpm everyapp install https://github.com/every-app/open-crm` installs the latest release, which the Release workflow publishes on every push to the default branch; run it again later to update. `pnpm everyapp configure crm` asks for the CRM's optional settings, `TOKEN_ENCRYPTION_KEY` among them: set it before anyone connects mail or a calendar, since their tokens are encrypted under it. Any one setting can also be set on its own with `pnpm everyapp secret set <NAME>`.

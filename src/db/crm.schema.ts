@@ -19,7 +19,9 @@ import {
   FACT_STATUSES,
   FIELD_ENTITIES,
   FIELD_TYPES,
+  LIST_ENTITIES,
   RECORD_SOURCES,
+  STAGE_KINDS,
 } from "../shared/crm-enums";
 import {
   CONNECTION_STATUSES,
@@ -77,6 +79,11 @@ export const workspace = sqliteTable("workspace", {
   researchAutomatically: integer("research_automatically", { mode: "boolean" })
     .notNull()
     .default(true),
+  // Deals are opt-in (Settings → General): off for a new workspace, turned
+  // on by the migration that added it for every organization that had deals.
+  dealsEnabled: integer("deals_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -626,6 +633,104 @@ export const savedView = sqliteTable(
   ],
 );
 
+/**
+ * A list: a context the team works people or companies in ("Backlink
+ * outreach", "Networking"), with its own stages or none (then it's a group,
+ * like a tag). Everyone in the organization sees every list.
+ */
+export const recordList = sqliteTable(
+  "record_list",
+  {
+    id: text("id").primaryKey(),
+    organizationId: organizationId(),
+    entity: text("entity", { enum: LIST_ENTITIES }).notNull(),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    description: text("description"),
+    // An entry at an open stage is Due once its record has been quiet this
+    // many days. Null: the list doesn't follow up.
+    followUpDays: integer("follow_up_days"),
+    createdById: text("created_by_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    archivedAt: timestamp("archived_at"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("record_list_organization_name_uidx")
+      .on(table.organizationId, sql`lower(${table.name})`)
+      .where(sql`${table.archivedAt} is null`),
+    index("record_list_created_by_idx").on(table.createdById),
+  ],
+);
+
+/** A list's stages, in order. */
+export const listStage = sqliteTable(
+  "list_stage",
+  {
+    id: text("id").primaryKey(),
+    organizationId: organizationId(),
+    listId: text("list_id")
+      .notNull()
+      .references(() => recordList.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: text("kind", { enum: STAGE_KINDS }).notNull().default("OPEN"),
+    position: integer("position").notNull(),
+  },
+  (table) => [index("list_stage_list_position_idx").on(table.listId, table.position)],
+);
+
+/**
+ * A contact or company in a list, at one of its stages (or none). Exactly
+ * one of `contact_id` and `company_id` is set, as the list's entity says.
+ */
+export const listEntry = sqliteTable(
+  "list_entry",
+  {
+    id: text("id").primaryKey(),
+    organizationId: organizationId(),
+    listId: text("list_id")
+      .notNull()
+      .references(() => recordList.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contact.id, {
+      onDelete: "cascade",
+    }),
+    companyId: text("company_id").references(() => company.id, {
+      onDelete: "cascade",
+    }),
+    stageId: text("stage_id").references(() => listStage.id, {
+      onDelete: "set null",
+    }),
+    stageChangedAt: timestamp("stage_changed_at").notNull().default(isoNow),
+    addedById: text("added_by_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    addedAt: timestamp("added_at").notNull().default(isoNow),
+  },
+  (table) => [
+    uniqueIndex("list_entry_list_contact_uidx")
+      .on(table.listId, table.contactId)
+      .where(sql`${table.contactId} is not null`),
+    uniqueIndex("list_entry_list_company_uidx")
+      .on(table.listId, table.companyId)
+      .where(sql`${table.companyId} is not null`),
+    index("list_entry_organization_contact_idx").on(
+      table.organizationId,
+      table.contactId,
+    ),
+    index("list_entry_organization_company_idx").on(
+      table.organizationId,
+      table.companyId,
+    ),
+    index("list_entry_list_stage_idx").on(table.listId, table.stageId),
+    index("list_entry_contact_idx").on(table.contactId),
+    index("list_entry_company_idx").on(table.companyId),
+    index("list_entry_stage_idx").on(table.stageId),
+    index("list_entry_added_by_idx").on(table.addedById),
+  ],
+);
+
 /** A note, call, email, meeting, task or system event on the timeline. */
 export const activity = sqliteTable(
   "activity",
@@ -645,6 +750,12 @@ export const activity = sqliteTable(
       onDelete: "cascade",
     }),
     dealId: text("deal_id").references(() => deal.id, { onDelete: "cascade" }),
+    // A list stage change's entry. Set null with the entry, so the line stays
+    // on the person's or company's timeline when they leave the list.
+    listEntryId: text("list_entry_id").references(
+      (): AnySQLiteColumn => listEntry.id,
+      { onDelete: "set null" },
+    ),
     // Null when the research agent wrote it.
     createdById: text("created_by_id").references(() => user.id, {
       onDelete: "set null",
@@ -687,6 +798,7 @@ export const activity = sqliteTable(
     index("activity_company_idx").on(table.companyId),
     index("activity_contact_idx").on(table.contactId),
     index("activity_deal_idx").on(table.dealId),
+    index("activity_list_entry_idx").on(table.listEntryId),
   ],
 );
 

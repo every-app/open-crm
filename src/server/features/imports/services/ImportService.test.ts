@@ -12,6 +12,8 @@ vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 
+import { ListService } from "@/server/features/lists/services/ListService";
+import { createListSchema } from "@/types/schemas/lists";
 import { ImportService } from "./ImportService";
 
 const A = { organizationId: "org_a", userId: "user_a" };
@@ -241,5 +243,67 @@ describe("ImportService", () => {
     expect(await database.rows("SELECT count(*) AS n FROM company")).toEqual([
       { n: 0 },
     ]);
+  });
+
+  it("adds what a chunk created or updated to a list, keeping stages already set", async () => {
+    const list = await ListService.createList(
+      A.organizationId,
+      A.userId,
+      createListSchema.parse({
+        entity: "CONTACT",
+        name: "Networking",
+        template: "NETWORKING",
+      }),
+    );
+    const stage = (name: string) =>
+      list.stages.find((candidate) => candidate.name === name)?.id;
+    await database.exec(
+      `INSERT INTO contact (id, organization_id, first_name, email) VALUES ('maya', 'org_a', 'Maya', 'maya@dailypour.test')`,
+    );
+    await ListService.addToList(A.organizationId, A.userId, {
+      listId: list.id,
+      ids: ["maya"],
+      stageId: stage("Keep in touch"),
+    });
+    const rows = [
+      { firstName: "Maya", email: "maya@dailypour.test" },
+      { firstName: "Jonas", email: "jonas@brightline.test" },
+    ];
+    const atStages = () =>
+      database.rows(
+        `SELECT c.first_name AS name, s.name AS stage FROM list_entry e JOIN contact c ON c.id = e.contact_id LEFT JOIN list_stage s ON s.id = e.stage_id ORDER BY c.first_name`,
+      );
+
+    // The dry run puts nobody in it.
+    await ImportService.importChunk(
+      A,
+      chunk("CONTACT", rows, {
+        duplicates: "update",
+        dryRun: true,
+        listId: list.id,
+        stageId: stage("Met"),
+      }),
+    );
+    expect(await atStages()).toEqual([
+      { name: "Maya", stage: "Keep in touch" },
+    ]);
+
+    await ImportService.importChunk(
+      A,
+      chunk("CONTACT", rows, {
+        duplicates: "update",
+        listId: list.id,
+        stageId: stage("Met"),
+      }),
+    );
+    expect(await atStages()).toEqual([
+      { name: "Jonas", stage: "Met" },
+      { name: "Maya", stage: "Keep in touch" },
+    ]);
+
+    // Another organization can't import into it.
+    await expect(
+      ImportService.importChunk(B, chunk("CONTACT", rows, { listId: list.id })),
+    ).rejects.toThrow("No list");
   });
 });

@@ -32,6 +32,7 @@ import {
   sortOrder,
   type SortSpec,
 } from "@/server/features/records/listQuery";
+import { membershipCondition } from "@/server/features/lists/repositories/listConditions";
 import { idChunks } from "@/server/features/records/recordRules";
 import {
   NO_COMPANY,
@@ -160,6 +161,7 @@ function listWhere(
     anyOfCondition(contact.function, input.persona),
     anyOfCondition(contact.source, input.source ?? []),
     activityCondition(contact.lastActivityAt, input.activity),
+    membershipCondition(organizationId, "CONTACT", input, contact),
     ...fieldConditions,
   );
 }
@@ -263,6 +265,26 @@ async function list(
       .where(where),
   ]);
   return { rows, total: total?.value ?? 0 };
+}
+
+/**
+ * Every contact the list's filters match, up to `max`, newest first: what
+ * "add all matching to a list" puts in it.
+ */
+async function matchingIds(
+  organizationId: string,
+  input: ContactListInput,
+  fieldConditions: SQL[],
+  max: number,
+) {
+  const rows = await db
+    .select({ id: contact.id })
+    .from(contact)
+    .leftJoin(company, companyJoin)
+    .where(listWhere(organizationId, input, fieldConditions))
+    .orderBy(desc(contact.createdAt), asc(contact.id))
+    .limit(max);
+  return rows.map((row) => row.id);
 }
 
 /** One contact with its owner and company (and who that company's primary is). */
@@ -450,6 +472,7 @@ export const ContactRepository = {
   list,
   facetCounts,
   idsInScope,
+  matchingIds,
   findById,
   findLiveByEmail,
   insert,

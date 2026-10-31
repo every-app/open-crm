@@ -20,6 +20,13 @@ import {
   withMemberIds,
 } from "@/server/everyapp/tools/fieldFilters";
 import {
+  listChipsOutput,
+  listFilterInput,
+  listFilters,
+  recordLists,
+  recordListsOutput,
+} from "@/server/everyapp/tools/listFilters";
+import {
   ContactService,
   type ContactDetail,
   type ContactListRow,
@@ -68,6 +75,7 @@ const summaryOutput = z.object({
   createdAt: z.string(),
   archivedAt: z.string().nullable(),
   fields: fieldColumnsOutput,
+  lists: listChipsOutput,
 });
 
 type Shown = Awaited<ReturnType<typeof userFieldsByEmail>>;
@@ -107,6 +115,7 @@ const detailsOutput = z.object({
   primaryContactOfCompany: z.boolean(),
   owner: personOutput.nullable(),
   fields: recordValuesOutput,
+  lists: recordListsOutput,
   deals: z.array(
     z.object({
       id: z.string(),
@@ -142,6 +151,7 @@ const detailsOutput = z.object({
 function details(
   contact: ContactDetail,
   fields: z.input<typeof recordValuesOutput>,
+  lists: z.input<typeof recordListsOutput>,
 ): z.input<typeof detailsOutput> {
   const { relationship } = contact;
   return {
@@ -150,6 +160,7 @@ function details(
     name: fullName(contact),
     primaryContactOfCompany: contact.isPrimaryContact,
     fields,
+    lists,
   };
 }
 
@@ -160,55 +171,82 @@ const contactRefOutput = z.object({
   companyId: z.string().nullable(),
 });
 
+/** list_contacts' filters, which add_to_list's matchingContacts takes too. */
+export const contactFiltersInput = z.object({
+  query: z
+    .string()
+    .max(200)
+    .optional()
+    .describe("Words from a contact's name, email or company."),
+  owners: ownersInput.describe(
+    `Only contacts these members own, by email or id; "${UNASSIGNED}" for contacts nobody owns.`,
+  ),
+  companyIds: contactListSchema.shape.company
+    .unwrap()
+    .optional()
+    .describe(
+      `Only contacts at these companies, by id; "${NO_COMPANY}" for contacts at no company.`,
+    ),
+  titles: contactListSchema.shape.title
+    .unwrap()
+    .optional()
+    .describe("Only contacts with exactly these titles."),
+  seniorities: contactListSchema.shape.seniority
+    .unwrap()
+    .optional()
+    .describe("Only contacts at these seniorities, as get_contact says."),
+  personas: contactListSchema.shape.persona
+    .unwrap()
+    .optional()
+    .describe("Only contacts in these functions (get_contact's)."),
+  activeWithinDays: z
+    .literal([7, 30, 90])
+    .optional()
+    .describe("Only contacts with activity in the last 7, 30 or 90 days."),
+  sources: z
+    .array(z.enum(RECORD_SOURCES))
+    .max(RECORD_SOURCES.length)
+    .optional()
+    .describe("Only contacts who came in these ways."),
+  fields: fieldFiltersInput,
+  ...listFilterInput,
+});
+
+/** The contacts list input's filters for contactFiltersInput's. */
+export async function contactListFilters(
+  organizationId: string,
+  input: z.output<typeof contactFiltersInput>,
+) {
+  const owners = await Promise.all(
+    (input.owners ?? []).map((value) =>
+      value === UNASSIGNED ? UNASSIGNED : memberId(organizationId, value),
+    ),
+  );
+  return {
+    fields: await resolveFieldFilters(organizationId, "CONTACT", input.fields),
+    q: input.query,
+    owner: owners,
+    company: input.companyIds,
+    title: input.titles,
+    seniority: input.seniorities,
+    persona: input.personas,
+    source: input.sources,
+    activity: input.activeWithinDays?.toString(),
+    ...(await listFilters(organizationId, "CONTACT", input)),
+  };
+}
+
 export const contactTools = {
   list_contacts: crmTool({
     description:
-      "Search and list contacts (people) with their email, title, company, owner and last activity, and the custom fields shown as table columns. Every word of `query` must match their name, email or company. 25 a page unless pageSize says, newest first unless sorted.",
+      "Search and list contacts (people) with their email, title, company, owner, last activity and lists, and the custom fields shown as table columns. Every word of `query` must match their name, email or company. 25 a page unless pageSize says, newest first unless sorted.",
     risk: "read",
-    input: z
-      .object({
-        query: z
-          .string()
-          .max(200)
-          .optional()
-          .describe("Words from a contact's name, email or company."),
-        owners: ownersInput.describe(
-          `Only contacts these members own, by email or id; "${UNASSIGNED}" for contacts nobody owns.`,
-        ),
-        companyIds: contactListSchema.shape.company
-          .unwrap()
-          .optional()
-          .describe(
-            `Only contacts at these companies, by id; "${NO_COMPANY}" for contacts at no company.`,
-          ),
-        titles: contactListSchema.shape.title
-          .unwrap()
-          .optional()
-          .describe("Only contacts with exactly these titles."),
-        seniorities: contactListSchema.shape.seniority
-          .unwrap()
-          .optional()
-          .describe("Only contacts at these seniorities, as get_contact says."),
-        personas: contactListSchema.shape.persona
-          .unwrap()
-          .optional()
-          .describe("Only contacts in these functions (get_contact's)."),
-        activeWithinDays: z
-          .literal([7, 30, 90])
-          .optional()
-          .describe(
-            "Only contacts with activity in the last 7, 30 or 90 days.",
-          ),
-        sources: z
-          .array(z.enum(RECORD_SOURCES))
-          .max(RECORD_SOURCES.length)
-          .optional()
-          .describe("Only contacts who came in these ways."),
+    input: contactFiltersInput
+      .extend({
         archived: z
           .boolean()
           .optional()
           .describe("List archived contacts instead of live ones."),
-        fields: fieldFiltersInput,
         sort: z.enum(CONTACT_SORTS).optional(),
         direction: z.enum(SORT_DIRECTIONS).optional(),
         page: z.number().int().min(1).optional(),
@@ -222,29 +260,10 @@ export const contactTools = {
       contacts: z.array(summaryOutput),
     }),
     handler: async (input, context) => {
-      const owners = await Promise.all(
-        (input.owners ?? []).map((value) =>
-          value === UNASSIGNED
-            ? UNASSIGNED
-            : memberId(context.organizationId, value),
-        ),
-      );
       // Only fills in the list's defaults: the input took each filter by the
       // list's own rules.
       const list = contactListSchema.parse({
-        fields: await resolveFieldFilters(
-          context.organizationId,
-          "CONTACT",
-          input.fields,
-        ),
-        q: input.query,
-        owner: owners,
-        company: input.companyIds,
-        title: input.titles,
-        seniority: input.seniorities,
-        persona: input.personas,
-        source: input.sources,
-        activity: input.activeWithinDays?.toString(),
+        ...(await contactListFilters(context.organizationId, input)),
         archived: input.archived,
         sort: input.sort,
         // As the list pages: a chosen sort runs ascending unless said.
@@ -267,16 +286,17 @@ export const contactTools = {
 
   get_contact: crmTool({
     description:
-      "One contact in full: details, company, owner, custom fields, their deals and colleagues, and the mail and meetings captured with them.",
+      "One contact in full: details, company, owner, custom fields, the lists they are in with their stage in each, their deals and colleagues, and the mail and meetings captured with them.",
     risk: "read",
     input: z.object({ id: contactId }).strict(),
     output: detailsOutput,
     handler: async ({ id }, context) => {
-      const [contact, fields] = await Promise.all([
+      const [contact, fields, lists] = await Promise.all([
         ContactService.getContact(context.organizationId, id),
         recordValues(context.organizationId, "CONTACT", id),
+        recordLists(context.organizationId, "CONTACT", id),
       ]);
-      return details(contact, fields);
+      return details(contact, fields, lists);
     },
   }),
 

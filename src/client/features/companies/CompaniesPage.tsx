@@ -4,10 +4,6 @@ import { getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
 import { Building2, Plus, Upload } from "lucide-react";
 import { findLast } from "remeda";
-import {
-  DirectoryTabs,
-  DirectoryView,
-} from "@/client/features/records/DirectoryTabs";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -36,6 +32,16 @@ import {
 } from "@/client/features/companies/companySearch";
 import type { CompanyRow } from "@/client/features/companies/companyFormat";
 import { useFieldColumns } from "@/client/features/fields/fieldColumns";
+import { AddMatchingToList } from "@/client/features/lists/ListActions";
+import { ListBoard } from "@/client/features/lists/ListBoard";
+import {
+  ListBar,
+  ListDescription,
+  ListMenu,
+  ListTitle,
+} from "@/client/features/lists/ListView";
+import { listsColumn, stageColumn } from "@/client/features/lists/listColumns";
+import { listsQueryOptions } from "@/client/features/lists/listQueries";
 import { CsvMenu } from "@/client/features/csv/CsvMenu";
 import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { COMPANY_EXPORT } from "@/client/features/csv/exportColumns";
@@ -47,7 +53,10 @@ import {
   searchFromSavedView,
   useListSelection,
 } from "@/client/features/records/listSearch";
-import { usePrefetchRecord } from "@/client/features/records/recordQueries";
+import {
+  useInvalidateRecords,
+  usePrefetchRecord,
+} from "@/client/features/records/recordQueries";
 import {
   useNewForm,
   useRecordStack,
@@ -55,6 +64,7 @@ import {
 } from "@/client/features/records/recordStack";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { listCompanies } from "@/serverFunctions/companies";
+import { addToList } from "@/serverFunctions/lists";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { COMPANY_SORTS } from "@/types/schemas/companies";
 
@@ -74,6 +84,7 @@ export function CompaniesPage() {
 
   const input = companyListInput(search);
   const prefetchRecord = usePrefetchRecord();
+  const invalidate = useInvalidateRecords();
   const query = useQuery(companyListQueryOptions(input));
   const filters = companyFilters(search, setSearch, query.data?.facetCounts);
   const selection = useListSelection(JSON.stringify(input));
@@ -84,15 +95,34 @@ export function CompaniesPage() {
   const [creating, setCreating] = useNewForm();
   const [importing, setImporting] = useState(false);
 
+  // A list from the sidebar (`?list=`) shows in this page, its stages and board with it.
+  const lists = useQuery(listsQueryOptions());
+  const openList = search.list
+    ? lists.data?.find(
+        (list) => list.id === search.list && list.entity === "COMPANY",
+      )
+    : undefined;
+  const board = Boolean(
+    openList && openList.stages.length > 0 && search.view === "board",
+  );
+
   const anchorRef = useSelectionAnchor();
   const fieldColumns = useFieldColumns<CompanyRow>("COMPANY");
-  const columns = useMemo(
-    () => [
-      ...companyColumns({ archived: input.archived, anchorRef }),
+  const columns = useMemo(() => {
+    const [select, name, ...rest] = companyColumns({
+      archived: input.archived,
+      anchorRef,
+    });
+    return [
+      ...(select && name ? [select, name] : []),
+      ...(openList && openList.stages.length > 0
+        ? [stageColumn<CompanyRow>(openList)]
+        : []),
+      ...rest,
+      listsColumn<CompanyRow>(openList?.id),
       ...fieldColumns,
-    ],
-    [input.archived, anchorRef, fieldColumns],
-  );
+    ];
+  }, [input.archived, anchorRef, fieldColumns, openList]);
   const sorting: SortingState = [
     { id: input.sort, desc: input.dir === "desc" },
   ];
@@ -141,14 +171,35 @@ export function CompaniesPage() {
       {/* The rows scroll inside the table's card, under its header. */}
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4">
         <PageHeader
-          title={input.archived ? "Archived companies" : "Directory"}
+          title={
+            openList ? (
+              <ListTitle list={openList} />
+            ) : input.archived ? (
+              "Archived companies"
+            ) : (
+              "Companies"
+            )
+          }
           description={
-            input.archived
-              ? undefined
-              : "Companies and contacts, with the mail and meetings filed on them."
+            openList ? (
+              <ListDescription list={openList} />
+            ) : input.archived ? undefined : (
+              "Companies, with their people and the mail and meetings filed on them."
+            )
           }
           actions={
             <>
+              {input.archived ? null : (
+                <AddMatchingToList
+                  entity="COMPANY"
+                  filters={input}
+                  total={query.data?.total}
+                  openListId={openList?.id}
+                />
+              )}
+              {openList ? (
+                <ListMenu list={openList} canDelete={canPurge} />
+              ) : null}
               <CsvMenu
                 entity="COMPANY"
                 columns={COMPANY_EXPORT}
@@ -161,7 +212,19 @@ export function CompaniesPage() {
             </>
           }
         />
-        <DirectoryTabs view={DirectoryView.Companies}>
+        {openList ? (
+          <ListBar
+            list={openList}
+            stage={input.listStage}
+            stageCounts={query.data?.facetCounts.stage}
+            due={input.due}
+            view={board ? "board" : "table"}
+            onChange={(update) => setSearch({ ...update, page: undefined })}
+          />
+        ) : null}
+        {openList && board ? (
+          <ListBoard list={openList} due={input.due} onOpen={openCompany} />
+        ) : (
           <DataTable
             table={table}
             isLoading={query.isPending}
@@ -221,6 +284,7 @@ export function CompaniesPage() {
                   actions: (
                     <CompanyBulkActions
                       ids={selection.selectedIds}
+                      openList={openList}
                       archived={input.archived}
                       canPurge={canPurge}
                       onDone={selection.clear}
@@ -250,7 +314,7 @@ export function CompaniesPage() {
             scrollClassName="min-h-0 flex-1"
             activeRowId={findLast(stack, (ref) => ref.kind === "company")?.id}
           />
-        </DirectoryTabs>
+        )}
       </div>
 
       {importing ? (
@@ -260,7 +324,12 @@ export function CompaniesPage() {
         <CreateCompanyDialog
           onClose={() => setCreating(false)}
           // Continue with a deal for this company, in the form's history entry.
-          onCreated={(company) =>
+          onCreated={(company) => {
+            // Made from a list, it goes in it.
+            if (openList)
+              void addToList({
+                data: { listId: openList.id, ids: [company.id] },
+              }).then(() => invalidate());
             void navigate({
               search: (prev) => ({
                 ...prev,
@@ -270,8 +339,8 @@ export function CompaniesPage() {
                 add: "deal",
               }),
               replace: true,
-            })
-          }
+            });
+          }}
         />
       ) : null}
     </div>

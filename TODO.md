@@ -2,6 +2,21 @@
 
 What is left open for OpenCRM, by the pass that found it; each bullet says what, why, and (in parentheses) whose it is when it isn't this app's.
 
+## Lists and deals opt-in (2026-10-31)
+
+Decided for Ben: built from docs/design/contact-lists.md on Ben's go-ahead, taking the recommended answer to each of its questions. Revisit any of them by reopening this section.
+
+- [x] **Lists double as tags; no separate tag system.** A list without stages is a group: chips on the record, a sidebar count, a filter.
+- [x] **A list holds people or companies, chosen per list.** Backlink targets are publications, networking is people.
+- [x] **Every list is shared with the whole team.** No private lists; add them only if asked.
+- [x] **Status is per list (its stages), not one global status.** Someone can be "Backlink outreach: Replied" and "Networking: Met" at once.
+- [x] **Names: List, Stage, Timeline; "Deals" keeps its name** for teams that sell.
+- [x] **Deals are opt-in: off for a new workspace, on where the organization already had deals** (the 0001_lists migration's backfill). Turning them off hides deals; nothing is deleted.
+- [x] **Sidebar: Contacts, Companies, Overview, Deals (when on), then Lists with counts.** The Directory tabs are gone.
+- [x] **The LinkedIn import adds to no list by default.** Connections run into the thousands; one choice picks a list and starting stage. (Applies once `feat/linkedin-import` merges; the CSV import already ends with the list step.)
+- [x] **Follow-up (Due) is in the first version, as one number of days per list.**
+- [x] **With deals off, the Overview shows each list's stage counts and Due, with overdue tasks and recent activity.**
+
 ## First run (2026-10-24)
 
 - [ ] **get_mailbox_status carries the reason and the setting.** It answers `available: false` with no reason, no setting and no who. GATEWAY_SECRETS in `src/server/features/mailbox/providers/oauth.ts` already names the settings, so each unavailable entry can say "Not offered on this Every App gateway yet: an admin sets GOOGLE_WORKSPACE_CLIENT_ID and GOOGLE_WORKSPACE_CLIENT_SECRET, then each member connects their mailbox in Settings → Connections." (crm-27)

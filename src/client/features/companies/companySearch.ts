@@ -2,8 +2,11 @@ import { z } from "zod";
 import {
   SHARED_FILTER_KEYS,
   activityParam,
+  LIST_MEMBERSHIP_FILTER_KEYS,
   activityWindow,
   listInputFromSearch,
+  listMembershipInput,
+  listMembershipParams,
   recordListSearchSchema,
   valuesParam,
 } from "@/client/features/records/listSearch";
@@ -17,6 +20,7 @@ export const companyListSearchSchema = recordListSearchSchema.extend({
   sort: z.enum(COMPANY_SORTS).optional().catch(undefined),
   industry: valuesParam,
   activity: activityParam,
+  ...listMembershipParams,
 });
 
 export type CompanyListSearch = z.infer<typeof companyListSearchSchema>;
@@ -26,6 +30,7 @@ export const COMPANY_FILTER_KEYS = [
   ...SHARED_FILTER_KEYS,
   "industry",
   "activity",
+  ...LIST_MEMBERSHIP_FILTER_KEYS,
 ] as const;
 
 /** Newest first, as the CRM lists companies. */
@@ -34,5 +39,6 @@ export function companyListInput(search: CompanyListSearch): CompanyListInput {
     ...listInputFromSearch(search, { sort: "createdAt", dir: "desc" }),
     industry: search.industry ?? [],
     activity: activityWindow(search.activity),
+    ...listMembershipInput(search),
   };
 }

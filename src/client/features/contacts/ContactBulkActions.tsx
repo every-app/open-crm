@@ -5,6 +5,8 @@ import { Building2 } from "lucide-react";
 import { MenuSearchInput } from "@/client/components/table/FiltersMenu";
 import { ComboboxItem, ComboboxList } from "@/client/components/ui/combobox";
 import { companyOptionsQueryOptions } from "@/client/features/companies/companyQueries";
+import { ListBulkItems } from "@/client/features/lists/ListActions";
+import type { ListSummary } from "@/server/features/lists/services/ListService";
 import {
   BulkSubmenu,
   RecordBulkMenu,
@@ -29,11 +31,14 @@ const SEARCH_DELAY_MS = 250;
 /** What the contacts list does to its selected rows. */
 export function ContactBulkActions({
   ids,
+  openList,
   archived,
   canPurge,
   onDone,
 }: {
   ids: string[];
+  /** The list the page shows, if any: its stages and Remove join the menu. */
+  openList?: ListSummary;
   archived: boolean;
   canPurge: boolean;
   onDone: () => void;
@@ -104,6 +109,12 @@ export function ContactBulkActions({
           }}
         />
       </BulkSubmenu>
+      <ListBulkItems
+        entity="CONTACT"
+        ids={ids}
+        openList={openList}
+        onDone={onDone}
+      />
     </RecordBulkMenu>
   );
 }

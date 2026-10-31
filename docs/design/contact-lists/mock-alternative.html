@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Contact lists: alternative (tags + pinned views as tabs)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #fafafa;
+        --card: #fff;
+        --fg: #18181b;
+        --muted: #71717a;
+        --border: #e4e4e7;
+        --primary: #18181b;
+        --accent: #f4f4f5;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          14px/1.45 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+      aside {
+        border-right: 1px solid var(--border);
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .brand {
+        font-weight: 600;
+        font-size: 15px;
+        padding: 4px 8px 8px;
+      }
+      .search {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 8px;
+        color: var(--muted);
+        margin-bottom: 8px;
+        background: #fff;
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        color: #3f3f46;
+      }
+      .nav.active {
+        background: #e4e4e7;
+        color: var(--fg);
+        font-weight: 500;
+      }
+      .spacer {
+        flex: 1;
+      }
+      main {
+        padding: 20px 28px;
+        min-width: 0;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 12px;
+      }
+      .dirtabs {
+        display: inline-flex;
+        background: var(--accent);
+        border-radius: 8px;
+        padding: 3px;
+        margin-bottom: 14px;
+      }
+      .dirtabs span {
+        padding: 4px 12px;
+        border-radius: 6px;
+        color: var(--muted);
+      }
+      .dirtabs span.on {
+        background: #fff;
+        color: var(--fg);
+        box-shadow: 0 1px 2px #0001;
+      }
+      .viewtabs {
+        display: flex;
+        gap: 2px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 12px;
+        overflow-x: auto;
+      }
+      .viewtabs div {
+        padding: 8px 12px;
+        cursor: pointer;
+        color: var(--muted);
+        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .viewtabs div.on {
+        color: var(--fg);
+        border-bottom-color: var(--fg);
+        font-weight: 500;
+      }
+      .viewtabs .count {
+        font-size: 12px;
+        background: var(--accent);
+        border-radius: 999px;
+        padding: 0 6px;
+        color: var(--muted);
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+        font: inherit;
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      .input {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+        width: 220px;
+        color: var(--muted);
+        background: #fff;
+      }
+      .tag {
+        display: inline-block;
+        border-radius: 6px;
+        padding: 1px 7px;
+        font-size: 12px;
+        margin: 1px 2px;
+      }
+      .filterchip {
+        background: var(--accent);
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      th {
+        font-weight: 500;
+        color: var(--muted);
+        font-size: 12px;
+        background: #fcfcfc;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 24px;
+        max-width: 560px;
+      }
+      .card h3 {
+        margin: 0 0 4px;
+        font-size: 14px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .label {
+        position: fixed;
+        top: 10px;
+        right: 12px;
+        background: #e0e7ff;
+        border: 1px solid #a5b4fc;
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="label">
+      Alternative: tags on contacts + saved views pinned as tabs
+    </div>
+    <div class="app">
+      <aside>
+        <div class="brand">OpenCRM</div>
+        <div class="search">Search… ⌘K</div>
+        <div class="nav active">📇 Directory</div>
+        <div class="nav">📊 Overview</div>
+        <div class="nav">💲 Deals</div>
+        <div class="spacer"></div>
+        <div class="nav">⚙️ Settings</div>
+      </aside>
+      <main>
+        <h1>Directory</h1>
+        <div class="dirtabs">
+          <span class="on">Contacts</span><span>Companies</span>
+        </div>
+        <div class="viewtabs" id="tabs"></div>
+        <div class="toolbar">
+          <span class="input">Search contacts…</span>
+          <button class="btn">⚲ Filter</button>
+          <span class="filterchip" id="fchip"></span>
+          <span style="flex: 1"></span>
+          <button class="btn">Save view</button>
+          <button class="btn">Import</button>
+          <button class="btn primary">＋ New contact</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" /></th>
+              <th>Name</th>
+              <th>Title</th>
+              <th>Company</th>
+              <th>Tags</th>
+              <th>Last activity</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="card">
+          <h3>How it differs</h3>
+          <p>
+            Tags are labels on a contact (a new multi-select). A “list” is a
+            saved view filtered by a tag, pinned as a tab. Two concepts to
+            explain, but views can also pin any other filter, like “Connected to
+            Ben, title has founder”.
+          </p>
+        </div>
+      </main>
+    </div>
+    <script>
+      const TAGS = {
+        agency: ["Agency", "#dbeafe", "#1e40af"],
+        youtuber: ["YouTuber", "#fee2e2", "#991b1b"],
+        podcast: ["Podcast", "#d1fae5", "#065f46"],
+        saastr: ["SaaStr 2026", "#f3e8ff", "#6b21a8"],
+        linkedin: ["LinkedIn", "#e0f2fe", "#075985"],
+      };
+      const VIEWS = [
+        { name: "All contacts", tag: null },
+        { name: "Agencies (LinkedIn)", tag: "agency" },
+        { name: "YouTubers", tag: "youtuber" },
+        { name: "Podcast guests", tag: "podcast" },
+        { name: "SaaStr 2026", tag: "saastr" },
+      ];
+      const PEOPLE = [
+        [
+          "Maya Chen",
+          "Founder",
+          "Northbeam Studio",
+          ["agency", "linkedin"],
+          "2d ago",
+        ],
+        [
+          "Jonas Weber",
+          "Managing Partner",
+          "Brightline Digital",
+          ["agency", "linkedin", "saastr"],
+          "5d ago",
+        ],
+        [
+          "Priya Nair",
+          "Head of Growth",
+          "Loop & Co",
+          ["agency", "linkedin"],
+          "1w ago",
+        ],
+        ["Diego Santos", "Creator", "@diegobuilds", ["youtuber"], "3d ago"],
+        ["Hannah Lee", "Creator", "@hannahcodes", ["youtuber", "podcast"], "—"],
+        ["Sam Okafor", "Host", "Ship It Weekly", ["podcast"], "2w ago"],
+        ["Ava Rossi", "VP Marketing", "Copperleaf", ["saastr"], "1d ago"],
+        ["Leo Martin", "Founder", "Pixel & Pine", ["agency", "linkedin"], "—"],
+      ];
+      let current = 0;
+      function render() {
+        document.getElementById("tabs").innerHTML =
+          VIEWS.map(
+            (v, i) =>
+              `<div data-i="${i}" class="${i === current ? "on" : ""}">${v.name}<span class="count">${PEOPLE.filter((p) => !v.tag || p[3].includes(v.tag)).length}</span></div>`,
+          ).join("") + `<div style="color:var(--muted)">＋ Pin view</div>`;
+        document.querySelectorAll("#tabs [data-i]").forEach(
+          (el) =>
+            (el.onclick = () => {
+              current = +el.dataset.i;
+              render();
+            }),
+        );
+        const v = VIEWS[current];
+        document.getElementById("fchip").textContent = v.tag
+          ? `Tag is ${TAGS[v.tag][0]} ✕`
+          : "";
+        document.getElementById("fchip").style.display = v.tag
+          ? "inline"
+          : "none";
+        document.getElementById("rows").innerHTML = PEOPLE.filter(
+          (p) => !v.tag || p[3].includes(v.tag),
+        )
+          .map(
+            (p) =>
+              `<tr><td><input type="checkbox"></td><td><b>${p[0]}</b></td><td>${p[1]}</td><td>${p[2]}</td><td>${p[3].map((t) => `<span class="tag" style="background:${TAGS[t][1]};color:${TAGS[t][2]}">${TAGS[t][0]}</span>`).join("")}</td><td style="color:var(--muted)">${p[4]}</td></tr>`,
+          )
+          .join("");
+      }
+      render();
+    </script>
+  </body>
+</html>

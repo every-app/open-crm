@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "cn";
+import { SidebarLists } from "@/client/features/lists/SidebarLists";
+import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { navItems, settingsNavItem } from "@/client/navigation/items";
 import { getEveryAppAccount } from "@/serverFunctions/everyApp";
 import {
@@ -33,19 +35,16 @@ function SidebarNavLink({
   icon: Icon,
   label,
   linkProps,
-  activePaths,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
   linkProps: LinkOptions;
-  activePaths?: readonly string[];
 }) {
   const { setOpenMobile } = useSidebar();
-  const pathname = useLocation({ select: (location) => location.pathname });
-  const alsoActive =
-    activePaths?.some(
-      (path) => pathname === path || pathname.startsWith(`${path}/`),
-    ) ?? false;
+  // A list opens in the contacts or companies page; its own row is active then.
+  const listOpen = useLocation({
+    select: (location) => "list" in location.search,
+  });
   return (
     <SidebarMenuItem>
       <Link
@@ -60,7 +59,7 @@ function SidebarNavLink({
         {({ isActive }) => (
           <SidebarMenuButton
             render={<span />}
-            isActive={isActive || alsoActive}
+            isActive={isActive && !listOpen}
             className={navButtonClass}
           >
             <Icon className="size-4" />
@@ -79,6 +78,8 @@ export function Sidebar({
   header?: React.ReactNode;
 }) {
   const { setOpenMobile } = useSidebar();
+  const dealsEnabled =
+    useQuery(workspaceQueryOptions()).data?.dealsEnabled ?? false;
 
   return (
     <UiSidebar variant="inset" collapsible="offcanvas" className="md:!p-0">
@@ -99,18 +100,20 @@ export function Sidebar({
           <SidebarGroup className="py-1">
             <SidebarGroupContent>
               <SidebarMenu>
-                {navItems.map((item) => (
-                  <SidebarNavLink
-                    key={item.label}
-                    icon={item.icon}
-                    label={item.label}
-                    linkProps={item.link}
-                    activePaths={item.activePaths}
-                  />
-                ))}
+                {navItems
+                  .filter((item) => !item.dealsOnly || dealsEnabled)
+                  .map((item) => (
+                    <SidebarNavLink
+                      key={item.label}
+                      icon={item.icon}
+                      label={item.label}
+                      linkProps={item.link}
+                    />
+                  ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+          <SidebarLists onNavigate={() => setOpenMobile(false)} />
         </nav>
       </SidebarContent>
       <UiSidebarFooter className="gap-0 border-t border-sidebar-border pb-safe">

@@ -46,6 +46,20 @@ export type ActivityWindow = (typeof ACTIVITY_WINDOWS)[number];
  */
 export type FacetCounts = Record<string, Record<string, number>>;
 
+/** The list-stage filter's value for entries at no stage. */
+export const NO_STAGE = "none";
+
+/**
+ * What the contacts and companies lists take to show one list
+ * (record_list): its id, which of its stages (stage ids, `NO_STAGE` for
+ * entries at none), and only the entries that are Due.
+ */
+export const listMembershipFilters = {
+  list: z.string().min(1).max(64).optional(),
+  listStage: facetFilterSchema,
+  due: z.boolean().default(false),
+};
+
 export const listInputSchema = z.object({
   q: z.string().trim().max(200).default(""),
   /**

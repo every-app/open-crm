@@ -1,5 +1,5 @@
 import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
-import { AppError } from "@/server/lib/errors";
+import { AppError, UserFacingError } from "@/server/lib/errors";
 import { normalizeDomain } from "@/shared/domain";
 import type { UpdateWorkspaceInput } from "@/types/schemas/workspace";
 
@@ -7,6 +7,8 @@ type Workspace = {
   name: string;
   website: string | null;
   onboarded: boolean;
+  /** Deals are opt-in: the Deals page, sections and tools show while on. */
+  dealsEnabled: boolean;
 };
 
 async function getWorkspace(organizationId: string): Promise<Workspace> {
@@ -15,6 +17,7 @@ async function getWorkspace(organizationId: string): Promise<Workspace> {
     name: row.name,
     website: row.website,
     onboarded: Boolean(row.onboardedAt),
+    dealsEnabled: row.dealsEnabled,
   };
 }
 
@@ -42,7 +45,29 @@ async function updateWorkspace(
   return getWorkspace(organizationId);
 }
 
+/** Turns deals on or off. Off hides them; nothing about them is deleted. */
+async function setDealsEnabled(
+  organizationId: string,
+  enabled: boolean,
+): Promise<Workspace> {
+  await WorkspaceRepository.update(organizationId, { dealsEnabled: enabled });
+  return getWorkspace(organizationId);
+}
+
+/** Refuses while deals are off: the deal tools say where to turn them on. */
+async function requireDealsEnabled(organizationId: string): Promise<void> {
+  const row = await WorkspaceRepository.getOrCreate(organizationId);
+  if (!row.dealsEnabled) {
+    throw new UserFacingError(
+      "FORBIDDEN",
+      "Deals are turned off for this workspace. An owner or admin turns them on in Settings → General.",
+    );
+  }
+}
+
 export const WorkspaceService = {
   getWorkspace,
   updateWorkspace,
+  setDealsEnabled,
+  requireDealsEnabled,
 };

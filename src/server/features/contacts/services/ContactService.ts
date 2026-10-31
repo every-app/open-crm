@@ -4,6 +4,11 @@ import { ContactRelationsRepository } from "@/server/features/contacts/repositor
 import { ContactRepository } from "@/server/features/contacts/repositories/ContactRepository";
 import { FieldValuesService } from "@/server/features/fields/services/FieldValuesService";
 import {
+  listChips,
+  membershipsOf,
+  stageCounts as listStageCounts,
+} from "@/server/features/lists/services/listMemberships";
+import {
   assertOwner,
   blankToNull,
   bulkOutcome,
@@ -76,19 +81,25 @@ async function listContacts(organizationId: string, input: ContactListInput) {
       ContactRepository.idsInScope(organizationId, input),
     ),
   ]);
-  const ids = rows.map((row) => row.id);
-  const fields = await FieldValuesService.tableValues(
+  const stageCounts = await listStageCounts(
     organizationId,
+    input.list,
     "CONTACT",
-    ids,
+    ContactRepository.idsInScope(organizationId, input),
   );
+  const ids = rows.map((row) => row.id);
+  const [fields, memberships] = await Promise.all([
+    FieldValuesService.tableValues(organizationId, "CONTACT", ids),
+    membershipsOf(organizationId, "CONTACT", ids),
+  ]);
   return {
     rows: rows.map((row) => ({
       ...row,
       fields: fields[row.id] ?? {},
+      lists: listChips(memberships.get(row.id)),
     })),
     total,
-    facetCounts: { ...facetCounts, ...fieldFacetCounts },
+    facetCounts: { ...facetCounts, ...fieldFacetCounts, ...stageCounts },
   };
 }
 

@@ -1,3 +1,4 @@
+import { RecordListsSection } from "@/client/features/lists/RecordListsSection";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/client/components/ui/button";
 import { SafeExternalLink } from "@/client/components/SafeExternalLink";
@@ -43,6 +44,7 @@ export function ContactOverview({
   });
   return (
     <div>
+      <RecordListsSection entity="CONTACT" recordId={contact.id} />
       <SheetSection
         title="Details"
         action={

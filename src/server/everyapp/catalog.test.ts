@@ -53,6 +53,7 @@ describe("the MCP catalog", () => {
         "bulk_purge",
         "delete_activity",
         "delete_field",
+        "delete_list",
         "delete_saved_view",
         "set_archive_retention",
       ]),

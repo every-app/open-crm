@@ -34,6 +34,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
   const canPurge = hasOrgPermission(workspace.data?.role ?? "", {
     record: ["purge"],
   });
+  const dealsEnabled = workspace.data?.dealsEnabled ?? false;
   const { back } = useRecordStack();
   // Deleted forever: their sheet goes, and the one under it shows again.
   const mutations = useContactMutations(contactId, { onPurged: back });
@@ -83,7 +84,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
         ) : null
       }
       lists={
-        contact
+        contact && dealsEnabled
           ? [
               {
                 value: "deals",

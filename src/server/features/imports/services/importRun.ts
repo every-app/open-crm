@@ -30,6 +30,8 @@ export type RowResult = {
   line: number;
   outcome: ImportOutcome;
   error?: string;
+  /** The record a row created or updated, to add it to a list. */
+  recordId?: string;
 };
 
 export type ImportRow = { line: number; values: Record<string, string> };
@@ -94,13 +96,21 @@ export function parseRows<T>(
   });
 }
 
-/** Runs one row's writes; a failure fails that row, never the chunk. */
+/**
+ * Runs one row's writes; a failure fails that row, never the chunk. A save
+ * that wrote a record says which.
+ */
 export async function saveRow(
   line: number,
-  save: () => Promise<ImportOutcome>,
+  save: () => Promise<
+    ImportOutcome | { outcome: ImportOutcome; recordId: string }
+  >,
 ): Promise<RowResult> {
   try {
-    return { line, outcome: await save() };
+    const saved = await save();
+    return typeof saved === "string"
+      ? { line, outcome: saved }
+      : { line, ...saved };
   } catch (error) {
     if (error instanceof RowError) {
       return { line, outcome: "failed", error: error.message };

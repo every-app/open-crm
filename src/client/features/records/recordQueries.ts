@@ -17,6 +17,7 @@ import {
   ENTITY_OF_KIND,
   recordFieldsQueryOptions,
 } from "@/client/features/fields/fieldQueries";
+import { listKeys } from "@/client/features/lists/listQueries";
 import { searchKeys } from "@/client/features/search/searchQueries";
 import type { RecordRef } from "@/shared/records";
 
@@ -31,6 +32,7 @@ const RECORD_QUERIES = [
   activityKeys.all,
   dashboardKeys.all,
   searchKeys.all,
+  listKeys.all,
 ];
 
 type Settle = {

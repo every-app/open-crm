@@ -1,4 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
+import { ListBulkItems } from "@/client/features/lists/ListActions";
+import type { ListSummary } from "@/server/features/lists/services/ListService";
 import {
   RecordBulkMenu,
   reportBulk,
@@ -18,11 +20,14 @@ const NOUN: RecordNoun = { one: "company", many: "companies" };
 /** What the companies list does to its selected rows. */
 export function CompanyBulkActions({
   ids,
+  openList,
   archived,
   canPurge,
   onDone,
 }: {
   ids: string[];
+  /** The list the page shows, if any: its stages and Remove join the menu. */
+  openList?: ListSummary;
   archived: boolean;
   canPurge: boolean;
   onDone: () => void;
@@ -71,6 +76,13 @@ export function CompanyBulkActions({
       onRestore={() => restore.mutate(ids)}
       onPurge={() => purge.mutate(ids)}
       purgeWarning="This cannot be undone."
-    />
+    >
+      <ListBulkItems
+        entity="COMPANY"
+        ids={ids}
+        openList={openList}
+        onDone={onDone}
+      />
+    </RecordBulkMenu>
   );
 }

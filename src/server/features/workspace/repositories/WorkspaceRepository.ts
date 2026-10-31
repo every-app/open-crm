@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { workspace, workspaceProfile } from "@/db/schema";
+import { deal, workspace, workspaceProfile } from "@/db/schema";
 
 // The original CRM's name for a workspace nobody has named yet, which is
 // what a member sees until an owner or admin onboards it.
@@ -15,9 +15,19 @@ async function getOrCreate(organizationId: string) {
     where: eq(workspace.organizationId, organizationId),
   });
   if (existing) return existing;
+  // Deals start off, unless the organization already has some.
+  const [anyDeal] = await db
+    .select({ id: deal.id })
+    .from(deal)
+    .where(eq(deal.organizationId, organizationId))
+    .limit(1);
   await db
     .insert(workspace)
-    .values({ organizationId, name: DEFAULT_WORKSPACE_NAME })
+    .values({
+      organizationId,
+      name: DEFAULT_WORKSPACE_NAME,
+      dealsEnabled: Boolean(anyDeal),
+    })
     .onConflictDoNothing({ target: workspace.organizationId });
   const created = await db.query.workspace.findFirst({
     where: eq(workspace.organizationId, organizationId),

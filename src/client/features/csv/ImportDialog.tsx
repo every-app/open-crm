@@ -12,6 +12,7 @@ import {
 } from "@/client/components/ui/dialog";
 import { Progress } from "@/client/components/ui/progress";
 import { fieldsQueryOptions } from "@/client/features/fields/fieldQueries";
+import { listKeys } from "@/client/features/lists/listQueries";
 import { buildCsv } from "@/client/lib/csv";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { importRecords } from "@/serverFunctions/imports";
@@ -24,6 +25,7 @@ import {
 } from "@/shared/imports";
 import { parseCsv, type ParsedCsv } from "./csvFile";
 import { downloadCsv } from "./download";
+import { useImportList, type Landing } from "./ImportListChoice";
 import {
   autoMap,
   importTargets,
@@ -43,7 +45,8 @@ import {
 // file, say which field each column goes into, check the first rows, then
 // send them all in chunks, with progress, and a report at the end. The
 // server matches every row to the record it already is, so running an
-// import again creates nothing twice.
+// import again creates nothing twice. Contacts and companies can land in a
+// list, new or existing, at a starting stage.
 
 const PREVIEW_ROWS = 10;
 type Step =
@@ -80,6 +83,7 @@ export function ImportDialog({
   );
   const [mapping, setMapping] = useState<(string | null)[]>([]);
   const [duplicates, setDuplicates] = useState<ImportDuplicates>("skip");
+  const list = useImportList(entity);
   const stopRef = useRef(false);
 
   const rows = useMemo(
@@ -99,9 +103,9 @@ export function ImportDialog({
           .map((target) => target.label)
           .join(", ");
 
-  const send = (chunk: typeof rows, dryRun: boolean) =>
+  const send = (chunk: typeof rows, dryRun: boolean, into?: Landing | null) =>
     importRecords({
-      data: { entity, duplicates, dryRun, rows: chunk },
+      data: { entity, duplicates, dryRun, rows: chunk, ...into },
     });
 
   const pick = async (picked: File | undefined) => {
@@ -141,6 +145,16 @@ export function ImportDialog({
   };
 
   const run = async () => {
+    // A new list that can't be made (its name is taken) stops it here.
+    const landing = await list.landing().catch((error: unknown) => {
+      setStep({
+        name: "preview",
+        results: null,
+        error: getStandardErrorMessage(error),
+      });
+      return undefined;
+    });
+    if (landing === undefined) return;
     stopRef.current = false;
     const totals: Totals = { created: 0, updated: 0, skipped: 0, failed: 0 };
     const failed: RowResult[] = [];
@@ -152,6 +166,7 @@ export function ImportDialog({
         const { results } = await send(
           rows.slice(start, start + IMPORT_CHUNK_SIZE),
           false,
+          landing,
         );
         for (const result of results) {
           totals[result.outcome] += 1;
@@ -184,8 +199,8 @@ export function ImportDialog({
   // Every list could hold a new record: contacts and deals add companies.
   const settle = () =>
     Promise.all(
-      [["companies"], ["contacts"], ["deals"], ["dashboard"]].map((queryKey) =>
-        queryClient.invalidateQueries({ queryKey }),
+      [["companies"], ["contacts"], ["deals"], ["dashboard"], listKeys.all].map(
+        (queryKey) => queryClient.invalidateQueries({ queryKey }),
       ),
     );
 
@@ -278,6 +293,7 @@ export function ImportDialog({
               duplicates={duplicates}
               onDuplicatesChange={setDuplicates}
             />
+            {list.choice}
             {missing.length > 0 ? (
               <p className="text-sm text-destructive">
                 Choose a column for {missing.join(" and ")}.
@@ -330,7 +346,7 @@ export function ImportDialog({
                   Change file
                 </Button>
                 <Button
-                  disabled={missing.length > 0}
+                  disabled={missing.length > 0 || list.unnamed}
                   onClick={() => void preview()}
                 >
                   Preview

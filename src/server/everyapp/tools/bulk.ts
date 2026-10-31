@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { requireOrgPermission } from "@/server/auth/org-gate";
 import { crmTool, memberId } from "@/server/everyapp/crm-tool";
+import { dealTool } from "@/server/everyapp/tools/deals";
 import { CompanyService } from "@/server/features/companies/services/CompanyService";
 import { ContactService } from "@/server/features/contacts/services/ContactService";
 import { DealService } from "@/server/features/deals/services/DealService";
+import { WorkspaceService } from "@/server/features/workspace/services/WorkspaceService";
 import { AppError } from "@/server/lib/errors";
 import { DEAL_STAGES } from "@/shared/crm-enums";
 import { errorCodeSchema } from "@/shared/error-codes";
@@ -57,6 +59,15 @@ const SERVICES = {
   },
 };
 
+/** Deals take bulk actions only while deals are on (Settings → General). */
+async function requireKind(
+  recordKind: (typeof RECORD_KINDS)[number],
+  organizationId: string,
+) {
+  if (recordKind === "deal")
+    await WorkspaceService.requireDealsEnabled(organizationId);
+}
+
 export const bulkTools = {
   bulk_archive: crmTool({
     description:
@@ -64,8 +75,10 @@ export const bulkTools = {
     risk: "write",
     input: z.object({ kind, ids }).strict(),
     output: bulkOutput,
-    handler: (input, context) =>
-      SERVICES[input.kind].archive(context.organizationId, input.ids),
+    handler: async (input, context) => {
+      await requireKind(input.kind, context.organizationId);
+      return SERVICES[input.kind].archive(context.organizationId, input.ids);
+    },
   }),
 
   bulk_restore: crmTool({
@@ -74,8 +87,10 @@ export const bulkTools = {
     risk: "write",
     input: z.object({ kind, ids }).strict(),
     output: bulkOutput,
-    handler: (input, context) =>
-      SERVICES[input.kind].restore(context.organizationId, input.ids),
+    handler: async (input, context) => {
+      await requireKind(input.kind, context.organizationId);
+      return SERVICES[input.kind].restore(context.organizationId, input.ids);
+    },
   }),
 
   bulk_purge: crmTool({
@@ -86,6 +101,7 @@ export const bulkTools = {
     output: bulkOutput,
     handler: async (input, context) => {
       requireOrgPermission(context, { record: ["purge"] });
+      await requireKind(input.kind, context.organizationId);
       return SERVICES[input.kind].purge(context.organizationId, input.ids);
     },
   }),
@@ -107,6 +123,7 @@ export const bulkTools = {
       .strict(),
     output: bulkOutput,
     handler: async (input, context) => {
+      await requireKind(input.kind, context.organizationId);
       const ownerId =
         input.ownerEmail === null
           ? null
@@ -137,7 +154,7 @@ export const bulkTools = {
     },
   }),
 
-  bulk_set_deal_stage: crmTool({
+  bulk_set_deal_stage: dealTool({
     description: `Move up to 100 deals to one stage; each move goes on its deal's timeline. CLOSED_LOST and UNQUALIFIED_TO_BUY take a closedReason. Stages: ${DEAL_STAGES.join(", ")}.`,
     risk: "write",
     input: z

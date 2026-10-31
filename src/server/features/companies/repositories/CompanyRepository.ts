@@ -29,6 +29,7 @@ import {
   sortOrder,
   type SortSpec,
 } from "@/server/features/records/listQuery";
+import { membershipCondition } from "@/server/features/lists/repositories/listConditions";
 import { idChunks } from "@/server/features/records/recordRules";
 import { fieldValueWrites } from "@/server/features/fields/repositories/FieldValueRepository";
 import type { FieldWrite } from "@/server/features/fields/repositories/FieldValueRepository";
@@ -96,6 +97,7 @@ function listWhere(
     anyOfCondition(company.industry, input.industry),
     anyOfCondition(company.source, input.source ?? []),
     activityCondition(company.lastActivityAt, input.activity),
+    membershipCondition(organizationId, "COMPANY", input, company),
     ...fieldConditions,
   );
 }
@@ -231,6 +233,25 @@ function idsInScope(organizationId: string, input: CompanyListInput) {
     .select({ id: company.id })
     .from(company)
     .where(scopeWhere(organizationId, input));
+}
+
+/**
+ * Every company the list's filters match, up to `max`, newest first: what
+ * "add all matching to a list" puts in it.
+ */
+async function matchingIds(
+  organizationId: string,
+  input: CompanyListInput,
+  fieldConditions: SQL[],
+  max: number,
+) {
+  const rows = await db
+    .select({ id: company.id })
+    .from(company)
+    .where(listWhere(organizationId, input, fieldConditions))
+    .orderBy(desc(company.createdAt), asc(company.id))
+    .limit(max);
+  return rows.map((row) => row.id);
 }
 
 /** Live companies whose name or domain contains `q`, for pickers. */
@@ -429,6 +450,7 @@ export const CompanyRepository = {
   list,
   facetCounts,
   idsInScope,
+  matchingIds,
   findById,
   options,
   insert,

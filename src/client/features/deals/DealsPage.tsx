@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getRouteApi } from "@tanstack/react-router";
+import { getRouteApi, Link } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
 import { CircleDollarSign, Plus, Upload } from "lucide-react";
 import { findLast } from "remeda";
+import { EmptyState } from "@/client/components/EmptyState";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
 import {
@@ -56,8 +57,38 @@ import { DEAL_SORTS } from "@/types/schemas/deals";
 
 const routeApi = getRouteApi("/_app/deals");
 
-/** /deals: the pipeline, and every deal that has closed, each in a sheet. */
+/**
+ * /deals: the pipeline, and every deal that has closed, each in a sheet.
+ * While deals are off for the workspace, a note says where to turn them on.
+ */
 export function DealsPage() {
+  const workspace = useQuery(workspaceQueryOptions());
+  if (!workspace.data) return null;
+  if (!workspace.data.dealsEnabled) return <DealsOff />;
+  return <DealsList />;
+}
+
+function DealsOff() {
+  return (
+    <div className="px-4 py-4 md:px-6 md:py-6">
+      <div className="mx-auto w-full max-w-7xl">
+        <EmptyState
+          variant="card"
+          icon={CircleDollarSign}
+          title="Deals are off"
+          description="Turn them on in Settings to track sales with amounts, close dates and a pipeline. Deals made before are kept."
+          action={
+            <Button variant="outline" render={<Link to="/settings" />}>
+              Open Settings
+            </Button>
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+function DealsList() {
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
   const setSearch = (update: Partial<DealListSearch>) =>

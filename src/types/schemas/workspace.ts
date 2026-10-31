@@ -13,3 +13,5 @@ export const updateWorkspaceSchema = z.object({
 });
 
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;
+
+export const setDealsEnabledSchema = z.object({ enabled: z.boolean() });

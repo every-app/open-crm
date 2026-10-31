@@ -81,6 +81,35 @@ const fieldFiltersParam = z
   .catch(undefined);
 
 /**
+ * The params of a list (record_list) shown in the contacts or companies
+ * page: which list (`?list=`), which of its stages, only the Due entries,
+ * and the board instead of the table.
+ */
+export const listMembershipParams = {
+  list: textParam,
+  stage: valuesParam,
+  // `due` is the app's (recordStack.ts: a task's due day).
+  listDue: z.boolean().optional().catch(undefined),
+  view: z.enum(["board"]).optional().catch(undefined),
+};
+
+/** The list filters a list's stages and Due narrow it by. */
+export const LIST_MEMBERSHIP_FILTER_KEYS = ["stage", "listDue"] as const;
+
+/** The server input's list filters, from the URL's. */
+export function listMembershipInput(search: {
+  list?: string;
+  stage?: string[];
+  listDue?: boolean;
+}) {
+  return {
+    list: search.list,
+    listStage: search.list ? (search.stage ?? []) : [],
+    due: Boolean(search.list && search.listDue),
+  };
+}
+
+/**
  * Every param is optional and a value that doesn't parse is dropped, so a
  * stale or hand-edited link still opens the list. `hide` is the columns the
  * Columns menu hid; absent, the list's own default ones are hidden.

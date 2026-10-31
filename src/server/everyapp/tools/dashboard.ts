@@ -1,13 +1,10 @@
 import { z } from "zod";
-import {
-  crmTool,
-  personOutput,
-  recordRefOutput,
-} from "@/server/everyapp/crm-tool";
+import { personOutput, recordRefOutput } from "@/server/everyapp/crm-tool";
 import {
   activityOutput,
   toolActivity,
 } from "@/server/everyapp/tools/activities";
+import { dealTool } from "@/server/everyapp/tools/deals";
 import { DashboardService } from "@/server/features/dashboard/services/DashboardService";
 import { DEAL_STAGES } from "@/shared/crm-enums";
 import { DASHBOARD_SCOPES } from "@/types/schemas/dashboard";
@@ -15,7 +12,7 @@ import { DASHBOARD_SCOPES } from "@/types/schemas/dashboard";
 const total = z.object({ count: z.number(), value: z.number() });
 
 export const dashboardTools = {
-  get_sales_summary: crmTool({
+  get_sales_summary: dealTool({
     description:
       "Home's sales summary in the reporting currency: open pipeline by stage, closing this month, won this month and last, win rate, average deal and cycle over 90 days, a six-month trend, the biggest open deals, overdue tasks and recent activity. scope: me (the caller's deals, the default) or everyone.",
     risk: "read",

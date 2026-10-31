@@ -26,8 +26,14 @@ import {
 // own tasks, and the captured mail and meetings behind EMAIL and MEETING
 // entries (mail.ts reads those).
 
+// A deal's move names its stages; a list's move names its list, and either
+// end can be no stage.
 const stageChange = z
-  .object({ from: z.string(), to: z.string() })
+  .object({
+    list: z.string().nullable().default(null),
+    from: z.string().nullable(),
+    to: z.string().nullable(),
+  })
   .nullable()
   .catch(null);
 
@@ -48,7 +54,16 @@ export const activityOutput = z.object({
   company: recordRefOutput.nullable(),
   contact: recordRefOutput.nullable(),
   deal: recordRefOutput.nullable(),
-  stageChange: z.object({ from: z.string(), to: z.string() }).nullable(),
+  stageChange: z
+    .object({
+      list: z
+        .string()
+        .nullable()
+        .describe("The list moved in; null for a deal's stage."),
+      from: z.string().nullable(),
+      to: z.string().nullable(),
+    })
+    .nullable(),
   email: z
     .object({ threadId: z.string(), messages: z.number() })
     .nullable()

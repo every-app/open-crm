@@ -6,6 +6,7 @@ import {
   SORT_DIRECTIONS,
   facetFilterSchema,
   listInputSchema,
+  listMembershipFilters,
 } from "@/types/schemas/records";
 
 export const COMPANY_SORTS = [
@@ -29,6 +30,7 @@ export const companyListSchema = listInputSchema.extend({
   dir: z.enum(SORT_DIRECTIONS).default("desc"),
   industry: facetFilterSchema,
   activity: z.enum(ACTIVITY_WINDOWS).optional(),
+  ...listMembershipFilters,
   /** How they came in: the MCP tools' filter (the list page has none). */
   source: z.array(z.enum(RECORD_SOURCES)).max(RECORD_SOURCES.length).optional(),
 });
