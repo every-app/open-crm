@@ -1,5 +1,8 @@
 minimumReleaseAge: 11520
 minimumReleaseAgeExclude:
+  # TEMPORARY (remove after 2026-11-04): everyapp 0.3.0-rc.11 depends on
+  # @inquirer/prompts 8.7.5 and its parts, published 2026-10-26.
+  - "@inquirer/*"
   - "@every-app/*"
   # The Every App CLI is unscoped, and its releases are days old at most.
   - "everyapp"
@@ -33,9 +36,6 @@ minimumReleaseAgeExclude:
   - "fast-uri"
   - "js-yaml"
   - "dompurify@3.4.16"
-  # TEMPORARY (while vendor/ holds an unreleased CLI): its prompts library,
-  # 8.7.5 and its parts, published 2026-10-26. Goes with vendor/.
-  - "@inquirer/*"
 
 # Every dependency with an install script must be listed here, or
 # `pnpm install` warns "Ignored build scripts". esbuild and workerd fetch their
