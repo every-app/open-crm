@@ -6,11 +6,12 @@ What each release changes for a self-hosted CRM. To upgrade, see [Upgrading](sel
 
 **Breaking changes:**
 
+- Mail and calendar connect through Every App: the gateway runs the sign-in with Google or Microsoft, holds each member's connection and puts its token on the CRM's calls. The CRM keeps no tokens: migration `0002_mail_through_gateway` empties the ones it kept, so **every member connects Gmail, Calendar or Outlook again once** (Settings → Connections → Reconnect). Needs an Every App gateway with the simplified OAuth providers (`connectUrl`, connections per person and app). Register the gateway's redirect URIs (`https://<gateway>/connect/google-workspace/callback`, `https://<gateway>/connect/microsoft-365/callback`) on the Google and Microsoft clients; the CRM's `/integrations/<provider>/callback` routes are gone. Disconnect in the CRM stops capture; the connection itself is removed under Connected accounts on Every App.
 - Removed the research agent, team agents and Slack. Companies and contacts are no longer researched or enriched, custom fields are no longer filled by an agent, and the agent builder, runs, chats and their sharing links are gone, with Settings → AI, the Slack connection, the `/agents` pages, `/health/dispatch`, `pnpm ops dispatch` and `pnpm ops requeue`. The MCP tools for team agents, Slack, research (`bulk_enrich`, `get_enrichment_queue`, `fill_field`) and contact suggestions are gone too. Logos and photos the agent already copied still show.
 - The agent's Durable Object (`CrmAgent`) goes, with everything it stored: agent chats and research transcripts. Upgrading an install that had it needs `--allow-delete-durable-object-data` on `pnpm everyapp install` (or `deploy`), which otherwise refuses with `DURABLE_OBJECT_REMOVED`.
 - The agent's tables stay in the database, unread, until a later release drops them.
 
-**Settings:** the CRM no longer reads `OPENROUTER_API_KEY`, `CONTEXT_API_KEY`, the gateway's Slack client (`SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`), `GITHUB_TOKEN` or `AGENT_MODEL`. Unset the CRM's own (`pnpm everyapp secret unset GITHUB_TOKEN --app crm`, and `AGENT_MODEL`); the gateway's stay for any other app that uses them.
+**Settings:** the CRM no longer reads `TOKEN_ENCRYPTION_KEY`; unset it (`pnpm everyapp secret unset TOKEN_ENCRYPTION_KEY --app crm`). It no longer reads `OPENROUTER_API_KEY`, `CONTEXT_API_KEY`, the gateway's Slack client (`SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`), `GITHUB_TOKEN` or `AGENT_MODEL`. Unset the CRM's own (`pnpm everyapp secret unset GITHUB_TOKEN --app crm`, and `AGENT_MODEL`); the gateway's stay for any other app that uses them.
 
 - Companies and Contacts are tabs under Directory. Workspace settings links directly to member management on Every App.
 - Simplified onboarding, dashboard drill-downs, record details and activity filters. Archived records now live in Filters and show their deletion date; retention changes require confirmation.
@@ -21,7 +22,7 @@ What each release changes for a self-hosted CRM. To upgrade, see [Upgrading](sel
 - Removed the separate Members, Currencies and API settings routes. Use Workspace for members/currencies and Connections for API/MCP. Record sheets use `details` and `activity`.
 - MCP timeline task filters are now `open-tasks` and `completed-tasks` (previously `upcoming` and `done`); `notes` excludes calls, and `calls` is separate. Optional `due` filters tasks by overdue, upcoming or undated.
 
-**Migrations:** none.
+**Migrations:** `0002_mail_through_gateway` (data only: empties the stored mail tokens and pending connects, and marks every mail connection for reconnecting).
 
 ## 0.1.0
 

@@ -1,5 +1,6 @@
 # Copy to .dev.vars (gitignored) for local runs. Everything here is optional:
 # `pnpm dev` runs without it and names what a feature is missing.
-# The key mail and calendar tokens are encrypted under: 32 or more random
-# characters, e.g. openssl rand -base64 32.
-TOKEN_ENCRYPTION_KEY=
+# Mail and calendar in local development: an access token you obtained
+# yourself stands in for the connection the gateway would hold.
+GOOGLE_WORKSPACE_ACCESS_TOKEN=
+MICROSOFT_365_ACCESS_TOKEN=

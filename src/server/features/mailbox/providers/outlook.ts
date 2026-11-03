@@ -10,7 +10,12 @@ import {
   CaptureService,
   type IncomingMessage,
 } from "@/server/features/mailbox/services/CaptureService";
-import { budgetLeft, mailboxGet, type MailboxResult } from "./mailboxApi";
+import {
+  budgetLeft,
+  mailboxGet,
+  type MailboxCall,
+  type MailboxResult,
+} from "./mailboxApi";
 import {
   createFiler,
   failureOf,
@@ -106,14 +111,14 @@ const userSchema = z.object({
 const folderSchema = z.object({ id: z.string().optional() });
 
 /** The signed-in account's address. */
-export async function graphMe(accessToken: string, budget: SyncJob["budget"]) {
-  return mailboxGet(BASE, accessToken, userSchema, budget, {
+export async function graphMe(call: MailboxCall, budget: SyncJob["budget"]) {
+  return mailboxGet(BASE, call, userSchema, budget, {
     $select: "mail,userPrincipalName",
   });
 }
 
 export async function syncOutlook(job: SyncJob): Promise<SyncResult> {
-  const { row, accessToken, budget } = job;
+  const { row, call, budget } = job;
   if (!row.cursor) {
     console.log("[mailbox] outlook watching for new mail", {
       organizationId: row.organizationId,
@@ -128,7 +133,7 @@ export async function syncOutlook(job: SyncJob): Promise<SyncResult> {
   for (const name of EXCLUDED_FOLDERS) {
     const folder = await mailboxGet(
       `${BASE}/mailFolders/${name}`,
-      accessToken,
+      call,
       folderSchema,
       budget,
       { $select: "id" },
@@ -147,7 +152,7 @@ export async function syncOutlook(job: SyncJob): Promise<SyncResult> {
   const filer = createFiler(job);
   let page: MailboxResult<z.infer<typeof pageSchema>> = await mailboxGet(
     `${BASE}/messages`,
-    accessToken,
+    call,
     pageSchema,
     budget,
     {
@@ -191,7 +196,7 @@ export async function syncOutlook(job: SyncJob): Promise<SyncResult> {
       break;
     }
     if (!nextLink.startsWith("https://graph.microsoft.com/")) break;
-    page = await mailboxGet(nextLink, accessToken, pageSchema, budget);
+    page = await mailboxGet(nextLink, call, pageSchema, budget);
   }
   if (page.outcome !== "ok") {
     return failureOf(page, filer.place(furthest.toISOString()));

@@ -22,8 +22,8 @@ import { Route as AppContactsContactIdRouteImport } from './routes/_app/contacts
 import { Route as AppDealsDealIdRouteImport } from './routes/_app/deals_.$dealId'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsTrackingRouteImport } from './routes/_app/settings/tracking'
-import { Route as IntegrationsGoogleCallbackRouteImport } from './routes/integrations/google/callback'
-import { Route as IntegrationsMicrosoftCallbackRouteImport } from './routes/integrations/microsoft/callback'
+import { Route as IntegrationsGoogleConnectedRouteImport } from './routes/integrations/google/connected'
+import { Route as IntegrationsMicrosoftConnectedRouteImport } from './routes/integrations/microsoft/connected'
 import { Route as AppSettingsConnectionsIndexRouteImport } from './routes/_app/settings/connections/index'
 import { Route as AppSettingsConnectionsGoogleRouteImport } from './routes/_app/settings/connections/google'
 import { Route as AppSettingsConnectionsMicrosoftRouteImport } from './routes/_app/settings/connections/microsoft'
@@ -92,16 +92,16 @@ const AppSettingsTrackingRoute = AppSettingsTrackingRouteImport.update({
   path: '/tracking',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
-const IntegrationsGoogleCallbackRoute =
-  IntegrationsGoogleCallbackRouteImport.update({
-    id: '/integrations/google/callback',
-    path: '/integrations/google/callback',
+const IntegrationsGoogleConnectedRoute =
+  IntegrationsGoogleConnectedRouteImport.update({
+    id: '/integrations/google/connected',
+    path: '/integrations/google/connected',
     getParentRoute: () => rootRouteImport,
   } as any)
-const IntegrationsMicrosoftCallbackRoute =
-  IntegrationsMicrosoftCallbackRouteImport.update({
-    id: '/integrations/microsoft/callback',
-    path: '/integrations/microsoft/callback',
+const IntegrationsMicrosoftConnectedRoute =
+  IntegrationsMicrosoftConnectedRouteImport.update({
+    id: '/integrations/microsoft/connected',
+    path: '/integrations/microsoft/connected',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AppSettingsConnectionsIndexRoute =
@@ -135,8 +135,8 @@ export interface FileRoutesByFullPath {
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
   '/settings/tracking': typeof AppSettingsTrackingRoute
-  '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
-  '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
+  '/integrations/google/connected': typeof IntegrationsGoogleConnectedRoute
+  '/integrations/microsoft/connected': typeof IntegrationsMicrosoftConnectedRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/settings/connections/google': typeof AppSettingsConnectionsGoogleRoute
   '/settings/connections/microsoft': typeof AppSettingsConnectionsMicrosoftRoute
@@ -153,8 +153,8 @@ export interface FileRoutesByTo {
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
   '/settings/tracking': typeof AppSettingsTrackingRoute
-  '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
-  '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
+  '/integrations/google/connected': typeof IntegrationsGoogleConnectedRoute
+  '/integrations/microsoft/connected': typeof IntegrationsMicrosoftConnectedRoute
   '/settings': typeof AppSettingsIndexRoute
   '/settings/connections/google': typeof AppSettingsConnectionsGoogleRoute
   '/settings/connections/microsoft': typeof AppSettingsConnectionsMicrosoftRoute
@@ -174,8 +174,8 @@ export interface FileRoutesById {
   '/_app/contacts_/$contactId': typeof AppContactsContactIdRoute
   '/_app/deals_/$dealId': typeof AppDealsDealIdRoute
   '/_app/settings/tracking': typeof AppSettingsTrackingRoute
-  '/integrations/google/callback': typeof IntegrationsGoogleCallbackRoute
-  '/integrations/microsoft/callback': typeof IntegrationsMicrosoftCallbackRoute
+  '/integrations/google/connected': typeof IntegrationsGoogleConnectedRoute
+  '/integrations/microsoft/connected': typeof IntegrationsMicrosoftConnectedRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/settings/connections/google': typeof AppSettingsConnectionsGoogleRoute
   '/_app/settings/connections/microsoft': typeof AppSettingsConnectionsMicrosoftRoute
@@ -195,8 +195,8 @@ export interface FileRouteTypes {
     | '/contacts/$contactId'
     | '/deals/$dealId'
     | '/settings/tracking'
-    | '/integrations/google/callback'
-    | '/integrations/microsoft/callback'
+    | '/integrations/google/connected'
+    | '/integrations/microsoft/connected'
     | '/settings/'
     | '/settings/connections/google'
     | '/settings/connections/microsoft'
@@ -213,8 +213,8 @@ export interface FileRouteTypes {
     | '/contacts/$contactId'
     | '/deals/$dealId'
     | '/settings/tracking'
-    | '/integrations/google/callback'
-    | '/integrations/microsoft/callback'
+    | '/integrations/google/connected'
+    | '/integrations/microsoft/connected'
     | '/settings'
     | '/settings/connections/google'
     | '/settings/connections/microsoft'
@@ -233,8 +233,8 @@ export interface FileRouteTypes {
     | '/_app/contacts_/$contactId'
     | '/_app/deals_/$dealId'
     | '/_app/settings/tracking'
-    | '/integrations/google/callback'
-    | '/integrations/microsoft/callback'
+    | '/integrations/google/connected'
+    | '/integrations/microsoft/connected'
     | '/_app/settings/'
     | '/_app/settings/connections/google'
     | '/_app/settings/connections/microsoft'
@@ -244,8 +244,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
-  IntegrationsGoogleCallbackRoute: typeof IntegrationsGoogleCallbackRoute
-  IntegrationsMicrosoftCallbackRoute: typeof IntegrationsMicrosoftCallbackRoute
+  IntegrationsGoogleConnectedRoute: typeof IntegrationsGoogleConnectedRoute
+  IntegrationsMicrosoftConnectedRoute: typeof IntegrationsMicrosoftConnectedRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -341,18 +341,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsTrackingRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
-    '/integrations/google/callback': {
-      id: '/integrations/google/callback'
-      path: '/integrations/google/callback'
-      fullPath: '/integrations/google/callback'
-      preLoaderRoute: typeof IntegrationsGoogleCallbackRouteImport
+    '/integrations/google/connected': {
+      id: '/integrations/google/connected'
+      path: '/integrations/google/connected'
+      fullPath: '/integrations/google/connected'
+      preLoaderRoute: typeof IntegrationsGoogleConnectedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/integrations/microsoft/callback': {
-      id: '/integrations/microsoft/callback'
-      path: '/integrations/microsoft/callback'
-      fullPath: '/integrations/microsoft/callback'
-      preLoaderRoute: typeof IntegrationsMicrosoftCallbackRouteImport
+    '/integrations/microsoft/connected': {
+      id: '/integrations/microsoft/connected'
+      path: '/integrations/microsoft/connected'
+      fullPath: '/integrations/microsoft/connected'
+      preLoaderRoute: typeof IntegrationsMicrosoftConnectedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/settings/connections/': {
@@ -429,8 +429,8 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   OnboardingRoute: OnboardingRoute,
-  IntegrationsGoogleCallbackRoute: IntegrationsGoogleCallbackRoute,
-  IntegrationsMicrosoftCallbackRoute: IntegrationsMicrosoftCallbackRoute,
+  IntegrationsGoogleConnectedRoute: IntegrationsGoogleConnectedRoute,
+  IntegrationsMicrosoftConnectedRoute: IntegrationsMicrosoftConnectedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -4,7 +4,7 @@ import {
   CaptureService,
   type IncomingEvent,
 } from "@/server/features/mailbox/services/CaptureService";
-import { budgetLeft, mailboxGet } from "./mailboxApi";
+import { budgetLeft, mailboxGet, type MailboxCall } from "./mailboxApi";
 import {
   createFiler,
   failureOf,
@@ -98,10 +98,10 @@ const calendarSchema = z.object({ id: z.string().optional() });
 
 /** The primary calendar's id: its owner's address. */
 export async function primaryCalendar(
-  accessToken: string,
+  call: MailboxCall,
   budget: SyncJob["budget"],
 ) {
-  return mailboxGet(BASE, accessToken, calendarSchema, budget);
+  return mailboxGet(BASE, call, calendarSchema, budget);
 }
 
 /**
@@ -133,14 +133,14 @@ function cursorOf(place: Place): string | null {
 }
 
 export async function syncCalendar(job: SyncJob): Promise<SyncResult> {
-  const { row, accessToken, budget } = job;
+  const { row, call, budget } = job;
   const filer = createFiler(job);
   let place = placeOf(row.cursor);
   while (budgetLeft(budget)) {
     const at = cursorOf(place);
     const result = await mailboxGet(
       `${BASE}/events`,
-      accessToken,
+      call,
       pageSchema,
       budget,
       {

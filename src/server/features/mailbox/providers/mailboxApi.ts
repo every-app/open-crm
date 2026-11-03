@@ -1,17 +1,22 @@
+import { gatewayRefusal } from "@every-app/sdk/server";
 import type { z } from "zod";
 import { withoutNul } from "@/server/features/mailbox/lib/messageText";
 
 // The one place a Gmail, Calendar or Graph answer becomes an outcome, ported
-// from the CRM's mailbox-api.client.ts: a bearer GET with a timeout, its
-// status read as "the cursor expired", "the token was refused", "slow down"
-// or a failure. Calls are made with the member's own access token, straight
-// to the provider; the gateway only ever sees the token endpoint. Every
-// string in an answer arrives without NUL characters.
+// from the CRM's mailbox-api.client.ts: a GET with a timeout, its status
+// read as "the cursor expired", "connect again", "slow down" or a failure.
+// Calls go through the gateway (providers/gateway.ts), which puts the
+// member's token on them. Every string in an answer arrives without NUL
+// characters.
+
+/** A member's calls to their provider, from mailboxFetch(). */
+export type MailboxCall = typeof fetch;
 
 export type MailboxResult<T> =
   | { outcome: "ok"; data: T }
   | { outcome: "cursor-invalid"; reason: string }
-  | { outcome: "unauthorized"; reason: string }
+  // The gateway holds no usable connection: the member connects again.
+  | { outcome: "not-connected"; reason: string }
   | { outcome: "rate-limited"; reason: string; retryAfterMs: number }
   | { outcome: "failed"; reason: string; status?: number };
 
@@ -34,7 +39,7 @@ const MAX_BACKOFF_MS = 15 * 60_000;
 
 export async function mailboxGet<T>(
   url: string,
-  accessToken: string,
+  call: MailboxCall,
   schema: z.ZodType<T>,
   budget: CallBudget,
   params: Record<string, string | number | boolean | undefined> = {},
@@ -46,10 +51,7 @@ export async function mailboxGet<T>(
   budget.calls -= 1;
   let response: Response;
   try {
-    response = await fetch(target, {
-      headers: { authorization: `Bearer ${accessToken}` },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+    response = await call(target, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     return {
@@ -58,6 +60,13 @@ export async function mailboxGet<T>(
         ? `${target.host} did not answer within ${TIMEOUT_MS / 1000} seconds.`
         : `${target.host} could not be reached.`,
     };
+  }
+
+  const refused = await gatewayRefusal(response);
+  if (refused) {
+    return refused.code === "integration_not_connected"
+      ? { outcome: "not-connected", reason: refused.message }
+      : { outcome: "failed", reason: refused.message, status: refused.status };
   }
 
   if (response.ok) {
@@ -72,8 +81,6 @@ export async function mailboxGet<T>(
 
   const detail = await reasonOf(response);
   switch (response.status) {
-    case 401:
-      return { outcome: "unauthorized", reason: detail };
     case 404:
     case 410:
       return { outcome: "cursor-invalid", reason: detail };

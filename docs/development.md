@@ -23,7 +23,7 @@ In `pnpm dev` the light/dark pick stays in this browser's localStorage. The shar
 
 ## Deploy your own changes
 
-`pnpm everyapp install https://github.com/every-app/open-crm` installs the latest release, which the Release workflow publishes on every push to the default branch; run it again later to update. `pnpm everyapp configure crm` asks for the CRM's optional settings, `TOKEN_ENCRYPTION_KEY` among them: set it before anyone connects mail or a calendar, since their tokens are encrypted under it. Any one setting can also be set on its own with `pnpm everyapp secret set <NAME>`.
+`pnpm everyapp install https://github.com/every-app/open-crm` installs the latest release, which the Release workflow publishes on every push to the default branch; run it again later to update. `pnpm everyapp configure crm` asks for the CRM's optional settings. Any one setting can also be set on its own with `pnpm everyapp secret set <NAME>`.
 
 To deploy your own changes instead, run your Every App checkout's CLI from this directory: `node ../every-app/packages/cli/bin/everyapp.js deploy` (the CLI installed here runs `dev`, `db migrate` and `release`; a deploy also updates the Gateway, which only a checkout can build).
 

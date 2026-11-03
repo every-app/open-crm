@@ -4,24 +4,24 @@ import type {
 } from "@/server/features/mailbox/repositories/SyncStateRepository";
 import type { MatchContext } from "@/server/features/mailbox/services/MatchService";
 import type { CaptureJob } from "@/server/features/mailbox/services/CaptureService";
-import type { CallBudget, MailboxFailure } from "./mailboxApi";
+import type { CallBudget, MailboxCall, MailboxFailure } from "./mailboxApi";
 
 // What a source's check (gmail.ts, calendar.ts, outlook.ts) is given and how
 // it ends. The orchestrator (MailboxSyncService) settles the row with it.
 
 export type SyncJob = {
   row: SyncRow;
-  accessToken: string;
+  call: MailboxCall;
   capture: CaptureJob;
   budget: CallBudget;
   /** Who "we" are, loaded once per check, only when something needs filing. */
   context: () => Promise<MatchContext>;
 };
 
-/** A settlement, or the provider refusing the access token (refresh it next time). */
+/** A settlement, or the gateway holding no usable connection for the member. */
 export type SyncResult =
   | Settlement
-  | { status: "UNAUTHORIZED"; reason: string; cursor?: string | null };
+  | { status: "NOT_CONNECTED"; reason: string };
 
 /** The settlement for a failed provider call, keeping `cursor` as progress. */
 export function failureOf(
@@ -29,8 +29,8 @@ export function failureOf(
   cursor?: string | null,
 ): SyncResult {
   switch (failure.outcome) {
-    case "unauthorized":
-      return { status: "UNAUTHORIZED", reason: failure.reason, cursor };
+    case "not-connected":
+      return { status: "NOT_CONNECTED", reason: failure.reason };
     case "rate-limited":
       return {
         status: "RATE_LIMITED",

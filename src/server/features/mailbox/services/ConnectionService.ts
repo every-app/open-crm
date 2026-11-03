@@ -1,17 +1,10 @@
 import { ArchiveRepository } from "@/server/features/archive/repositories/ArchiveRepository";
-import { mailboxAddress } from "@/server/features/mailbox/providers/mailboxAddress";
 import {
-  adminConsentUrl,
-  refusalOf,
-} from "@/server/features/mailbox/adminConsent";
-import {
-  AUTHORIZE_URL,
-  CALLBACK_PATH,
-  GATEWAY_SECRETS,
-  clientStatus,
-  revokeGoogleToken,
-  tokenRequest,
-} from "@/server/features/mailbox/providers/oauth";
+  connectLink,
+  mailboxFetch,
+  providerStatus,
+} from "@/server/features/mailbox/providers/gateway";
+import { probeMailbox } from "@/server/features/mailbox/providers/probeMailbox";
 import { CaptureWriteRepository } from "@/server/features/mailbox/repositories/CaptureWriteRepository";
 import { SyncedDataRepository } from "@/server/features/mailbox/repositories/SyncedDataRepository";
 import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
@@ -22,14 +15,12 @@ import {
 import { MailboxSyncService } from "@/server/features/mailbox/services/MailboxSyncService";
 import { MatchService } from "@/server/features/mailbox/services/MatchService";
 import { AppError } from "@/server/lib/errors";
-import { codeChallenge, randomToken } from "@/server/lib/pkce";
 import { getWorkersEnv } from "@/server/lib/runtime-env";
-import { requireTokenKey, tokenKeyStatus } from "@/server/lib/tokenCrypto";
 import { normalizeDomain } from "@/shared/domain";
 import {
   grantedSources,
   MAILBOX_PROVIDERS,
-  REQUESTED_SCOPES,
+  SCOPE_FOR_SOURCE,
   SOURCES_BY_PROVIDER,
   type ConnectError,
   type MailboxProvider,
@@ -37,132 +28,49 @@ import {
 } from "@/shared/mailbox";
 import { hasOrgPermission } from "@/shared/org-permissions";
 
-// A member's own mailbox connections, ported from the CRM's
-// google-connection.service.ts and microsoft-connection.service.ts and its
-// Better Auth link flow. Connect: an authorize URL with a single-use state
-// (ten minutes, bound to the member and organization) and PKCE; the callback
-// checks the state is the member's, exchanges the code through the gateway,
-// learns the mailbox's address, refuses one that isn't the address the
-// member signs in with, stores the member's tokens and starts the sources
-// the member granted. Everything here is the member's own, but suppressing a
-// domain, which is the organization's; an owner or admin reaches another
-// member's connection through MemberMailboxService.memberFor.
+// A member's own mailbox connections. The Every App gateway runs the OAuth
+// flow and holds the connection (providers/gateway.ts): Connect sends the
+// member to the gateway's connect page, which sends them back to
+// CONNECTED_PATH, where the CRM reads which mailbox the connection reaches,
+// refuses one that isn't the address the member signs in with, and starts
+// the sources the member granted. Everything here is the member's own, but
+// suppressing a domain, which is the organization's; an owner or admin
+// reaches another member's connection through MemberMailboxService.memberFor.
 
 type Member = { organizationId: string; userId: string };
 
-const STATE_TTL_MS = 10 * 60_000;
-
 const LABEL = { google: "Google", microsoft: "Microsoft" } as const;
 
-function redirectUri(origin: string, provider: MailboxProvider): string {
-  return `${origin}${CALLBACK_PATH[provider]}`;
-}
-
-/** The provider's authorize URL for the member, with a fresh state. */
+/** The gateway's connect page for the member. */
 async function startConnect(
-  member: Member,
   provider: MailboxProvider,
   origin: string,
 ): Promise<{ url: string }> {
-  const client = await clientStatus(provider);
-  if (!client.ready || !client.clientId) {
+  if (!(await providerStatus(provider)).offered) {
     throw new AppError(
       "INTEGRATION_UNAVAILABLE",
       `${LABEL[provider]} isn't set up on this Every App gateway.`,
     );
   }
-  // Its tokens are stored encrypted: no key, no consent screen to sit through.
-  await requireTokenKey();
-  const codeVerifier = randomToken();
-  const state = await ConnectionRepository.createState({
-    ...member,
-    provider,
-    codeVerifier,
-    ttlMs: STATE_TTL_MS,
-  });
-  const url = new URL(AUTHORIZE_URL[provider]);
-  const params = url.searchParams;
-  params.set("client_id", client.clientId);
-  params.set("redirect_uri", redirectUri(origin, provider));
-  params.set("response_type", "code");
-  params.set("scope", REQUESTED_SCOPES[provider].join(" "));
-  params.set("state", state);
-  params.set("code_challenge", await codeChallenge(codeVerifier));
-  params.set("code_challenge_method", "S256");
-  if (provider === "google") {
-    params.set("access_type", "offline");
-    // Never include_granted_scopes: it would union this token with every
-    // scope the member granted the shared Google client through another app,
-    // and the gateway refuses a token wider than this app's scope sets.
-    // Google only sends a refresh token with a consent screen: ask for one
-    // unless the member's connection already holds one.
-    const existing = await ConnectionRepository.find(
-      member.organizationId,
-      member.userId,
-      provider,
-    );
-    if (!existing?.hasRefreshToken) params.set("prompt", "consent");
-  } else {
-    params.set("response_mode", "query");
-    params.set("prompt", "select_account");
-  }
-  return { url: url.toString() };
+  return { url: await connectLink(provider, origin) };
 }
 
-type CallbackOutcome = { ok: true } | { ok: false; error: ConnectError };
+type ConnectOutcome = { ok: true } | { ok: false; error: ConnectError };
 
-/**
- * The provider sent the member back to `callbackUrl`. Consumes the state
- * first, so a state presented twice, or by someone else, is refused.
- */
+/** The gateway sent the member back connected: start syncing the mailbox. */
 async function completeConnect(
   member: Member & { userEmail: string },
   provider: MailboxProvider,
-  callbackUrl: URL,
-): Promise<CallbackOutcome> {
-  const query = callbackUrl.searchParams;
-  const state = query.get("state");
-  const consumed = state
-    ? await ConnectionRepository.consumeState({ ...member, provider, state })
-    : null;
-  if (!consumed) return { ok: false, error: "state_mismatch" };
-
-  const providerError = query.get("error");
-  if (providerError) {
-    return {
-      ok: false,
-      error: refusalOf(provider, providerError, query.get("error_description")),
-    };
-  }
-  const code = query.get("code");
-  if (!code) return { ok: false, error: "exchange_failed" };
-
-  const exchanged = await tokenRequest(provider, {
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: redirectUri(callbackUrl.origin, provider),
-    code_verifier: consumed.codeVerifier,
-  });
-  if (!exchanged.ok) {
-    console.warn("[mailbox] code exchange failed", {
-      organizationId: member.organizationId,
-      provider,
-      reason: exchanged.reason,
-    });
-    return { ok: false, error: refusalOf(provider, null, exchanged.reason) };
-  }
-  const { tokens } = exchanged;
-  // Google returns the scopes granted (a member may untick one); an omitted
-  // scope means all of them.
-  const scopes = tokens.scope ?? REQUESTED_SCOPES[provider].join(" ");
-  const sources = grantedSources(provider, scopes);
-  if (sources.length === 0) return { ok: false, error: "scope_not_granted" };
-
-  const accountEmail = await mailboxAddress(
+): Promise<ConnectOutcome> {
+  const probe = await probeMailbox(
     provider,
-    tokens.accessToken,
-    sources,
+    await mailboxFetch(member, provider),
   );
+  if (probe.outcome === "not-connected") {
+    return { ok: false, error: "not_connected" };
+  }
+  const { address: accountEmail, sources } = probe;
+  if (sources.length === 0) return { ok: false, error: "scope_not_granted" };
   if (!accountEmail) return { ok: false, error: "mailbox_unknown" };
   // The member's own mailbox only, as the CRM's account linking allowed: the
   // address they sign in with, in any case.
@@ -179,10 +87,7 @@ async function completeConnect(
     ...member,
     provider,
     accountEmail,
-    scopes,
-    accessToken: tokens.accessToken,
-    accessTokenExpiresAt: tokens.accessTokenExpiresAt,
-    refreshToken: tokens.refreshToken,
+    scopes: sources.map((source) => SCOPE_FOR_SOURCE[source]).join(" "),
   });
   await SyncStateRepository.ensureSources({
     ...member,
@@ -220,7 +125,6 @@ export function connectionView(
   return {
     accountEmail: connection.accountEmail,
     needsReconnect: connection.status === "NEEDS_RECONNECT",
-    hasRefreshToken: connection.hasRefreshToken,
     sources: SOURCES_BY_PROVIDER[connection.provider].map((source) => {
       const row = rows.find((candidate) => candidate.source === source);
       return {
@@ -241,59 +145,47 @@ export function connectionView(
 
 /**
  * Settings → Connections for the member: each provider, whether this
- * gateway offers it, whether the CRM holds the key their tokens are
- * encrypted under, and the member's own connection with each source's
- * sync. Owners and admins also get what to set on the gateway and the CRM.
+ * gateway offers it, and the member's own connection with each source's
+ * sync. Owners and admins also get the command that sets the gateway up.
  */
-async function status(
-  member: Member & { role: string; userEmail: string },
-  origin: string,
-) {
-  const [connections, rows, clients] = await Promise.all([
+async function status(member: Member & { role: string }) {
+  const [connections, rows, gateway] = await Promise.all([
     ConnectionRepository.listForUser(member.organizationId, member.userId),
     SyncStateRepository.listForUser(member.organizationId, member.userId),
-    Promise.all(MAILBOX_PROVIDERS.map((provider) => clientStatus(provider))),
+    Promise.all(MAILBOX_PROVIDERS.map((provider) => providerStatus(provider))),
   ]);
   const now = new Date().toISOString();
   const env = (await getWorkersEnv()) ?? {};
-  // `everyapp dev` has no gateway: the developer's own client goes in
-  // .dev.vars under the gateway's names.
   const local = Boolean((env as { EVERYAPP_DEV?: string }).EVERYAPP_DEV);
   // Owners and admins operate the gateway too, so they set its clients.
   const showSetup =
     local || hasOrgPermission(member.role, { workspace: ["manage"] });
 
   const providers = MAILBOX_PROVIDERS.map((provider, index) => {
-    const connection = connections.find((row) => row.provider === provider);
-    const clientId = clients[index]?.clientId;
+    const offered = gateway[index];
+    const row = connections.find(
+      (candidate) => candidate.provider === provider,
+    );
+    const connection = row ? connectionView(row, rows, now) : null;
+    // Disconnected on the gateway (Connected accounts, or the member's
+    // removal): connect again.
+    const lost =
+      offered?.offered &&
+      (!offered.connection?.ready || offered.connection.reconnect === true);
     return {
       provider,
-      ready: clients[index]?.ready ?? false,
-      // The gateway settings its client lives under, so a member who can't
-      // set them is still told what an admin sets.
-      settings: [...GATEWAY_SECRETS[provider]],
-      // Where an admin consents for the member's organization, for when only
-      // an admin may (adminConsent.ts).
-      adminConsentUrl:
-        provider === "microsoft" && clientId
-          ? adminConsentUrl({ clientId, origin, email: member.userEmail })
-          : null,
-      setup: showSetup
-        ? {
-            command: local
-              ? null
-              : `pnpm everyapp secret set ${GATEWAY_SECRETS[provider].join(" ")}`,
-            devVars: local ? [...GATEWAY_SECRETS[provider]] : null,
-            redirectUri: redirectUri(origin, provider),
-          }
-        : null,
-      connection: connection ? connectionView(connection, rows, now) : null,
+      ready: offered?.offered ?? false,
+      // The gateway's own words for what an admin sets.
+      settings: [...(offered?.settings ?? [])],
+      setup: offered?.setup ?? null,
+      command: showSetup ? (offered?.command ?? null) : null,
+      connection:
+        connection && lost
+          ? { ...connection, needsReconnect: true }
+          : connection,
     };
   });
-  // The CRM's own TOKEN_ENCRYPTION_KEY: no connect starts without it, so the
-  // pages show the command that sets it instead of a Connect button.
-  const tokenKey = await tokenKeyStatus({ canRun: showSetup, local });
-  return { providers, tokenKey };
+  return { providers };
 }
 
 export type ConnectionsStatus = Awaited<ReturnType<typeof status>>;
@@ -410,36 +302,10 @@ async function suppressDomain(
 }
 
 /**
- * Stops capture and forgets the member's tokens; what was captured stays.
- * Google's grant is withdrawn at Google first (refusing to forget a grant
- * Google still honours), unless another member's connection uses that Google
- * account: withdrawing a token ends the account's whole grant to the
- * gateway's client, so it would end theirs too. Microsoft has
- * no way to withdraw consent from here, which the page tells the member.
+ * Stops capture; what was captured stays. The connection itself is the
+ * gateway's: the member removes it under Connected accounts on Every App.
  */
 async function disconnect(member: Member, provider: MailboxProvider) {
-  const connection = await ConnectionRepository.findWithTokens(
-    member.organizationId,
-    member.userId,
-    provider,
-  );
-  if (!connection) return;
-  const token = connection.refreshToken ?? connection.accessToken;
-  if (
-    provider === "google" &&
-    token &&
-    !(await ConnectionRepository.accountConnectedElsewhere({
-      ...member,
-      provider,
-      accountEmail: connection.accountEmail,
-    })) &&
-    !(await revokeGoogleToken(token))
-  ) {
-    throw new AppError(
-      "UPSTREAM_UNAVAILABLE",
-      "Google did not confirm the access was withdrawn.",
-    );
-  }
   await SyncStateRepository.removeSources(
     member.organizationId,
     member.userId,

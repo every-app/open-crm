@@ -174,8 +174,8 @@ export const mailTools = {
         }),
       ),
     }),
-    handler: async (_input, context, { origin }) => {
-      const { providers } = await ConnectionService.status(context, origin);
+    handler: async (_input, context) => {
+      const { providers } = await ConnectionService.status(context);
       return {
         providers: providers.map((provider) => ({
           ...provider,

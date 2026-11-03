@@ -15,14 +15,14 @@ import {
 // connect, purge or disconnect one (no MCP tool does), and nothing here
 // returns a token.
 
-/** The CRM's own origin, which the providers send members back to. */
+/** The CRM's own origin, which the gateway sends members back to. */
 function origin(): string {
   return new URL(getRequest().url).origin;
 }
 
 export const getConnections = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
-  .handler(async ({ context }) => ConnectionService.status(context, origin()));
+  .handler(async ({ context }) => ConnectionService.status(context));
 
 export const getMemberConnections = createServerFn({ method: "GET" })
   .middleware(requireAuthenticatedContext)
@@ -31,8 +31,8 @@ export const getMemberConnections = createServerFn({ method: "GET" })
 export const startConnect = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
   .validator(mailboxProviderSchema)
-  .handler(async ({ data, context }) =>
-    ConnectionService.startConnect(context, data.provider, origin()),
+  .handler(async ({ data }) =>
+    ConnectionService.startConnect(data.provider, origin()),
   );
 
 export const checkConnectionNow = createServerFn({ method: "POST" })

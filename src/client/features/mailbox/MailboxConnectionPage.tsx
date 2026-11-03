@@ -1,17 +1,17 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { ExternalLink, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { QueryState } from "@/client/components/QueryState";
 import {
   SettingsCard,
   SettingsPage,
+  SettingsRow,
   SettingsSection,
 } from "@/client/components/SettingsSection";
 import {
   Alert,
-  AlertAction,
   AlertDescription,
   AlertTitle,
 } from "@/client/components/ui/alert";
@@ -24,7 +24,7 @@ import {
   COPY,
   connectErrorCopy,
   mailboxState,
-  type ConnectionsStatus,
+  notSetUpCopy,
   type ProviderStatus,
 } from "@/client/features/mailbox/connectionCopy";
 import { connectionsQueryOptions } from "@/client/features/mailbox/mailboxQueries";
@@ -32,12 +32,7 @@ import {
   ConnectionBadge,
   TitleWithStatus,
 } from "@/client/features/settings/ConnectionStatus";
-import { GatewaySetupRows } from "@/client/features/settings/GatewaySetupRows";
-import {
-  TOKEN_KEY_TITLE,
-  TokenKeyRows,
-  notSetUpCopy,
-} from "@/client/features/settings/SetupNotices";
+import { CodeBlock } from "@/client/features/settings/CodeBlock";
 import {
   GoogleLogo,
   MicrosoftLogo,
@@ -45,8 +40,9 @@ import {
 import type { ConnectError, MailboxProvider } from "@/shared/mailbox";
 
 // Settings → Connections → Google or Microsoft (the CRM's provider pages):
-// the member's own mailbox, read only, or what it takes to connect one: the
-// gateway's client for the provider, then the CRM's TOKEN_ENCRYPTION_KEY.
+// the member's own mailbox, read only, or Connect, which goes through Every
+// App: the gateway holds the connection. Until the gateway offers the
+// provider, what an admin sets stands in for Connect.
 
 const POLL_MS = 3000;
 
@@ -101,25 +97,6 @@ export function MailboxConnectionPage({
                   <AlertDescription>
                     {connectErrorCopy(provider, error)}
                   </AlertDescription>
-                  {error === "access_denied" && entry.adminConsentUrl ? (
-                    <AlertAction>
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        nativeButton={false}
-                        render={
-                          <a
-                            href={entry.adminConsentUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          />
-                        }
-                      >
-                        Grant admin consent
-                        <ExternalLink data-icon="inline-end" aria-hidden />
-                      </Button>
-                    </AlertAction>
-                  ) : null}
                 </Alert>
               ) : null}
               {entry.connection ? (
@@ -128,7 +105,7 @@ export function MailboxConnectionPage({
                   connection={entry.connection}
                 />
               ) : (
-                <NotConnected status={entry} tokenKey={status.tokenKey} />
+                <NotConnected status={entry} />
               )}
             </>
           );
@@ -138,20 +115,11 @@ export function MailboxConnectionPage({
   );
 }
 
-function NotConnected({
-  status,
-  tokenKey,
-}: {
-  status: ProviderStatus;
-  tokenKey: ConnectionsStatus["tokenKey"];
-}) {
-  const { provider, ready, setup } = status;
+function NotConnected({ status }: { status: ProviderStatus }) {
+  const { provider, ready, setup, command } = status;
   const copy = COPY[provider];
   const Logo = LOGOS[provider];
   const connect = useConnect(provider);
-  // The gateway holds the client, and the CRM the key the tokens are
-  // encrypted under: without either, what an admin sets stands in for Connect.
-  const keyMissing = ready && !tokenKey.ready;
 
   return (
     <SettingsSection
@@ -163,33 +131,24 @@ function NotConnected({
         </TitleWithStatus>
       }
       description={
-        keyMissing
-          ? `${TOKEN_KEY_TITLE}.`
-          : ready || setup
-            ? "Only conversations with companies in the CRM are stored. Everyone in the workspace, their AI clients and the CRM's agents can read them."
-            : notSetUpCopy(copy.name, status.settings)
+        ready
+          ? `Connecting goes through Every App, which holds the connection; the CRM never sees your password or tokens. Only conversations with companies in the CRM are stored. Everyone in the workspace, their AI clients and the CRM's agents can read them.`
+          : (setup ?? notSetUpCopy(copy.name, status.settings))
       }
       action={
-        ready && !keyMissing ? (
+        ready ? (
           <Button pending={connect.isPending} onClick={() => connect.mutate()}>
             {connect.isPending ? null : <Logo data-icon="inline-start" />}
-            Connect
+            {copy.connect}
           </Button>
         ) : null
       }
     >
-      {!ready && setup ? (
+      {!ready && command ? (
         <SettingsCard>
-          <GatewaySetupRows
-            redirectUri={setup.redirectUri}
-            register={copy.register}
-            setup={setup}
-          />
-        </SettingsCard>
-      ) : null}
-      {keyMissing ? (
-        <SettingsCard>
-          <TokenKeyRows setup={tokenKey.setup} />
+          <SettingsRow stacked label="Command">
+            <CodeBlock value={command} successMessage="Copied." />
+          </SettingsRow>
         </SettingsCard>
       ) : null}
     </SettingsSection>

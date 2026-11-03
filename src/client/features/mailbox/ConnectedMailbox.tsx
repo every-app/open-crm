@@ -20,6 +20,7 @@ import { Button } from "@/client/components/ui/button";
 import { Switch } from "@/client/components/ui/switch";
 import {
   COPY,
+  REVOKED,
   SOURCES,
   mailboxState,
   type Connection,
@@ -75,7 +76,7 @@ function explain(provider: MailboxProvider, error: string) {
     provider === "microsoft" &&
     /MailboxNotEnabledForRESTAPI|inactive|soft-deleted|on-premise/i.test(error);
   const reconnect =
-    /invalid_grant|invalid.credentials|refresh.token|needs reconnecting|consent|unauthori[sz]ed|authentication|token.*expired|access.*revoked/i.test(
+    /invalid_grant|invalid.credentials|refresh.token|needs reconnecting|connect again|consent|unauthori[sz]ed|authentication|token.*expired|access.*revoked/i.test(
       error,
     );
   return {
@@ -111,7 +112,7 @@ function failureSignature(sources: readonly Source[]): string {
   ).join("|");
 }
 
-/** Sends the member to the provider's consent page. */
+/** Sends the member to Every App, which connects the provider and comes back. */
 export function useConnect(provider: MailboxProvider) {
   return useMutation({
     mutationFn: () => startConnect({ data: { provider } }),
@@ -190,10 +191,9 @@ export function ConnectedMailbox({
     null,
   );
   const syncing = connection.sources.some((source) => source.syncing);
-  const quiet = connection.hasRefreshToken && failing.length === 0;
+  const quiet = !connection.needsReconnect && failing.length === 0;
   const needsReconnect =
     connection.needsReconnect ||
-    !connection.hasRefreshToken ||
     failing.some(
       (source) =>
         source.status === "NEEDS_RECONNECT" ||
@@ -239,13 +239,13 @@ export function ConnectedMailbox({
           )
         }
       >
-        {!connection.hasRefreshToken ? (
+        {connection.needsReconnect ? (
           <Alert key={insistence} variant="destructive" className={attention}>
             <TriangleAlert aria-hidden />
             <AlertTitle>Reconnect {copy.name}</AlertTitle>
             <AlertDescription>
-              Connect your account again so new email and meetings can keep
-              syncing.
+              Connect your account again through Every App so new email and
+              meetings can keep syncing.
             </AlertDescription>
           </Alert>
         ) : (
@@ -389,7 +389,7 @@ export function ConnectedMailbox({
           onConfirm={() => revoke.mutate()}
           onClose={() => setConfirming(null)}
         >
-          {copy.revoked}
+          {REVOKED}
         </ConfirmDialog>
       ) : null}
     </>

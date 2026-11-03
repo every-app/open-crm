@@ -678,7 +678,9 @@ export const listStage = sqliteTable(
     kind: text("kind", { enum: STAGE_KINDS }).notNull().default("OPEN"),
     position: integer("position").notNull(),
   },
-  (table) => [index("list_stage_list_position_idx").on(table.listId, table.position)],
+  (table) => [
+    index("list_stage_list_position_idx").on(table.listId, table.position),
+  ],
 );
 
 /**
@@ -993,9 +995,8 @@ export const suppressedContact = sqliteTable(
 
 /**
  * A member's own mailbox and calendar connection (Google or Microsoft): the
- * account it reads, the scopes granted, and the member's tokens, which never
- * leave the server. The gateway holds the OAuth client; the CRM keeps the
- * tokens, as the CRM's Better Auth `account` row did.
+ * account it reads and the sources' scopes it reaches. The Every App gateway
+ * holds the connection and its tokens (src/server/features/mailbox).
  */
 export const mailboxConnection = sqliteTable(
   "mailbox_connection",
@@ -1008,8 +1009,10 @@ export const mailboxConnection = sqliteTable(
     provider: text("provider", { enum: MAILBOX_PROVIDERS }).notNull(),
     // Lowercased: the address the member's mail is sent from.
     accountEmail: text("account_email").notNull(),
-    // Space-separated, as the provider granted them.
+    // Space-separated: the scopes of the sources the connection reaches.
     scopes: text("scopes").notNull(),
+    // Retired: the tokens the CRM kept before the gateway held them. Unread
+    // and emptied (migration 0002); dropped a release later (TODO.md).
     accessToken: text("access_token"),
     accessTokenExpiresAt: timestamp("access_token_expires_at"),
     refreshToken: text("refresh_token"),
@@ -1029,9 +1032,9 @@ export const mailboxConnection = sqliteTable(
 );
 
 /**
- * A pending connect: the single-use `state` sent to the provider's authorize
- * page, bound to the member and organization, with its PKCE verifier. The
- * callback consumes it with a conditional update.
+ * Retired: the pending connects of the CRM's own OAuth flow, which the
+ * gateway runs now. Unread and emptied (migration 0002); dropped a release
+ * later (TODO.md).
  */
 export const oauthState = sqliteTable(
   "oauth_state",

@@ -1,9 +1,9 @@
 import { vi } from "vitest";
 
 // Fakes for the mailbox tests, at the network boundary only: the Every App
-// gateway's binding (each OAuth client's status and token endpoint) and the
-// providers' APIs (global fetch), with payloads shaped like Google's and
-// Microsoft's.
+// gateway's binding (each provider's status, and the proxy that puts a
+// member's token on their calls) and the providers' APIs (global fetch),
+// with payloads shaped like Google's and Microsoft's.
 
 export function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -21,52 +21,85 @@ export async function firstValue(
   return row && typeof row === "object" ? Reflect.get(row, column) : undefined;
 }
 
-type TokenCall = {
-  capability: string;
-  path: string;
-  form: URLSearchParams;
+type GatewayCall = {
+  provider: string;
+  upstream: URL;
   headers: Headers;
 };
 
 /**
- * The gateway's binding: every OAuth client is held (`clientId`
- * `client-<capability>`), and token calls are answered by `onToken`,
- * defaulting to fresh tokens.
+ * The gateway's binding: every provider is offered, and every member is
+ * connected unless `disconnect`ed, when their calls answer 409
+ * `integration_not_connected`. A call it lets through goes to the
+ * providers' fake APIs (stubProviders) at the real URL.
  */
 export function createGateway() {
-  const tokenCalls: TokenCall[] = [];
-  let onToken: (call: TokenCall) => Response = () =>
-    json({ access_token: "fresh-access", expires_in: 3600 });
+  const calls: GatewayCall[] = [];
+  const disconnected = new Set<string>();
   let ready = true;
+  // The caller's own connection, as the status reports it.
+  let connection: unknown = {
+    account: "user",
+    label: null,
+    scopeSets: [],
+    ready: true,
+  };
   const binding = {
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
       const url = new URL(request.url);
-      const [, , , capability = ""] = url.pathname.split("/");
-      if (request.method === "GET") {
+      const [, , , provider = "", host, ...path] = url.pathname.split("/");
+      if (!host) {
         return json({
-          capability,
           requested: true,
           configured: ready,
           ready,
-          ...(ready ? { clientId: `client-${capability}` } : {}),
+          settings: ready ? [] : ["GOOGLE_WORKSPACE_CLIENT_ID"],
+          setup: ready ? null : "An admin adds the provider.",
+          command: ready ? null : "pnpm everyapp provider add",
+          connection: ready ? connection : null,
         });
       }
-      const call = {
-        capability,
-        path: url.pathname,
-        form: new URLSearchParams(await request.text()),
-        headers: request.headers,
-      };
-      tokenCalls.push(call);
-      return onToken(call);
+      const upstream = new URL(
+        `https://${host}/${path.join("/")}${url.search}`,
+      );
+      calls.push({ provider, upstream, headers: request.headers });
+      const userId = request.headers.get("x-everyapp-user") ?? "";
+      if (!ready || disconnected.has(userId)) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "integration_not_connected",
+              message: "Not connected: connect again.",
+            },
+          }),
+          {
+            status: 409,
+            headers: {
+              "content-type": "application/json",
+              "x-everyapp-error": "integration_not_connected",
+            },
+          },
+        );
+      }
+      return globalThis.fetch(upstream);
     },
   };
   return {
     binding,
-    tokenCalls,
-    answerTokens(handler: (call: TokenCall) => Response) {
-      onToken = handler;
+    calls,
+    disconnect(userId: string) {
+      disconnected.add(userId);
+    },
+    reset() {
+      calls.length = 0;
+      disconnected.clear();
+      ready = true;
+      connection = { account: "user", label: null, scopeSets: [], ready: true };
+    },
+    /** The caller's connection as the status reports it (null: none). */
+    setStatusConnection(value: unknown) {
+      connection = value;
     },
     setReady(value: boolean) {
       ready = value;

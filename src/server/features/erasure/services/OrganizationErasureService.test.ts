@@ -55,13 +55,8 @@ describe("OrganizationErasureService", () => {
     objects.add("org_a/logo-1.png");
     objects.add("builder-attachments/org_a/c/f");
     objects.add("org_b/logo-2.png");
-    const called: string[] = [];
-    stubProviders({
-      "oauth2.googleapis.com/revoke": () => {
-        called.push("google");
-        return new Response(null, { status: 200 });
-      },
-    });
+    // The gateway holds the connections: erasing calls no provider.
+    const fetched = stubProviders({});
 
     const listed = await OrganizationErasureService.inventory("org_a");
     expect(listed).toMatchObject({
@@ -81,7 +76,7 @@ describe("OrganizationErasureService", () => {
       mailboxes: 1,
       users: 1,
     });
-    expect(called).toEqual(["google"]);
+    expect(fetched).toEqual([]);
     expect([...objects]).toEqual(["org_b/logo-2.png"]);
     expect(await OrganizationErasureService.inventory("org_a")).toMatchObject({
       exists: false,

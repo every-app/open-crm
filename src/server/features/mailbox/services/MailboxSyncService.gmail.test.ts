@@ -66,7 +66,7 @@ function fakeGmail(input: {
 
 describe("Gmail capture", () => {
   beforeEach(async () => {
-    gateway.tokenCalls.length = 0;
+    gateway.reset();
     await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
     await database.seedTwoOrganizations();
     await seedMailbox({
@@ -277,29 +277,26 @@ describe("Gmail capture", () => {
     expect(await cursor()).toBe("102");
   });
 
-  it("asks the member to reconnect when Google refuses the refresh", async () => {
-    await database.exec(
-      `UPDATE mailbox_connection SET access_token_expires_at = '2000-01-01T00:00:00.000Z'`,
-    );
-    gateway.answerTokens(() =>
-      json(
-        {
-          error: "invalid_grant",
-          error_description: "Token has been expired or revoked.",
-        },
-        400,
-      ),
-    );
+  it("calls Gmail through the gateway on the member's own connection", async () => {
     fakeGmail({});
 
     await MailboxSyncService.runDue();
-    const [call] = gateway.tokenCalls;
-    expect(Object.fromEntries(call?.form ?? [])).toEqual({
-      grant_type: "refresh_token",
-      refresh_token: "stored-refresh",
-    });
-    // The cron names the organization the refresh is for.
+    const [call] = gateway.calls;
+    expect(call?.provider).toBe("google-workspace");
+    expect(call?.upstream.href).toBe(
+      "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+    );
+    // The cron names whose connection: the gateway puts its token on.
+    expect(call?.headers.get("x-everyapp-user")).toBe("user_a");
     expect(call?.headers.get("x-everyapp-org")).toBe("org_a");
+    expect(call?.headers.get("authorization")).toBeNull();
+  });
+
+  it("asks the member to reconnect when the gateway holds no connection", async () => {
+    gateway.disconnect("user_a");
+    fakeGmail({});
+
+    await MailboxSyncService.runDue();
     expect(
       await database.rows(`SELECT status, next_sync_at FROM mailbox_sync`),
     ).toEqual([{ status: "NEEDS_RECONNECT", next_sync_at: null }]);

@@ -1,8 +1,8 @@
 # Erasing an organization
 
-`scripts/erase-organization.ts` lists, then erases, everything one organization holds in a CRM deployment: every row of it, its people, its R2 objects, and its Google grants. It is modelled on OpenSEO's `scripts/erase-user-data.ts` and its GDPR erasure runbook.
+`scripts/erase-organization.ts` lists, then erases, everything one organization holds in a CRM deployment: every row of it, its people, and its R2 objects. Members' Google and Microsoft connections are the Every App gateway's: removing them from the workspace deletes those. It is modelled on OpenSEO's `scripts/erase-user-data.ts` and its GDPR erasure runbook.
 
-The work happens in the CRM's Worker, which holds the database, the R2 bucket and the tokens. The script calls one public route, `POST /internal/erase-organization` (`src/server/features/erasure`), signing each request with `ERASURE_SECRET`. While that secret is unset, the route answers 404.
+The work happens in the CRM's Worker, which holds the database and the R2 bucket. The script calls one public route, `POST /internal/erase-organization` (`src/server/features/erasure`), signing each request with `ERASURE_SECRET`. While that secret is unset, the route answers 404.
 
 ## Before you start
 
@@ -42,7 +42,7 @@ node --env-file=<env file> scripts/erase-organization.ts --organization <organiz
 The Worker erases in bounded steps (`OrganizationErasureService.eraseNext`), and the script calls it until it is done:
 
 1. It stops what would write more: the workspace row, mailbox checks, and the tracking site (the collector refuses its site id).
-2. It withdraws grants: each member's mailbox is disconnected as Disconnect does it, so Google's grant is revoked unless another workspace uses that Google account.
+2. It stops mail capture: each member's mailbox is disconnected as Disconnect does it. The connections themselves stay on the gateway until the members are removed from the workspace there.
 3. It deletes the R2 objects under `<organization id>/` and `builder-attachments/<organization id>/`.
 4. It deletes the largest tables in batches, then the organization row, which cascades to every other row, and in the same batch its members' users.
 

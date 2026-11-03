@@ -22,16 +22,14 @@ The install registers the CRM with the gateway, creates its D1 database and R2 b
 
 To deploy a fork with your own changes instead, clone it next to your Every App checkout, run `pnpm install` in it, and from its directory run the checkout's CLI: `node ../every-app/packages/cli/bin/everyapp.js deploy`. A deploy also updates the gateway, which only a checkout can build.
 
-The CRM has two optional settings of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `TOKEN_ENCRYPTION_KEY` and `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). `pnpm everyapp configure crm` asks for each; any one can also be set alone with `pnpm everyapp secret set <NAME> --app crm`, from any directory. The CRM opens without them.
-
-Before anyone connects mail or a calendar, give the CRM `TOKEN_ENCRYPTION_KEY`, the key it encrypts their tokens with: 32 or more random characters, for example `openssl rand -base64 32`. `pnpm everyapp configure crm` asks for it. Until it is set, each page under Settings → Connections says so. Keep it safe: if it changes or is lost, everyone connects again.
+The CRM has one optional setting of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). `pnpm everyapp configure crm` asks for it; it can also be set alone with `pnpm everyapp secret set ERASURE_SECRET --app crm`, from any directory. The CRM opens without it.
 
 ## Mail and calendar
 
-Members connect their own Gmail and Google Calendar, or Outlook, from Settings → Connections, and the CRM files their work conversations and meetings on companies and contacts. It only reads: it never sends, changes or drafts mail. The OAuth clients live on the gateway, so set up whichever you want people to use:
+Members connect their own Gmail and Google Calendar, or Outlook, from Settings → Connections, and the CRM files their work conversations and meetings on companies and contacts. It only reads: it never sends, changes or drafts mail. The OAuth clients and each member's connection live on the gateway, which runs the sign-in with Google or Microsoft and holds the tokens; the CRM never sees one. Set up whichever you want people to use:
 
-1. **Google.** In the [Google Cloud console](https://console.cloud.google.com/apis/credentials), enable the Gmail API and the Google Calendar API, create an OAuth client of type _Web application_, and add the redirect URI `https://<crm host>/integrations/google/callback` (for example `https://crm.apps.your-company.com/integrations/google/callback`). On the consent screen, add the scopes `gmail.readonly` and `calendar.readonly`.
-2. **Microsoft.** In [Microsoft Entra](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade), register an application for _accounts in any organizational directory and personal Microsoft accounts_, add the _Web_ redirect URI `https://<crm host>/integrations/microsoft/callback`, add the delegated Microsoft Graph permissions `User.Read`, `Mail.Read` and `offline_access`, and create a client secret.
+1. **Google.** In the [Google Cloud console](https://console.cloud.google.com/apis/credentials), enable the Gmail API and the Google Calendar API, create an OAuth client of type _Web application_, and add the gateway's redirect URI `https://<gateway host>/connect/google-workspace/callback`. On the consent screen, add the scopes `gmail.readonly` and `calendar.readonly`.
+2. **Microsoft.** In [Microsoft Entra](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade), register an application for _accounts in any organizational directory and personal Microsoft accounts_, add the gateway's _Web_ redirect URI `https://<gateway host>/connect/microsoft-365/callback`, add the delegated Microsoft Graph permissions `User.Read`, `Mail.Read` and `offline_access`, and create a client secret.
 3. Give the gateway each client:
 
 ```bash
@@ -39,7 +37,7 @@ pnpm everyapp secret set GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECR
 pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET
 ```
 
-Settings → Connections shows the exact redirect URI for your CRM to owners and admins, and each card says when its client isn't set up yet. The redirect URI is on the CRM's host: the CRM runs the consent flow itself and the gateway only completes the token exchange with its client, so this is not the `https://<gateway>/connect/<provider>/callback` address the gateway's own **Add OAuth provider** dialog shows for providers it connects on apps' behalf.
+Each card under Settings → Connections says when its client isn't set up yet. The redirect URI is the gateway's, the same `https://<gateway>/connect/<provider>/callback` address its **Add OAuth provider** dialog shows.
 
 Gmail's read scope is one Google restricts. If everyone who connects is in your own Google Workspace, make the consent screen _Internal_ and no review is needed. An _External_ consent screen needs Google's verification and a yearly security assessment before people outside your Workspace can connect Gmail. Left in _Testing_, it takes at most 100 test users, and their connections stop working after 7 days.
 

@@ -1,4 +1,7 @@
-import { clientStatus } from "@/server/features/mailbox/providers/oauth";
+import {
+  mailboxFetch,
+  providerStatus,
+} from "@/server/features/mailbox/providers/gateway";
 import { syncCalendar } from "@/server/features/mailbox/providers/calendar";
 import { syncGmail } from "@/server/features/mailbox/providers/gmail";
 import { syncOutlook } from "@/server/features/mailbox/providers/outlook";
@@ -14,8 +17,7 @@ import {
   type SyncRow,
 } from "@/server/features/mailbox/repositories/SyncStateRepository";
 import { MatchService } from "@/server/features/mailbox/services/MatchService";
-import { TokenService } from "@/server/features/mailbox/services/TokenService";
-import { loggableError, UserFacingError } from "@/server/lib/errors";
+import { loggableError } from "@/server/lib/errors";
 import { forOrganization } from "@/server/lib/gateway-attribution";
 import {
   MAILBOX_PROVIDERS,
@@ -65,71 +67,47 @@ async function runClaimed(row: SyncRow, budget: CallBudget): Promise<void> {
   const { organizationId, userId } = row;
   const provider = PROVIDER_FOR_SOURCE[row.source];
   try {
-    const token = await TokenService.accessTokenFor(
+    const connection = await ConnectionRepository.find(
       organizationId,
       userId,
       provider,
     );
-    if (token.outcome === "not-connected") {
+    if (!connection) {
       await SyncStateRepository.settle(organizationId, row.id, {
         status: "FAILED",
         reason: "Not connected.",
       });
       return;
     }
-    if (token.outcome === "needs-reconnect") {
-      await SyncStateRepository.needReconnect(
-        organizationId,
-        userId,
-        SOURCES_BY_PROVIDER[provider],
-        token.reason,
-      );
-      return;
-    }
-    if (token.outcome === "failed") {
-      await SyncStateRepository.settle(organizationId, row.id, {
-        status: "FAILED",
-        reason: token.reason,
-      });
-      return;
-    }
     const result = await SYNCERS[row.source]({
       row,
-      accessToken: token.accessToken,
+      call: await mailboxFetch({ organizationId, userId }, provider),
       budget,
       capture: {
         organizationId,
         userId,
-        mailbox: token.accountEmail,
+        mailbox: connection.accountEmail,
         autoCreate: row.autoCreate,
         origin: row.source,
       },
       context: once(() => MatchService.context(organizationId)),
     });
-    if (result.status === "UNAUTHORIZED") {
-      // The access token was refused before it expired: the next check
-      // refreshes it, and a refused refresh asks the member to reconnect.
-      const connection = await ConnectionRepository.find(
+    if (result.status === "NOT_CONNECTED") {
+      // Disconnected on the gateway, or its grant ended: connect again.
+      await ConnectionRepository.markNeedsReconnect(
+        organizationId,
+        connection.id,
+      );
+      await SyncStateRepository.needReconnect(
         organizationId,
         userId,
-        provider,
+        SOURCES_BY_PROVIDER[provider],
+        result.reason,
       );
-      if (connection) {
-        await ConnectionRepository.expireAccessToken(
-          organizationId,
-          connection.id,
-        );
-      }
-      await SyncStateRepository.settle(organizationId, row.id, {
-        status: "FAILED",
-        reason: result.reason,
-        cursor: result.cursor,
-      });
       return;
     }
     await SyncStateRepository.settle(organizationId, row.id, result);
   } catch (error) {
-    // A failed write's message would quote the tokens it was storing.
     console.error("[mailbox] check failed", {
       organizationId,
       userId,
@@ -138,20 +116,18 @@ async function runClaimed(row: SyncRow, budget: CallBudget): Promise<void> {
     });
     await SyncStateRepository.settle(organizationId, row.id, {
       status: "FAILED",
-      // A missing or changed TOKEN_ENCRYPTION_KEY says so (tokenCrypto.ts).
-      reason:
-        error instanceof UserFacingError
-          ? error.message
-          : "The check stopped on an unexpected error; the next one retries.",
+      reason: "The check stopped on an unexpected error; the next one retries.",
     }).catch(() => {});
   }
 }
 
-/** The sources whose provider's client the gateway holds. */
+/** The sources whose provider the gateway offers. */
 async function readySources(): Promise<SyncSource[]> {
   const ready = await Promise.all(
     MAILBOX_PROVIDERS.map(async (provider) =>
-      (await clientStatus(provider)).ready ? SOURCES_BY_PROVIDER[provider] : [],
+      (await providerStatus(provider)).offered
+        ? SOURCES_BY_PROVIDER[provider]
+        : [],
     ),
   );
   return ready.flat();

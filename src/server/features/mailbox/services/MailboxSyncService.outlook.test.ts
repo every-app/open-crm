@@ -1,5 +1,4 @@
-import { format } from "node:util";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Outlook capture at the minute cron's entry point, with
 // Microsoft Graph and the gateway faked at the network boundary.
@@ -29,17 +28,11 @@ import {
   stubProviders,
 } from "@/server/features/mailbox/mailboxTestSupport";
 import { seedMailbox } from "@/server/features/mailbox/mailboxTestSeeds";
-import { ConnectionRepository } from "@/server/features/mailbox/repositories/ConnectionRepository";
 import { CaptureService } from "./CaptureService";
 import { MailboxSyncService } from "./MailboxSyncService";
 
 const GRAPH = "graph.microsoft.com/v1.0/me";
 
-/** A trigger that fails every write of a refresh token. */
-const REFUSE_TOKEN_WRITES = {
-  create: `CREATE TRIGGER refuse_token_write BEFORE UPDATE OF refresh_token ON mailbox_connection BEGIN SELECT RAISE(ABORT, 'refused'); END;`,
-  drop: `DROP TRIGGER refuse_token_write;`,
-};
 const NEXT_PAGE =
   "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page2";
 
@@ -71,7 +64,7 @@ function message(input: {
 
 describe("Outlook capture", () => {
   beforeEach(async () => {
-    gateway.tokenCalls.length = 0;
+    gateway.reset();
     await database.exec(`DELETE FROM organization; DELETE FROM "user";`);
     await database.seedTwoOrganizations();
     await seedMailbox({
@@ -222,59 +215,5 @@ describe("Outlook capture", () => {
       { rfc_message_id: "good@outlook.com" },
       { rfc_message_id: "later@outlook.com" },
     ]);
-  });
-
-  it("keeps the refresh token Microsoft rotates, encrypted, from a row stored before tokens were", async () => {
-    await database.exec(
-      `UPDATE mailbox_connection SET access_token = 'stored-access', refresh_token = 'stored-refresh', access_token_expires_at = '2000-01-01T00:00:00.000Z'`,
-    );
-    gateway.answerTokens(() =>
-      json({
-        access_token: "access-2",
-        refresh_token: "refresh-2",
-        expires_in: 3600,
-      }),
-    );
-    stubProviders({});
-
-    await MailboxSyncService.runDue();
-    expect(gateway.tokenCalls[0]?.path).toBe(
-      "/api/integrations/microsoft-365/login.microsoftonline.com/common/oauth2/v2.0/token",
-    );
-    expect(gateway.tokenCalls[0]?.form.get("refresh_token")).toBe(
-      "stored-refresh",
-    );
-    const stored = JSON.stringify(
-      await database.rows(`SELECT * FROM mailbox_connection`),
-    );
-    expect(stored).not.toContain("access-2");
-    expect(stored).not.toContain("refresh-2");
-    expect(
-      await ConnectionRepository.findWithTokens("org_b", "user_b", "microsoft"),
-    ).toMatchObject({ accessToken: "access-2", refreshToken: "refresh-2" });
-  });
-
-  it("logs a check that failed to store its tokens without the query or its parameters", async () => {
-    await database.exec(
-      `UPDATE mailbox_connection SET access_token_expires_at = '2000-01-01T00:00:00.000Z'`,
-    );
-    gateway.answerTokens(() =>
-      json({ access_token: "access-2", refresh_token: "refresh-2" }),
-    );
-    stubProviders({});
-    await database.exec(REFUSE_TOKEN_WRITES.create);
-    onTestFinished(() => database.exec(REFUSE_TOKEN_WRITES.drop));
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await MailboxSyncService.runDue();
-    // The database's own code says what failed.
-    const code: unknown = expect.any(String);
-    expect(logged).toHaveBeenCalledWith(
-      "[mailbox] check failed",
-      expect.objectContaining({ source: "outlook", code }),
-    );
-    const output = logged.mock.calls.map((call) => format(...call)).join();
-    expect(output).not.toContain("Failed query");
-    expect(output).not.toContain("enc:v1:");
   });
 });

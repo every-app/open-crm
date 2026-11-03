@@ -24,21 +24,12 @@ describe("mailbox repositories", () => {
     await database.seedTwoOrganizations();
   });
 
-  it("keeps one organization's mailboxes, states and captures from another", async () => {
+  it("keeps one organization's mailboxes and captures from another", async () => {
     await ConnectionRepository.upsert({
       ...A,
       provider: "google",
       accountEmail: "ana@acme.com",
       scopes: "x",
-      accessToken: "a",
-      accessTokenExpiresAt: new Date().toISOString(),
-      refreshToken: "r",
-    });
-    const state = await ConnectionRepository.createState({
-      ...A,
-      provider: "google",
-      codeVerifier: "v",
-      ttlMs: 60_000,
     });
     await SyncStateRepository.ensureSources({
       ...A,
@@ -98,13 +89,6 @@ describe("mailbox repositories", () => {
     expect(await ConnectionRepository.listForUser("org_b", "user_a")).toEqual(
       [],
     );
-    expect(
-      await ConnectionRepository.consumeState({
-        ...asB,
-        provider: "google",
-        state,
-      }),
-    ).toBeNull();
     expect(await ConnectionRepository.accountEmails("org_b")).toEqual([]);
     expect(
       await SyncStateRepository.claim({
@@ -141,25 +125,11 @@ describe("mailbox repositories", () => {
       purged: 0,
     });
 
-    // org_a still has everything, and its own state is good once.
+    // org_a still has everything.
     expect(await database.rows(`SELECT id FROM email_message`)).toHaveLength(1);
     expect(await database.rows(`SELECT id FROM calendar_event`)).toHaveLength(
       1,
     );
-    expect(
-      await ConnectionRepository.consumeState({
-        ...A,
-        provider: "google",
-        state,
-      }),
-    ).toEqual({ codeVerifier: "v" });
-    expect(
-      await ConnectionRepository.consumeState({
-        ...A,
-        provider: "google",
-        state,
-      }),
-    ).toBeNull();
   });
 
   it("takes due rows round-robin by organization, the longest-waiting first", async () => {

@@ -47,12 +47,6 @@ export const SCOPE_FOR_SOURCE = {
   outlook: OUTLOOK_MAIL_SCOPE,
 } as const satisfies Record<SyncSource, string>;
 
-/** The scopes each provider's authorize page asks for (the gateway's client allows them). */
-export const REQUESTED_SCOPES = {
-  google: [GMAIL_SCOPE, CALENDAR_SCOPE],
-  microsoft: ["offline_access", "User.Read", OUTLOOK_MAIL_SCOPE],
-} as const satisfies Record<MailboxProvider, readonly string[]>;
-
 /** Auto-create defaults when a source is first connected, as in the CRM. */
 export const AUTO_CREATE_DEFAULT = {
   calendar: true,
@@ -60,12 +54,11 @@ export const AUTO_CREATE_DEFAULT = {
   outlook: false,
 } as const satisfies Record<SyncSource, boolean>;
 
-/** Why the connect callback sent the member back without a connection. */
+/** Why a connect came back without a mailbox to sync. */
 export const CONNECT_ERRORS = [
-  "access_denied",
+  // The gateway holds no connection for the member.
+  "not_connected",
   "scope_not_granted",
-  "state_mismatch",
-  "exchange_failed",
   "mailbox_unknown",
   // The CRM's (Better Auth's) code: a mailbox not at the sign-in address.
   "email_doesn't_match",
@@ -74,7 +67,7 @@ export type ConnectError = (typeof CONNECT_ERRORS)[number];
 
 const GRAPH_SCOPE_PREFIX = "https://graph.microsoft.com/";
 
-/** A token response's `scope` as a set; Graph's prefix is dropped. */
+/** A stored scope string as a set; Graph's prefix is dropped. */
 function parseScopes(scope: string | null | undefined): Set<string> {
   return new Set(
     (scope ?? "")

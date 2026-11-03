@@ -12,7 +12,7 @@ import {
   CaptureService,
   type IncomingMessage,
 } from "@/server/features/mailbox/services/CaptureService";
-import { budgetLeft, mailboxGet } from "./mailboxApi";
+import { budgetLeft, mailboxGet, type MailboxCall } from "./mailboxApi";
 import {
   createFiler,
   failureOf,
@@ -89,16 +89,16 @@ type GmailMessage = z.infer<typeof messageSchema>;
 
 /** The mailbox's address and its current historyId. */
 export async function gmailProfile(
-  accessToken: string,
+  call: MailboxCall,
   budget: SyncJob["budget"],
 ) {
-  return mailboxGet(`${BASE}/profile`, accessToken, profileSchema, budget);
+  return mailboxGet(`${BASE}/profile`, call, profileSchema, budget);
 }
 
 export async function syncGmail(job: SyncJob): Promise<SyncResult> {
-  const { row, accessToken, budget } = job;
+  const { row, call, budget } = job;
   if (!row.cursor) {
-    const profile = await gmailProfile(accessToken, budget);
+    const profile = await gmailProfile(call, budget);
     if (profile.outcome !== "ok") return failureOf(profile);
     if (!profile.data.historyId) {
       return { status: "FAILED", reason: "Gmail returned no historyId." };
@@ -113,7 +113,7 @@ export async function syncGmail(job: SyncJob): Promise<SyncResult> {
   const start = row.cursor;
   const history = await mailboxGet(
     `${BASE}/history`,
-    accessToken,
+    call,
     historySchema,
     budget,
     {
@@ -159,7 +159,7 @@ export async function syncGmail(job: SyncJob): Promise<SyncResult> {
       fetched += 1;
       const message = await mailboxGet(
         `${BASE}/messages/${encodeURIComponent(id)}`,
-        accessToken,
+        call,
         messageSchema,
         budget,
         { format: "full" },

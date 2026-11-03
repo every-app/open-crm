@@ -1,8 +1,8 @@
 /**
  * OpenCRM on an Every App gateway. The gateway signs people in and decides
  * who may open the CRM, serves its tools on the gateway's one MCP connector,
- * and holds the Google and Microsoft OAuth clients for mail capture, so a
- * deploy needs no settings of its own. Each setting below says whether the CRM opens without
+ * and holds each member's Google and Microsoft connections for mail capture,
+ * so a deploy needs no settings of its own. Each setting below says whether the CRM opens without
  * it (`optional`) and why it is there (`why`): the gateway, `everyapp status`
  * and the end of `everyapp deploy` show them. See docs/maintainers/every-app.md.
  *
@@ -31,20 +31,21 @@ export default {
   // whose connect pages say what is missing until the gateway holds their
   // client.
   capabilities: {
-    // Each member connects their own mailbox; the gateway completes the
-    // token endpoints with its client and the CRM keeps the member's tokens
-    // (src/server/features/mailbox).
+    // Each member connects their own mailbox in Settings → Connections; the
+    // gateway runs the OAuth flow, holds the connection and puts its token on
+    // the CRM's calls (src/server/features/mailbox/providers/gateway.ts). The
+    // scopes are the provider's own; the gateway adds the sign-in ones and
+    // refuses a token carrying more.
     "google-workspace": {
-      access: "write",
-      // The scope sets the gateway lets this app obtain tokens for; it refuses
-      // a token carrying more (docs/design/2026-10-oauth-scopes.md there).
-      scopes: ["gmail.read", "calendar.read"],
+      scopes: ["gmail.readonly", "calendar.readonly"],
       optional: true,
       why: "Members connect their Gmail and Google Calendar, read only, so their work conversations and meetings are filed on companies and contacts.",
     },
     "microsoft-365": {
-      access: "write",
-      scopes: ["identity", "mail.read"],
+      scopes: [
+        "https://graph.microsoft.com/User.Read",
+        "https://graph.microsoft.com/Mail.Read",
+      ],
       optional: true,
       why: "Members connect their Outlook mail, read only, so their work conversations are filed on companies and contacts.",
     },
@@ -52,13 +53,6 @@ export default {
   // The CRM's own settings (`everyapp secret set <NAME> --app crm`), all
   // optional: the feature that needs one says so where it is used.
   secrets: [
-    // The key mail and calendar tokens are encrypted under
-    // (src/server/lib/tokenCrypto.ts). Changing it means connecting again.
-    {
-      name: "TOKEN_ENCRYPTION_KEY",
-      optional: true,
-      why: "Needed before anyone connects mail or a calendar: their tokens are encrypted under it. 32 or more random characters, e.g. openssl rand -base64 32.",
-    },
     // docs/maintainers/runbooks/erase-organization.md
     {
       name: "ERASURE_SECRET",
