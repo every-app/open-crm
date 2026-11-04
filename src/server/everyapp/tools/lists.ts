@@ -235,7 +235,8 @@ export const listTools = {
   delete_list: crmTool({
     description:
       "Delete a list for good, with its stages and who was in it (owners and admins only). The contacts and companies stay; the stage moves on their timelines stay. update_list archives one instead.",
-    risk: "destructive",
+    risk: "write",
+    destructive: true,
     input: z.object({ id: listId }).strict(),
     output: z.object({ id: z.string() }),
     handler: (input, context) => {

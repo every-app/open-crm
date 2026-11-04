@@ -260,7 +260,8 @@ export const savedViewTools = {
 
   delete_saved_view: crmTool({
     description: "Delete one of the caller's own saved views.",
-    risk: "destructive",
+    risk: "write",
+    destructive: true,
     input: savedViewIdSchema.strict(),
     output: z.object({ id: z.string() }),
     handler: ({ id }, context) =>

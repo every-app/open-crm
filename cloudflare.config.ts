@@ -1,7 +1,17 @@
 import { bindings, defineConfig } from "cf/config";
-import { everyAppWorker } from "@every-app/sdk/cloudflare";
+import {
+  everyAppWorker,
+  type EveryAppWorkerManifest,
+} from "@every-app/sdk/cloudflare";
 import * as entrypoint from "./src/server.ts" with { type: "cf-worker" };
-import manifest from "./everyapp.config.ts";
+import config from "./everyapp.config.ts";
+
+// @every-app/sdk 0.3.0-rc.14 types a feature as its secrets and settings
+// alone, so one listing only capabilities or providers fails the type check.
+// Drop the cast once the SDK types the whole feature.
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- see above
+const manifest = config as Omit<typeof config, "features"> &
+  Pick<EveryAppWorkerManifest, "features">;
 
 // The CRM's Worker, as `pnpm dev`, `pnpm build:dev` and `everyapp deploy` build
 // it, from everyapp.config.ts. Nothing the Worker imports may be imported

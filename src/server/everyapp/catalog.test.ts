@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 // The catalog as the gateway reads it, and what each scope may call: a
-// read-only connection gets every read, a read-write one every write, and
-// nobody a destructive tool (the gateway never mints mcp:destructive).
+// read-only connection gets every read, and a read-write one every write,
+// the destructive ones included (marked destructiveHint, so clients ask
+// first).
 const { testDb } = await vi.hoisted(async () => {
   const { createSqliteTestDb } = await import("@/server/testing/testDb");
   return { testDb: await createSqliteTestDb() };
@@ -14,12 +15,7 @@ vi.mock("cloudflare:workers", () => ({
 vi.mock("@/db", () => ({ db: testDb.db }));
 vi.mock("@/db/runBatch", () => testDb.runBatchModule);
 
-import {
-  READ_WRITE,
-  call,
-  catalog,
-  failure,
-} from "@/server/everyapp/toolTestSupport";
+import { call, catalog, failure } from "@/server/everyapp/toolTestSupport";
 
 describe("the MCP catalog", () => {
   beforeAll(() => testDb.seedTwoOrganizations());
@@ -40,12 +36,12 @@ describe("the MCP catalog", () => {
     expect(reads).toEqual(
       expect.arrayContaining(["list_companies", "list_contacts", "list_deals"]),
     );
-    // What deletes for good, or sets archived records to be deleted, is
-    // destructive: the gateway hides it from every connection.
+    // What deletes for good, or sets archived records to be deleted, is a
+    // write marked destructive, so clients ask before calling it.
     expect(
       new Set(
         tools
-          .filter((tool) => tool.risk === "destructive")
+          .filter((tool) => tool.annotations?.destructiveHint === true)
           .map((tool) => tool.name),
       ),
     ).toEqual(
@@ -71,7 +67,7 @@ describe("the MCP catalog", () => {
     }
   });
 
-  it("lets a read-only scope read and refuses it writes; refuses destructive tools to everyone", async () => {
+  it("lets a read-only scope read and refuses it writes, destructive ones included", async () => {
     const readOnly = { scopes: ["mcp:read"] };
     await expect(call("list_companies", {}, readOnly)).resolves.toMatchObject({
       total: 0,
@@ -79,8 +75,8 @@ describe("the MCP catalog", () => {
     expect(
       await failure("create_company", { name: "Acme" }, readOnly),
     ).toContain("mcp:write");
-    expect(
-      await failure("delete_field", { id: "x" }, { scopes: READ_WRITE }),
-    ).toContain("mcp:destructive");
+    expect(await failure("delete_field", { id: "x" }, readOnly)).toContain(
+      "mcp:write",
+    );
   });
 });

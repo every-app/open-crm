@@ -28,6 +28,8 @@ export function crmTool<
 >(definition: {
   description: string;
   risk: ToolDefinition["risk"];
+  /** A write that deletes for good: clients ask before calling it. */
+  destructive?: boolean;
   input: Input;
   output: Output;
   handler: (
@@ -39,6 +41,7 @@ export function crmTool<
   return {
     description: definition.description,
     risk: definition.risk,
+    ...(definition.destructive ? { destructive: true } : {}),
     input: definition.input,
     output: definition.output,
     handler: async (args, { user, request }) =>

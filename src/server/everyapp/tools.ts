@@ -17,7 +17,8 @@ import { workspaceTools } from "@/server/everyapp/tools/workspace";
 // App gateway: its MCP connector lists them as `crm_<tool>` beside every
 // other app's, and this app's own host serves them under their names at
 // /mcp. The gateway signs in the person, applies the connection's read-only
-// or read-write choice (and hides destructive tools from everyone), and
+// or read-write choice (a destructive tool is a write, marked so clients
+// ask first), and
 // calls a tool here with a verified identity; the CRM never speaks MCP
 // itself.
 

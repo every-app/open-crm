@@ -2,9 +2,10 @@
  * OpenCRM on an Every App gateway. The gateway signs people in and decides
  * who may open the CRM, serves its tools on the gateway's one MCP connector,
  * and holds each member's Google and Microsoft connections for mail capture,
- * so a deploy needs no settings of its own. Each setting below says whether the CRM opens without
- * it (`optional`) and why it is there (`why`): the gateway, `everyapp status`
- * and the end of `everyapp deploy` show them. See docs/maintainers/every-app.md.
+ * so a deploy needs no settings of its own. Everything it can be given is an
+ * optional feature (`features`, below), with its setup steps: `everyapp
+ * configure crm` walks them, and the gateway and `everyapp status` show each
+ * one's state. See docs/maintainers/every-app.md.
  *
  *   pnpm deploy:everyapp   # D1, pinned to the organization (EVERY_APP_ORG_ID)
  *   pnpm dev               # everyapp dev: D1, behind a gateway-lite
@@ -38,7 +39,6 @@ export default {
     // refuses a token carrying more.
     "google-workspace": {
       scopes: ["gmail.readonly", "calendar.readonly"],
-      optional: true,
       why: "Members connect their Gmail and Google Calendar, read only, so their work conversations and meetings are filed on companies and contacts.",
     },
     "microsoft-365": {
@@ -46,20 +46,47 @@ export default {
         "https://graph.microsoft.com/User.Read",
         "https://graph.microsoft.com/Mail.Read",
       ],
-      optional: true,
       why: "Members connect their Outlook mail, read only, so their work conversations are filed on companies and contacts.",
     },
   },
-  // The CRM's own settings (`everyapp secret set <NAME> --app crm`), all
-  // optional: the feature that needs one says so where it is used.
-  secrets: [
-    // docs/maintainers/runbooks/erase-organization.md
-    {
-      name: "ERASURE_SECRET",
-      optional: true,
-      why: "Set only while an operator erases an organization: it signs the erasure requests. Unset it afterwards.",
+  // Optional, each all or nothing: the CRM opens without any of them, and
+  // the feature that needs one says so where it is used.
+  features: {
+    google: {
+      name: "Gmail and Google Calendar",
+      why: "Members connect their Gmail and Google Calendar, read only, so conversations and meetings are filed on companies and contacts.",
+      steps: [
+        "In the Google Cloud console, enable the Gmail API and the Google Calendar API: https://console.cloud.google.com/apis/library",
+        "Create an OAuth client of type Web application: https://console.cloud.google.com/apis/credentials",
+        "Redirect URI: {gatewayUrl}/connect/google-workspace/callback. Consent screen scopes: gmail.readonly and calendar.readonly.",
+      ],
+      capabilities: ["google-workspace"],
     },
-  ],
+    microsoft: {
+      name: "Outlook",
+      why: "Members connect their Outlook mail, read only, so conversations are filed on companies and contacts.",
+      steps: [
+        "Register an application for accounts in any organizational directory and personal Microsoft accounts: https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
+        "Web redirect URI: {gatewayUrl}/connect/microsoft-365/callback. Delegated Microsoft Graph permissions: User.Read, Mail.Read and offline_access.",
+        "Create a client secret. It expires after the period you pick; set a new one before it does.",
+      ],
+      capabilities: ["microsoft-365"],
+    },
+    // docs/maintainers/runbooks/erase-organization.md
+    erasure: {
+      name: "Organization erasure",
+      why: "Set only while an operator erases an organization: it signs the erasure requests. Unset it afterwards.",
+      steps: [
+        "Follow the runbook: https://github.com/every-app/open-crm/blob/main/docs/maintainers/runbooks/erase-organization.md",
+      ],
+      secrets: [
+        {
+          name: "ERASURE_SECRET",
+          how: "A long random value, e.g. openssl rand -base64 32; the erasure script signs with the same value.",
+        },
+      ],
+    },
+  },
   // Every member of the organization works in the CRM.
   access: "everyone",
   // Nothing reaches the CRM without a signed-in member but website tracking,

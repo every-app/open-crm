@@ -22,7 +22,7 @@ The install registers the CRM with the gateway, creates its D1 database and R2 b
 
 To deploy a fork with your own changes instead, clone it next to your Every App checkout, run `pnpm install` in it, and from its directory run the checkout's CLI: `node ../every-app/packages/cli/bin/everyapp.js deploy`. A deploy also updates the gateway, which only a checkout can build.
 
-The CRM has one optional setting of its own, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). `pnpm everyapp configure crm` asks for it; it can also be set alone with `pnpm everyapp secret set ERASURE_SECRET --app crm`, from any directory. The CRM opens without it.
+The CRM has one setting of its own, in the optional Organization erasure feature, which the [Settings table](maintainers/every-app.md#settings) lists with the gateway's: `ERASURE_SECRET` ([Erasing an organization](#erasing-an-organization)). `pnpm everyapp configure crm` walks it with the Gmail and Outlook features; it can also be set alone with `pnpm everyapp secret set ERASURE_SECRET --app crm`, from any directory. The CRM opens without it.
 
 ## Mail and calendar
 

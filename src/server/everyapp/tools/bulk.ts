@@ -96,7 +96,8 @@ export const bulkTools = {
   bulk_purge: crmTool({
     description:
       "Delete up to 100 archived companies, contacts or deals forever (owners and admins only). One that isn't archived fails and is left alone.",
-    risk: "destructive",
+    risk: "write",
+    destructive: true,
     input: z.object({ kind, ids }).strict(),
     output: bulkOutput,
     handler: async (input, context) => {

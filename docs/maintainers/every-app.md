@@ -58,7 +58,7 @@ node ../every-app/packages/cli/bin/everyapp.js deploy
 
 ## Settings
 
-The manifest (`everyapp.config.ts`) declares each setting with its need and why. Each is optional, a single feature's: the CRM opens without it, and the feature says what is missing where it is used.
+The manifest (`everyapp.config.ts`) groups the settings into three optional features (`features`: `google`, `microsoft`, `erasure`), each with its setup steps and all or nothing: the CRM opens without them, and the feature says what is missing where it is used.
 
 | Setting                                                        | Held by | Need     | What it unlocks                                                                                                                 | Set with                                                                             |
 | -------------------------------------------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |

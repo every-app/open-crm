@@ -221,7 +221,8 @@ export const fieldTools = {
   delete_field: crmTool({
     description:
       "Delete a custom field and every value it holds, for good (owners and admins only). archive_field keeps the values.",
-    risk: "destructive",
+    risk: "write",
+    destructive: true,
     input: fieldIdInput,
     output: z.object({ id: z.string() }),
     handler: async ({ id }, context) => {

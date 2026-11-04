@@ -280,7 +280,8 @@ export const activityTools = {
   delete_activity: crmTool({
     description:
       "Delete a note, call, email, meeting or task a person logged, for good. Its author, an owner or an admin may; captured mail and meetings can't be deleted.",
-    risk: "destructive",
+    risk: "write",
+    destructive: true,
     input: z.object({ id: activityId }).strict(),
     output: z.object({ id: z.string() }),
     handler: ({ id }, context) => ActivityService.deleteActivity(context, id),

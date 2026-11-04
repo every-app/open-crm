@@ -177,7 +177,8 @@ export const workspaceTools = {
   set_archive_retention: crmTool({
     description:
       "How many days archived companies, contacts and deals are kept before the daily purge deletes them for good (owners and admins only). A shorter time deletes the ones archived longer ago at the next purge.",
-    risk: "destructive",
+    risk: "write",
+    destructive: true,
     input: z
       .object({
         days: setArchiveRetentionSchema.shape.days.describe("From 1 to 3,650."),

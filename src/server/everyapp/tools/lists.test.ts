@@ -209,9 +209,9 @@ describe("list tools", () => {
       "Partners holds companies, not contacts.",
     );
 
-    expect(await failure("delete_list", { id: listId })).toContain(
-      "mcp:destructive",
-    );
+    expect(
+      await failure("delete_list", { id: listId }, { scopes: ["mcp:read"] }),
+    ).toContain("mcp:write");
     expect(
       await failure(
         "delete_list",
