@@ -104,7 +104,7 @@ export function CompanyPicker({
             ? "Searching…"
             : query
               ? "No company matches."
-              : "No companies yet. Add one in Directory first."}
+              : "No companies yet. Add one in Companies first."}
         </ComboboxEmpty>
         <ComboboxList>
           {(company: CompanyOption) => (

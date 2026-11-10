@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppCompaniesRouteImport } from './routes/_app/companies'
 import { Route as AppContactsRouteImport } from './routes/_app/contacts'
 import { Route as AppDealsRouteImport } from './routes/_app/deals'
@@ -40,6 +41,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppSplatRoute = AppSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppCompaniesRoute = AppCompaniesRouteImport.update({
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/onboarding': typeof OnboardingRoute
   '/settings': typeof AppSettingsRouteRouteWithChildren
+  '/$': typeof AppSplatRoute
   '/companies': typeof AppCompaniesRoute
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
+  '/$': typeof AppSplatRoute
   '/companies': typeof AppCompaniesRoute
   '/contacts': typeof AppContactsRoute
   '/deals': typeof AppDealsRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
+  '/_app/$': typeof AppSplatRoute
   '/_app/companies': typeof AppCompaniesRoute
   '/_app/contacts': typeof AppContactsRoute
   '/_app/deals': typeof AppDealsRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/settings'
+    | '/$'
     | '/companies'
     | '/contacts'
     | '/deals'
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
+    | '/$'
     | '/companies'
     | '/contacts'
     | '/deals'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/onboarding'
     | '/_app/settings'
+    | '/_app/$'
     | '/_app/companies'
     | '/_app/contacts'
     | '/_app/deals'
@@ -269,6 +281,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/$': {
+      id: '/_app/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof AppSplatRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/companies': {
@@ -400,6 +419,7 @@ const AppSettingsRouteRouteWithChildren =
 
 interface AppRouteRouteChildren {
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
+  AppSplatRoute: typeof AppSplatRoute
   AppCompaniesRoute: typeof AppCompaniesRoute
   AppContactsRoute: typeof AppContactsRoute
   AppDealsRoute: typeof AppDealsRoute
@@ -412,6 +432,7 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
+  AppSplatRoute: AppSplatRoute,
   AppCompaniesRoute: AppCompaniesRoute,
   AppContactsRoute: AppContactsRoute,
   AppDealsRoute: AppDealsRoute,

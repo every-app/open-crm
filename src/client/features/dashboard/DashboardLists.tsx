@@ -190,16 +190,6 @@ export function RecentActivity({
     <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Recent activity</CardTitle>
-        <CardAction className="row-span-1 -my-0.75">
-          <Button
-            variant="outline"
-            size="sm"
-            nativeButton={false}
-            render={<Link to="/contacts" />}
-          >
-            Directory
-          </Button>
-        </CardAction>
       </CardHeader>
       <Table className="table-fixed">
         <TableHeader>

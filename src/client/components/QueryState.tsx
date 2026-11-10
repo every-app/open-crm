@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { getStandardErrorMessage } from "@/client/lib/error-messages";
+import {
+  getStandardErrorMessage,
+  isRetryableError,
+} from "@/client/lib/error-messages";
 import { ErrorState } from "@/client/components/ErrorState";
 import { SkeletonCard } from "./SkeletonPresets";
 
 /**
- * A load failure with a retry button. The message goes through
- * `getStandardErrorMessage`.
+ * A load failure with a retry button, unless trying again cannot help (the
+ * record is gone). The message goes through `getStandardErrorMessage`.
  */
 export function QueryError({
   error,
@@ -18,7 +21,7 @@ export function QueryError({
 }: {
   /** Omit to always show `fallback`, for errors the page words itself. */
   error?: unknown;
-  /** Shown when the error has no message of its own. */
+  /** Shown unless the server sent a message or a code with its own copy. */
   fallback: string;
   onRetry?: () => void;
   isRetrying?: boolean;
@@ -30,7 +33,7 @@ export function QueryError({
       variant={variant}
       title={title}
       message={getStandardErrorMessage(error, fallback)}
-      onRetry={onRetry}
+      onRetry={isRetryableError(error) ? onRetry : undefined}
       isRetrying={isRetrying}
     />
   );

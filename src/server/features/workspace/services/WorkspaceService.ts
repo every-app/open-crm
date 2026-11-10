@@ -60,7 +60,7 @@ async function requireDealsEnabled(organizationId: string): Promise<void> {
   if (!row.dealsEnabled) {
     throw new UserFacingError(
       "FORBIDDEN",
-      "Deals are turned off for this workspace. An owner or admin turns them on in Settings → General.",
+      "Deals are turned off for this workspace. An owner or admin turns them on in Settings → Workspace.",
     );
   }
 }

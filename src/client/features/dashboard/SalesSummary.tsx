@@ -21,27 +21,13 @@ import {
 // The top of Home: the headline figures, then the trend and the open
 // pipeline by stage (SalesCharts).
 
-type Delta = { text: string; up: boolean | null };
-
-/** "+12%" against `previous`, or nothing when there was nothing before. */
-function changeFrom(current: number, previous: number): Delta | undefined {
-  if (previous === 0) return undefined;
-  const change = Math.round(((current - previous) / previous) * 100);
-  return {
-    text: `${change > 0 ? "+" : ""}${change}%`,
-    up: change === 0 ? null : change > 0,
-  };
-}
-
 function StatTile({
   label,
   value,
-  delta,
   description,
 }: {
   label: string;
   value: string;
-  delta?: Delta;
   description?: string;
 }) {
   return (
@@ -52,26 +38,7 @@ function StatTile({
       >
         {label}
       </span>
-      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-        <span className="text-2xl font-semibold tracking-tight">{value}</span>
-        {delta ? (
-          <span
-            className={cn(
-              "text-xs font-medium tabular-nums",
-              delta.up === null
-                ? "text-muted-foreground"
-                : delta.up
-                  ? "text-success"
-                  : "text-destructive",
-            )}
-          >
-            {delta.up === null ? null : (
-              <span aria-hidden>{delta.up ? "↑ " : "↓ "}</span>
-            )}
-            {delta.text}
-          </span>
-        ) : null}
-      </div>
+      <span className="text-2xl font-semibold tracking-tight">{value}</span>
       {description ? (
         <p className="text-xs text-pretty text-muted-foreground">
           {description}
@@ -121,7 +88,6 @@ export function SalesSummary({ summary }: { summary: DashboardSummary }) {
             <StatTile
               label="Closed won this month"
               value={money(wonThisMonth.value)}
-              delta={changeFrom(wonThisMonth.value, wonLastMonth.value)}
               description={`${formatCount(wonThisMonth.count, "deal")}${wonLastMonth.count > 0 ? ` · ${money(wonLastMonth.value)} last month` : ""}`}
             />
           ) : null}

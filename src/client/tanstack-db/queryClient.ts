@@ -1,6 +1,9 @@
 import { MutationCache, QueryClient } from "@tanstack/query-core";
 import { toast } from "sonner";
-import { getStandardErrorMessage } from "@/client/lib/error-messages";
+import {
+  getStandardErrorMessage,
+  isRetryableError,
+} from "@/client/lib/error-messages";
 
 declare module "@tanstack/query-core" {
   interface Register {
@@ -26,6 +29,10 @@ export const queryClient = new QueryClient({
     queries: {
       gcTime: 1000 * 60 * 60,
       staleTime: 1000 * 60 * 5, // 5 minutes — show cached data instantly, refetch in background after
+      // Three more tries, as TanStack does by default, unless the answer is
+      // final: a record that is gone shows so at once.
+      retry: (failureCount, error) =>
+        failureCount < 3 && isRetryableError(error),
     },
   },
 });

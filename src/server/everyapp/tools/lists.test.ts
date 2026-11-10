@@ -272,7 +272,7 @@ describe("deals opt-in", () => {
   it("deal tools refuse while deals are off; owners and admins turn them on", async () => {
     expect(await call("get_workspace")).toMatchObject({ dealsEnabled: false });
     const off =
-      "Deals are turned off for this workspace. An owner or admin turns them on in Settings → General.";
+      "Deals are turned off for this workspace. An owner or admin turns them on in Settings → Workspace.";
     expect(await failure("list_deals")).toBe(off);
     expect(await failure("get_sales_summary")).toBe(off);
     expect(
