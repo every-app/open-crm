@@ -18,7 +18,7 @@ What each release changes for a self-hosted CRM. To upgrade, see [Upgrading](sel
 - Empty sales metrics and charts stay hidden.
 - Overview starts with the team's data; the owner filter appears only when deals have different owners. Workspace setup needs only a name. Added creator-owned company/deal defaults.
 - New companies created through MCP belong to the caller unless `ownerEmail` names another member.
-- Grouped settings into Workspace and Connections. Added mobile settings navigation, CSV templates, simpler field setup and actionable connection errors.
+- Grouped settings into Workspace, Connections and Tracking. Added mobile settings navigation, CSV templates, simpler field setup and actionable connection errors.
 - Removed the separate Members, Currencies and API settings routes. Use Workspace for members/currencies and Connections for API/MCP.
 - MCP timeline task filters are now `open-tasks` and `completed-tasks` (previously `upcoming` and `done`); `notes` excludes calls, and `calls` is separate. Optional `due` filters tasks by overdue, upcoming or undated.
 - A record sheet is one scroll, with no tabs; a deal has one stage control, with a Close deal menu for won, lost and unqualified. Overview leads with overdue tasks and lists. Connections lists mail and calendar first.

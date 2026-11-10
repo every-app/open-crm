@@ -55,7 +55,7 @@ Owners can export all of the workspace's data from Settings → Workspace.
 
 ## What works without OAuth clients
 
-The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking, and the MCP tools AI clients use. Clients that sign in with OAuth, such as claude.ai and ChatGPT, connect to your gateway's `/mcp`; the CRM's own `https://<crm host>/mcp` takes only a personal access token. Mail and calendar capture need the OAuth clients above.
+The CRM works as a CRM with no keys at all: companies, contacts, deals, tasks, notes, CSV import and export, custom fields, saved views, website tracking (Settings → Tracking), and the MCP tools AI clients use. Clients that sign in with OAuth, such as claude.ai and ChatGPT, connect to your gateway's `/mcp`; the CRM's own `https://<crm host>/mcp` takes only a personal access token. Mail and calendar capture need the OAuth clients above.
 
 ## Website tracking
 
