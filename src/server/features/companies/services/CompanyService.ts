@@ -6,7 +6,6 @@ import { FieldValuesService } from "@/server/features/fields/services/FieldValue
 import {
   listChips,
   membershipsOf,
-  stageCounts as listStageCounts,
 } from "@/server/features/lists/services/listMemberships";
 import {
   assertOwner,
@@ -72,12 +71,6 @@ async function listCompanies(organizationId: string, input: CompanyListInput) {
       CompanyRepository.idsInScope(organizationId, input),
     ),
   ]);
-  const stageCounts = await listStageCounts(
-    organizationId,
-    input.list,
-    "COMPANY",
-    CompanyRepository.idsInScope(organizationId, input),
-  );
   const ids = rows.map((row) => row.id);
   const [fields, memberships] = await Promise.all([
     FieldValuesService.tableValues(organizationId, "COMPANY", ids),
@@ -90,7 +83,7 @@ async function listCompanies(organizationId: string, input: CompanyListInput) {
       lists: listChips(memberships.get(row.id)),
     })),
     total,
-    facetCounts: { ...facetCounts, ...fieldFacetCounts, ...stageCounts },
+    facetCounts: { ...facetCounts, ...fieldFacetCounts },
   };
 }
 

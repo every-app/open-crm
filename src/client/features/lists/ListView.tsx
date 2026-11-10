@@ -5,7 +5,6 @@ import {
   AlarmClock,
   Archive,
   Columns3,
-  Settings2,
   Pencil,
   Table2,
   Trash2,
@@ -16,11 +15,8 @@ import { ConfirmDialog } from "@/client/components/ConfirmDialog";
 import { SegmentedToggle } from "@/client/components/SegmentedToggle";
 import { Button } from "@/client/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/client/components/ui/dropdown-menu";
 import { EditListDialog } from "@/client/features/lists/ListDialog";
 import { LIST_DOT } from "@/client/features/lists/listColors";
@@ -29,9 +25,9 @@ import type { ListSummary } from "@/server/features/lists/services/ListService";
 import { deleteList, updateList } from "@/serverFunctions/lists";
 import { NO_STAGE } from "@/types/schemas/records";
 
-// A list opened in the contacts or companies page (`?list=`): its title and
-// menu, its stages as tabs with counts, and the Due toggle (its board is
-// ListBoard).
+// A list opened in the contacts or companies page (`?list=`): its title, its
+// items in the page's ⋯ menu, its stages as tabs with counts, and the Due
+// toggle (its board is ListBoard).
 
 /** The list's title, with its color. */
 export function ListTitle({ list }: { list: ListSummary }) {
@@ -55,112 +51,118 @@ const noun = (list: ListSummary, count: number) =>
       ? "company"
       : "companies";
 
-/** Under the title: what the list is for, how many are in it, its follow-up. */
+/** Under the title: what the list is for, in its own words. */
 export function ListDescription({ list }: { list: ListSummary }) {
-  return (
-    <>
-      {list.description ? `${list.description} · ` : null}
-      {list.total.toLocaleString()} {noun(list, list.total)}
-      {list.followUpDays
-        ? ` · Due after ${list.followUpDays} days quiet`
-        : null}
-    </>
-  );
+  return list.description;
 }
 
-/** The list's ⋯ menu: edit it and its stages, archive it, delete it. */
-export function ListMenu({
-  list,
-  canDelete,
-}: {
-  list: ListSummary;
-  canDelete: boolean;
-}) {
+const pageOf = (list: ListSummary) =>
+  list.entity === "CONTACT" ? "/contacts" : "/companies";
+
+/**
+ * The open list's part of the page's ⋯ menu: edit it and its stages,
+ * archive it (with an Undo on the toast), delete it. `items` go in the menu
+ * and `dialogs` beside it; both are null with no list open.
+ */
+export function useListMenu(list: ListSummary | undefined, canDelete: boolean) {
   const navigate = useNavigate();
   const invalidate = useInvalidateRecords();
-  const [editing, setEditing] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const leave = () =>
-    void navigate({
-      to: list.entity === "CONTACT" ? "/contacts" : "/companies",
-      search: {},
-    });
-  const archive = useMutation({
-    mutationFn: () => updateList({ data: { id: list.id, archived: true } }),
-    onSuccess: async () => {
+  // The dialog open, and the list it is open on: the menu outlives the list.
+  const [dialog, setDialog] = useState<{
+    kind: "edit" | "delete";
+    listId: string;
+  }>();
+  const leave = (from: ListSummary) =>
+    void navigate({ to: pageOf(from), search: {} });
+  const restore = useMutation({
+    mutationFn: (archived: ListSummary) =>
+      updateList({ data: { id: archived.id, archived: false } }),
+    onSuccess: async (_, archived) => {
       await invalidate();
-      toast.success(`${list.name} archived.`);
-      leave();
+      void navigate({ to: pageOf(archived), search: { list: archived.id } });
+    },
+  });
+  const archive = useMutation({
+    mutationFn: (live: ListSummary) =>
+      updateList({ data: { id: live.id, archived: true } }),
+    onSuccess: async (_, live) => {
+      await invalidate();
+      // Undo is the only way back: no screen lists archived lists.
+      toast.success(`${live.name} archived.`, {
+        duration: 10_000,
+        action: { label: "Undo", onClick: () => restore.mutate(live) },
+      });
+      leave(live);
     },
   });
   const remove = useMutation({
-    mutationFn: () => deleteList({ data: { id: list.id } }),
-    onSuccess: async () => {
+    mutationFn: (gone: ListSummary) => deleteList({ data: { id: gone.id } }),
+    onSuccess: async (_, gone) => {
       await invalidate();
-      toast.success(`${list.name} deleted.`);
-      leave();
+      toast.success(`${gone.name} deleted.`);
+      leave(gone);
     },
   });
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" />}>
-          <Settings2 data-icon="inline-start" />
-          List
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={() => setEditing(true)}>
-            <Pencil />
-            Edit list and stages
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => archive.mutate()}>
-            <Archive />
-            Archive list
-          </DropdownMenuItem>
-          {canDelete ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => setConfirming(true)}
-              >
-                <Trash2 />
-                Delete list
-              </DropdownMenuItem>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {editing ? (
-        <EditListDialog list={list} onClose={() => setEditing(false)} />
-      ) : null}
-      {confirming ? (
-        <ConfirmDialog
-          title={`Delete ${list.name}?`}
-          confirmLabel="Delete list"
-          destructive
-          pending={remove.isPending}
-          onConfirm={() => remove.mutate()}
-          onClose={() => setConfirming(false)}
+  if (!list) return { items: null, dialogs: null };
+  const open = dialog?.listId === list.id ? dialog.kind : undefined;
+  return {
+    items: (
+      <>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setDialog({ kind: "edit", listId: list.id })}
         >
-          The list and everyone's stage in it go. The {noun(list, 2)} stay, and
-          so do the stage changes on their timelines.
-        </ConfirmDialog>
-      ) : null}
-    </>
-  );
+          <Pencil />
+          Edit list and stages
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => archive.mutate(list)}>
+          <Archive />
+          Archive list
+        </DropdownMenuItem>
+        {canDelete ? (
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDialog({ kind: "delete", listId: list.id })}
+          >
+            <Trash2 />
+            Delete list
+          </DropdownMenuItem>
+        ) : null}
+      </>
+    ),
+    dialogs: (
+      <>
+        {open === "edit" ? (
+          <EditListDialog list={list} onClose={() => setDialog(undefined)} />
+        ) : null}
+        {open === "delete" ? (
+          <ConfirmDialog
+            title={`Delete ${list.name}?`}
+            confirmLabel="Delete list"
+            destructive
+            pending={remove.isPending}
+            onConfirm={() => remove.mutate(list)}
+            onClose={() => setDialog(undefined)}
+          >
+            The list and everyone's stage in it go. The {noun(list, 2)} stay,
+            and so do the stage changes on their timelines.
+          </ConfirmDialog>
+        ) : null}
+      </>
+    ),
+  };
 }
 
 type ListViewMode = "table" | "board";
 
 /**
  * Under the header: the list's stages as tabs (each with how many of the
- * list's search are at it), the Due toggle, and Table or Board.
+ * list are at it), the Due toggle, and Table or Board. Nothing for a list
+ * with neither stages nor a follow-up.
  */
 export function ListBar({
   list,
   stage,
-  stageCounts,
   due,
   view,
   onChange,
@@ -168,7 +170,6 @@ export function ListBar({
   list: ListSummary;
   /** The stage filter: stage ids, NO_STAGE for none. */
   stage: string[];
-  stageCounts: Record<string, number> | undefined;
   due: boolean;
   view: ListViewMode;
   onChange: (update: {
@@ -178,6 +179,7 @@ export function ListBar({
   }) => void;
 }) {
   const hasStages = list.stages.length > 0;
+  if (!hasStages && !list.followUpDays) return null;
   const tabs = [
     ...list.stages.map((item) => ({
       id: item.id,
@@ -193,10 +195,11 @@ export function ListBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {hasStages && view === "table" ? (
+        // On a phone the tabs take a row of their own, above Due and the view.
         <div
           role="tablist"
           aria-label="Stages"
-          className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+          className="flex w-full min-w-0 gap-1 overflow-x-auto sm:w-auto sm:flex-1"
         >
           <button
             type="button"
@@ -235,55 +238,55 @@ export function ListBar({
               >
                 {tab.name}
                 <span className="text-xs text-muted-foreground tabular-nums">
-                  {stageCounts?.[tab.id] ?? tab.count}
+                  {tab.count}
                 </span>
               </button>
             );
           })}
         </div>
-      ) : (
-        <div className="flex-1" />
-      )}
-      {list.followUpDays ? (
-        <Button
-          variant={due ? "default" : "outline"}
-          size="sm"
-          aria-pressed={due}
-          onClick={() => onChange({ listDue: due ? undefined : true })}
-        >
-          <AlarmClock data-icon="inline-start" />
-          Due
-          <span
-            className={cn("tabular-nums", due ? "" : "text-muted-foreground")}
+      ) : null}
+      <div className="ml-auto flex items-center gap-2">
+        {list.followUpDays ? (
+          <Button
+            variant={due ? "default" : "outline"}
+            size="sm"
+            aria-pressed={due}
+            onClick={() => onChange({ listDue: due ? undefined : true })}
           >
-            {list.due}
-          </span>
-        </Button>
-      ) : null}
-      {hasStages ? (
-        <SegmentedToggle<ListViewMode>
-          showLabels
-          value={view}
-          onChange={(next) =>
-            onChange({
-              view: next === "board" ? "board" : undefined,
-              stage: undefined,
-            })
-          }
-          items={[
-            {
-              value: "table",
-              label: "Table",
-              icon: <Table2 className="size-3.5" />,
-            },
-            {
-              value: "board",
-              label: "Board",
-              icon: <Columns3 className="size-3.5" />,
-            },
-          ]}
-        />
-      ) : null}
+            <AlarmClock data-icon="inline-start" />
+            Due
+            <span
+              className={cn("tabular-nums", due ? "" : "text-muted-foreground")}
+            >
+              {list.due}
+            </span>
+          </Button>
+        ) : null}
+        {hasStages ? (
+          <SegmentedToggle<ListViewMode>
+            showLabels
+            value={view}
+            onChange={(next) =>
+              onChange({
+                view: next === "board" ? "board" : undefined,
+                stage: undefined,
+              })
+            }
+            items={[
+              {
+                value: "table",
+                label: "Table",
+                icon: <Table2 className="size-3.5" />,
+              },
+              {
+                value: "board",
+                label: "Board",
+                icon: <Columns3 className="size-3.5" />,
+              },
+            ]}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -2,11 +2,9 @@ import { ListEntryRepository } from "@/server/features/lists/repositories/ListEn
 import { ListRepository } from "@/server/features/lists/repositories/ListRepository";
 import type { ListEntity, StageKind } from "@/shared/crm-enums";
 import type { ListColor } from "@/types/schemas/lists";
-import type { FacetCounts } from "@/types/schemas/records";
 
 // Which lists a contact or company is in, and at which stage: a sheet's
-// Lists, the chips on the contacts and companies tables, and the Stage
-// filter's counts when a list is shown there.
+// Lists and the chips on the contacts and companies tables.
 
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- written through LIST_COLORS only
 const colorOf = (value: string) => value as ListColor;
@@ -103,25 +101,4 @@ export async function recordLists(
   id: string,
 ) {
   return (await membershipsOf(organizationId, entity, [id])).get(id) ?? [];
-}
-
-/**
- * The Stage filter's counts for a list shown in the contacts or companies
- * page: how many records in its scope are at each stage.
- */
-export async function stageCounts(
-  organizationId: string,
-  listId: string | undefined,
-  entity: ListEntity,
-  scope: Parameters<typeof ListEntryRepository.stageCounts>[3],
-): Promise<FacetCounts> {
-  if (!listId) return {};
-  return {
-    stage: await ListEntryRepository.stageCounts(
-      organizationId,
-      listId,
-      entity,
-      scope,
-    ),
-  };
 }

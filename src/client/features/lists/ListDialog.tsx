@@ -1,41 +1,31 @@
 import { useId, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { revalidateLogic } from "@tanstack/react-form";
-import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { FormDialog } from "@/client/components/FormDialog";
 import { useAppForm } from "@/client/components/form/useAppForm";
 import { Button } from "@/client/components/ui/button";
-import { Input } from "@/client/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/client/components/ui/select";
+  ListStagesField,
+  type StageDraft,
+} from "@/client/features/lists/ListStagesField";
 import { LIST_COLOR_LABELS } from "@/client/features/lists/listColors";
 import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import type { ListSummary } from "@/server/features/lists/services/ListService";
 import { createList, setListStages, updateList } from "@/serverFunctions/lists";
-import {
-  STAGE_KINDS,
-  type ListEntity,
-  type StageKind,
-} from "@/shared/crm-enums";
+import type { ListEntity } from "@/shared/crm-enums";
 import {
   LIST_COLORS,
   LIST_NAME_MAX,
-  LIST_STAGES_MAX,
-  STAGE_NAME_MAX,
   type ListColor,
   type ListTemplate,
 } from "@/types/schemas/lists";
 
 // Making a list, and changing one: its name, color, description, follow-up
-// and (once it exists) its stages.
+// and (once it exists) its stages (ListStagesField).
 
 const ENTITY_ITEMS: { value: ListEntity; label: string }[] = [
   { value: "CONTACT", label: "People" },
@@ -55,12 +45,6 @@ const COLOR_ITEMS = LIST_COLORS.map((color) => ({
   value: color,
   label: LIST_COLOR_LABELS[color],
 }));
-
-const KIND_LABELS: Record<StageKind, string> = {
-  OPEN: "Open",
-  DONE: "Done",
-  DROPPED: "Dropped",
-};
 
 /** "" is off; otherwise whole days from 1 to 365. */
 const followUpSchema = z
@@ -85,17 +69,20 @@ const listFormSchema = z.object({
   followUpDays: followUpSchema,
 });
 
-/** The dialog that makes a list, and opens it once made. */
-export function CreateListDialog({
-  entity = "CONTACT",
-  onClose,
-}: {
-  entity?: ListEntity;
-  onClose: () => void;
-}) {
+/**
+ * The dialog that makes a list, and opens it once made. It asks for a name
+ * and what the list is of (companies when opened from the companies page);
+ * the stages, follow-up and color wait behind "More options".
+ */
+export function CreateListDialog({ onClose }: { onClose: () => void }) {
   const formId = useId();
   const navigate = useNavigate();
   const invalidate = useInvalidateRecords();
+  const onCompanies = useLocation({
+    select: (location) => location.pathname === "/companies",
+  });
+  const entity: ListEntity = onCompanies ? "COMPANY" : "CONTACT";
+  const [more, setMore] = useState(false);
   const create = useMutation({
     mutationFn: (values: z.infer<typeof listFormSchema>) =>
       createList({
@@ -161,38 +148,56 @@ export function CreateListDialog({
           </form.AppField>
           <form.AppField name="entity">
             {(field) => (
-              <field.SelectField label="Holds" items={ENTITY_ITEMS} />
+              <field.SelectField label="List of" items={ENTITY_ITEMS} />
             )}
           </form.AppField>
-          <form.AppField name="template">
-            {(field) => (
-              <field.SelectField
-                label="Stages"
-                description="Edit them any time from the list's menu."
-                items={TEMPLATE_ITEMS}
-              />
-            )}
-          </form.AppField>
-          <form.AppField name="followUpDays">
-            {(field) => (
-              <field.TextField
-                label="Follow up after (days quiet)"
-                description="People at an open stage show as Due once nothing has happened with them for this long. Empty: never."
-                inputMode="numeric"
-                placeholder="30"
-              />
-            )}
-          </form.AppField>
-          <form.AppField name="color">
-            {(field) => <field.SelectField label="Color" items={COLOR_ITEMS} />}
-          </form.AppField>
+          {more ? (
+            <>
+              <form.AppField name="template">
+                {(field) => (
+                  <field.SelectField
+                    label="Stages"
+                    description="You can change them later."
+                    items={TEMPLATE_ITEMS}
+                  />
+                )}
+              </form.AppField>
+              <form.Subscribe selector={(state) => state.values.entity}>
+                {(listOf) => (
+                  <form.AppField name="followUpDays">
+                    {(field) => (
+                      <field.TextField
+                        label="Follow up after (days quiet)"
+                        description={`${listOf === "CONTACT" ? "People" : "Companies"} at an open stage show as Due once nothing has happened with them for this long. Empty: never.`}
+                        inputMode="numeric"
+                        placeholder="30"
+                      />
+                    )}
+                  </form.AppField>
+                )}
+              </form.Subscribe>
+              <form.AppField name="color">
+                {(field) => (
+                  <field.SelectField label="Color" items={COLOR_ITEMS} />
+                )}
+              </form.AppField>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5 text-muted-foreground"
+              onClick={() => setMore(true)}
+            >
+              <ChevronRight data-icon="inline-start" />
+              More options
+            </Button>
+          )}
         </form.Form>
       </FormDialog>
     </form.AppForm>
   );
 }
-
-type StageDraft = { key: string; id?: string; name: string; kind: StageKind };
 
 /** The dialog that changes a list: its details and its stages. */
 export function EditListDialog({
@@ -256,19 +261,6 @@ export function EditListDialog({
     },
   });
 
-  const move = (index: number, by: -1 | 1) =>
-    setStages((current) => {
-      const next = [...current];
-      const [stage] = next.splice(index, 1);
-      if (stage) next.splice(index + by, 0, stage);
-      return next;
-    });
-  const patch = (index: number, change: Partial<StageDraft>) =>
-    setStages((current) =>
-      current.map((stage, at) =>
-        at === index ? { ...stage, ...change } : stage,
-      ),
-    );
   const blankStage = stages.some((stage) => stage.name.trim() === "");
 
   return (
@@ -308,99 +300,11 @@ export function EditListDialog({
           <form.AppField name="color">
             {(field) => <field.SelectField label="Color" items={COLOR_ITEMS} />}
           </form.AppField>
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Stages</legend>
-            {stages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No stages: the list is a group, like a tag.
-              </p>
-            ) : null}
-            <ol className="space-y-1.5">
-              {stages.map((stage, index) => (
-                <li key={stage.key} className="flex items-center gap-1.5">
-                  <Input
-                    aria-label={`Stage ${index + 1} name`}
-                    className="h-8 flex-1"
-                    maxLength={STAGE_NAME_MAX}
-                    value={stage.name}
-                    onChange={(event) =>
-                      patch(index, { name: event.target.value })
-                    }
-                  />
-                  <Select
-                    items={STAGE_KINDS.map((kind) => ({
-                      value: kind,
-                      label: KIND_LABELS[kind],
-                    }))}
-                    value={stage.kind}
-                    onValueChange={(kind) => {
-                      if (kind) patch(index, { kind });
-                    }}
-                  >
-                    <SelectTrigger
-                      aria-label={`Stage ${index + 1} kind`}
-                      size="sm"
-                      className="w-24"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STAGE_KINDS.map((kind) => (
-                        <SelectItem key={kind} value={kind}>
-                          {KIND_LABELS[kind]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={`Move ${stage.name || "stage"} up`}
-                    disabled={index === 0}
-                    onClick={() => move(index, -1)}
-                  >
-                    <ArrowUp />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={`Move ${stage.name || "stage"} down`}
-                    disabled={index === stages.length - 1}
-                    onClick={() => move(index, 1)}
-                  >
-                    <ArrowDown />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={`Remove ${stage.name || "stage"}`}
-                    onClick={() =>
-                      setStages((current) =>
-                        current.filter((_, at) => at !== index),
-                      )
-                    }
-                  >
-                    <X />
-                  </Button>
-                </li>
-              ))}
-            </ol>
-            {stages.length < LIST_STAGES_MAX ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setStages((current) => [
-                    ...current,
-                    { key: crypto.randomUUID(), name: "", kind: "OPEN" },
-                  ])
-                }
-              >
-                <Plus data-icon="inline-start" />
-                Add stage
-              </Button>
-            ) : null}
-          </fieldset>
+          <ListStagesField
+            entity={list.entity}
+            stages={stages}
+            onChange={setStages}
+          />
         </form.Form>
       </FormDialog>
     </form.AppForm>

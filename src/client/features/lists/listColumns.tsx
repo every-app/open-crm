@@ -37,7 +37,7 @@ function ListChipBadge({
   showStage?: boolean;
 }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs">
+    <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs">
       <span
         aria-hidden
         className={cn("size-1.5 shrink-0 rounded-full", LIST_DOT[chip.color])}
@@ -60,23 +60,30 @@ export function DueBadge() {
   );
 }
 
-/** The Lists column: the other lists a row is in (the one shown isn't repeated). */
-export function listsColumn<TRow extends RowWithLists>(
-  openListId: string | undefined,
-): ColumnDef<TRow> {
+/**
+ * The Lists column of the contacts and companies pages: the first list a
+ * row is in, and how many more.
+ */
+export function listsColumn<TRow extends RowWithLists>(): ColumnDef<TRow> {
   return {
     id: "lists",
     header: "Lists",
     enableSorting: false,
-    meta: { label: "Lists", width: 220 },
+    meta: { label: "Lists", width: 190 },
     cell: ({ row }) => {
-      const chips = row.original.lists.filter((chip) => chip.id !== openListId);
-      if (chips.length === 0) return <EmptyValue />;
+      const [first, ...more] = row.original.lists;
+      if (!first) return <EmptyValue />;
       return (
-        <span className="flex min-w-0 gap-1 overflow-hidden">
-          {chips.map((chip) => (
-            <ListChipBadge key={chip.id} chip={chip} />
-          ))}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <ListChipBadge chip={first} />
+          {more.length > 0 ? (
+            <span
+              className="shrink-0 text-xs text-muted-foreground tabular-nums"
+              title={more.map((chip) => chip.name).join(", ")}
+            >
+              +{more.length}
+            </span>
+          ) : null}
         </span>
       );
     },
@@ -91,7 +98,8 @@ export function stageColumn<TRow extends RowWithLists>(
     id: "stage",
     header: "Stage",
     enableSorting: false,
-    meta: { label: "Stage", width: 180 },
+    // Room for the stage's name, and the Due badge in a list that follows up.
+    meta: { label: "Stage", width: list.followUpDays ? 180 : 152 },
     cell: ({ row }) => {
       const chip = row.original.lists.find(
         (candidate) => candidate.id === list.id,
@@ -124,6 +132,9 @@ function StageCell({
     ...list.stages.map((stage) => ({ value: stage.id, label: stage.name })),
     { value: NO_STAGE, label: "No stage" },
   ];
+  // The stage picked shows at once, while the move and the refetch run. The
+  // picker waits for them: a second pick before then could lose to the first.
+  const stageId = move.isPending ? move.variables : chip.stageId;
   return (
     // The row opens its sheet on a click; the stage picker is its own.
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- only stops the row's click
@@ -133,16 +144,17 @@ function StageCell({
     >
       <Select
         items={items}
-        value={chip.stageId ?? NO_STAGE}
+        value={stageId ?? NO_STAGE}
         disabled={move.isPending}
         onValueChange={(value) => {
           if (value !== null) move.mutate(value === NO_STAGE ? null : value);
         }}
       >
+        {/* As wide as its stage's name, so the Due badge moves no chevron. */}
         <SelectTrigger
           size="sm"
           aria-label="Stage"
-          className="h-7 min-w-0 flex-1 border-transparent bg-transparent px-2 shadow-none hover:border-border"
+          className="h-7 min-w-0 border-transparent bg-transparent px-2 shadow-none hover:border-border"
         >
           <SelectValue />
         </SelectTrigger>

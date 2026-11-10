@@ -11,9 +11,11 @@ import {
 } from "@/client/components/ui/dropdown-menu";
 import { Spinner } from "@/client/components/ui/spinner";
 import { fieldsQueryOptions } from "@/client/features/fields/fieldQueries";
+import { useListMenu } from "@/client/features/lists/ListView";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import { buildCsv, type CsvValue } from "@/client/lib/csv";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
+import type { ListSummary } from "@/server/features/lists/services/ListService";
 import type { FieldEntity } from "@/shared/crm-enums";
 import { ENTITY_NOUNS, type FieldValueJson } from "@/shared/fields";
 import { downloadCsv } from "./download";
@@ -22,7 +24,8 @@ import { downloadCsv } from "./download";
 // (the list's import dialog), and exporting the list as it stands (its
 // search, owners, archived view and filters): every page of it, its own
 // columns and the custom fields it shows as columns, in a CSV the import
-// reads back.
+// reads back. With a list (record_list) open in the page, the menu also
+// edits, archives and deletes it, and the export has each row's stage there.
 
 /** The most rows a list page returns (listInputSchema). */
 const EXPORT_PAGE_SIZE = 100;
@@ -36,12 +39,18 @@ export const csvDay = (value: string | null | undefined) =>
   value ? value.slice(0, 10) : "";
 
 export function CsvMenu<
-  Row extends { fields: Record<string, FieldValueJson> },
+  Row extends {
+    fields: Record<string, FieldValueJson>;
+    /** The lists a contact or company is in, with its stage in each. */
+    lists?: { id: string; stage: string | null }[];
+  },
 >({
   entity,
   columns,
   fetchPage,
   onImport,
+  list,
+  canDeleteList = false,
 }: {
   entity: FieldEntity;
   columns: ExportColumn<Row>[];
@@ -49,11 +58,21 @@ export function CsvMenu<
   fetchPage: (page: number, pageSize: number) => Promise<Page<Row>>;
   /** Opens the list's import dialog. */
   onImport: () => void;
+  /** The list (record_list) open in the page. */
+  list?: ListSummary;
+  canDeleteList?: boolean;
 }) {
   const noun = ENTITY_NOUNS[entity];
   const fields = useQuery(fieldsQueryOptions(entity));
   const members = useQuery(membersQueryOptions());
   const [pending, setPending] = useState(false);
+  const listMenu = useListMenu(list, canDeleteList);
+  const stage: ExportColumn<Row> = [
+    "Stage",
+    (row) => row.lists?.find((chip) => chip.id === list?.id)?.stage,
+  ];
+  const exported =
+    list && list.stages.length > 0 ? [...columns, stage] : columns;
 
   const exportList = async () => {
     setPending(true);
@@ -74,11 +93,11 @@ export function CsvMenu<
         userId;
       const csv = buildCsv(
         [
-          ...columns.map(([header]) => header),
+          ...exported.map(([header]) => header),
           ...custom.map((field) => field.label),
         ],
         rows.map((row) => [
-          ...columns.map(([, value]) => value(row)),
+          ...exported.map(([, value]) => value(row)),
           ...custom.map((field) => {
             const value = row.fields[field.key] ?? null;
             if (field.type === "USER" && typeof value === "string") {
@@ -106,29 +125,36 @@ export function CsvMenu<
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="More actions"
-            aria-busy={pending || undefined}
-          />
-        }
-      >
-        {pending ? <Spinner /> : <MoreHorizontal />}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-40">
-        <DropdownMenuItem onClick={onImport}>
-          <Upload />
-          Import CSV
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={pending} onClick={() => void exportList()}>
-          <Download />
-          Export CSV
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="More actions"
+              aria-busy={pending || undefined}
+            />
+          }
+        >
+          {pending ? <Spinner /> : <MoreHorizontal />}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-auto min-w-40">
+          <DropdownMenuItem onClick={onImport}>
+            <Upload />
+            Import CSV
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={pending}
+            onClick={() => void exportList()}
+          >
+            <Download />
+            Export CSV
+          </DropdownMenuItem>
+          {listMenu.items}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {listMenu.dialogs}
+    </>
   );
 }

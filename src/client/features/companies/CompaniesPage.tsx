@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getRouteApi } from "@tanstack/react-router";
+import { Link, getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
 import { Building2, Plus, Upload } from "lucide-react";
-import { findLast } from "remeda";
+import { difference, findLast } from "remeda";
+import { toast } from "sonner";
 import { cn } from "cn";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
@@ -38,7 +39,6 @@ import { ListBoard } from "@/client/features/lists/ListBoard";
 import {
   ListBar,
   ListDescription,
-  ListMenu,
   ListTitle,
 } from "@/client/features/lists/ListView";
 import { listsColumn, stageColumn } from "@/client/features/lists/listColumns";
@@ -48,6 +48,7 @@ import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { COMPANY_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import {
+  LIST_MEMBERSHIP_FILTER_KEYS,
   clearedFilters,
   columnVisibility,
   isListFiltered,
@@ -70,6 +71,12 @@ import { hasOrgPermission } from "@/shared/org-permissions";
 import { COMPANY_SORTS } from "@/types/schemas/companies";
 
 const routeApi = getRouteApi("/_app/companies");
+
+/** The toolbar's search and filters: not an open list's stage tab or Due. */
+const TOOLBAR_FILTER_KEYS = difference(
+  COMPANY_FILTER_KEYS,
+  LIST_MEMBERSHIP_FILTER_KEYS,
+);
 
 /** /companies: every account in the pipeline, each opening in a sheet. */
 export function CompaniesPage() {
@@ -120,7 +127,8 @@ export function CompaniesPage() {
         ? [stageColumn<CompanyRow>(openList)]
         : []),
       ...rest,
-      listsColumn<CompanyRow>(openList?.id),
+      // An open list is the list every row is in: no Lists column.
+      ...(openList ? [] : [listsColumn<CompanyRow>()]),
       ...fieldColumns,
     ];
   }, [input.archived, anchorRef, fieldColumns, openList]);
@@ -200,13 +208,11 @@ export function CompaniesPage() {
                 <AddMatchingToList
                   entity="COMPANY"
                   filters={input}
+                  filtered={isListFiltered(search, TOOLBAR_FILTER_KEYS)}
                   total={query.data?.total}
                   openListId={openList?.id}
                 />
               )}
-              {openList ? (
-                <ListMenu list={openList} canDelete={canPurge} />
-              ) : null}
               <CsvMenu
                 entity="COMPANY"
                 columns={COMPANY_EXPORT}
@@ -214,6 +220,8 @@ export function CompaniesPage() {
                   listCompanies({ data: { ...input, page, pageSize } })
                 }
                 onImport={() => setImporting(true)}
+                list={openList}
+                canDeleteList={canPurge}
               />
               {newCompany}
             </>
@@ -223,10 +231,22 @@ export function CompaniesPage() {
           <ListBar
             list={openList}
             stage={input.listStage}
-            stageCounts={query.data?.facetCounts.stage}
             due={input.due}
             view={board ? "board" : "table"}
-            onChange={(update) => setSearch({ ...update, page: undefined })}
+            onChange={(update) =>
+              setSearch({
+                // The board has no toolbar: no search or filter stays set
+                // where it can't be seen.
+                ...(update.view
+                  ? {
+                      ...clearedFilters(TOOLBAR_FILTER_KEYS),
+                      archived: undefined,
+                    }
+                  : {}),
+                ...update,
+                page: undefined,
+              })
+            }
           />
         ) : null}
         {openList && board ? (
@@ -257,17 +277,31 @@ export function CompaniesPage() {
                     media: "icon",
                     title: "No archived companies",
                   }
-                : {
-                    icon: Building2,
-                    media: "icon",
-                    title: "No companies",
-                    action: (
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {newCompany}
-                        {importCsv}
-                      </div>
-                    ),
-                  }
+                : openList
+                  ? {
+                      icon: Building2,
+                      media: "icon",
+                      title: "This list is empty",
+                      action: (
+                        <Button
+                          nativeButton={false}
+                          render={<Link to="/companies" />}
+                        >
+                          Add from Companies
+                        </Button>
+                      ),
+                    }
+                  : {
+                      icon: Building2,
+                      media: "icon",
+                      title: "No companies",
+                      action: (
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {newCompany}
+                          {importCsv}
+                        </div>
+                      ),
+                    }
             }
             toolbar={
               <RecordListToolbar
@@ -336,7 +370,11 @@ export function CompaniesPage() {
             if (openList)
               void addToList({
                 data: { listId: openList.id, ids: [company.id] },
-              }).then(() => invalidate());
+              })
+                .then(() => invalidate())
+                .catch(() =>
+                  toast.error(`Couldn't add it to ${openList.name}.`),
+                );
             void navigate({
               search: (prev) => ({
                 ...prev,

@@ -1,7 +1,6 @@
 import {
   and,
   asc,
-  count,
   eq,
   exists,
   inArray,
@@ -10,7 +9,6 @@ import {
   notExists,
   or,
   sql,
-  type SQLWrapper,
 } from "drizzle-orm";
 import { db } from "@/db";
 import { executeInBatches, runBatch } from "@/db/runBatch";
@@ -25,7 +23,6 @@ import {
 import { dueCondition } from "@/server/features/lists/repositories/listConditions";
 import { idChunks } from "@/server/features/records/recordRules";
 import type { ListEntity } from "@/shared/crm-enums";
-import { NO_STAGE } from "@/types/schemas/records";
 
 // Who is in a list, at which stage. An entry names a contact or a company,
 // as its list holds; a record is in a list at most once (the partial unique
@@ -305,34 +302,6 @@ async function membershipsOf(
   return memberships;
 }
 
-/**
- * How many records in a list's scope (`scope`, a subquery of record ids)
- * are at each of the list's stages (NO_STAGE for none): the Stage filter's
- * counts.
- */
-async function stageCounts(
-  organizationId: string,
-  listId: string,
-  entity: ListEntity,
-  scope: SQLWrapper,
-) {
-  const key = entryKey(entity);
-  const rows = await db
-    .select({ stageId: listEntry.stageId, count: count() })
-    .from(listEntry)
-    .where(
-      and(
-        eq(listEntry.organizationId, organizationId),
-        eq(listEntry.listId, listId),
-        inArray(key, scope),
-      ),
-    )
-    .groupBy(listEntry.stageId);
-  return Object.fromEntries(
-    rows.map((row) => [row.stageId ?? NO_STAGE, row.count]),
-  );
-}
-
 export const ListEntryRepository = {
   liveRecordIds,
   entriesFor,
@@ -340,5 +309,4 @@ export const ListEntryRepository = {
   remove,
   moveStage,
   membershipsOf,
-  stageCounts,
 };

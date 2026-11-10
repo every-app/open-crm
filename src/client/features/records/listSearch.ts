@@ -93,6 +93,10 @@ export const listMembershipParams = {
   view: z.enum(["board"]).optional().catch(undefined),
 };
 
+const listMembershipSchema = z.object(listMembershipParams);
+type ListMembershipSearch = z.infer<typeof listMembershipSchema>;
+const LIST_MEMBERSHIP_KEYS = listMembershipSchema.keyof().options;
+
 /** The list filters a list's stages and Due narrow it by. */
 export const LIST_MEMBERSHIP_FILTER_KEYS = ["stage", "listDue"] as const;
 
@@ -184,28 +188,41 @@ export function clearedFilters<TKey extends string>(
 /**
  * What a saved view keeps of a list's URL: its search, filters, sort and
  * columns, not the page or the sheets and panels open over it (the app's
- * params, recordStack.ts).
+ * params, recordStack.ts). Saved with a list (`?list=`) open, it leaves the
+ * list, its stage tab, Due and board out too: a view is the filters, not
+ * where they were set.
  */
 export function savedViewOf<TSearch extends RecordListSearch>(
-  search: TSearch & AppSearch,
+  search: TSearch & AppSearch & ListMembershipSearch,
 ) {
-  return omit(search, ["page", ...APP_SEARCH_KEYS]);
+  const view = omit(search, ["page", ...APP_SEARCH_KEYS]);
+  // With no list open, `stage` is the deals list's own filter.
+  return search.list ? omit(view, LIST_MEMBERSHIP_KEYS) : view;
 }
 
 /**
  * A saved view applied: the list's URL becomes what of the view still
  * parses with the list's own schema (a view outlives the shape it was saved
- * in), on the first page, the sheets open over the list left open.
+ * in), on the first page, the sheets open over the list left open. Applied
+ * with a list open, it stays in the list, on its stage tab.
  */
 export function searchFromSavedView<TSearch extends RecordListSearch>(
   schema: { parse: (filters: unknown) => TSearch },
   filters: Record<string, unknown>,
-  current: AppSearch,
+  current: AppSearch & ListMembershipSearch,
 ): TSearch & AppSearch {
   return {
     ...schema.parse(filters),
     page: undefined,
     ...pick(current, APP_SEARCH_KEYS),
+    ...(current.list
+      ? {
+          list: current.list,
+          stage: current.stage,
+          listDue: current.listDue,
+          view: current.view,
+        }
+      : {}),
   };
 }
 

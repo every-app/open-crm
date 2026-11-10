@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
 import { Input } from "@/client/components/ui/input";
 import {
   Select,
@@ -59,7 +60,21 @@ export function useImportList(entity: FieldEntity) {
     enabled: listEntity !== null,
     select: (all) => all.filter((list) => list.entity === listEntity),
   });
-  const [pick, setPick] = useState<ListPick>({ kind: "none" });
+  // An import started with a list open lands in it, until another is picked.
+  const openListId = useLocation({
+    select: (location) => location.search.list,
+  });
+  const openList = lists.data?.find((list) => list.id === openListId);
+  const [picked, setPick] = useState<ListPick>();
+  const pick: ListPick =
+    picked ??
+    (openList
+      ? {
+          kind: "existing",
+          listId: openList.id,
+          stage: openList.stages[0]?.name ?? null,
+        }
+      : { kind: "none" });
 
   /** Made once: an import started again finds the new list made. */
   const landing = async (): Promise<Landing | null> => {

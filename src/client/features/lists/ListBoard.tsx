@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   PointerSensor,
@@ -10,6 +10,7 @@ import {
 } from "@dnd-kit/core";
 import type { ReactNode } from "react";
 import { cn } from "cn";
+import { QueryError } from "@/client/components/QueryState";
 import { DueBadge } from "@/client/features/lists/listColumns";
 import { listEntriesQueryOptions } from "@/client/features/lists/listQueries";
 import { RelativeTime } from "@/client/features/records/LocalDateTime";
@@ -32,10 +33,30 @@ export function ListBoard({
   onOpen: (recordId: string) => void;
 }) {
   const invalidate = useInvalidateRecords();
-  const entries = useQuery(
-    listEntriesQueryOptions({ listId: list.id, stage: [], due, limit: 500 }),
-  );
+  const queryClient = useQueryClient();
+  const board = listEntriesQueryOptions({
+    listId: list.id,
+    stage: [],
+    due,
+    limit: 500,
+  });
+  const { queryKey } = board;
+  const entries = useQuery(board);
+  // One key for this board's moves, to tell when the last has settled.
+  const mutationKey = ["lists", "board-move", list.id];
+  const setStage = (recordId: string, stageId: string | null) =>
+    queryClient.setQueryData(
+      queryKey,
+      (loaded) =>
+        loaded && {
+          ...loaded,
+          entries: loaded.entries.map((entry) =>
+            entry.recordId === recordId ? { ...entry, stageId } : entry,
+          ),
+        },
+    );
   const move = useMutation({
+    mutationKey,
     mutationFn: (input: { recordId: string; stageId: string | null }) =>
       setListStage({
         data: {
@@ -44,7 +65,25 @@ export function ListBoard({
           stageId: input.stageId,
         },
       }),
-    onSuccess: () => invalidate(),
+    // The card sits in its new column at once, not after the refetch.
+    onMutate: async ({ recordId, stageId }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const from = queryClient
+        .getQueryData(queryKey)
+        ?.entries.find((entry) => entry.recordId === recordId)?.stageId;
+      setStage(recordId, stageId);
+      return { from };
+    },
+    // A move that failed puts its own card back. The board reads the truth
+    // once no other move is on its way: a refetch before that would undo
+    // the cards still moving. The refetch is not awaited, or this move would
+    // still count as on its way and stop the next move's refetch.
+    onSettled: (_moved, error, { recordId }, context) => {
+      if (error && context?.from !== undefined) {
+        setStage(recordId, context.from);
+      }
+      if (queryClient.isMutating({ mutationKey }) === 1) void invalidate();
+    },
   });
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -52,13 +91,9 @@ export function ListBoard({
   const rows = entries.data?.entries ?? [];
   const known = new Set(list.stages.map((stage) => stage.id));
   const columns = [
-    ...list.stages.map((stage) => ({
-      id: stage.id,
-      name: stage.name,
-      kind: stage.kind,
-    })),
+    ...list.stages.map((stage) => ({ id: stage.id, name: stage.name })),
     ...(rows.some((row) => !row.stageId || !known.has(row.stageId))
-      ? [{ id: NO_STAGE, name: "No stage", kind: null }]
+      ? [{ id: NO_STAGE, name: "No stage" }]
       : []),
   ];
   const columnOf = (stageId: string | null) =>
@@ -75,7 +110,14 @@ export function ListBoard({
   };
 
   if (entries.isError) {
-    return <p className="text-sm text-destructive">Couldn't load the board.</p>;
+    return (
+      <QueryError
+        error={entries.error}
+        fallback="Couldn't load the board."
+        onRetry={() => void entries.refetch()}
+        isRetrying={entries.isFetching}
+      />
+    );
   }
   return (
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
@@ -96,7 +138,6 @@ export function ListBoard({
               key={column.id}
               id={column.id}
               name={column.name}
-              kind={column.kind}
               count={cards.length}
             >
               {entries.isPending ? (
@@ -128,18 +169,14 @@ export function ListBoard({
   );
 }
 
-const KIND_HINT = { OPEN: null, DONE: "done", DROPPED: "dropped" } as const;
-
 function BoardColumn({
   id,
   name,
-  kind,
   count,
   children,
 }: {
   id: string;
   name: string;
-  kind: keyof typeof KIND_HINT | null;
   count: number;
   children: ReactNode;
 }) {
@@ -158,11 +195,6 @@ function BoardColumn({
         <span className="font-normal text-muted-foreground tabular-nums">
           {count}
         </span>
-        {kind && KIND_HINT[kind] ? (
-          <span className="ml-auto font-normal text-muted-foreground">
-            {KIND_HINT[kind]}
-          </span>
-        ) : null}
       </h3>
       <div className="flex min-h-24 flex-col gap-2">{children}</div>
     </section>

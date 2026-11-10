@@ -169,18 +169,22 @@ export function ListBulkItems({
 }
 
 /**
- * "Add all to a list": everyone the page's search and filters match (not
- * just one page of selected rows) goes in the list picked.
+ * "Add matches to list": everyone the page's search and filters match (not
+ * just one page of selected rows) goes in the list picked. Only there while
+ * a search or filter narrows the page.
  */
 export function AddMatchingToList({
   entity,
   filters,
+  filtered,
   total,
   openListId,
 }: {
   entity: ListEntity;
   /** The page's list input, as the server takes it. */
   filters: Record<string, unknown>;
+  /** Whether the toolbar's search or a filter is set. */
+  filtered: boolean;
   total: number | undefined;
   openListId: string | undefined;
 }) {
@@ -200,14 +204,14 @@ export function AddMatchingToList({
       await invalidate();
     },
   });
-  if (lists.length === 0 || !total) return null;
+  if (!filtered || lists.length === 0 || !total) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={<Button variant="outline" pending={add.isPending} />}
       >
         <ListPlus data-icon="inline-start" />
-        Add {total === 1 ? "it" : `all ${total.toLocaleString()}`} to list
+        Add {total.toLocaleString()} {total === 1 ? "match" : "matches"} to list
         <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="max-h-72 w-56">

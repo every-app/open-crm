@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getRouteApi } from "@tanstack/react-router";
+import { Link, getRouteApi } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
 import { Plus, Upload, Users } from "lucide-react";
-import { findLast } from "remeda";
+import { difference, findLast } from "remeda";
+import { toast } from "sonner";
 import { cn } from "cn";
 import { PageHeader } from "@/client/components/PageHeader";
 import { QueryError } from "@/client/components/QueryState";
@@ -38,7 +39,6 @@ import { ListBoard } from "@/client/features/lists/ListBoard";
 import {
   ListBar,
   ListDescription,
-  ListMenu,
   ListTitle,
 } from "@/client/features/lists/ListView";
 import { listsColumn, stageColumn } from "@/client/features/lists/listColumns";
@@ -48,6 +48,7 @@ import { ImportDialog } from "@/client/features/csv/ImportDialog";
 import { CONTACT_EXPORT } from "@/client/features/csv/exportColumns";
 import { RecordListToolbar } from "@/client/features/records/RecordListToolbar";
 import {
+  LIST_MEMBERSHIP_FILTER_KEYS,
   clearedFilters,
   columnVisibility,
   isListFiltered,
@@ -69,6 +70,12 @@ import { hasOrgPermission } from "@/shared/org-permissions";
 import { CONTACT_SORTS } from "@/types/schemas/contacts";
 
 const routeApi = getRouteApi("/_app/contacts");
+
+/** The toolbar's search and filters: not an open list's stage tab or Due. */
+const TOOLBAR_FILTER_KEYS = difference(
+  CONTACT_FILTER_KEYS,
+  LIST_MEMBERSHIP_FILTER_KEYS,
+);
 
 /** /contacts: everyone in the pipeline, each opening in a sheet. */
 export function ContactsPage() {
@@ -119,7 +126,8 @@ export function ContactsPage() {
         ? [stageColumn<ContactRow>(openList)]
         : []),
       ...rest,
-      listsColumn<ContactRow>(openList?.id),
+      // An open list is the list every row is in: no Lists column.
+      ...(openList ? [] : [listsColumn<ContactRow>()]),
       ...fieldColumns,
     ];
   }, [input.archived, anchorRef, fieldColumns, openList]);
@@ -199,13 +207,11 @@ export function ContactsPage() {
                 <AddMatchingToList
                   entity="CONTACT"
                   filters={input}
+                  filtered={isListFiltered(search, TOOLBAR_FILTER_KEYS)}
                   total={query.data?.total}
                   openListId={openList?.id}
                 />
               )}
-              {openList ? (
-                <ListMenu list={openList} canDelete={canPurge} />
-              ) : null}
               <CsvMenu
                 entity="CONTACT"
                 columns={CONTACT_EXPORT}
@@ -213,6 +219,8 @@ export function ContactsPage() {
                   listContacts({ data: { ...input, page, pageSize } })
                 }
                 onImport={() => setImporting(true)}
+                list={openList}
+                canDeleteList={canPurge}
               />
               {newContact}
             </>
@@ -222,10 +230,22 @@ export function ContactsPage() {
           <ListBar
             list={openList}
             stage={input.listStage}
-            stageCounts={query.data?.facetCounts.stage}
             due={input.due}
             view={board ? "board" : "table"}
-            onChange={(update) => setSearch({ ...update, page: undefined })}
+            onChange={(update) =>
+              setSearch({
+                // The board has no toolbar: no search or filter stays set
+                // where it can't be seen.
+                ...(update.view
+                  ? {
+                      ...clearedFilters(TOOLBAR_FILTER_KEYS),
+                      archived: undefined,
+                    }
+                  : {}),
+                ...update,
+                page: undefined,
+              })
+            }
           />
         ) : null}
         {openList && board ? (
@@ -256,17 +276,31 @@ export function ContactsPage() {
                     media: "icon",
                     title: "No archived contacts",
                   }
-                : {
-                    icon: Users,
-                    media: "icon",
-                    title: "No contacts",
-                    action: (
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {newContact}
-                        {importCsv}
-                      </div>
-                    ),
-                  }
+                : openList
+                  ? {
+                      icon: Users,
+                      media: "icon",
+                      title: "This list is empty",
+                      action: (
+                        <Button
+                          nativeButton={false}
+                          render={<Link to="/contacts" />}
+                        >
+                          Add from Contacts
+                        </Button>
+                      ),
+                    }
+                  : {
+                      icon: Users,
+                      media: "icon",
+                      title: "No contacts",
+                      action: (
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {newContact}
+                          {importCsv}
+                        </div>
+                      ),
+                    }
             }
             toolbar={
               <RecordListToolbar
@@ -335,7 +369,11 @@ export function ContactsPage() {
             if (openList)
               void addToList({
                 data: { listId: openList.id, ids: [contact.id] },
-              }).then(() => invalidate());
+              })
+                .then(() => invalidate())
+                .catch(() =>
+                  toast.error(`Couldn't add them to ${openList.name}.`),
+                );
             openContact(contact.id);
           }}
         />
