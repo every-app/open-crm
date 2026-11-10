@@ -9,7 +9,6 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/client/components/ui/sidebar";
@@ -65,22 +64,19 @@ export function SidebarLists({ onNavigate }: { onNavigate: () => void }) {
                   )}
                 />
                 <span className="truncate">{list.name}</span>
-              </SidebarMenuButton>
-              <SidebarMenuBadge
-                className="font-normal text-sidebar-foreground/60"
-                aria-label={
-                  list.due > 0
-                    ? `${list.total} in it, ${list.due} due`
-                    : `${list.total} in it`
-                }
-              >
-                {list.due > 0 ? (
-                  <span className="mr-1 rounded bg-amber-500/15 px-1 text-amber-700 dark:text-amber-400">
-                    {list.due}
+                {/* In the row's own layout, so a long name truncates before them. */}
+                <span className="ml-auto flex shrink-0 items-center gap-1 text-xs font-normal tabular-nums">
+                  {list.due > 0 ? (
+                    <span className="rounded bg-amber-500/15 px-1 text-amber-700 dark:text-amber-400">
+                      {list.due} due
+                    </span>
+                  ) : null}
+                  <span className="opacity-80">
+                    {list.total.toLocaleString()}
+                    <span className="sr-only"> in it</span>
                   </span>
-                ) : null}
-                {list.total.toLocaleString()}
-              </SidebarMenuBadge>
+                </span>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
           {lists.data?.length === 0 ? (

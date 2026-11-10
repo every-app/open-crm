@@ -195,11 +195,7 @@ export function ContactsPage() {
             )
           }
           description={
-            openList ? (
-              <ListDescription list={openList} />
-            ) : input.archived ? undefined : (
-              "People, with the mail and meetings filed on them."
-            )
+            openList ? <ListDescription list={openList} /> : undefined
           }
           actions={
             <>

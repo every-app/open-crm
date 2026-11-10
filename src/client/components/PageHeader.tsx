@@ -20,7 +20,7 @@ export function PageHeader({
 }) {
   const header = (
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0 flex-1 basis-64 space-y-1">
+      <div className="min-w-0 flex-auto space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {description ? (
           <div className="text-sm text-muted-foreground">{description}</div>

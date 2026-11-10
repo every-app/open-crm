@@ -196,11 +196,7 @@ export function CompaniesPage() {
             )
           }
           description={
-            openList ? (
-              <ListDescription list={openList} />
-            ) : input.archived ? undefined : (
-              "Companies, with their people and the mail and meetings filed on them."
-            )
+            openList ? <ListDescription list={openList} /> : undefined
           }
           actions={
             <>

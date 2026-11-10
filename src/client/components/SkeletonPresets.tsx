@@ -89,14 +89,9 @@ export function SkeletonPage() {
 function SkeletonPageContent({ className }: { className?: string }) {
   return (
     <div className={cn("space-y-4", className)} aria-busy>
-      {/* Line boxes the size of PageHeader's title and description. */}
-      <div className="space-y-1">
-        <div className="flex h-8 items-center">
-          <Skeleton className="h-6 w-48" />
-        </div>
-        <div className="flex h-5 items-center">
-          <Skeleton className="h-3.5 w-72 max-w-full" />
-        </div>
+      {/* A line box the size of PageHeader's title. */}
+      <div className="flex h-8 items-center">
+        <Skeleton className="h-6 w-48" />
       </div>
       <SkeletonCard />
     </div>
