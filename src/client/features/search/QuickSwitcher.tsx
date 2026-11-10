@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Search } from "lucide-react";
+import { QueryError } from "@/client/components/QueryState";
 import {
   Dialog,
   DialogContent,
@@ -17,15 +18,16 @@ import {
   useSetAppSearch,
 } from "@/client/features/records/recordStack";
 import { quickSearchQueryOptions } from "@/client/features/search/searchQueries";
+import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { RECORD_KINDS, type RecordKind } from "@/shared/records";
 import type { quickSearch } from "@/serverFunctions/search";
 import { QUICK_SEARCH_MIN_LENGTH } from "@/types/schemas/search";
 
 // The quick switcher: ⌘K (Ctrl+K) anywhere, or the search box at the top of
-// the sidebar, then a few letters of a company, person or deal, and Enter
-// opens it. While it's open the URL says so (`k`), and RecordSheetHost shows
-// it: inside the open record's sheet when there is one, so a link that names
-// both brings back the switcher on top.
+// the sidebar, then a few letters of a company, person or (while deals are
+// on) deal, and Enter opens it. While it's open the URL says so (`k`), and
+// RecordSheetHost shows it: inside the open record's sheet when there is
+// one, so a link that names both brings back the switcher on top.
 
 type Hit = Awaited<ReturnType<typeof quickSearch>>["hits"][number];
 
@@ -66,6 +68,8 @@ export function QuickSwitcherDialog() {
   const { setOpenMobile } = useSidebar();
   const { k: open = false } = useAppSearch();
   const setSearch = useSetAppSearch();
+  const dealsEnabled =
+    useQuery(workspaceQueryOptions()).data?.dealsEnabled ?? false;
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
 
@@ -103,10 +107,13 @@ export function QuickSwitcherDialog() {
     enabled: open && searching,
   });
   const hits = searching ? (results.data?.hits ?? []) : [];
-  const groups = RECORD_KINDS.map((kind) => ({
-    value: kind,
-    items: hits.filter((hit) => hit.kind === kind),
-  })).filter((group) => group.items.length > 0);
+  // Matches cached before deals were turned off can still hold deals.
+  const groups = RECORD_KINDS.filter((kind) => dealsEnabled || kind !== "deal")
+    .map((kind) => ({
+      value: kind,
+      items: hits.filter((hit) => hit.kind === kind),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const go = (hit: Hit) => {
     setInput("");
@@ -126,7 +133,9 @@ export function QuickSwitcherDialog() {
       >
         <DialogTitle className="sr-only">Search</DialogTitle>
         <DialogDescription className="sr-only">
-          Jump to a company, contact or deal
+          {dealsEnabled
+            ? "Jump to a company, contact or deal"
+            : "Jump to a company or contact"}
         </DialogDescription>
         <Autocomplete.Root
           open
@@ -154,18 +163,34 @@ export function QuickSwitcherDialog() {
               // Typing straight after ⌘K lands here, not before the dialog
               // has moved focus.
               autoFocus
-              placeholder="Search companies, contacts and deals…"
+              placeholder={
+                dealsEnabled
+                  ? "Search companies, contacts and deals…"
+                  : "Search companies and contacts…"
+              }
               className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
           <Autocomplete.Empty>
-            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-              {!searching
-                ? "Type at least two characters."
-                : results.isFetching
-                  ? "Searching…"
-                  : "Nothing matches."}
-            </p>
+            {searching && results.isError ? (
+              <div className="flex justify-center px-4 py-6">
+                <QueryError
+                  error={results.error}
+                  fallback="Couldn't search."
+                  onRetry={() => void results.refetch()}
+                  isRetrying={results.isFetching}
+                  variant="inline"
+                />
+              </div>
+            ) : (
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                {!searching
+                  ? "Type at least two characters."
+                  : results.isFetching
+                    ? "Searching…"
+                    : "Nothing matches."}
+              </p>
+            )}
           </Autocomplete.Empty>
           <Autocomplete.List className="max-h-80 overflow-y-auto overscroll-contain p-1 empty:p-0">
             {(group: { value: RecordKind; items: Hit[] }) => (

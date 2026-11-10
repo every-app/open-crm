@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ListChecks } from "lucide-react";
+import { ListChecks, Plus } from "lucide-react";
 import { cn } from "cn";
 import { EmptyState } from "@/client/components/EmptyState";
 import { QueryError } from "@/client/components/QueryState";
+import { Button } from "@/client/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,12 +13,14 @@ import {
   CardTitle,
 } from "@/client/components/ui/card";
 import { Skeleton } from "@/client/components/ui/skeleton";
+import { CreateListDialog } from "@/client/features/lists/ListDialog";
 import { LIST_DOT } from "@/client/features/lists/listColors";
 import { listsQueryOptions } from "@/client/features/lists/listQueries";
 import type { ListSummary } from "@/server/features/lists/services/ListService";
 
 // Home's Lists: each list with how many are at each of its stages, and who
-// is Due, each opening the list in the contacts or companies page.
+// is Due, each opening the list in the contacts or companies page. With no
+// list yet, the way to make the first.
 
 /** Open stages darken along the way; done is green, dropped fades out. */
 const OPEN_SHADES = [
@@ -34,6 +38,7 @@ function stageShade(stage: ListSummary["stages"][number], openIndex: number) {
 
 export function ListsCard() {
   const lists = useQuery(listsQueryOptions());
+  const [creating, setCreating] = useState(false);
   return (
     <Card className="min-w-0">
       <CardHeader>
@@ -55,7 +60,12 @@ export function ListsCard() {
             size="sm"
             icon={ListChecks}
             title="No lists yet"
-            description="Make one with + New list in the sidebar: backlink outreach, networking, anyone you work through stages."
+            action={
+              <Button size="sm" onClick={() => setCreating(true)}>
+                <Plus data-icon="inline-start" />
+                New list
+              </Button>
+            }
           />
         ) : (
           <ul className="divide-y divide-border">
@@ -65,6 +75,9 @@ export function ListsCard() {
           </ul>
         )}
       </CardContent>
+      {creating ? (
+        <CreateListDialog onClose={() => setCreating(false)} />
+      ) : null}
     </Card>
   );
 }

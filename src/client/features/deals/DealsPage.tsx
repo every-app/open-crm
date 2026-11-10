@@ -59,16 +59,24 @@ const routeApi = getRouteApi("/_app/deals");
 
 /**
  * /deals: the pipeline, and every deal that has closed, each in a sheet.
- * While deals are off for the workspace, a note says where to turn them on.
+ * While deals are off for the workspace, a note says who can turn them on.
  */
 export function DealsPage() {
   const workspace = useQuery(workspaceQueryOptions());
   if (!workspace.data) return null;
-  if (!workspace.data.dealsEnabled) return <DealsOff />;
+  if (!workspace.data.dealsEnabled) {
+    return (
+      <DealsOff
+        canManage={hasOrgPermission(workspace.data.role, {
+          workspace: ["manage"],
+        })}
+      />
+    );
+  }
   return <DealsList />;
 }
 
-function DealsOff() {
+function DealsOff({ canManage }: { canManage: boolean }) {
   return (
     <div className="px-4 py-4 md:px-6 md:py-6">
       <div className="mx-auto w-full max-w-7xl">
@@ -76,11 +84,21 @@ function DealsOff() {
           variant="card"
           icon={CircleDollarSign}
           title="Deals are off"
-          description="Turn them on in Settings to track sales with amounts, close dates and a pipeline. Deals made before are kept."
+          description={
+            canManage
+              ? "Turn them on in Settings to track sales with amounts, close dates and a pipeline. Deals made before are kept."
+              : "Ask an owner or admin to turn them on."
+          }
           action={
-            <Button variant="outline" render={<Link to="/settings" />}>
-              Open Settings
-            </Button>
+            canManage ? (
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link to="/settings" />}
+              >
+                Open Settings
+              </Button>
+            ) : undefined
           }
         />
       </div>

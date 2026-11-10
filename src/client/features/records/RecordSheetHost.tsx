@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { CompanySheet } from "@/client/features/companies/CompanySheet";
 import { ContactSheet } from "@/client/features/contacts/ContactSheet";
 import { CloseReasonHost } from "@/client/features/deals/DealStage";
@@ -10,14 +11,19 @@ import {
   useRecordStack,
 } from "@/client/features/records/recordStack";
 import { QuickSwitcherDialog } from "@/client/features/search/QuickSwitcher";
+import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 
 /**
  * The sheet every record opens in, over whatever page is current: the top
  * of the URL's record stack. Rendered once, by the signed-in layout, with
- * the dialogs the URL opens over the page.
+ * the dialogs the URL opens over the page. While deals are off, a deal in
+ * the URL opens nothing.
  */
 export function RecordSheetHost() {
-  const { top, close } = useRecordStack();
+  const { top: urlTop, close } = useRecordStack();
+  const dealsEnabled =
+    useQuery(workspaceQueryOptions()).data?.dealsEnabled ?? false;
+  const top = urlTop?.kind === "deal" && !dealsEnabled ? undefined : urlTop;
   // The record just closed keeps its content while the sheet animates shut.
   const [shown, setShown] = useState(top);
   if (top && (!shown || recordKey(top) !== recordKey(shown))) setShown(top);
@@ -40,9 +46,9 @@ export function RecordSheetHost() {
         ) : shown?.kind === "deal" ? (
           <DealSheet key={recordKey(shown)} dealId={shown.id} />
         ) : null}
-        {top && focused ? <UrlDialogs /> : null}
+        {top && focused ? <UrlDialogs dealsEnabled={dealsEnabled} /> : null}
       </RecordSheet>
-      {top ? null : <UrlDialogs />}
+      {top ? null : <UrlDialogs dealsEnabled={dealsEnabled} />}
     </>
   );
 }
@@ -54,11 +60,11 @@ export function RecordSheetHost() {
  * at once, as when a link names both, leave the keyboard on the one
  * underneath.
  */
-function UrlDialogs() {
+function UrlDialogs({ dealsEnabled }: { dealsEnabled: boolean }) {
   return (
     <>
       <FieldsSheetHost />
-      <CloseReasonHost />
+      {dealsEnabled ? <CloseReasonHost /> : null}
       <QuickSwitcherDialog />
     </>
   );

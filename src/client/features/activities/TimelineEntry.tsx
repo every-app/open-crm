@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
 import {
   EmailThreadMessages,
@@ -13,6 +14,7 @@ import {
 } from "@/client/features/activities/activityFormat";
 import { fullName } from "@/client/features/companies/companyFormat";
 import { RecordLink } from "@/client/features/records/RecordLink";
+import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import type { RecordRef } from "@/shared/records";
 
 const TIME = new Intl.DateTimeFormat(undefined, {
@@ -27,7 +29,7 @@ const FULL = new Intl.DateTimeFormat(undefined, {
 
 /**
  * One entry on `record`'s timeline. The deal or person it was logged on
- * links out when it isn't `record` itself.
+ * links out when it isn't `record` itself; a deal only while deals are on.
  */
 export function TimelineEntry({
   entry,
@@ -36,12 +38,17 @@ export function TimelineEntry({
   entry: ActivityEntry;
   record: RecordRef;
 }) {
+  const dealsEnabled =
+    useQuery(workspaceQueryOptions()).data?.dealsEnabled ?? false;
   const isTask = entry.type === "TASK";
   const done = entry.completedAt !== null;
   const headline = activityHeadline(entry);
   const { label, icon: Icon } = ACTIVITY_PRESENTATION[entry.type];
   const when = new Date(activityTime(entry));
-  const deal = entry.deal && entry.deal.id !== record.id ? entry.deal : null;
+  const deal =
+    dealsEnabled && entry.deal && entry.deal.id !== record.id
+      ? entry.deal
+      : null;
   const contact =
     entry.contact && entry.contact.id !== record.id ? entry.contact : null;
   const due = isTask && !done ? entry.dueAt : null;

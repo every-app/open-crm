@@ -21,8 +21,6 @@ import {
 } from "@/client/features/dashboard/DashboardLists";
 import { ListsCard } from "@/client/features/dashboard/ListsCard";
 import { SalesSummary } from "@/client/features/dashboard/SalesSummary";
-import { FirstFollowUp } from "@/client/features/dashboard/FirstFollowUp";
-import { GetStartedCard } from "@/client/features/setup/GetStartedCard";
 import { dashboardSummaryQueryOptions } from "@/client/features/dashboard/dashboardQueries";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { DASHBOARD_SCOPES } from "@/types/schemas/dashboard";
@@ -40,8 +38,9 @@ const SCOPES = [
 ];
 
 /**
- * Home: the viewer's (or the team's) sales at a glance, and the lists. While
- * deals are off it's the lists, overdue tasks and recent activity.
+ * Home: what to act on today (overdue tasks and the lists), then what
+ * happened last. While deals are on, the viewer's (or the team's) sales sit
+ * between the two. A card with nothing to show stays out.
  */
 export function DashboardPage() {
   const search = routeApi.useSearch();
@@ -60,9 +59,6 @@ export function DashboardPage() {
       summary.wonThisMonth.count > 0 ||
       summary.wonLastMonth.count > 0 ||
       summary.trend.some((point) => point.won > 0 || point.created > 0));
-  const hasActivity =
-    summary &&
-    (summary.overdueTasks.length > 0 || summary.recentActivity.length > 0);
 
   if (summary && !summary.multipleOwners && scope === "me") {
     return (
@@ -73,21 +69,12 @@ export function DashboardPage() {
       />
     );
   }
-  const firstDeal =
-    dealsEnabled && summary?.pipeline.count === 1
-      ? summary.biggestOpen[0]
-      : undefined;
 
   return (
     <div className="flex min-h-full flex-col px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6">
         <PageHeader
           title="Overview"
-          description={
-            dealsEnabled
-              ? "Pipeline, lists, overdue tasks and recent activity."
-              : "Lists, overdue tasks and recent activity."
-          }
           actions={
             dealsEnabled && summary?.multipleOwners ? (
               <Select
@@ -120,19 +107,6 @@ export function DashboardPage() {
           }
         />
 
-        {/* With deals off, only a workspace with no company yet is prompted. */}
-        {summary && !hasSales && (dealsEnabled || !summary.firstCompany) ? (
-          <GetStartedCard
-            company={summary.firstCompany}
-            hasDeals={summary.hasDeals}
-            prominent={!hasActivity}
-          />
-        ) : null}
-
-        {firstDeal && !firstDeal.followUpAt ? (
-          <FirstFollowUp deal={firstDeal} />
-        ) : null}
-
         {summary ? (
           <div
             className={cn(
@@ -149,37 +123,18 @@ export function DashboardPage() {
                 isRetrying={query.isFetching}
               />
             ) : null}
+            <div
+              className={cn(
+                "grid items-start gap-6",
+                summary.overdueTasks.length > 0 && "lg:grid-cols-2",
+              )}
+            >
+              <OverdueTasks summary={summary} />
+              <ListsCard />
+            </div>
             {hasSales ? <SalesSummary summary={summary} /> : null}
-            {dealsEnabled ? (
-              <>
-                <div
-                  className={cn(
-                    "grid gap-6",
-                    summary.biggestOpen.length > 0 &&
-                      summary.overdueTasks.length > 0 &&
-                      "lg:grid-cols-2",
-                  )}
-                >
-                  <DealsInProgress summary={summary} />
-                  <OverdueTasks summary={summary} />
-                </div>
-                <RecentActivity summary={summary} dealsEnabled />
-                <ListsCard />
-              </>
-            ) : (
-              <>
-                <div
-                  className={cn(
-                    "grid gap-6",
-                    summary.overdueTasks.length > 0 && "lg:grid-cols-2",
-                  )}
-                >
-                  <ListsCard />
-                  <OverdueTasks summary={summary} />
-                </div>
-                <RecentActivity summary={summary} dealsEnabled={false} />
-              </>
-            )}
+            {dealsEnabled ? <DealsInProgress summary={summary} /> : null}
+            <RecentActivity summary={summary} dealsEnabled={dealsEnabled} />
           </div>
         ) : query.isError ? (
           <QueryError
@@ -191,15 +146,12 @@ export function DashboardPage() {
           />
         ) : (
           <div className="space-y-6" aria-busy>
-            <SkeletonStatGrid />
-            <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-              <Skeleton className="h-72" />
-              <Skeleton className="h-72" />
-            </div>
             <div className="grid gap-6 lg:grid-cols-2">
-              <Skeleton className="h-64" />
-              <Skeleton className="h-64" />
+              <Skeleton className="h-48" />
+              <Skeleton className="h-48" />
             </div>
+            {dealsEnabled ? <SkeletonStatGrid /> : null}
+            <Skeleton className="h-72" />
           </div>
         )}
       </div>

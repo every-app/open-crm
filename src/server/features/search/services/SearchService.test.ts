@@ -10,6 +10,7 @@ vi.mock("cloudflare:workers", () => ({ env: {} }));
 vi.mock("@/db", () => ({ db: database.db }));
 vi.mock("@/db/runBatch", () => database.runBatchModule);
 
+import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { SearchService } from "./SearchService";
 
 describe("SearchService", () => {
@@ -47,6 +48,14 @@ describe("SearchService", () => {
     expect(await hits("École")).toEqual(["company:École 42:ecole42.fr"]);
     expect(await hits("a")).toEqual([]);
     expect(await hits("a%")).toEqual([]);
+  });
+
+  it("leaves deals out while they are off", async () => {
+    await WorkspaceRepository.update("org_a", { dealsEnabled: false });
+    expect(await hits("acme")).toEqual([
+      "company:Acme:acme.com",
+      "contact:Ana Zed:Acme",
+    ]);
   });
 
   it("keeps one organization's records out of another's search", async () => {

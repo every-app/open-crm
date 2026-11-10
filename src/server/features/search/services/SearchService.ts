@@ -1,9 +1,11 @@
 import { SearchRepository } from "@/server/features/search/repositories/SearchRepository";
+import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import type { RecordKind } from "@/shared/records";
 import { QUICK_SEARCH_MIN_LENGTH } from "@/types/schemas/search";
 
 // The quick switcher (⌘K): jump to a company, contact or deal by typing part
-// of its name. Archived records stay out, as they stay out of every list.
+// of its name. Archived records stay out, as they stay out of every list,
+// and deals stay out while they are off.
 
 /** Matches of each kind, at most. */
 const PER_KIND = 5;
@@ -26,10 +28,12 @@ async function quick(
 ): Promise<{ hits: SearchHit[] }> {
   const term = q.trim();
   if (term.length < QUICK_SEARCH_MIN_LENGTH) return { hits: [] };
+  const { dealsEnabled } =
+    await WorkspaceRepository.getOrCreate(organizationId);
   const [companies, contacts, deals] = await Promise.all([
     SearchRepository.companies(organizationId, term, PER_KIND),
     SearchRepository.contacts(organizationId, term, PER_KIND),
-    SearchRepository.deals(organizationId, term, PER_KIND),
+    dealsEnabled ? SearchRepository.deals(organizationId, term, PER_KIND) : [],
   ]);
   return {
     hits: [

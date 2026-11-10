@@ -61,10 +61,15 @@ export function FieldsSheetButton({ entity }: { entity: FieldEntity }) {
 
 /**
  * The fields sheet, open while the URL names it: from a list's Columns menu
- * ("Edit fields…") or a record's Details. RecordSheetHost renders it.
+ * ("Edit fields…") or a record's Details. RecordSheetHost renders it. While
+ * deals are off, their fields don't open.
  */
 export function FieldsSheetHost() {
-  const { manageFields } = useAppSearch();
+  const { manageFields: urlKind } = useAppSearch();
+  const dealsEnabled =
+    useQuery(workspaceQueryOptions()).data?.dealsEnabled ?? false;
+  const manageFields =
+    urlKind === "deal" && !dealsEnabled ? undefined : urlKind;
   const setSearch = useSetAppSearch();
   // The fields just closed stay while the sheet animates shut.
   const [shown, setShown] = useState(manageFields);
@@ -124,7 +129,9 @@ function FieldsSheetBody({ entity }: { entity: FieldEntity }) {
           }}
         >
           <TabsList>
-            {FIELD_ENTITIES.map((option) => (
+            {FIELD_ENTITIES.filter(
+              (option) => option !== "DEAL" || workspace?.dealsEnabled,
+            ).map((option) => (
               <TabsTrigger key={option} value={option}>
                 {ENTITY_NOUNS[option].title}
               </TabsTrigger>
