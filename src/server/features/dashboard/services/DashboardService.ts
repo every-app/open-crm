@@ -5,6 +5,7 @@ import {
   dealsInScope,
   type DealScope,
 } from "@/server/features/dashboard/repositories/DashboardRepository";
+import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { roundMoney } from "@/shared/currency";
 import type { DealStage } from "@/shared/crm-enums";
 import { OPEN_DEAL_STAGES } from "@/shared/deal-stages";
@@ -135,7 +136,10 @@ async function summary(
     monthOf(now, index - (TREND_MONTHS - 1)),
   );
   const thisMonth = monthOf(now, 0);
-  const base = await ConversionService.reportingCurrency(organizationId);
+  const [base, { dealsEnabled }] = await Promise.all([
+    ConversionService.reportingCurrency(organizationId),
+    WorkspaceRepository.getOrCreate(organizationId),
+  ]);
 
   const [
     byStage,
@@ -168,6 +172,7 @@ async function summary(
     ActivityRepository.recent(organizationId, {
       createdById: mine ? userId : null,
       limit: RECENT_ACTIVITY,
+      deals: dealsEnabled,
     }),
     ConversionService.unconverted(organizationId, dealsInScope(deals)),
     DashboardRepository.firstCompany(organizationId),

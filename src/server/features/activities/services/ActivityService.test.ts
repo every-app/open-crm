@@ -212,6 +212,21 @@ describe("ActivityService", () => {
     ]);
   });
 
+  it("leaves the deals' stage changes off a timeline while deals are off, and keeps the lists'", async () => {
+    await database.exec(`
+        INSERT INTO workspace (organization_id, name, deals_enabled) VALUES ('org_a', 'A', 0);
+        INSERT INTO activity (id, organization_id, type, company_id, deal_id) VALUES ('deal-move', 'org_a', 'STAGE_CHANGE', 'acme', 'renewal');
+        INSERT INTO activity (id, organization_id, type, company_id) VALUES ('list-move', 'org_a', 'STAGE_CHANGE', 'acme');
+      `);
+    const { entries } = await ActivityService.timeline(A, {
+      record: acme,
+      filter: "all",
+      limit: 30,
+    });
+    expect(entries.map((entry) => entry.id)).toEqual(["list-move"]);
+    expect((await ActivityService.timelineCounts(A, acme)).all).toBe(1);
+  });
+
   it("lists the open tasks I set, soonest due first, until they're ticked off", async () => {
     await db
       .insert(user)

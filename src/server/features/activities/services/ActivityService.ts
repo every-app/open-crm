@@ -4,6 +4,7 @@ import type { ActivityEntry } from "@/server/features/activities/repositories/ac
 import { CaptureRepository } from "@/server/features/activities/repositories/CaptureRepository";
 import { ArchiveRepository } from "@/server/features/archive/repositories/ArchiveRepository";
 import { blankToNull } from "@/server/features/records/recordRules";
+import { WorkspaceRepository } from "@/server/features/workspace/repositories/WorkspaceRepository";
 import { AppError } from "@/server/lib/errors";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import type { RecordRef } from "@/shared/records";
@@ -46,14 +47,23 @@ async function requireEntry(
 
 /** A page of a record's timeline, newest first. */
 async function timeline(organizationId: string, input: TimelineInput) {
-  await requireRecord(organizationId, input.record);
-  return ActivityRepository.timeline(organizationId, input);
+  const [{ dealsEnabled }] = await Promise.all([
+    WorkspaceRepository.getOrCreate(organizationId),
+    requireRecord(organizationId, input.record),
+  ]);
+  return ActivityRepository.timeline(organizationId, {
+    ...input,
+    deals: dealsEnabled,
+  });
 }
 
 /** How many entries each of a record's timeline views has. */
 async function timelineCounts(organizationId: string, record: RecordRef) {
-  await requireRecord(organizationId, record);
-  return ActivityRepository.counts(organizationId, record);
+  const [{ dealsEnabled }] = await Promise.all([
+    WorkspaceRepository.getOrCreate(organizationId),
+    requireRecord(organizationId, record),
+  ]);
+  return ActivityRepository.counts(organizationId, record, dealsEnabled);
 }
 
 /**

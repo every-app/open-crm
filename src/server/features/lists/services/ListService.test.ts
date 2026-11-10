@@ -236,6 +236,72 @@ describe("ListService", () => {
     ]);
   });
 
+  it("removes a stage only an archived person is at, leaving them at none", async () => {
+    const list = await outreach(A);
+    await ListService.addToList(A, "user_a", {
+      listId: list.id,
+      ids: ["maya"],
+    });
+    await database.exec(
+      `UPDATE contact SET archived_at = '2026-11-01T00:00:00.000Z' WHERE id = 'maya'`,
+    );
+
+    const after = await ListService.setStages(A, {
+      listId: list.id,
+      stages: list.stages
+        .slice(1)
+        .map(({ id, name, kind }) => ({ id, name, kind })),
+    });
+
+    expect(after.stages.map((stage) => stage.name)).not.toContain("To contact");
+    expect(
+      await database.rows(
+        `SELECT stage_id FROM list_entry WHERE contact_id = 'maya'`,
+      ),
+    ).toEqual([{ stage_id: null }]);
+  });
+
+  it("saves a list's details and stages together, or neither", async () => {
+    const list = await outreach(A);
+    await outreach(A, "Networking");
+    const stages = list.stages.map(({ id, name, kind }) => ({
+      id,
+      name,
+      kind,
+    }));
+
+    // Stages that are refused leave the name as it was.
+    await expect(
+      ListService.updateList(A, {
+        id: list.id,
+        name: "Renamed",
+        stages: stages.map((stage) => ({ ...stage, name: "Same" })),
+      }),
+    ).rejects.toThrow("Two stages can't share a name.");
+    // A name that is taken leaves the stages as they were.
+    await expect(
+      ListService.updateList(A, {
+        id: list.id,
+        name: "Networking",
+        stages: stages.slice(1),
+      }),
+    ).rejects.toThrow("already a list with that name");
+    expect(await ListService.getList(A, list.id)).toMatchObject({
+      name: "Backlink outreach",
+      stages: list.stages,
+    });
+
+    const saved = await ListService.updateList(A, {
+      id: list.id,
+      name: "Renamed",
+      stages: stages.slice(1),
+    });
+    expect(saved.name).toBe("Renamed");
+    expect(saved.stages.map((stage) => stage.name)).toEqual(
+      list.stages.slice(1).map((stage) => stage.name),
+    );
+  });
+
   it("deletes a list without touching its records or their timelines", async () => {
     const list = await outreach(A);
     await ListService.addToList(A, "user_a", {

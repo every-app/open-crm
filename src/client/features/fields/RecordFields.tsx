@@ -149,7 +149,7 @@ function RecordFieldRow({
           field={field}
           value={save.isPending ? save.variables : field.value}
           saving={save.isPending}
-          onSave={(value) => save.mutate(value)}
+          onSave={(value, onError) => save.mutate(value, { onError })}
           labelId={labelId}
         />
       </dd>

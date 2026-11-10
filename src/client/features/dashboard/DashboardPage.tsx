@@ -129,7 +129,7 @@ export function DashboardPage() {
                 summary.overdueTasks.length > 0 && "lg:grid-cols-2",
               )}
             >
-              <OverdueTasks summary={summary} />
+              <OverdueTasks summary={summary} dealsEnabled={dealsEnabled} />
               <ListsCard />
             </div>
             {hasSales ? <SalesSummary summary={summary} /> : null}

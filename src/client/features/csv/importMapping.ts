@@ -1,5 +1,10 @@
 import type { FieldEntity } from "@/shared/crm-enums";
-import { CUSTOM_FIELD_TARGET, IMPORT_TARGETS } from "@/shared/imports";
+import {
+  CUSTOM_FIELD_TARGET,
+  IMPORT_TARGETS,
+  IMPORT_VALUE_MAX,
+  LIST_STAGE_TARGET,
+} from "@/shared/imports";
 
 // Which field each CSV column goes into: the built-in fields of the kind of
 // record (IMPORT_TARGETS) and its custom fields, matched to the headers by
@@ -83,11 +88,40 @@ export function missingTargets(
     .map((target) => target.label);
 }
 
+/**
+ * The template's headers: the record's own fields, each once. A stage is of
+ * the list the rows land in.
+ */
+export function templateHeaders(targets: Target[]): string[] {
+  return targets
+    .filter(
+      (target) => target.id !== "fullName" && target.id !== LIST_STAGE_TARGET,
+    )
+    .map((target) => target.label);
+}
+
+type MappedRow = { line: number; values: Record<string, string> };
+
+/**
+ * What to say when a row holds a value longer than the server takes, which
+ * would refuse every row sent with it; null when none does.
+ */
+export function overlongValueError(rows: MappedRow[]): string | null {
+  const row = rows.find((candidate) =>
+    Object.values(candidate.values).some(
+      (value) => value.length > IMPORT_VALUE_MAX,
+    ),
+  );
+  return row
+    ? `Row ${row.line} has a value longer than ${IMPORT_VALUE_MAX.toLocaleString()} characters. A quote that is never closed does this: check that row in the file.`
+    : null;
+}
+
 /** The rows as the server takes them: values keyed by target, line numbers from 2. */
 export function mappedRows(
   rows: string[][],
   mapping: (string | null)[],
-): { line: number; values: Record<string, string> }[] {
+): MappedRow[] {
   return rows.map((row, index) => {
     const values: Record<string, string> = {};
     mapping.forEach((target, column) => {

@@ -22,6 +22,16 @@ const OWNER: ImportTarget = {
   hint: "A member's email or name",
 };
 
+/** The stage a row starts at in the list its import adds it to. */
+export const LIST_STAGE_TARGET = "listStage";
+
+const LIST_STAGE: ImportTarget = {
+  id: LIST_STAGE_TARGET,
+  label: "Stage",
+  aliases: ["list stage"],
+  hint: "A stage of the list the rows are added to",
+};
+
 export const IMPORT_TARGETS = {
   COMPANY: [
     {
@@ -59,6 +69,7 @@ export const IMPORT_TARGETS = {
       aliases: ["linkedin url", "company linkedin"],
     },
     OWNER,
+    LIST_STAGE,
   ],
   CONTACT: [
     {
@@ -100,6 +111,7 @@ export const IMPORT_TARGETS = {
       hint: "A company's name or domain",
     },
     OWNER,
+    LIST_STAGE,
   ],
   DEAL: [
     {
@@ -153,6 +165,9 @@ export const IMPORT_CHUNK_SIZE = 50;
 
 /** The most rows one import takes. */
 export const IMPORT_MAX_ROWS = 10_000;
+
+/** The longest value one cell holds. */
+export const IMPORT_VALUE_MAX = 20_000;
 
 /** What happened to one row. */
 export type ImportOutcome = "created" | "updated" | "skipped" | "failed";

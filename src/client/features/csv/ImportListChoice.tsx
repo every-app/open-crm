@@ -51,8 +51,9 @@ export type Landing = { listId: string; stageId: string | null };
 /**
  * The import's list choice, and where its rows land: the list (made now
  * when it's new) and the starting stage's id, or null for no list.
+ * `stageColumn`: a column of the file names each row's own stage.
  */
-export function useImportList(entity: FieldEntity) {
+export function useImportList(entity: FieldEntity, stageColumn: boolean) {
   const queryClient = useQueryClient();
   const listEntity = entity === "DEAL" ? null : entity;
   const lists = useQuery({
@@ -76,6 +77,18 @@ export function useImportList(entity: FieldEntity) {
         }
       : { kind: "none" });
 
+  const pickedList =
+    pick.kind === "existing"
+      ? lists.data?.find((candidate) => candidate.id === pick.listId)
+      : undefined;
+  const landingIn = (list: ListSummary): Landing => ({
+    listId: list.id,
+    stageId:
+      pick.kind === "none"
+        ? null
+        : (list.stages.find((stage) => stage.name === pick.stage)?.id ?? null),
+  });
+
   /** Made once: an import started again finds the new list made. */
   const landing = async (): Promise<Landing | null> => {
     if (pick.kind === "none" || !listEntity) return null;
@@ -88,28 +101,31 @@ export function useImportList(entity: FieldEntity) {
               template: pick.template,
             },
           })
-        : lists.data?.find((candidate) => candidate.id === pick.listId);
+        : pickedList;
     if (!list) return null;
     if (pick.kind === "new") {
       setPick({ kind: "existing", listId: list.id, stage: pick.stage });
       await queryClient.invalidateQueries({ queryKey: listKeys.all });
     }
-    return {
-      listId: list.id,
-      stageId:
-        list.stages.find((stage) => stage.name === pick.stage)?.id ?? null,
-    };
+    return landingIn(list);
   };
 
   return {
     /** Null for deals, which no list holds. */
     choice:
       listEntity === null ? null : (
-        <ListChoice lists={lists.data ?? []} value={pick} onChange={setPick} />
+        <ListChoice
+          lists={lists.data ?? []}
+          value={pick}
+          onChange={setPick}
+          stageColumn={stageColumn}
+        />
       ),
     /** A new list still needs its name. */
     unnamed: pick.kind === "new" && !pick.name.trim(),
     landing,
+    /** Where the rows land when the list exists already, for the preview. */
+    existing: pickedList ? landingIn(pickedList) : null,
   };
 }
 
@@ -118,11 +134,13 @@ function ListChoice({
   lists,
   value,
   onChange,
+  stageColumn,
 }: {
   /** The lists of the entity being imported. */
   lists: ListSummary[];
   value: ListPick;
   onChange: (value: ListPick) => void;
+  stageColumn: boolean;
 }) {
   const listItems = [
     { value: NO_LIST, label: "None" },
@@ -145,8 +163,11 @@ function ListChoice({
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">Add to a list</legend>
       <p className="text-xs text-muted-foreground">
-        Every row added or updated goes in. Anyone already in the list keeps
-        their stage.
+        Every row added or updated goes in
+        {stageColumn
+          ? ", at its Stage column's stage, or the starting stage when that is blank"
+          : null}
+        . Anyone already in the list keeps their stage.
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         <Select

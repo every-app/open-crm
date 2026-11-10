@@ -15,12 +15,15 @@ What each release changes for a self-hosted CRM. To upgrade, see [Upgrading](sel
 
 - Companies and Contacts are tabs under Directory. Workspace settings links directly to member management on Every App.
 - Simplified onboarding, dashboard drill-downs, record details and activity filters. Archived records now live in Filters and show their deletion date; retention changes require confirmation.
-- Home guides new users from a company straight into its first deal. Empty sales metrics and charts stay hidden.
-- Overview starts with the team's data; the owner filter appears only when deals have different owners. Workspace setup needs only a name. Added direct CSV import and guided MCP setup from Welcome, creator-owned company/deal defaults, and a dated follow-up action after the first deal.
+- Empty sales metrics and charts stay hidden.
+- Overview starts with the team's data; the owner filter appears only when deals have different owners. Workspace setup needs only a name. Added creator-owned company/deal defaults.
 - New companies created through MCP belong to the caller unless `ownerEmail` names another member.
 - Grouped settings into Workspace and Connections. Added mobile settings navigation, CSV templates, simpler field setup and actionable connection errors.
-- Removed the separate Members, Currencies and API settings routes. Use Workspace for members/currencies and Connections for API/MCP. Record sheets use `details` and `activity`.
+- Removed the separate Members, Currencies and API settings routes. Use Workspace for members/currencies and Connections for API/MCP.
 - MCP timeline task filters are now `open-tasks` and `completed-tasks` (previously `upcoming` and `done`); `notes` excludes calls, and `calls` is separate. Optional `due` filters tasks by overdue, upcoming or undated.
+- A record sheet is one scroll, with no tabs; a deal has one stage control, with a Close deal menu for won, lost and unqualified. Overview leads with overdue tasks and lists. Connections lists mail and calendar first.
+- While deals are off, search, record sheets, Overview, timelines and recent activity leave deals and their stage changes out (the MCP's `search_records`, `list_activities` and `get_timeline_counts` too). Turning deals back on shows them again.
+- Lists: a saved view keeps the search, filters, sort and columns, not the list it was saved in. Edit list saves its details and stages together, and a stage only archived records are at can be removed. A CSV's Stage column sets each row's stage in the list it is imported into.
 
 **Migrations:** `0002_mail_through_gateway` (data only: empties the stored mail tokens and pending connects, and marks every mail connection for reconnecting).
 

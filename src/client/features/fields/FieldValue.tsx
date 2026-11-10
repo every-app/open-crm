@@ -110,14 +110,18 @@ type EditorProps = {
   /** The value shown: the saved one, or the one being saved. */
   value: FieldValueJson;
   saving: boolean;
-  onSave: (value: FieldValueJson) => void;
+  /** Saves the value; `onError` runs when the save fails. */
+  onSave: (value: FieldValueJson, onError?: () => void) => void;
   /** The id of the element that names the field. */
   labelId: string;
 };
 
 const NONE = "__none__";
 
-/** A field value on a record, edited in place: click, change, Enter. */
+/**
+ * A field value on a record, edited in place: click, change, Enter. A save
+ * that fails leaves the editor open on what was typed.
+ */
 export function InlineFieldValue(props: EditorProps) {
   const { field, value, saving, onSave, labelId } = props;
   switch (field.type) {
@@ -248,6 +252,9 @@ function TextValue({ field, value, saving, onSave, labelId }: EditorProps) {
   // The text being typed; null while not editing.
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The editor a failed save reopened: it doesn't take the focus back from
+  // wherever the person went meanwhile.
+  const [failed, setFailed] = useState(false);
   const current =
     value === null
       ? ""
@@ -258,6 +265,7 @@ function TextValue({ field, value, saving, onSave, labelId }: EditorProps) {
   const cancel = () => {
     setDraft(null);
     setError(null);
+    setFailed(false);
   };
   const commit = () => {
     if (draft === null) return;
@@ -267,15 +275,20 @@ function TextValue({ field, value, saving, onSave, labelId }: EditorProps) {
       return;
     }
     cancel();
-    if (parsed.value !== value) onSave(parsed.value);
+    if (parsed.value !== value) {
+      onSave(parsed.value, () => {
+        setDraft(draft);
+        setFailed(true);
+      });
+    }
   };
 
   if (draft !== null) {
     const shared = {
-      autoFocus: true,
+      autoFocus: !failed,
       value: draft,
       "aria-labelledby": labelId,
-      "aria-invalid": error ? true : undefined,
+      "aria-invalid": error || failed ? true : undefined,
       "aria-describedby": error ? errorId : undefined,
       onBlur: commit,
     };

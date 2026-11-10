@@ -52,9 +52,18 @@ export function TaskDue({ dueAt }: { dueAt: string }) {
   );
 }
 
-/** The record an activity is about: its deal, else its contact or company. */
-export function AboutRecord({ entry }: { entry: ActivityEntry }) {
-  if (entry.deal) {
+/**
+ * The record an activity is about: its deal while deals are on, else its
+ * contact or company.
+ */
+export function AboutRecord({
+  entry,
+  dealsEnabled,
+}: {
+  entry: ActivityEntry;
+  dealsEnabled: boolean;
+}) {
+  if (dealsEnabled && entry.deal) {
     return (
       <RecordLink record={{ kind: "deal", id: entry.deal.id }}>
         {entry.deal.name}

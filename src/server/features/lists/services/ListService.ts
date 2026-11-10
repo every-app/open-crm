@@ -9,6 +9,7 @@ import {
   recordLists,
 } from "@/server/features/lists/services/listMemberships";
 import { listEntries } from "@/server/features/lists/services/listBoard";
+import { stageWrites } from "@/server/features/lists/services/listStages";
 import { matchingIds } from "@/server/features/lists/services/listMatching";
 import { isUniqueViolation } from "@/server/features/records/recordRules";
 import { AppError, UserFacingError } from "@/server/lib/errors";
@@ -20,9 +21,9 @@ import {
   type CreateListInput,
   type ListColor,
   type RemoveFromListInput,
+  type SaveListInput,
   type SetListStageInput,
   type SetListStagesInput,
-  type UpdateListInput,
 } from "@/types/schemas/lists";
 
 // Lists: a context the team works people or companies in ("Backlink
@@ -160,11 +161,19 @@ async function createList(
   return getList(organizationId, id);
 }
 
+/**
+ * Changes the list's details and, when given, its stages. The stages are
+ * checked before anything is written, and the details go first: a stage
+ * that can't go, or a name that is taken, changes nothing.
+ */
 async function updateList(
   organizationId: string,
-  input: UpdateListInput,
+  input: SaveListInput,
 ): Promise<ListSummary> {
   const before = await requireList(organizationId, input.id);
+  const stages = input.stages
+    ? await stageWrites(organizationId, input.id, input.stages)
+    : null;
   try {
     await ListRepository.update(organizationId, input.id, {
       name: input.name,
@@ -184,6 +193,14 @@ async function updateList(
       throw new UserFacingError("CONFLICT", NAME_TAKEN);
     throw error;
   }
+  if (stages) {
+    await ListRepository.writeStages(
+      organizationId,
+      input.id,
+      stages.written,
+      stages.removed,
+    );
+  }
   return getList(organizationId, input.id);
 }
 
@@ -192,64 +209,18 @@ async function deleteList(organizationId: string, id: string) {
   return { id };
 }
 
-/**
- * Writes the list's stages as given. A stage left out is removed, refused
- * while anyone is at it (say where they should go first).
- */
+/** Writes the list's stages as given (stageWrites). */
 async function setStages(
   organizationId: string,
   input: SetListStagesInput,
 ): Promise<ListSummary> {
   await requireList(organizationId, input.listId);
-  const existing = await ListRepository.stagesOf(organizationId, [
-    input.listId,
-  ]);
-  const existingIds = new Set(existing.map((stage) => stage.id));
-  for (const stage of input.stages) {
-    if (stage.id && !existingIds.has(stage.id)) {
-      throw new AppError(
-        "NOT_FOUND",
-        `This list has no stage with id ${stage.id}.`,
-      );
-    }
-  }
-  const names = input.stages.map((stage) => stage.name.toLowerCase());
-  if (new Set(names).size < names.length) {
-    throw new UserFacingError(
-      "VALIDATION_ERROR",
-      "Two stages can't share a name.",
-    );
-  }
-  const kept = new Set(
-    input.stages.flatMap((stage) => (stage.id ? [stage.id] : [])),
-  );
-  const removed = existing.filter((stage) => !kept.has(stage.id));
-  const occupied = new Map(
-    (
-      await ListRepository.entriesAtStages(
-        organizationId,
-        removed.map((stage) => stage.id),
-      )
-    ).map((row) => [row.stageId, row.count]),
-  );
-  const blocking = removed.find((stage) => (occupied.get(stage.id) ?? 0) > 0);
-  if (blocking) {
-    const count = occupied.get(blocking.id) ?? 0;
-    throw new UserFacingError(
-      "CONFLICT",
-      `${count} ${count === 1 ? "is" : "are"} at ${blocking.name}: move ${count === 1 ? "it" : "them"} to another stage before removing it.`,
-    );
-  }
+  const stages = await stageWrites(organizationId, input.listId, input.stages);
   await ListRepository.writeStages(
     organizationId,
     input.listId,
-    input.stages.map((stage) => ({
-      id: stage.id ?? crypto.randomUUID(),
-      name: stage.name,
-      kind: stage.kind,
-      existing: Boolean(stage.id),
-    })),
-    removed.map((stage) => stage.id),
+    stages.written,
+    stages.removed,
   );
   return getList(organizationId, input.listId);
 }

@@ -3,9 +3,11 @@ import {
   asc,
   count,
   eq,
+  exists,
   inArray,
   isNull,
   notExists,
+  or,
   sql,
 } from "drizzle-orm";
 import { db } from "@/db";
@@ -162,8 +164,30 @@ async function remove(organizationId: string, id: string) {
   return rows.length > 0;
 }
 
-/** How many entries are at each of `stageIds`. */
-async function entriesAtStages(organizationId: string, stageIds: string[]) {
+/** The entry's record is live: an archived one holds no stage open. */
+function ofLiveRecord() {
+  return or(
+    exists(
+      db
+        .select({ id: contact.id })
+        .from(contact)
+        .where(
+          and(eq(contact.id, listEntry.contactId), isNull(contact.archivedAt)),
+        ),
+    ),
+    exists(
+      db
+        .select({ id: company.id })
+        .from(company)
+        .where(
+          and(eq(company.id, listEntry.companyId), isNull(company.archivedAt)),
+        ),
+    ),
+  );
+}
+
+/** How many live records are at each of `stageIds`. */
+async function liveAtStages(organizationId: string, stageIds: string[]) {
   if (stageIds.length === 0) return [];
   return db
     .select({ stageId: listEntry.stageId, count: count() })
@@ -172,6 +196,7 @@ async function entriesAtStages(organizationId: string, stageIds: string[]) {
       and(
         eq(listEntry.organizationId, organizationId),
         inArray(listEntry.stageId, stageIds),
+        ofLiveRecord(),
       ),
     )
     .groupBy(listEntry.stageId);
@@ -186,7 +211,8 @@ type StageWrite = {
 
 /**
  * Writes the list's stages as given, in order, and deletes `removed` (each
- * only while nobody is at it: one someone moved into meanwhile stays).
+ * only while nobody live is at it: one someone moved into meanwhile stays).
+ * An archived record's entry at a deleted stage is left at none.
  */
 async function writeStages(
   organizationId: string,
@@ -196,21 +222,19 @@ async function writeStages(
 ) {
   await runBatch((tx) => [
     ...removed.map((stageId) =>
-      tx
-        .delete(listStage)
-        .where(
-          and(
-            eq(listStage.organizationId, organizationId),
-            eq(listStage.listId, listId),
-            eq(listStage.id, stageId),
-            notExists(
-              tx
-                .select({ id: listEntry.id })
-                .from(listEntry)
-                .where(eq(listEntry.stageId, stageId)),
-            ),
+      tx.delete(listStage).where(
+        and(
+          eq(listStage.organizationId, organizationId),
+          eq(listStage.listId, listId),
+          eq(listStage.id, stageId),
+          notExists(
+            tx
+              .select({ id: listEntry.id })
+              .from(listEntry)
+              .where(and(eq(listEntry.stageId, stageId), ofLiveRecord())),
           ),
         ),
+      ),
     ),
     ...stages.map((stage, position) =>
       stage.existing
@@ -248,6 +272,6 @@ export const ListRepository = {
   insert,
   update,
   remove,
-  entriesAtStages,
+  liveAtStages,
   writeStages,
 };

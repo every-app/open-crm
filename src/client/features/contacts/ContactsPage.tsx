@@ -112,6 +112,9 @@ export function ContactsPage() {
   const board = Boolean(
     openList && openList.stages.length > 0 && search.view === "board",
   );
+  // What the empty table's "Clear filters" clears: in a list, as the
+  // toolbar's Clear, not its stage tab or Due.
+  const clearKeys = search.list ? TOOLBAR_FILTER_KEYS : CONTACT_FILTER_KEYS;
 
   const anchorRef = useSelectionAnchor();
   const fieldColumns = useFieldColumns<ContactRow>("CONTACT");
@@ -251,8 +254,10 @@ export function ContactsPage() {
             table={table}
             isLoading={query.isPending}
             isFiltered={isListFiltered(search, CONTACT_FILTER_KEYS)}
-            onClearFilters={() =>
-              setSearch(clearedFilters(CONTACT_FILTER_KEYS))
+            onClearFilters={
+              isListFiltered(search, clearKeys)
+                ? () => setSearch(clearedFilters(clearKeys))
+                : undefined
             }
             filteredTitle="No matches"
             error={

@@ -15,7 +15,7 @@ import {
 import { LIST_COLOR_LABELS } from "@/client/features/lists/listColors";
 import { useInvalidateRecords } from "@/client/features/records/recordQueries";
 import type { ListSummary } from "@/server/features/lists/services/ListService";
-import { createList, setListStages, updateList } from "@/serverFunctions/lists";
+import { createList, updateList } from "@/serverFunctions/lists";
 import type { ListEntity } from "@/shared/crm-enums";
 import {
   LIST_COLORS,
@@ -218,29 +218,24 @@ export function EditListDialog({
       list.stages.map(({ id, name, kind }) => ({ id, name, kind })),
     );
   const save = useMutation({
-    mutationFn: async (values: z.infer<typeof editFormSchema>) => {
-      await updateList({
+    // One save: stages that are refused leave the details as they were.
+    mutationFn: (values: z.infer<typeof editFormSchema>) =>
+      updateList({
         data: {
           id: list.id,
           name: values.name.trim(),
           color: values.color,
           description: values.description.trim() || null,
           followUpDays: followUpOf(values.followUpDays),
+          stages: stagesChanged
+            ? stages.map(({ id, name, kind }) => ({
+                id,
+                name: name.trim(),
+                kind,
+              }))
+            : undefined,
         },
-      });
-      if (stagesChanged) {
-        await setListStages({
-          data: {
-            listId: list.id,
-            stages: stages.map(({ id, name, kind }) => ({
-              id,
-              name: name.trim(),
-              kind,
-            })),
-          },
-        });
-      }
-    },
+      }),
     onSuccess: async () => {
       await invalidate();
       toast.success("List saved.");

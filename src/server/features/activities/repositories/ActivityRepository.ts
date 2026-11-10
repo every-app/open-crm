@@ -70,6 +70,16 @@ function about(organizationId: string, record: RecordRef) {
   );
 }
 
+/**
+ * Leaves out the deals' moves between stages while deals are off: a list's
+ * stage change has no deal.
+ */
+function withoutDealStages(deals: boolean): SQL | undefined {
+  return deals
+    ? undefined
+    : sql`not (${activity.type} = 'STAGE_CHANGE' and ${activity.dealId} is not null)`;
+}
+
 /** After `cursor` ("<timeline time>|<id>", the last entry of a page). */
 function afterCursor(cursor: string): SQL {
   const split = cursor.indexOf("|");
@@ -88,11 +98,14 @@ async function timeline(
     due?: TaskDue;
     cursor?: string;
     limit: number;
+    /** Whether deals are on. */
+    deals: boolean;
   },
 ) {
   const rows = await selectEntries(
     and(
       about(organizationId, input.record),
+      withoutDealStages(input.deals),
       input.filter === "all" ? undefined : filterCondition(input.filter),
       input.due ? eq(activity.type, "TASK") : undefined,
       input.due
@@ -117,7 +130,11 @@ async function timeline(
 }
 
 /** How many activities each view of a record's timeline shows. */
-async function counts(organizationId: string, record: RecordRef) {
+async function counts(
+  organizationId: string,
+  record: RecordRef,
+  deals: boolean,
+) {
   const tally = (filter: Exclude<TimelineFilter, "all">) =>
     sql<number>`count(case when ${filterCondition(filter)} then 1 end)`.mapWith(
       Number,
@@ -133,7 +150,7 @@ async function counts(organizationId: string, record: RecordRef) {
       meetings: tally("meetings"),
     })
     .from(activity)
-    .where(about(organizationId, record));
+    .where(and(about(organizationId, record), withoutDealStages(deals)));
   return (
     row ?? {
       all: 0,
@@ -189,7 +206,7 @@ async function openTasks(
 /** The newest activities written, only `createdById`'s when given. */
 async function recent(
   organizationId: string,
-  input: { createdById: string | null; limit: number },
+  input: { createdById: string | null; limit: number; deals: boolean },
 ) {
   const rows = await selectEntries(
     and(
@@ -197,6 +214,7 @@ async function recent(
       input.createdById
         ? eq(activity.createdById, input.createdById)
         : undefined,
+      withoutDealStages(input.deals),
     ),
   )
     .orderBy(desc(activity.createdAt), desc(activity.id))

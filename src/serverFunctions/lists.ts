@@ -11,9 +11,8 @@ import {
   listListsSchema,
   recordListsSchema,
   removeFromListSchema,
+  saveListSchema,
   setListStageSchema,
-  setListStagesSchema,
-  updateListSchema,
 } from "@/types/schemas/lists";
 
 // Lists are the whole team's: members make, change and archive them and
@@ -36,7 +35,7 @@ export const createList = createServerFn({ method: "POST" })
 
 export const updateList = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)
-  .validator(updateListSchema)
+  .validator(saveListSchema)
   .handler(({ data, context }) =>
     ListService.updateList(context.organizationId, data),
   );
@@ -48,13 +47,6 @@ export const deleteList = createServerFn({ method: "POST" })
     requireOrgPermission(context, { record: ["purge"] });
     return ListService.deleteList(context.organizationId, data.id);
   });
-
-export const setListStages = createServerFn({ method: "POST" })
-  .middleware(requireAuthenticatedContext)
-  .validator(setListStagesSchema)
-  .handler(({ data, context }) =>
-    ListService.setStages(context.organizationId, data),
-  );
 
 export const addToList = createServerFn({ method: "POST" })
   .middleware(requireAuthenticatedContext)

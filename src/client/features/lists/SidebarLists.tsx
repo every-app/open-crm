@@ -35,6 +35,8 @@ export function SidebarLists({ onNavigate }: { onNavigate: () => void }) {
     <SidebarGroup className="py-1">
       <SidebarGroupLabel>Lists</SidebarGroupLabel>
       <SidebarGroupAction
+        // On the label's centre line: this group's padding is py-1.
+        className="top-2.5"
         title="New list"
         aria-label="New list"
         onClick={() => setCreating(true)}

@@ -64,9 +64,9 @@ What they share:
   - _Networking_: To meet → Met → Keep in touch → Dormant
   - _Plain_: no stages
 - **Follow-up cadence**, optional per list (Dex/Mesh): "due after 30 days quiet". An entry in an open stage with no activity for that long shows as **Due**. That's the networking view.
-- **Views of a list:** Table and Board (columns = stages). Both live in the URL, so saved views work.
+- **Views of a list:** Table and Board (columns = stages). Both live in the URL. A saved view keeps the search, filters, sort and columns, not the list, its stage tab or the board.
 - **On a person or company:** a **Lists** card lists each membership with its stage, as a dropdown to change it. The timeline below gets "Backlink outreach: Contacted → Replied" lines. The next step is an ordinary task (tasks already have due dates).
-- **Deals:** a setting (Settings → General → "Deals: track sales with amounts and close dates"). When it's on, the Deals page, sheet sections, Overview charts and deal MCP tools appear. A list entry can "Create deal" prefilled with the person and company. When it's off, they're all hidden. The data is untouched.
+- **Deals:** a setting (Settings → Workspace → "Deals: track sales with amounts and close dates"). When it's on, the Deals page, sheet sections, Overview charts and deal MCP tools appear. A list entry can "Create deal" prefilled with the person and company. When it's off, they're all hidden. The data is untouched.
 - **Overview with deals off:** a stage summary per list, Due follow-ups, overdue tasks and recent activity.
 
 ### B. One global relationship status, plus plain lists

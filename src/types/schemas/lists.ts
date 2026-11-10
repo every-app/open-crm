@@ -104,7 +104,6 @@ export const updateListSchema = z.object({
   /** True archives it (hidden, entries kept), false brings it back. */
   archived: z.boolean().optional(),
 });
-export type UpdateListInput = z.infer<typeof updateListSchema>;
 
 /**
  * A list's stages, all of them, in order: an existing one by id is renamed
@@ -116,6 +115,15 @@ export const setListStagesSchema = z.object({
   stages: z.array(stageInput).max(LIST_STAGES_MAX),
 });
 export type SetListStagesInput = z.infer<typeof setListStagesSchema>;
+
+/**
+ * A list's details and, when given, all its stages (as setListStagesSchema
+ * takes them), saved together: a refusal of either changes neither.
+ */
+export const saveListSchema = updateListSchema.extend({
+  stages: setListStagesSchema.shape.stages.optional(),
+});
+export type SaveListInput = z.infer<typeof saveListSchema>;
 
 const stageId = id.nullable();
 

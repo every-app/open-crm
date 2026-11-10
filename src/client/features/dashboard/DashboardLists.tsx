@@ -137,7 +137,13 @@ export function DealsInProgress({ summary }: { summary: DashboardSummary }) {
   );
 }
 
-export function OverdueTasks({ summary }: { summary: DashboardSummary }) {
+export function OverdueTasks({
+  summary,
+  dealsEnabled,
+}: {
+  summary: DashboardSummary;
+  dealsEnabled: boolean;
+}) {
   const tasks = summary.overdueTasks;
   if (tasks.length === 0) return null;
   return (
@@ -155,7 +161,7 @@ export function OverdueTasks({ summary }: { summary: DashboardSummary }) {
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate">{task.subject}</span>
                 <span className="flex min-w-0 text-xs text-muted-foreground">
-                  <AboutRecord entry={task} />
+                  <AboutRecord entry={task} dealsEnabled={dealsEnabled} />
                 </span>
               </span>
               {/* Every one is overdue: the card's title says so. */}

@@ -245,7 +245,7 @@ describe("ImportService", () => {
     ]);
   });
 
-  it("adds what a chunk created or updated to a list, keeping stages already set", async () => {
+  it("adds what a chunk created or updated to a list, at each row's stage, keeping stages already set", async () => {
     const list = await ListService.createList(
       A.organizationId,
       A.userId,
@@ -300,6 +300,40 @@ describe("ImportService", () => {
       { name: "Jonas", stage: "Met" },
       { name: "Maya", stage: "Keep in touch" },
     ]);
+
+    // A row's own Stage wins over the import's; one naming a stage the list
+    // doesn't have fails before it is written.
+    const named = await ImportService.importChunk(
+      A,
+      chunk(
+        "CONTACT",
+        [
+          {
+            firstName: "Priya",
+            email: "priya@loop.test",
+            listStage: "to meet",
+          },
+          { firstName: "Diego", email: "diego@brews.test", listStage: "Mte" },
+        ],
+        { listId: list.id, stageId: stage("Met") },
+      ),
+    );
+    expect(named.results).toEqual([
+      { line: 2, outcome: "created" },
+      {
+        line: 3,
+        outcome: "failed",
+        error: 'Networking has no stage "Mte".',
+      },
+    ]);
+    expect(await atStages()).toEqual([
+      { name: "Jonas", stage: "Met" },
+      { name: "Maya", stage: "Keep in touch" },
+      { name: "Priya", stage: "To meet" },
+    ]);
+    expect(
+      await database.rows(`SELECT id FROM contact WHERE first_name = 'Diego'`),
+    ).toEqual([]);
 
     // Another organization can't import into it.
     await expect(

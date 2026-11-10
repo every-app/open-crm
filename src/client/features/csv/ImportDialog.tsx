@@ -21,6 +21,7 @@ import { ENTITY_NOUNS } from "@/shared/fields";
 import {
   IMPORT_CHUNK_SIZE,
   IMPORT_MAX_ROWS,
+  LIST_STAGE_TARGET,
   type ImportDuplicates,
 } from "@/shared/imports";
 import { parseCsv, type ParsedCsv } from "./csvFile";
@@ -31,6 +32,8 @@ import {
   importTargets,
   mappedRows,
   missingTargets,
+  overlongValueError,
+  templateHeaders,
 } from "./importMapping";
 import {
   ColumnMapping,
@@ -46,7 +49,7 @@ import {
 // send them all in chunks, with progress, and a report at the end. The
 // server matches every row to the record it already is, so running an
 // import again creates nothing twice. Contacts and companies can land in a
-// list, new or existing, at a starting stage.
+// list, new or existing, at a starting stage or the one each row names.
 
 const PREVIEW_ROWS = 10;
 type Step =
@@ -83,18 +86,16 @@ export function ImportDialog({
   );
   const [mapping, setMapping] = useState<(string | null)[]>([]);
   const [duplicates, setDuplicates] = useState<ImportDuplicates>("skip");
-  const list = useImportList(entity);
+  const list = useImportList(entity, mapping.includes(LIST_STAGE_TARGET));
   const stopRef = useRef(false);
 
   const rows = useMemo(
     () => (file ? mappedRows(file.csv.rows, mapping) : []),
     [file, mapping],
   );
+  const previewRows = rows.slice(0, PREVIEW_ROWS);
   const missing = missingTargets(entity, mapping, targets);
   const busy = step.name === "importing";
-  const templateHeaders = targets
-    .filter((target) => target.id !== "fullName")
-    .map((target) => target.label);
   const requiredHeaders =
     entity === "CONTACT"
       ? "First name or Full name"
@@ -128,9 +129,13 @@ export function ImportDialog({
   };
 
   const preview = async () => {
-    setStep({ name: "preview", results: null, error: null });
+    // A value the server won't take stops here, with the row that holds it.
+    const tooLong = overlongValueError(rows);
+    setStep({ name: "preview", results: null, error: tooLong });
+    if (tooLong) return;
     try {
-      const { results } = await send(rows.slice(0, PREVIEW_ROWS), true);
+      // With the list, when it exists: a row naming a stage it lacks fails.
+      const { results } = await send(previewRows, true, list.existing);
       setStep({ name: "preview", results, error: null });
     } catch (error) {
       setStep({
@@ -265,7 +270,7 @@ export function ImportDialog({
               onClick={() =>
                 downloadCsv(
                   `${noun.many}-template.csv`,
-                  buildCsv(templateHeaders, []),
+                  buildCsv(templateHeaders(targets), []),
                 )
               }
             >
@@ -305,7 +310,7 @@ export function ImportDialog({
 
         {step.name === "preview" ? (
           <PreviewTable
-            rows={rows.slice(0, PREVIEW_ROWS)}
+            rows={previewRows}
             headers={targets}
             results={step.results}
             error={step.error}

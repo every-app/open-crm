@@ -171,18 +171,20 @@ export function QuickSwitcherDialog() {
               className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
-          <Autocomplete.Empty>
-            {searching && results.isError ? (
-              <div className="flex justify-center px-4 py-6">
-                <QueryError
-                  error={results.error}
-                  fallback="Couldn't search."
-                  onRetry={() => void results.refetch()}
-                  isRetrying={results.isFetching}
-                  variant="inline"
-                />
-              </div>
-            ) : (
+          {searching && results.isError ? (
+            // Above the matches of an earlier search for the same letters,
+            // when there are any: they stay, and may be out of date.
+            <div className="flex justify-center px-4 py-6">
+              <QueryError
+                error={results.error}
+                fallback="Couldn't search."
+                onRetry={() => void results.refetch()}
+                isRetrying={results.isFetching}
+                variant="inline"
+              />
+            </div>
+          ) : (
+            <Autocomplete.Empty>
               <p className="px-4 py-6 text-center text-sm text-muted-foreground">
                 {!searching
                   ? "Type at least two characters."
@@ -190,8 +192,8 @@ export function QuickSwitcherDialog() {
                     ? "Searching…"
                     : "Nothing matches."}
               </p>
-            )}
-          </Autocomplete.Empty>
+            </Autocomplete.Empty>
+          )}
           <Autocomplete.List className="max-h-80 overflow-y-auto overscroll-contain p-1 empty:p-0">
             {(group: { value: RecordKind; items: Hit[] }) => (
               <Autocomplete.Group key={group.value} items={group.items}>
