@@ -12,6 +12,10 @@ export type { ConnectionsStatus };
 export type ProviderStatus = ConnectionsStatus["providers"][number];
 export type Connection = NonNullable<ProviderStatus["connection"]>;
 
+/** What connecting a mailbox saves and who sees it, for whoever connects one. */
+export const STORED =
+  "Only email and meetings with companies in your CRM are saved. Everyone in the workspace, and any AI client they connect, can read them.";
+
 export const COPY = {
   google: {
     title: "Google Workspace",
@@ -24,6 +28,7 @@ export const COPY = {
     revoke: "Disconnect Google",
     revokeAction: "Disconnect",
     stops: "New email and meetings stop arriving.",
+    stored: STORED,
   },
   microsoft: {
     title: "Microsoft 365",
@@ -35,6 +40,8 @@ export const COPY = {
     revoke: "Disconnect Microsoft",
     revokeAction: "Disconnect",
     stops: "New email stops arriving.",
+    stored:
+      "Only email with companies in your CRM is saved. Everyone in the workspace, and any AI client they connect, can read it.",
   },
 } as const satisfies Record<MailboxProvider, Record<string, string>>;
 
@@ -92,7 +99,9 @@ export function mailboxState(
 ): ConnectionState {
   const { connection } = status;
   if (!connection) return status.ready ? "disconnected" : "unconfigured";
+  // Nothing syncs while the gateway doesn't offer the provider.
   const healthy =
+    status.ready &&
     !connection.needsReconnect &&
     !connection.sources.some(
       (source) =>

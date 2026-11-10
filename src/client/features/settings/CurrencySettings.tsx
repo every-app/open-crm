@@ -96,11 +96,7 @@ function ReportingCurrency({
         <SettingsRow
           label="Report totals in"
           htmlFor={id}
-          description={
-            canManage
-              ? RECONVERTS
-              : "Only an owner or an admin can change this."
-          }
+          description={canManage ? RECONVERTS : undefined}
         >
           <Select
             items={CURRENCY_ITEMS}

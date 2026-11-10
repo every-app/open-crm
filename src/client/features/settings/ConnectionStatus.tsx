@@ -5,26 +5,16 @@ const STATES = {
   connected: { label: "Connected", variant: "success" },
   attention: { label: "Needs attention", variant: "warning" },
   disconnected: { label: "Not connected", variant: "outline" },
-  unconfigured: { label: "Not set up", variant: "warning" },
+  // Nothing is wrong yet: nobody has set the provider up.
+  unconfigured: { label: "Not set up", variant: "outline" },
   paused: { label: "Paused", variant: "secondary" },
 } as const;
 
 export type ConnectionState = keyof typeof STATES;
 
 /** A connection's state, in the CRM's words: "Connected", "Not connected"… */
-export function ConnectionBadge({
-  state,
-  label,
-}: {
-  state: ConnectionState;
-  /** Overrides the state's own label, as "Connected to Acme" does. */
-  label?: string;
-}) {
-  return (
-    <Badge variant={STATES[state].variant}>
-      {label ?? STATES[state].label}
-    </Badge>
-  );
+export function ConnectionBadge({ state }: { state: ConnectionState }) {
+  return <Badge variant={STATES[state].variant}>{STATES[state].label}</Badge>;
 }
 
 /** A section title with a status badge beside it. */

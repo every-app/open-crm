@@ -1,14 +1,13 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { TriangleAlert } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ChevronLeft, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { QueryState } from "@/client/components/QueryState";
 import {
   SettingsCard,
   SettingsPage,
   SettingsRow,
-  SettingsSection,
 } from "@/client/components/SettingsSection";
 import {
   Alert,
@@ -24,19 +23,15 @@ import {
   COPY,
   connectErrorCopy,
   mailboxState,
-  notSetUpCopy,
   type ProviderStatus,
 } from "@/client/features/mailbox/connectionCopy";
 import { connectionsQueryOptions } from "@/client/features/mailbox/mailboxQueries";
+import { ProviderSetup } from "@/client/features/mailbox/ProviderSetup";
 import {
   ConnectionBadge,
   TitleWithStatus,
 } from "@/client/features/settings/ConnectionStatus";
-import { CodeBlock } from "@/client/features/settings/CodeBlock";
-import {
-  GoogleLogo,
-  MicrosoftLogo,
-} from "@/client/features/settings/brandLogos";
+import { PROVIDER_LOGOS } from "@/client/features/settings/brandLogos";
 import type { ConnectError, MailboxProvider } from "@/shared/mailbox";
 
 // Settings → Connections → Google or Microsoft (the CRM's provider pages):
@@ -45,8 +40,6 @@ import type { ConnectError, MailboxProvider } from "@/shared/mailbox";
 // provider, what an admin sets stands in for Connect.
 
 const POLL_MS = 3000;
-
-const LOGOS = { google: GoogleLogo, microsoft: MicrosoftLogo } as const;
 
 export function MailboxConnectionPage({
   provider,
@@ -68,6 +61,9 @@ export function MailboxConnectionPage({
         ? POLL_MS
         : false,
   });
+  const entry = query.data?.providers.find(
+    (candidate) => candidate.provider === provider,
+  );
 
   // A connect came back: say so once, then drop it from the address.
   useEffect(() => {
@@ -77,17 +73,32 @@ export function MailboxConnectionPage({
   }, [connected, copy.name, navigate]);
 
   return (
-    <SettingsPage title={copy.title}>
+    <SettingsPage
+      title={
+        <TitleWithStatus
+          status={
+            entry ? <ConnectionBadge state={mailboxState(entry)} /> : null
+          }
+        >
+          {copy.title}
+        </TitleWithStatus>
+      }
+      backLink={
+        <Link
+          to="/settings/connections"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" aria-hidden />
+          Connections
+        </Link>
+      }
+    >
       <QueryState
         query={query}
         errorFallback="Your connections could not be loaded."
       >
-        {(status) => {
-          const entry = status.providers.find(
-            (candidate) => candidate.provider === provider,
-          );
-          if (!entry) return null;
-          return (
+        {() =>
+          entry ? (
             <>
               {/* A connect or a reconnect that came back without it. */}
               {error ? (
@@ -108,49 +119,27 @@ export function MailboxConnectionPage({
                 <NotConnected status={entry} />
               )}
             </>
-          );
-        }}
+          ) : null
+        }
       </QueryState>
     </SettingsPage>
   );
 }
 
 function NotConnected({ status }: { status: ProviderStatus }) {
-  const { provider, ready, setup, command } = status;
-  const copy = COPY[provider];
-  const Logo = LOGOS[provider];
-  const connect = useConnect(provider);
+  const copy = COPY[status.provider];
+  const Logo = PROVIDER_LOGOS[status.provider];
+  const connect = useConnect(status.provider);
 
+  if (!status.ready) return <ProviderSetup status={status} />;
   return (
-    <SettingsSection
-      title={
-        <TitleWithStatus
-          status={<ConnectionBadge state={mailboxState(status)} />}
-        >
-          {copy.name}
-        </TitleWithStatus>
-      }
-      description={
-        ready
-          ? `Connecting goes through Every App, which holds the connection; the CRM never sees your password or tokens. Only conversations with companies in the CRM are stored. Everyone in the workspace, their AI clients and the CRM's agents can read them.`
-          : (setup ?? notSetUpCopy(copy.name, status.settings))
-      }
-      action={
-        ready ? (
-          <Button pending={connect.isPending} onClick={() => connect.mutate()}>
-            {connect.isPending ? null : <Logo data-icon="inline-start" />}
-            {copy.connect}
-          </Button>
-        ) : null
-      }
-    >
-      {!ready && command ? (
-        <SettingsCard>
-          <SettingsRow stacked label="Command">
-            <CodeBlock value={command} successMessage="Copied." />
-          </SettingsRow>
-        </SettingsCard>
-      ) : null}
-    </SettingsSection>
+    <SettingsCard>
+      <SettingsRow label={copy.connect} description={copy.stored}>
+        <Button pending={connect.isPending} onClick={() => connect.mutate()}>
+          {connect.isPending ? null : <Logo data-icon="inline-start" />}
+          Connect
+        </Button>
+      </SettingsRow>
+    </SettingsCard>
   );
 }

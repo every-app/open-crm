@@ -61,7 +61,7 @@ export function ExchangeRates({
     onError: (error) => {
       toast.error(
         getErrorCode(error) === "UPSTREAM_UNAVAILABLE"
-          ? "Could not reach open.er-api.com."
+          ? "Couldn't update exchange rates."
           : getStandardErrorMessage(error),
       );
     },

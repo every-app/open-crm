@@ -10,17 +10,25 @@ export function SettingsPage({
   title,
   description,
   actions,
+  backLink,
   children,
 }: {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
+  /** The way back from a page one level down, above the title. */
+  backLink?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="px-4 pt-6 pb-24 md:px-10 md:pt-10 md:pb-12">
       <div className="mx-auto max-w-3xl space-y-10">
-        <PageHeader title={title} description={description} actions={actions} />
+        <PageHeader
+          title={title}
+          description={description}
+          actions={actions}
+          backLink={backLink}
+        />
         {children}
       </div>
     </div>
@@ -136,18 +144,10 @@ export function SettingsRow({
 }
 
 /** A strip under a card's rows for its Save button and the like. */
-export function SettingsCardFooter({
-  children,
-  note,
-}: {
-  children: ReactNode;
-  /** A short line on the left, such as who may change the card. */
-  note?: ReactNode;
-}) {
+export function SettingsCardFooter({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 bg-foreground/[0.02] px-5 py-3">
-      <div className="min-w-0 text-sm text-muted-foreground">{note}</div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+    <div className="flex items-center justify-end gap-2 bg-foreground/[0.02] px-5 py-3">
+      {children}
     </div>
   );
 }

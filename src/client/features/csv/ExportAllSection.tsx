@@ -1,10 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsSection,
-} from "@/client/components/SettingsSection";
+import { SettingsRow } from "@/client/components/SettingsSection";
 import { Button } from "@/client/components/ui/button";
 import { buildCsv, type CsvValue } from "@/client/lib/csv";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
@@ -13,8 +9,8 @@ import { getExportPage } from "@/serverFunctions/exports";
 import { EXPORT_DATASETS, type ExportDataset } from "@/types/schemas/exports";
 import { downloadBlob } from "./download";
 
-// Settings → General, for owners: everything the workspace holds, a CSV per
-// dataset in one ZIP, fetched a page at a time (ExportService).
+// Settings → Workspace → Data, for owners: everything the workspace holds, a
+// CSV per dataset in one ZIP, fetched a page at a time (ExportService).
 
 const LABELS: Record<ExportDataset, string> = {
   companies: "Companies",
@@ -47,7 +43,7 @@ async function datasetCsv(
   return buildCsv(header, rows);
 }
 
-export function ExportAllSection() {
+export function ExportAllRow() {
   // While exporting: what it is reading, and how many rows so far.
   const [progress, setProgress] = useState<string | null>(null);
 
@@ -75,18 +71,14 @@ export function ExportAllSection() {
   };
 
   return (
-    <SettingsSection title="Export">
-      <SettingsCard>
-        <SettingsRow label="All data" description={progress || undefined}>
-          <Button
-            variant="outline"
-            pending={progress !== null}
-            onClick={() => void exportAll()}
-          >
-            Export
-          </Button>
-        </SettingsRow>
-      </SettingsCard>
-    </SettingsSection>
+    <SettingsRow label="Export all data" description={progress || undefined}>
+      <Button
+        variant="outline"
+        pending={progress !== null}
+        onClick={() => void exportAll()}
+      >
+        Export
+      </Button>
+    </SettingsRow>
   );
 }

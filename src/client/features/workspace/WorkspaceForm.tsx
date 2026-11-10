@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { revalidateLogic } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -113,13 +114,18 @@ export function WorkspaceForm({
   );
 }
 
-/** Settings → General: the same two fields as settings rows. */
+/**
+ * Settings → Workspace: the same two fields as settings rows, saved by the
+ * card's Save, then `children`: rows that apply as they change.
+ */
 export function WorkspaceSettingsCard({
   workspace,
   canManage,
+  children,
 }: {
   workspace: Workspace;
   canManage: boolean;
+  children: ReactNode;
 }) {
   const form = useWorkspaceForm(workspace, () =>
     toast.success("Workspace saved."),
@@ -156,19 +162,18 @@ export function WorkspaceSettingsCard({
               />
             )}
           </form.AppField>
-          <SettingsCardFooter
-            note={
-              canManage ? null : "Only an owner or an admin can change this."
-            }
-          >
-            <form.Subscribe selector={(state) => state.isDefaultValue}>
-              {(isDefaultValue) => (
-                <form.SubmitButton disabled={!canManage || isDefaultValue}>
-                  Save
-                </form.SubmitButton>
-              )}
-            </form.Subscribe>
-          </SettingsCardFooter>
+          {children}
+          {canManage ? (
+            <SettingsCardFooter>
+              <form.Subscribe selector={(state) => state.isDefaultValue}>
+                {(isDefaultValue) => (
+                  <form.SubmitButton disabled={isDefaultValue}>
+                    Save
+                  </form.SubmitButton>
+                )}
+              </form.Subscribe>
+            </SettingsCardFooter>
+          ) : null}
         </SettingsCard>
       </form.Form>
     </form.AppForm>

@@ -4,11 +4,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
 import { QueryError } from "@/client/components/QueryState";
 import { RowActionsMenu } from "@/client/components/RowActionsMenu";
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsSection,
-} from "@/client/components/SettingsSection";
+import { SettingsCard, SettingsRow } from "@/client/components/SettingsSection";
 import { DropdownMenuItem } from "@/client/components/ui/dropdown-menu";
 import { COPY, mailboxState } from "@/client/features/mailbox/connectionCopy";
 import { memberConnectionsQueryOptions } from "@/client/features/mailbox/mailboxQueries";
@@ -16,20 +12,15 @@ import {
   ConnectionBadge,
   type ConnectionState,
 } from "@/client/features/settings/ConnectionStatus";
-import {
-  GoogleLogo,
-  MicrosoftLogo,
-} from "@/client/features/settings/brandLogos";
+import { PROVIDER_LOGOS } from "@/client/features/settings/brandLogos";
 import type { MemberMailboxes as MemberMailboxList } from "@/server/features/mailbox/services/MemberMailboxService";
 import { disconnectMailbox, purgeSyncedData } from "@/serverFunctions/mailbox";
 
-// Settings → Connections for owners and admins: every member's mailbox, to
-// delete what one synced or disconnect it, as for a member who left. Absent
-// until somebody connects one.
+// Settings → Connections for owners and admins, under their own mailboxes:
+// every member's mailbox, to delete what one synced or disconnect it, as for
+// a member who left. Absent until somebody connects one.
 
 type Entry = MemberMailboxList[number];
-
-const LOGOS = { google: GoogleLogo, microsoft: MicrosoftLogo } as const;
 
 function stateOf({ connection }: Entry): ConnectionState {
   if (connection.sources.some((source) => source.status === "PAUSED")) {
@@ -89,10 +80,13 @@ export function MemberMailboxes() {
     : false;
 
   return (
-    <SettingsSection title="Members' mailboxes">
+    <>
+      <h3 className="pt-3 text-sm font-medium text-muted-foreground">
+        Members' mailboxes
+      </h3>
       <SettingsCard>
         {query.data.map((entry) => {
-          const Logo = LOGOS[entry.provider];
+          const Logo = PROVIDER_LOGOS[entry.provider];
           const copy = COPY[entry.provider];
           return (
             <SettingsRow
@@ -152,6 +146,6 @@ export function MemberMailboxes() {
             : null}
         </ConfirmDialog>
       ) : null}
-    </SettingsSection>
+    </>
   );
 }

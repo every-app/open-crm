@@ -5,11 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { ExternalLink, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsSection,
-} from "@/client/components/SettingsSection";
+import { SettingsCard, SettingsRow } from "@/client/components/SettingsSection";
 import {
   Alert,
   AlertAction,
@@ -22,17 +18,13 @@ import {
   COPY,
   REVOKED,
   SOURCES,
-  mailboxState,
   type Connection,
   type ProviderStatus,
 } from "@/client/features/mailbox/connectionCopy";
 import { connectionsQueryOptions } from "@/client/features/mailbox/mailboxQueries";
+import { ProviderSetup } from "@/client/features/mailbox/ProviderSetup";
 import { RelativeTime } from "@/client/features/records/LocalDateTime";
 import { DangerRow, DangerZone } from "@/client/features/settings/DangerZone";
-import {
-  ConnectionBadge,
-  TitleWithStatus,
-} from "@/client/features/settings/ConnectionStatus";
 import type { MailboxProvider, SyncSource } from "@/shared/mailbox";
 import {
   checkConnectionNow,
@@ -44,7 +36,9 @@ import {
 
 // A member's connected mailbox: how each source is doing, Check now, the
 // auto-create switches, and in the Danger zone deleting what it brought in
-// and disconnecting.
+// and disconnecting. Reconnect, Allow and Check now all go through the
+// gateway, so while it doesn't offer the provider they give way to what an
+// admin sets.
 
 // A Google error's "Resolve" link goes to Google only.
 const RESOLVE_HOSTS = [
@@ -207,39 +201,10 @@ export function ConnectedMailbox({
 
   return (
     <>
-      <SettingsSection
-        title={
-          <TitleWithStatus
-            status={<ConnectionBadge state={mailboxState(status)} />}
-          >
-            {copy.name}
-          </TitleWithStatus>
-        }
-        action={
-          needsReconnect ? (
-            <Button
-              pending={connect.isPending}
-              disabled={!status.ready}
-              onClick={() => connect.mutate()}
-            >
-              Reconnect
-            </Button>
-          ) : requiresAdmin ? null : (
-            <Button
-              variant="outline"
-              pending={checkNow.isPending || syncing}
-              onClick={() => checkNow.mutate()}
-            >
-              {checkNow.isPending || syncing
-                ? "Checking…"
-                : failing.length
-                  ? "Retry sync"
-                  : "Check now"}
-            </Button>
-          )
-        }
-      >
-        {connection.needsReconnect ? (
+      <div className="space-y-3">
+        {!status.ready ? (
+          <ProviderSetup status={status} variant="warning" />
+        ) : connection.needsReconnect ? (
           <Alert key={insistence} variant="destructive" className={attention}>
             <TriangleAlert aria-hidden />
             <AlertTitle>Reconnect {copy.name}</AlertTitle>
@@ -305,6 +270,26 @@ export function ConnectedMailbox({
               ) : undefined
             }
           >
+            {!status.ready ? null : needsReconnect ? (
+              <Button
+                pending={connect.isPending}
+                onClick={() => connect.mutate()}
+              >
+                Reconnect
+              </Button>
+            ) : requiresAdmin ? null : (
+              <Button
+                variant="outline"
+                pending={checkNow.isPending || syncing}
+                onClick={() => checkNow.mutate()}
+              >
+                {checkNow.isPending || syncing
+                  ? "Checking…"
+                  : failing.length
+                    ? "Retry sync"
+                    : "Check now"}
+              </Button>
+            )}
             <Button
               variant="outline"
               nativeButton={false}
@@ -335,21 +320,20 @@ export function ConnectedMailbox({
                       autoCreate.mutate({ source: source.source, enabled })
                     }
                   />
-                ) : (
+                ) : status.ready ? (
                   <Button
                     variant="outline"
                     pending={connect.isPending}
-                    disabled={!status.ready}
                     onClick={() => connect.mutate()}
                   >
                     Allow
                   </Button>
-                )}
+                ) : null}
               </SettingsRow>
             );
           })}
         </SettingsCard>
-      </SettingsSection>
+      </div>
 
       <DangerZone>
         <DangerRow

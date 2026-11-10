@@ -12,7 +12,7 @@ import { SettingsDisclosure } from "@/client/components/SettingsDisclosure";
 import { useCanManageWorkspace } from "@/client/features/settings/settingsQueries";
 
 const FIRST_REQUEST =
-  "List the companies in my CRM, then help me add a real prospect, its first deal and a dated follow-up. Ask me for any missing details.";
+  "List the companies in my CRM, then help me add a new contact. Ask me for any missing details.";
 
 /**
  * Connect, authorize, and prove the connection with a real CRM tool result.
@@ -38,8 +38,8 @@ export function ApiSettings() {
   return (
     <SettingsSection
       id="ai-clients"
-      title="Connect your AI client"
-      description="Your Every App gateway has one address for AI clients. Connected once, your AI client works in the CRM the way you can: companies, contacts, deals, follow-ups and agents."
+      title="AI clients"
+      description="Claude, ChatGPT and other AI clients can work in the CRM for you, with the access you give them."
     >
       <SettingsCard>
         <SettingsRow
@@ -91,7 +91,7 @@ export function ApiSettings() {
         />
         <SettingsRow
           label="Try your first request"
-          description="Paste this into your AI client. A successful CRM tool result confirms the connection."
+          description="Paste this into your AI client to check that it works."
         >
           <div className="flex max-w-md items-start gap-2">
             <p className="min-w-0 rounded-lg bg-muted p-3 text-sm">

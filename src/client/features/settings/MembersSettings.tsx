@@ -18,11 +18,7 @@ export function MembersSettings() {
       <SettingsCard>
         <SettingsRow
           label="Team access"
-          description={
-            canManage
-              ? "Manage members, roles and invitations on Every App."
-              : "Ask an owner or admin to manage members on Every App."
-          }
+          description="Members, roles and invitations are managed on Every App."
         >
           {canManage && account?.gatewayUrl ? (
             <Button

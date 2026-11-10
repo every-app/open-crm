@@ -1,11 +1,12 @@
 import type { SVGProps } from "react";
+import type { MailboxProvider } from "@/shared/mailbox";
 
 // The providers' marks on Settings → Connections, from the CRM's
 // brand-logos.
 
 type LogoProps = SVGProps<SVGSVGElement>;
 
-export function GoogleLogo(props: LogoProps) {
+function GoogleLogo(props: LogoProps) {
   return (
     <svg
       viewBox="-3 0 262 262"
@@ -34,7 +35,7 @@ export function GoogleLogo(props: LogoProps) {
   );
 }
 
-export function MicrosoftLogo(props: LogoProps) {
+function MicrosoftLogo(props: LogoProps) {
   return (
     <svg
       viewBox="0 0 23 23"
@@ -50,3 +51,8 @@ export function MicrosoftLogo(props: LogoProps) {
     </svg>
   );
 }
+
+export const PROVIDER_LOGOS: Record<MailboxProvider, typeof GoogleLogo> = {
+  google: GoogleLogo,
+  microsoft: MicrosoftLogo,
+};

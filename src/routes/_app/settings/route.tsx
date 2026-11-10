@@ -1,75 +1,39 @@
-import {
-  createFileRoute,
-  Outlet,
-  useLocation,
-  useNavigate,
-} from "@tanstack/react-router";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/client/components/ui/select";
-import {
-  SectionLayout,
-  SectionNavLink,
-} from "@/client/components/SectionLayout";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsLayout,
 });
 
-const sections = [
-  { to: "/settings", label: "Workspace", exact: true },
-  { to: "/settings/connections", label: "Connections", exact: false },
-] as const;
+// The router sets `data-status="active"` and `aria-current="page"` on the
+// link that matches the current URL.
+const linkClass =
+  "inline-flex h-8 items-center rounded-md px-2.5 text-sm whitespace-nowrap text-muted-foreground transition-colors outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[status=active]:bg-foreground/[0.07] data-[status=active]:font-medium data-[status=active]:text-foreground";
 
+/** Settings: its two pages as a strip of links, lined up with their content. */
 function SettingsLayout() {
-  const pathname = useLocation({ select: (location) => location.pathname });
-  const navigate = useNavigate();
-  const current =
-    sections.find((section) =>
-      section.exact ? pathname === section.to : pathname.startsWith(section.to),
-    )?.to ?? "/settings";
   return (
-    <SectionLayout
-      label="Workspace settings"
-      mobileNav={
-        <Select
-          items={sections.map((section) => ({
-            value: section.to,
-            label: section.label,
-          }))}
-          value={current}
-          onValueChange={(value) => {
-            const section = sections.find((item) => item.to === value);
-            if (section) void navigate({ to: section.to });
-          }}
-        >
-          <SelectTrigger aria-label="Settings section" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {sections.map((section) => (
-              <SelectItem key={section.to} value={section.to}>
-                {section.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      }
-      nav={sections.map((section) => (
-        <SectionNavLink
-          key={section.to}
-          to={section.to}
-          activeOptions={{ exact: section.exact, includeSearch: false }}
-        >
-          {section.label}
-        </SectionNavLink>
-      ))}
-    >
-      <Outlet />
-    </SectionLayout>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-border px-4 py-2 md:px-10">
+        <nav aria-label="Settings" className="mx-auto flex max-w-3xl gap-1">
+          <Link
+            to="/settings"
+            activeOptions={{ exact: true, includeSearch: false }}
+            className={linkClass}
+          >
+            Workspace
+          </Link>
+          <Link
+            to="/settings/connections"
+            activeOptions={{ includeSearch: false }}
+            className={linkClass}
+          >
+            Connections
+          </Link>
+        </nav>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <Outlet />
+      </div>
+    </div>
   );
 }
