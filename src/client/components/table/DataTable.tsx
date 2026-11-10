@@ -95,7 +95,7 @@ export function makeSelectionColumn<TData>(
     size: 32,
     enableSorting: false,
     enableHiding: false,
-    meta: { width: 40 },
+    meta: { width: 36 },
     header: ({ table }) => (
       <Checkbox
         checked={table.getIsAllRowsSelected()}

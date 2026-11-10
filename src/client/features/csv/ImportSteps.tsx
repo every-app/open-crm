@@ -264,9 +264,11 @@ export function PreviewTable({
   const byLine = new Map(results?.map((result) => [result.line, result]));
   return (
     <div className="space-y-2">
-      {error || !results ? (
-        <p className="text-sm text-muted-foreground">{error ?? "Checking…"}</p>
-      ) : null}
+      {error ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : results ? null : (
+        <p className="text-sm text-muted-foreground">Checking…</p>
+      )}
       <div className="max-h-[45vh] overflow-auto rounded-lg border border-border">
         <Table>
           <TableHeader>

@@ -42,7 +42,7 @@ export function companyColumns({
       header: ({ column }) => (
         <SortableHeader column={column} label="Company" />
       ),
-      meta: { label: "Company", width: 192 },
+      meta: { label: "Company", width: 176 },
       cell: ({ row }) => {
         const company = row.original;
         return (
@@ -72,7 +72,7 @@ export function companyColumns({
       id: "domain",
       header: "Domain",
       value: (row) => row.domain,
-      width: 120,
+      width: 112,
       className: "text-muted-foreground",
       sortable: true,
     }),
@@ -80,7 +80,7 @@ export function companyColumns({
       id: "industry",
       header: "Industry",
       value: (row) => row.industry,
-      width: 112,
+      width: 96,
       sortable: true,
     }),
     textColumn<CompanyRow>({
@@ -100,7 +100,8 @@ export function companyColumns({
       id: "deals",
       header: "Open deals",
       value: (row) => row.openDealCount,
-      width: 104,
+      // Room for the sort arrow beside the label.
+      width: 106,
     }),
     dateColumn({
       id: "lastActivity",

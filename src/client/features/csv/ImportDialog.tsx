@@ -112,10 +112,7 @@ export function ImportDialog({
     if (!picked) return;
     const csv = parseCsv(await picked.text());
     if (csv.rows.length === 0) {
-      setStep({
-        name: "pick",
-        error: "No rows under the header row.",
-      });
+      setStep({ name: "pick", error: "No rows under the header row." });
       return;
     }
     if (csv.rows.length > IMPORT_MAX_ROWS) {
@@ -253,7 +250,11 @@ export function ImportDialog({
                 accept=".csv,text/csv"
                 disabled={fields.isPending}
                 className="sr-only"
-                onChange={(event) => void pick(event.target.files?.[0])}
+                onChange={(event) => {
+                  void pick(event.target.files?.[0]);
+                  // Emptied, so the same file can be chosen again once fixed.
+                  event.target.value = "";
+                }}
               />
             </label>
             <Button
@@ -362,7 +363,7 @@ export function ImportDialog({
                   Back
                 </Button>
                 <Button
-                  disabled={step.results === null && step.error === null}
+                  disabled={step.results === null}
                   onClick={() => void run()}
                 >
                   Import {rows.length.toLocaleString()}{" "}

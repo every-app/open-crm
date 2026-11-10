@@ -6,8 +6,15 @@ import { FieldValueDisplay } from "@/client/features/fields/FieldValue";
 import { membersQueryOptions } from "@/client/features/members/memberQueries";
 import { OwnerCell } from "@/client/features/records/cells";
 import type { Field } from "@/server/features/fields/services/fieldShape";
-import type { FieldEntity } from "@/shared/crm-enums";
+import type { FieldEntity, FieldType } from "@/shared/crm-enums";
 import type { FieldValueJson } from "@/shared/fields";
+
+/** The types whose values are short: a number, yes or no, a choice. */
+const SHORT_VALUE_TYPES: readonly FieldType[] = [
+  "NUMBER",
+  "CHECKBOX",
+  "SELECT",
+];
 
 /** Someone in a user field, as the owner column shows people. */
 function MemberCell({ userId }: { userId: string }) {
@@ -55,7 +62,9 @@ export function useFieldColumns<
             id: `field:${field.key}`,
             header: field.label,
             enableSorting: false,
-            meta: { width: 136 },
+            meta: {
+              width: SHORT_VALUE_TYPES.includes(field.type) ? 104 : 136,
+            },
             cell: ({ row }) => (
               <FieldCell
                 field={field}

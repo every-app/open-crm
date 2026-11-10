@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { Table } from "@tanstack/react-table";
 import { Search, Archive, SlidersHorizontal } from "lucide-react";
 import { useIsMobile } from "@/client/hooks/use-mobile";
@@ -27,6 +27,7 @@ import { useDebouncedDraft } from "@/client/hooks/useDebouncedDraft";
 import { useFieldFilters } from "@/client/features/fields/FieldFilterControls";
 import { useOpenFieldsSheet } from "@/client/features/fields/FieldsSheetButton";
 import {
+  LIST_MEMBERSHIP_FILTER_KEYS,
   clearedFilters,
   savedViewOf,
   type RecordListSearch,
@@ -91,7 +92,8 @@ export function RecordListToolbar<TData>({
   /** Whose custom fields the filters and the fields sheet offer. */
   entity: FieldEntity;
   table: Table<TData>;
-  search: RecordListSearch;
+  /** With `list` while a list is open in the page. */
+  search: RecordListSearch & { list?: string };
   onSearchChange: (update: Partial<RecordListSearch>) => void;
   /** Applies a view chosen in Views. */
   onApplyView: (filters: SavedViewFilters) => void;
@@ -141,13 +143,28 @@ export function RecordListToolbar<TData>({
       }),
   };
   const all = [owner, ...filters, ...fieldFilters, archive];
-  // Every filter, but not the search.
+  // Every filter, but not the search, nor an open list's stage tab and Due.
+  const kept: readonly string[] = search.list
+    ? ["q", ...LIST_MEMBERSHIP_FILTER_KEYS]
+    : ["q"];
   const clearFilters = () =>
     onSearchChange({
-      ...clearedFilters(filterKeys.filter((key) => key !== "q")),
+      ...clearedFilters(filterKeys.filter((key) => !kept.includes(key))),
       archived: undefined,
     });
   const selecting = selection.count > 0;
+  // The saved view last applied or saved here: the one Views offers to update.
+  const [lastViewId, setLastViewId] = useState<string>();
+  const views = (
+    <SavedViewsMenu
+      entity={entity}
+      current={savedViewOf(search)}
+      onApply={onApplyView}
+      lastViewId={lastViewId}
+      onLastViewChange={setLastViewId}
+      showLabel={mobile}
+    />
+  );
 
   return (
     <>
@@ -176,12 +193,7 @@ export function RecordListToolbar<TData>({
                       <SheetTitle>View options</SheetTitle>
                     </SheetHeader>
                     <div className="flex flex-wrap gap-3 px-4">
-                      <SavedViewsMenu
-                        entity={entity}
-                        current={savedViewOf(search)}
-                        onApply={onApplyView}
-                        showLabel
-                      />
+                      {views}
                       <SortMenu table={table} showLabel />
                       <ColumnsMenu
                         table={table}
@@ -193,11 +205,7 @@ export function RecordListToolbar<TData>({
                 </Sheet>
               ) : (
                 <>
-                  <SavedViewsMenu
-                    entity={entity}
-                    current={savedViewOf(search)}
-                    onApply={onApplyView}
-                  />
+                  {views}
                   <SortMenu table={table} />
                   <ColumnsMenu
                     table={table}
