@@ -6,9 +6,10 @@ describe("the record stack in the URL", () => {
     expect(
       appSearchSchema.parse({
         record: "company:acme,bogus,contact:,person:ana,deal:d1",
-        tab: "nope",
+        // A link from when sheets had tabs.
+        tab: "activity",
       }),
-    ).toEqual({ record: "company:acme,deal:d1", tab: undefined });
+    ).toEqual({ record: "company:acme,deal:d1" });
     expect(appSearchSchema.parse({ record: "bogus" }).record).toBeUndefined();
 
     const deep = Array.from({ length: 12 }, (_, index) => `deal:d${index}`);

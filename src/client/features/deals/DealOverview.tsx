@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { Button } from "@/client/components/ui/button";
 import { toast } from "sonner";
 import { StageStepper } from "@/client/features/deals/DealStage";
+import { CloseDate } from "@/client/features/deals/closeDate";
 import {
   closeDay,
   formatAmount,
@@ -12,8 +12,10 @@ import type {
   DealPatch,
   useDealMutations,
 } from "@/client/features/deals/useDealMutations";
-import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
-import { RecordFields } from "@/client/features/fields/RecordFields";
+import {
+  DetailsActions,
+  RecordFields,
+} from "@/client/features/fields/RecordFields";
 import { InlineCompanyField } from "@/client/features/records/CompanyPicker";
 import {
   InlineField,
@@ -24,11 +26,12 @@ import {
 } from "@/client/features/records/InlineField";
 import {
   LocalDateTime,
-  LocalDay,
+  RelativeTime,
 } from "@/client/features/records/LocalDateTime";
 import { SheetSection } from "@/client/features/records/RecordSheet";
 import { useOwnerOptions } from "@/client/features/records/owners";
 import { CURRENCIES, normalizeCurrency } from "@/shared/currency";
+import { isClosedStage } from "@/shared/deal-stages";
 import { UNASSIGNED } from "@/types/schemas/records";
 
 type Mutations = ReturnType<typeof useDealMutations>;
@@ -48,9 +51,7 @@ function currencyItems(currency: string) {
       ];
 }
 
-/**
- * A deal's stage, details and description; related contacts follow below.
- */
+/** A deal's stage, details and description. */
 export function DealOverview({
   deal,
   mutations,
@@ -63,17 +64,24 @@ export function DealOverview({
   // The fields whose save is in flight show a spinner.
   const saving =
     update.isPending && update.variables ? Object.keys(update.variables) : [];
-  const save = (patch: DealPatch) => update.mutate(patch);
+  const save = (patch: DealPatch) => update.mutateAsync(patch);
   const currency = normalizeCurrency(deal.currency) || deal.currency;
+  const open = !isClosedStage(deal.stage);
 
   return (
-    <div>
+    <>
       <SheetSection title="Stage">
         <StageStepper dealId={deal.id} stage={deal.stage} />
         <dl className="mt-3 space-y-1 text-sm">
           <Property label="Opened">
             <LocalDateTime date={deal.createdAt} />
           </Property>
+          {/* A closed deal's stage last changed as it closed. */}
+          {open ? (
+            <Property label="Stage changed">
+              <RelativeTime date={deal.stageChangedAt} />
+            </Property>
+          ) : null}
           {deal.closedAt ? (
             <Property label="Closed">
               <LocalDateTime date={deal.closedAt} />
@@ -90,16 +98,14 @@ export function DealOverview({
       <SheetSection
         title="Details"
         action={
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => setShowEmpty((value) => !value)}
-            >
-              {showEmpty ? "Hide empty fields" : "Show empty fields"}
-            </Button>
-            <FieldsSheetButton entity="DEAL" />
-          </div>
+          // A deal's own properties always show: only a custom field can be
+          // empty and out of sight.
+          <DetailsActions
+            entity="DEAL"
+            recordId={deal.id}
+            showEmpty={showEmpty}
+            onShowEmpty={setShowEmpty}
+          />
         }
       >
         <div className="space-y-0.5">
@@ -108,9 +114,7 @@ export function DealOverview({
             value={deal.name}
             saving={saving.includes("name")}
             // A deal always has a name: an emptied one is put back.
-            onSave={(name) => {
-              if (name) save({ name });
-            }}
+            onSave={(name) => (name ? save({ name }) : null)}
           />
           <InlineField
             label="Amount"
@@ -126,9 +130,9 @@ export function DealOverview({
               const amount = parseAmount(value);
               if (amount === null) {
                 toast.error("Enter an amount, like 24000.");
-                return;
+                return Promise.reject(new Error("Not an amount."));
               }
-              save({ amount });
+              return save({ amount });
             }}
           />
           <InlineSelectField
@@ -136,7 +140,7 @@ export function DealOverview({
             value={currency}
             items={currencyItems(currency)}
             saving={saving.includes("currency")}
-            onSave={(next) => save({ currency: next })}
+            onSave={(next) => update.mutate({ currency: next })}
           />
           <ReportedValue deal={deal} currency={currency} />
           <InlineField
@@ -144,7 +148,7 @@ export function DealOverview({
             type="date"
             value={closeDay(deal.expectedCloseDate)}
             saving={saving.includes("expectedCloseDate")}
-            format={(day) => <LocalDay date={day} />}
+            format={(day) => <CloseDate date={day} open={open} spelled />}
             onSave={(day) => save({ expectedCloseDate: day || null })}
           />
           <InlineCompanyField
@@ -152,13 +156,13 @@ export function DealOverview({
             saving={saving.includes("companyId")}
             // A deal always has a company: its menu has no "No company".
             onSave={(companyId) => {
-              if (companyId) save({ companyId });
+              if (companyId) update.mutate({ companyId });
             }}
           />
           <OwnerField
             owner={deal.owner}
             saving={saving.includes("ownerId")}
-            onSave={(ownerId) => save({ ownerId })}
+            onSave={(ownerId) => update.mutate({ ownerId })}
           />
           <RecordFields
             entity="DEAL"
@@ -168,7 +172,7 @@ export function DealOverview({
         </div>
       </SheetSection>
 
-      <SheetSection title="Description">
+      <SheetSection title={deal.description ? "Description" : undefined}>
         <InlineTextArea
           label="Description"
           value={deal.description}
@@ -176,7 +180,7 @@ export function DealOverview({
           onSave={(description) => save({ description })}
         />
       </SheetSection>
-    </div>
+    </>
   );
 }
 
@@ -213,7 +217,7 @@ function ReportedValue({ deal, currency }: { deal: Deal; currency: string }) {
             ≈ {formatAmount(deal.baseAmount, deal.reportingCurrency)}
           </span>
         ) : (
-          `No ${currency} rate — left out of totals`
+          `No ${currency} rate, so it is left out of totals`
         )}
       </span>
     </div>

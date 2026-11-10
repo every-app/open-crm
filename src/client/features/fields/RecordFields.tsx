@@ -1,7 +1,8 @@
 import { useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QueryError } from "@/client/components/QueryState";
-import { Skeleton } from "@/client/components/ui/skeleton";
+import { Button } from "@/client/components/ui/button";
+import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
 import {
   entityFieldsKey,
   recordFieldsQueryOptions,
@@ -18,10 +19,49 @@ import type { FieldEntity } from "@/shared/crm-enums";
 import type { FieldValueJson } from "@/shared/fields";
 
 /**
+ * A Details section's actions: "Show empty fields", only while there is one
+ * to show (a blank property of the record's own, `hasBlank`, or a custom
+ * field with no value), and the cog that opens the fields sheet.
+ */
+export function DetailsActions({
+  entity,
+  recordId,
+  hasBlank = false,
+  showEmpty,
+  onShowEmpty,
+}: {
+  entity: FieldEntity;
+  recordId: string;
+  hasBlank?: boolean;
+  showEmpty: boolean;
+  onShowEmpty: (show: boolean) => void;
+}) {
+  const query = useQuery(recordFieldsQueryOptions(entity, recordId));
+  const hasEmptyField = (query.data ?? []).some(
+    (field) => field.showOnSheet && field.value === null,
+  );
+  return (
+    <div className="flex items-center gap-1">
+      {showEmpty || hasBlank || hasEmptyField ? (
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={() => onShowEmpty(!showEmpty)}
+        >
+          {showEmpty ? "Hide empty fields" : "Show empty fields"}
+        </Button>
+      ) : null}
+      <FieldsSheetButton entity={entity} />
+    </div>
+  );
+}
+
+/**
  * A record sheet's custom fields, under its built-in properties and on their
  * label column: each field shown on sheets, in the order the fields sheet
- * sets, editable in place by anyone. Renders nothing when the entity has no
- * such fields.
+ * sets, editable in place by anyone. Renders nothing while they load (a row
+ * hovered in a list has them by the click) or when the entity has no such
+ * fields.
  */
 export function RecordFields({
   entity,
@@ -34,15 +74,7 @@ export function RecordFields({
 }) {
   const query = useQuery(recordFieldsQueryOptions(entity, recordId));
 
-  if (query.isPending) {
-    return (
-      <div className="space-y-2 py-1" aria-busy>
-        {Array.from({ length: 3 }, (_, index) => (
-          <Skeleton key={index} className="h-6 w-full" />
-        ))}
-      </div>
-    );
-  }
+  if (query.isPending) return null;
   if (query.isError) {
     return (
       <QueryError

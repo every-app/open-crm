@@ -46,18 +46,20 @@ export function useContactMutations(
       ),
   });
 
-  const archive = useMutation({
-    mutationFn: () => archiveContact({ data: { id: contactId } }),
-    onSuccess: async (contact) => {
-      toast.success(`${contact.name} archived.`);
-      await invalidate();
-    },
-  });
-
   const restore = useMutation({
     mutationFn: () => restoreContact({ data: { id: contactId } }),
     onSuccess: async (contact) => {
       toast.success(`${contact.name} restored.`);
+      await invalidate();
+    },
+  });
+
+  const archive = useMutation({
+    mutationFn: () => archiveContact({ data: { id: contactId } }),
+    onSuccess: async (contact) => {
+      toast.success(`${contact.name} archived.`, {
+        action: { label: "Undo", onClick: () => restore.mutate() },
+      });
       await invalidate();
     },
   });

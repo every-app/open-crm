@@ -9,10 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/client/components/ui/select";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/client/components/ui/toggle-group";
 import { ActivityComposer } from "./ActivityComposer";
 import { TimelineEntry } from "./TimelineEntry";
 import { byDay, type ActivityEntry } from "./activityFormat";
@@ -22,163 +18,106 @@ import {
   useSetAppSearch,
   type TimelineView,
 } from "@/client/features/records/recordStack";
-import { TaskDue } from "@/types/schemas/activities";
 import type { RecordRef } from "@/shared/records";
 
-const TYPES = [
-  { value: "all", label: "All types" },
-  { value: "notes", label: "Notes" },
-  { value: "calls", label: "Calls" },
-  { value: "email", label: "Email" },
-  { value: "meetings", label: "Meetings" },
-] as const;
-const TASK_STATES = [
-  { value: "open-tasks", label: "Open" },
-  { value: "completed-tasks", label: "Completed" },
-] as const;
-const DUE = [
-  { value: "all", label: "Any due date" },
-  { value: TaskDue.Overdue, label: "Overdue" },
-  { value: TaskDue.Upcoming, label: "Upcoming" },
-  { value: TaskDue.Undated, label: "No due date" },
+const VIEWS: { value: TimelineView; label: string; empty: string }[] = [
+  { value: "all", label: "All activity", empty: "No activity yet" },
+  { value: "notes", label: "Notes", empty: "No notes" },
+  { value: "calls", label: "Calls", empty: "No calls" },
+  { value: "email", label: "Email", empty: "No email" },
+  { value: "meetings", label: "Meetings", empty: "No meetings" },
+  { value: "open-tasks", label: "Open tasks", empty: "No open tasks" },
+  {
+    value: "completed-tasks",
+    label: "Completed tasks",
+    empty: "No completed tasks",
+  },
 ];
-const EMPTY: Record<TimelineView, string> = {
-  all: "No activity yet",
-  notes: "No notes",
-  calls: "No calls",
-  email: "No email",
-  meetings: "No meetings",
-  "open-tasks": "No open tasks",
-  "completed-tasks": "No completed tasks",
-};
 
+/**
+ * The last section of a record's sheet: what to log next, then what has
+ * happened, newest first. One menu narrows it to a kind of activity.
+ */
 export function RecordTimeline({ record }: { record: RecordRef }) {
-  const { timeline: view = "all", due } = useAppSearch();
+  const { timeline: view = "all" } = useAppSearch();
   const setSearch = useSetAppSearch();
-  const tasks = view === "open-tasks" || view === "completed-tasks";
-  const shownDue = view === "open-tasks" ? due : undefined;
-  const setView = (next: TimelineView) =>
-    setSearch({
-      timeline: next === "all" ? undefined : next,
-      due: undefined,
-      emailThread: undefined,
-    });
-  const history = useInfiniteQuery(
-    timelineQueryOptions(record, view, shownDue),
-  );
+  const history = useInfiniteQuery(timelineQueryOptions(record, view));
   const entries = history.data?.pages.flatMap((page) => page.entries) ?? [];
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-col gap-3 border-b border-border px-5 py-3">
-        <ActivityComposer record={record} />
-        <div className="flex flex-wrap items-center gap-2">
-          <ToggleGroup
-            size="sm"
-            value={[tasks ? "tasks" : "all"]}
-            onValueChange={([value]) => {
-              if (value) setView(value === "tasks" ? "open-tasks" : "all");
-            }}
-            aria-label="Activity view"
-          >
-            <ToggleGroupItem value="all">All activity</ToggleGroupItem>
-            <ToggleGroupItem value="tasks">Tasks</ToggleGroupItem>
-          </ToggleGroup>
+    <section className="space-y-3 px-5 pt-3 pb-4">
+      <div className="flex min-h-7 items-center justify-between gap-3">
+        <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+          Activity
+        </h3>
+        {/* Nothing to narrow on a record with no activity at all. */}
+        {view === "all" && entries.length === 0 ? null : (
           <Select
-            items={tasks ? TASK_STATES : TYPES}
+            items={VIEWS}
             value={view}
             onValueChange={(value) => {
-              const selected = [...TYPES, ...TASK_STATES].find(
-                (item) => item.value === value,
-              );
-              if (selected) setView(selected.value);
+              const next = VIEWS.find((item) => item.value === value);
+              if (next)
+                setSearch({
+                  timeline: next.value === "all" ? undefined : next.value,
+                  emailThread: undefined,
+                });
             }}
           >
             <SelectTrigger
-              aria-label={tasks ? "Task status" : "Activity type"}
+              aria-label="Show activity"
               size="sm"
-              className="w-36"
+              className="w-40"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(tasks ? TASK_STATES : TYPES).map((item) => (
+              {VIEWS.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
                   {item.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {view === "open-tasks" ? (
-            <Select
-              items={DUE}
-              value={shownDue ?? "all"}
-              onValueChange={(value) =>
-                setSearch({
-                  due: Object.values(TaskDue).find(
-                    (window) => window === value,
-                  ),
-                })
-              }
-            >
-              <SelectTrigger
-                aria-label="Task due date"
-                size="sm"
-                className="w-36"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DUE.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
-        {history.isPending ? (
-          <SkeletonTableRows className="py-4" rows={5} columns={2} />
-        ) : history.isError ? (
-          <div className="py-4">
-            <QueryError
-              error={history.error}
-              fallback="The timeline could not be loaded."
-              onRetry={() => void history.refetch()}
-              isRetrying={history.isFetching}
-            />
-          </div>
-        ) : entries.length === 0 ? (
-          <p className="py-6 text-sm text-muted-foreground">
-            {shownDue ? "No tasks match this due date" : EMPTY[view]}
-          </p>
-        ) : (
-          <>
-            {byDay(entries).map((group) => (
-              <TimelineDay
-                key={group.day}
-                label={group.label}
-                entries={group.entries}
-                record={record}
-              />
-            ))}
-            {history.hasNextPage ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                pending={history.isFetchingNextPage}
-                onClick={() => void history.fetchNextPage()}
-              >
-                Show older
-              </Button>
-            ) : null}
-          </>
         )}
       </div>
-    </div>
+      <ActivityComposer record={record} />
+      {history.isPending ? (
+        <SkeletonTableRows rows={5} columns={2} />
+      ) : history.isError ? (
+        <QueryError
+          error={history.error}
+          fallback="The timeline could not be loaded."
+          onRetry={() => void history.refetch()}
+          isRetrying={history.isFetching}
+        />
+      ) : entries.length === 0 ? (
+        <p className="py-2 text-sm text-muted-foreground">
+          {VIEWS.find((item) => item.value === view)?.empty}
+        </p>
+      ) : (
+        <div>
+          {byDay(entries).map((group) => (
+            <TimelineDay
+              key={group.day}
+              label={group.label}
+              entries={group.entries}
+              record={record}
+            />
+          ))}
+          {history.hasNextPage ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              pending={history.isFetchingNextPage}
+              onClick={() => void history.fetchNextPage()}
+            >
+              Show older
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -193,9 +132,9 @@ function TimelineDay({
 }) {
   return (
     <section>
-      <h3 className="sticky top-0 z-10 bg-popover py-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+      <h4 className="sticky top-0 z-10 bg-popover py-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
         {label}
-      </h3>
+      </h4>
       <ul className="divide-y divide-border">
         {entries.map((entry) => (
           <TimelineEntry key={entry.id} entry={entry} record={record} />

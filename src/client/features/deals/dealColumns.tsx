@@ -4,8 +4,8 @@ import { makeSelectionColumn } from "@/client/components/table/DataTable";
 import { SortableHeader } from "@/client/components/table/SortableHeader";
 import type { SelectionAnchor } from "@/client/components/table/tableSelection";
 import { DealStageMenu } from "@/client/features/deals/DealStage";
+import { CloseDate } from "@/client/features/deals/closeDate";
 import { formatAmount, type DealRow } from "@/client/features/deals/dealFormat";
-import { LocalDay } from "@/client/features/records/LocalDateTime";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import {
   EmptyValue,
@@ -14,6 +14,7 @@ import {
   ownerColumn,
   recordDateColumns,
 } from "@/client/features/records/cells";
+import { isClosedStage } from "@/shared/deal-stages";
 
 /** The columns the deals list hides until the Columns menu shows them. */
 export const DEAL_HIDDEN_COLUMNS = ["createdAt"];
@@ -122,7 +123,10 @@ export function dealColumns({
       },
       cell: ({ row }) =>
         row.original.expectedCloseDate ? (
-          <LocalDay date={row.original.expectedCloseDate} />
+          <CloseDate
+            date={row.original.expectedCloseDate}
+            open={!isClosedStage(row.original.stage)}
+          />
         ) : (
           <EmptyValue />
         ),

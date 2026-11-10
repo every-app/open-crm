@@ -1,4 +1,4 @@
-import { useRef, Fragment, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { ArrowLeft, XIcon } from "lucide-react";
 import { SkeletonTableRows } from "@/client/components/SkeletonPresets";
 import { Button } from "@/client/components/ui/button";
@@ -10,26 +10,16 @@ import {
   SheetTitle,
 } from "@/client/components/ui/sheet";
 import { Skeleton } from "@/client/components/ui/skeleton";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/client/components/ui/tabs";
 import { RecordTimeline } from "@/client/features/activities/RecordTimeline";
 import { ArchivedRecordNotice } from "./ArchivedRecordNotice";
-import {
-  useRecordStack,
-  useRecordTab,
-  type RecordTab,
-} from "@/client/features/records/recordStack";
+import { useRecordStack } from "@/client/features/records/recordStack";
 import type { RecordRef } from "@/shared/records";
 
 // A record opens in a sheet over the page it was opened from
 // (RecordSheetHost). The shell is the same for companies, contacts and
 // deals: a header with Back (when it sits on another record's sheet), the
-// record's picture, name, status and actions, and Close; optional stats; and
-// two tabs: Details with related records, and the Activity timeline.
+// record's picture, name, status and actions, and Close; then one scroll of
+// the record's sections and, under them, its timeline.
 
 export function RecordSheet({
   open,
@@ -77,35 +67,26 @@ type RecordHeader = {
   actions?: ReactNode;
 };
 
-/** A related-record section appended to Details. */
-type RelatedSection = {
-  value: "contacts" | "deals";
-  content: ReactNode;
-};
-
 /**
- * A record's header and tabs. `header` is undefined while the record loads
- * or when it couldn't be loaded (`error`, a QueryError).
+ * A record's header, sections (`children`) and timeline. `header` is
+ * undefined while the record loads or when it couldn't be loaded (`error`, a
+ * QueryError).
  */
 export function RecordSheetFrame({
   record,
   header,
   error,
-  stats,
-  overview,
-  lists = [],
-  archivedAt,
+  archived,
+  children,
 }: {
   record: RecordRef;
   header: RecordHeader | undefined;
   error?: ReactNode;
-  stats?: ReactNode;
-  overview: ReactNode;
-  lists?: RelatedSection[];
-  archivedAt?: string | null;
+  /** An archived record: when it was archived, and the way back. */
+  archived?: { at: string; restoring: boolean; onRestore: () => void };
+  children: ReactNode;
 }) {
   const { stack, back, close } = useRecordStack();
-  const [tab, setTab] = useRecordTab();
   return (
     <>
       <div className="flex shrink-0 items-start gap-3 border-b border-border px-5 py-3">
@@ -119,7 +100,11 @@ export function RecordSheetFrame({
             <ArrowLeft />
           </Button>
         ) : null}
-        {header ? header.media : <Skeleton className="size-10 rounded-md" />}
+        {header ? (
+          header.media
+        ) : error ? null : (
+          <Skeleton className="size-10 rounded-md" />
+        )}
         <div className="min-w-0 flex-1 space-y-0.5 pt-0.5">
           <SheetTitle className="text-lg leading-tight font-semibold [overflow-wrap:anywhere]">
             {header ? (
@@ -168,15 +153,17 @@ export function RecordSheetFrame({
       </div>
       {header ? (
         <>
-          {archivedAt ? <ArchivedRecordNotice archivedAt={archivedAt} /> : null}
-          {stats}
-          <RecordTabs
-            record={record}
-            tab={tab}
-            onTabChange={setTab}
-            overview={overview}
-            lists={lists}
-          />
+          {archived ? (
+            <ArchivedRecordNotice
+              archivedAt={archived.at}
+              restoring={archived.restoring}
+              onRestore={archived.onRestore}
+            />
+          ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {children}
+            <RecordTimeline record={record} />
+          </div>
         </>
       ) : error ? (
         <div className="p-5">{error}</div>
@@ -187,49 +174,7 @@ export function RecordSheetFrame({
   );
 }
 
-function RecordTabs({
-  record,
-  tab,
-  onTabChange,
-  overview,
-  lists,
-}: {
-  record: RecordRef;
-  tab: RecordTab;
-  onTabChange: (tab: RecordTab) => void;
-  overview: ReactNode;
-  lists: RelatedSection[];
-}) {
-  return (
-    <Tabs
-      value={tab}
-      onValueChange={(value) => {
-        if (value === "details") onTabChange("details");
-        else if (value === "activity") onTabChange("activity");
-      }}
-      className="min-h-0 flex-1 gap-0"
-    >
-      <TabsList
-        variant="line"
-        className="w-full shrink-0 justify-start gap-6 border-b border-border px-5"
-      >
-        <TabsTrigger value="details">Details</TabsTrigger>
-        <TabsTrigger value="activity">Activity</TabsTrigger>
-      </TabsList>
-      <TabsContent value="details" className="min-h-0 overflow-y-auto">
-        {overview}
-        {lists.map((list) => (
-          <Fragment key={list.value}>{list.content}</Fragment>
-        ))}
-      </TabsContent>
-      <TabsContent value="activity" className="min-h-0 overflow-y-auto">
-        <RecordTimeline record={record} />
-      </TabsContent>
-    </Tabs>
-  );
-}
-
-/** One section of a record's details, with an optional heading action. */
+/** One section of a record's sheet, with an optional heading action. */
 export function SheetSection({
   title,
   action,
@@ -240,7 +185,7 @@ export function SheetSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-2 border-b border-border px-5 py-3 last:border-b-0">
+    <section className="space-y-2 border-b border-border px-5 py-3">
       {title || action ? (
         <div className="flex min-h-5 items-center justify-between gap-3">
           {title ? (
@@ -258,26 +203,15 @@ export function SheetSection({
   );
 }
 
-/** The figures under a record's header: two by two on a phone. */
-export function SheetStats({ children }: { children: ReactNode }) {
+/**
+ * The adds for what a record has none of yet (a list, a contact, a deal), in
+ * one quiet row: each one's section shows once there is something in it.
+ * Takes no room when there is nothing to add.
+ */
+export function SheetAdds({ children }: { children: ReactNode }) {
   return (
-    <dl className="grid shrink-0 grid-cols-2 gap-px border-b border-border bg-border sm:grid-cols-4">
+    <div className="flex flex-wrap gap-1 border-b border-border px-3 py-2 empty:hidden">
       {children}
-    </dl>
-  );
-}
-
-export function SheetStat({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5 bg-popover px-5 py-2.5">
-      <dt className="truncate text-xs text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 truncate text-sm font-medium">{children}</dd>
     </div>
   );
 }

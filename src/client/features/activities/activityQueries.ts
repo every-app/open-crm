@@ -20,14 +20,13 @@ import type { RecordRef } from "@/shared/records";
 import type {
   CreateActivityInput,
   TimelineFilter,
-  TaskDue,
 } from "@/types/schemas/activities";
 
 // Every activity query lives under ["activities"].
 export const activityKeys = {
   all: ["activities"] as const,
-  timeline: (record: RecordRef, filter: TimelineFilter, due?: TaskDue) =>
-    ["activities", "timeline", record.kind, record.id, filter, due] as const,
+  timeline: (record: RecordRef, filter: TimelineFilter) =>
+    ["activities", "timeline", record.kind, record.id, filter] as const,
   outstanding: (record: RecordRef) =>
     ["activities", "outstanding", record.kind, record.id] as const,
   counts: (record: RecordRef) =>
@@ -40,12 +39,11 @@ export const activityKeys = {
 export const timelineQueryOptions = (
   record: RecordRef,
   filter: TimelineFilter,
-  due?: TaskDue,
 ) =>
   infiniteQueryOptions({
-    queryKey: activityKeys.timeline(record, filter, due),
+    queryKey: activityKeys.timeline(record, filter),
     queryFn: ({ pageParam }) =>
-      getTimeline({ data: { record, filter, due, cursor: pageParam } }),
+      getTimeline({ data: { record, filter, cursor: pageParam } }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });

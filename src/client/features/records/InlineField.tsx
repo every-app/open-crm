@@ -5,8 +5,9 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { ExternalLink, Mail, Phone } from "lucide-react";
 import { cn } from "cn";
-import { Button } from "@/client/components/ui/button";
+import { Button, buttonVariants } from "@/client/components/ui/button";
 import { Input } from "@/client/components/ui/input";
 import {
   Select,
@@ -17,12 +18,14 @@ import {
 } from "@/client/components/ui/select";
 import { Textarea } from "@/client/components/ui/textarea";
 import { isEnter } from "@/client/lib/keyboard";
+import { normalizeUrl } from "@/shared/safe-url";
 
 // A record sheet's properties, each edited in place: click the value, type,
 // and Enter (or leaving the field) saves; Escape puts it back. A field saves
 // only what changed, trimmed, and an emptied field saves "" (the server
-// clears it). A placeholder shows only in the editor, so an example value is
-// never mistaken for a saved one.
+// clears it). A save that fails leaves the editor open on what was typed. A
+// placeholder shows only in the editor, so an example value is never
+// mistaken for a saved one.
 
 /** The column every property on a sheet lines up on, custom fields too. */
 export const PROPERTY_ROW = "grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2";
@@ -51,8 +54,18 @@ export function PropertyRow({
   );
 }
 
-function useInlineDraft(value: string | null, onSave: (next: string) => void) {
-  const [editing, setEditing] = useState(false);
+/**
+ * Saves a field's new value. When it returns a promise that rejects, the
+ * save failed (its toast says why) and the editor stays open.
+ */
+type Save = (next: string) => unknown;
+
+type FieldType = "text" | "url" | "email" | "tel" | "date";
+
+function useInlineDraft(value: string | null, onSave: Save) {
+  // "failed": the editor a failed save left open, on what was typed. It
+  // doesn't take the focus back from wherever the person went meanwhile.
+  const [editing, setEditing] = useState<"typing" | "failed" | false>(false);
   const [draft, setDraft] = useState(value ?? "");
   // Enter and then the editor's blur as it unmounts would commit twice;
   // Escape and then that blur would save what Escape threw away.
@@ -61,16 +74,27 @@ function useInlineDraft(value: string | null, onSave: (next: string) => void) {
     editing,
     draft,
     setDraft,
+    /** What the editor takes: the focus, only when it was clicked open. */
+    editor: {
+      autoFocus: editing === "typing",
+      "aria-invalid": editing === "failed" ? true : undefined,
+      onFocus: () => {
+        open.current = true;
+      },
+    },
     edit: () => {
       open.current = true;
       setDraft(value ?? "");
-      setEditing(true);
+      setEditing("typing");
     },
     commit: () => {
       if (!open.current) return;
       open.current = false;
       setEditing(false);
-      if (draft.trim() !== (value ?? "")) onSave(draft.trim());
+      if (draft.trim() === (value ?? "")) return;
+      void Promise.resolve(onSave(draft.trim())).catch(() =>
+        setEditing("failed"),
+      );
     },
     cancel: (event: KeyboardEvent) => {
       // Escape puts the value back; it doesn't also close the sheet.
@@ -93,10 +117,10 @@ export function InlineField({
 }: {
   label: string;
   value: string | null;
-  onSave: (next: string) => void;
+  onSave: Save;
   saving?: boolean;
   placeholder?: string;
-  type?: "text" | "url" | "email" | "tel" | "date";
+  type?: FieldType;
   /** How a value reads when it isn't being edited: an amount in its currency. */
   format?: (value: string) => ReactNode;
 }) {
@@ -111,7 +135,7 @@ export function InlineField({
         <Input
           id={id}
           type={type}
-          autoFocus
+          {...field.editor}
           value={field.draft}
           placeholder={placeholder}
           className="h-8 px-2"
@@ -142,9 +166,37 @@ export function InlineField({
               <span className="truncate text-muted-foreground">—</span>
             )}
           </Button>
+          {value && !saving ? <ValueLink type={type} value={value} /> : null}
         </div>
       )}
     </PropertyRow>
+  );
+}
+
+/**
+ * The way out to a web address, an email address or a phone number, beside
+ * its value, as a custom field of those types has: the value itself edits.
+ */
+function ValueLink({ type, value }: { type: FieldType; value: string }) {
+  const link =
+    type === "url"
+      ? { href: normalizeUrl(value), icon: <ExternalLink />, label: "Open" }
+      : type === "email"
+        ? { href: `mailto:${value}`, icon: <Mail />, label: "Email" }
+        : type === "tel"
+          ? { href: `tel:${value}`, icon: <Phone />, label: "Call" }
+          : null;
+  if (!link?.href) return null;
+  return (
+    <a
+      href={link.href}
+      target={type === "url" ? "_blank" : undefined}
+      rel="noreferrer"
+      aria-label={`${link.label} ${value}`}
+      className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
+    >
+      {link.icon}
+    </a>
   );
 }
 
@@ -158,7 +210,7 @@ export function InlineTextArea({
 }: {
   label: string;
   value: string | null;
-  onSave: (next: string) => void;
+  onSave: Save;
   saving?: boolean;
   placeholder?: string;
 }) {
@@ -169,7 +221,7 @@ export function InlineTextArea({
     return (
       <Textarea
         aria-label={label}
-        autoFocus
+        {...field.editor}
         value={field.draft}
         placeholder={placeholder}
         rows={4}
@@ -202,7 +254,9 @@ export function InlineTextArea({
           {shown}
         </span>
       ) : (
-        <span className="text-sm text-muted-foreground">Add description</span>
+        <span className="text-sm text-muted-foreground">
+          Add a {label.toLowerCase()}
+        </span>
       )}
     </Button>
   );

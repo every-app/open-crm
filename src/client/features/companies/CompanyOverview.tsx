@@ -1,11 +1,11 @@
-import { RecordListsSection } from "@/client/features/lists/RecordListsSection";
 import { useState } from "react";
-import { Button } from "@/client/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { SafeExternalLink } from "@/client/components/SafeExternalLink";
 import type { Company } from "@/client/features/companies/companyFormat";
 import type { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
-import { FieldsSheetButton } from "@/client/features/fields/FieldsSheetButton";
-import { RecordFields } from "@/client/features/fields/RecordFields";
+import {
+  DetailsActions,
+  RecordFields,
+} from "@/client/features/fields/RecordFields";
 import {
   InlineField,
   InlineTextArea,
@@ -20,8 +20,43 @@ import { WebsiteActivity } from "@/client/features/tracking/WebsiteActivity";
 type Mutations = ReturnType<typeof useCompanyMutations>;
 type CompanyPatch = Omit<UpdateCompanyInput, "id">;
 
+/** The properties a company may not have: blank ones show only when asked. */
+const OPTIONAL: {
+  key: "website" | "industry" | "phone" | "email" | "city" | "country";
+  label: string;
+  type?: "email" | "tel" | "url";
+  placeholder?: string;
+}[] = [
+  {
+    key: "website",
+    label: "Website",
+    type: "url",
+    placeholder: "https://acme.com",
+  },
+  { key: "industry", label: "Industry" },
+  { key: "phone", label: "Phone", type: "tel" },
+  { key: "email", label: "Email", type: "email" },
+  { key: "city", label: "City" },
+  { key: "country", label: "Country" },
+];
+
 /**
- * A company's editable details, links and website visits.
+ * A website that is only the domain again ("https://www.acme.com" for
+ * acme.com): the Domain row already shows it and opens it.
+ */
+function repeatsDomain(company: Company): boolean {
+  const url = company.website ? normalizeUrl(company.website) : null;
+  if (!url || !company.domain) return false;
+  const { hostname, pathname, search } = new URL(url);
+  return (
+    hostname.replace(/^www\./, "") === company.domain.toLowerCase() &&
+    pathname === "/" &&
+    !search
+  );
+}
+
+/**
+ * A company's description, editable details, links and website visits.
  */
 export function CompanyOverview({
   company,
@@ -35,35 +70,34 @@ export function CompanyOverview({
   // The fields whose save is in flight show a spinner.
   const saving =
     update.isPending && update.variables ? Object.keys(update.variables) : [];
-  const field = (key: keyof CompanyPatch) => ({
-    saving: saving.includes(key),
-    onSave: (value: string) => update.mutate({ [key]: value }),
-  });
+  const save = (patch: CompanyPatch) => update.mutateAsync(patch);
+  // The rest wait for "Show empty fields": the blank ones, and a website the
+  // Domain row already shows.
+  const shown = OPTIONAL.filter(
+    ({ key }) => company[key] && !(key === "website" && repeatsDomain(company)),
+  );
 
   return (
-    <div>
-      <RecordListsSection entity="COMPANY" recordId={company.id} />
+    <>
       <SheetSection title={company.description ? "About" : undefined}>
         <InlineTextArea
           label="Description"
           value={company.description}
-          {...field("description")}
+          saving={saving.includes("description")}
+          onSave={(description) => save({ description })}
         />
       </SheetSection>
 
       <SheetSection
         title="Details"
         action={
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => setShowEmpty((value) => !value)}
-            >
-              {showEmpty ? "Hide empty fields" : "Show empty fields"}
-            </Button>
-            <FieldsSheetButton entity="COMPANY" />
-          </div>
+          <DetailsActions
+            entity="COMPANY"
+            recordId={company.id}
+            hasBlank={shown.length < OPTIONAL.length}
+            showEmpty={showEmpty}
+            onShowEmpty={setShowEmpty}
+          />
         }
       >
         <div className="space-y-0.5">
@@ -72,60 +106,29 @@ export function CompanyOverview({
             value={company.name}
             saving={saving.includes("name")}
             // A company always has a name: an emptied one is put back.
-            onSave={(name) => {
-              if (name) update.mutate({ name });
-            }}
+            onSave={(name) => (name ? save({ name }) : null)}
           />
           <InlineField
             label="Domain"
             type="url"
             value={company.domain}
             placeholder="acme.com"
-            {...field("domain")}
+            saving={saving.includes("domain")}
+            onSave={(domain) => save({ domain })}
           />
-          {(company.website !== null && company.website !== "") || showEmpty ? (
-            <InlineField
-              label="Website"
-              type="url"
-              value={company.website}
-              placeholder="https://acme.com"
-              {...field("website")}
-            />
-          ) : null}
-          {(company.industry !== null && company.industry !== "") ||
-          showEmpty ? (
-            <InlineField
-              label="Industry"
-              value={company.industry}
-              {...field("industry")}
-            />
-          ) : null}
-          {(company.phone !== null && company.phone !== "") || showEmpty ? (
-            <InlineField
-              label="Phone"
-              type="tel"
-              value={company.phone}
-              {...field("phone")}
-            />
-          ) : null}
-          {(company.email !== null && company.email !== "") || showEmpty ? (
-            <InlineField
-              label="Email"
-              type="email"
-              value={company.email}
-              {...field("email")}
-            />
-          ) : null}
-          {(company.city !== null && company.city !== "") || showEmpty ? (
-            <InlineField label="City" value={company.city} {...field("city")} />
-          ) : null}
-          {(company.country !== null && company.country !== "") || showEmpty ? (
-            <InlineField
-              label="Country"
-              value={company.country}
-              {...field("country")}
-            />
-          ) : null}
+          {(showEmpty ? OPTIONAL : shown).map(
+            ({ key, label, type, placeholder }) => (
+              <InlineField
+                key={key}
+                label={label}
+                type={type}
+                value={company[key]}
+                placeholder={placeholder}
+                saving={saving.includes(key)}
+                onSave={(value) => save({ [key]: value })}
+              />
+            ),
+          )}
           <OwnerField
             owner={company.owner}
             saving={saving.includes("ownerId")}
@@ -137,15 +140,14 @@ export function CompanyOverview({
             showEmpty={showEmpty}
           />
         </div>
+        <p className="pt-1 text-xs text-muted-foreground">
+          Added <LocalDateTime date={company.createdAt} />
+        </p>
       </SheetSection>
 
       <CompanyLinks company={company} />
       <WebsiteActivity record={{ companyId: company.id }} />
-
-      <p className="px-5 py-4 text-xs text-muted-foreground">
-        Added <LocalDateTime date={company.createdAt} />
-      </p>
-    </div>
+    </>
   );
 }
 
@@ -169,16 +171,12 @@ function CompanyLinks({ company }: { company: Company }) {
     <SheetSection title="Links">
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {links.map((link) => (
-          <a
+          <SafeExternalLink
             key={link.label}
-            href={link.href}
-            target="_blank"
-            rel="noreferrer"
+            url={link.href}
+            label={link.label}
             className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
-          >
-            {link.label}
-            <ExternalLink className="size-3" />
-          </a>
+          />
         ))}
       </div>
     </SheetSection>

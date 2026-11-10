@@ -20,6 +20,7 @@ import {
 } from "@/client/features/records/recordStack";
 import type { DealStage } from "@/shared/crm-enums";
 import {
+  CLOSED_DEAL_STAGES,
   DEAL_STAGE_LABELS,
   DEAL_STAGE_ORDER,
   OPEN_DEAL_STAGES,
@@ -27,9 +28,9 @@ import {
   isLosingStage,
 } from "@/shared/deal-stages";
 
-// A deal's stage: how it reads, the menu that changes it, the reason a lost
-// or unqualified deal asks for first (in the URL while it's asked:
-// `closeDeal` and `closeStage`), and the sheet's pipeline stepper.
+// A deal's stage: how it reads, the menu that changes it in a list row, the
+// reason a lost or unqualified deal asks for first (in the URL while it's
+// asked: `closeDeal` and `closeStage`), and the sheet's pipeline stepper.
 
 type Tone = "neutral" | "info" | "warning" | "success" | "error";
 
@@ -159,80 +160,104 @@ export function CloseReasonHost() {
 }
 
 /**
- * Changes a deal's stage from a menu of every stage; a lost or unqualified
- * deal asks why first (CloseReasonHost). `control` is the sheet's button;
- * `inline` sits in a list row, whose click (it opens the deal) it keeps to
- * itself.
+ * Moves a deal to another stage. A lost or unqualified deal asks why first
+ * (CloseReasonHost).
+ */
+function useMoveStage(
+  dealId: string,
+  stage: DealStage,
+  onMoved?: (changed: boolean) => void,
+) {
+  const setSearch = useSetAppSearch();
+  const setStage = useSetDealStage(onMoved);
+  return {
+    pending: setStage.isPending,
+    move: (next: DealStage) => {
+      if (next === stage) return;
+      if (isLosingStage(next)) {
+        setSearch({ closeDeal: dealId, closeStage: next });
+      } else {
+        setStage.mutate({ id: dealId, stage: next });
+      }
+    },
+  };
+}
+
+/** A stage menu's choices, the deal's own stage checked. */
+function StageOptions({
+  stages,
+  stage,
+  onPick,
+}: {
+  stages: readonly DealStage[];
+  stage: DealStage;
+  onPick: (stage: DealStage) => void;
+}) {
+  return (
+    <DropdownMenuRadioGroup
+      value={stage}
+      onValueChange={(next: unknown) => {
+        const chosen = stages.find((option) => option === next);
+        if (chosen) onPick(chosen);
+      }}
+    >
+      {stages.map((option) => (
+        // A pick is the whole interaction: the menu closes on it.
+        <DropdownMenuRadioItem key={option} value={option} closeOnClick>
+          {DEAL_STAGE_LABELS[option]}
+        </DropdownMenuRadioItem>
+      ))}
+    </DropdownMenuRadioGroup>
+  );
+}
+
+/**
+ * A deal's stage in a list row, changed from a menu of every stage. The
+ * row's click (it opens the deal) it keeps to itself.
  */
 export function DealStageMenu({
   dealId,
   stage,
-  variant = "inline",
 }: {
   dealId: string;
   stage: DealStage;
-  variant?: "inline" | "control";
 }) {
-  const setSearch = useSetAppSearch();
-  const setStage = useSetDealStage();
-  const control = variant === "control";
-
+  const { pending, move } = useMoveStage(dealId, stage);
   return (
     // Clicks in the menu (a portal) still bubble through React to the row.
     <span className="contents" onClick={(event) => event.stopPropagation()}>
       <DropdownMenu>
         <DropdownMenuTrigger
-          disabled={setStage.isPending}
+          disabled={pending}
           render={
-            control ? (
-              <Button variant="outline" size="sm" />
-            ) : (
-              <button
-                type="button"
-                aria-label={`Stage: ${DEAL_STAGE_LABELS[stage]}. Change it`}
-                className="flex min-w-0 items-center rounded-sm text-left hover:text-foreground disabled:opacity-50"
-              />
-            )
+            <button
+              type="button"
+              aria-label={`Stage: ${DEAL_STAGE_LABELS[stage]}. Change it`}
+              className="flex min-w-0 items-center rounded-sm text-left hover:text-foreground disabled:opacity-50"
+            />
           }
         >
           <DealStageIndicator stage={stage} />
-          {control ? <ChevronDown className="text-muted-foreground" /> : null}
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align={control ? "end" : "start"}
-          className="min-w-52"
-        >
-          <DropdownMenuRadioGroup
-            value={stage}
-            onValueChange={(next: unknown) => {
-              const chosen = DEAL_STAGE_ORDER.find((option) => option === next);
-              if (!chosen || chosen === stage) return;
-              if (isLosingStage(chosen)) {
-                setSearch({ closeDeal: dealId, closeStage: chosen });
-                return;
-              }
-              setStage.mutate({ id: dealId, stage: chosen });
-            }}
-          >
-            {DEAL_STAGE_ORDER.map((option) => (
-              // A pick is the whole interaction: the menu closes on it.
-              <DropdownMenuRadioItem key={option} value={option} closeOnClick>
-                {DEAL_STAGE_LABELS[option]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
+        <DropdownMenuContent align="start" className="min-w-52">
+          <StageOptions stages={DEAL_STAGE_ORDER} stage={stage} onPick={move} />
         </DropdownMenuContent>
       </DropdownMenu>
     </span>
   );
 }
 
-// The open stages, then a win: the road a deal is meant to take.
-const RAIL: DealStage[] = [...OPEN_DEAL_STAGES, "CLOSED_WON"];
+const STEP =
+  "min-w-0 flex-1 border-t-2 pt-2 text-left text-xs transition-colors disabled:pointer-events-none disabled:opacity-50";
+const REACHED = "border-foreground text-foreground";
+const AHEAD =
+  "border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground";
 
 /**
- * The pipeline as steps: click one to move the deal there. A deal lost or
- * unqualified shows where it left the road instead of a win.
+ * A deal's stage on its sheet, the one place it changes there: the pipeline
+ * as steps (click one to move the deal to it), then how it ends. The last
+ * step is a menu of the outcomes: won, or lost or unqualified, which ask
+ * why first.
  */
 export function StageStepper({
   dealId,
@@ -241,55 +266,65 @@ export function StageStepper({
   dealId: string;
   stage: DealStage;
 }) {
-  const setStage = useSetDealStage((changed) => {
+  const { pending, move } = useMoveStage(dealId, stage, (changed) => {
     if (changed) toast.success("Stage updated.");
   });
-  const exited = isClosedStage(stage) && stage !== "CLOSED_WON";
-  const steps = exited ? OPEN_DEAL_STAGES : RAIL;
-  const currentIndex = steps.indexOf(stage);
+  const closed = isClosedStage(stage);
+  const currentIndex = OPEN_DEAL_STAGES.indexOf(stage);
 
   return (
     <ol className="flex w-full gap-1">
-      {steps.map((option, index) => {
-        const reached = !exited && index <= currentIndex;
-        const current = !exited && option === stage;
+      {OPEN_DEAL_STAGES.map((option, index) => {
+        // A won deal went the whole road; a lost or unqualified one left it.
+        const reached =
+          stage === "CLOSED_WON" || (!closed && index <= currentIndex);
         return (
           <li key={option} className="flex min-w-0 flex-1">
             <button
               type="button"
-              aria-current={current ? "step" : undefined}
-              disabled={setStage.isPending}
-              onClick={() => {
-                if (option !== stage) {
-                  setStage.mutate({ id: dealId, stage: option });
-                }
-              }}
+              aria-current={option === stage ? "step" : undefined}
+              disabled={pending}
+              onClick={() => move(option)}
               className={cn(
-                "min-w-0 flex-1 border-t-2 pt-2 text-left text-xs transition-colors disabled:pointer-events-none disabled:opacity-50",
-                reached
-                  ? "border-foreground text-foreground"
-                  : "border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground",
-                current && "font-medium",
+                STEP,
+                reached ? REACHED : AHEAD,
+                option === stage && "font-medium",
               )}
             >
-              <span className="block truncate">
-                {current && option === "CLOSED_WON" ? (
-                  <DealStageIndicator stage={stage} />
-                ) : (
-                  DEAL_STAGE_LABELS[option]
-                )}
-              </span>
+              {DEAL_STAGE_LABELS[option]}
             </button>
           </li>
         );
       })}
-      {exited ? (
-        <li className="flex min-w-0 flex-1">
-          <div className="min-w-0 flex-1 border-t-2 border-foreground pt-2 text-xs font-medium">
-            <DealStageIndicator stage={stage} />
-          </div>
-        </li>
-      ) : null}
+      {/* As wide as the others, but never too narrow for its outcome. */}
+      <li className="flex min-w-fit flex-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={pending}
+            render={
+              <button
+                type="button"
+                aria-current={closed ? "step" : undefined}
+                className={cn(
+                  STEP,
+                  "flex items-start gap-1",
+                  closed ? cn(REACHED, "font-medium") : AHEAD,
+                )}
+              />
+            }
+          >
+            {closed ? <DealStageIndicator stage={stage} /> : "Close deal"}
+            <ChevronDown className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44">
+            <StageOptions
+              stages={CLOSED_DEAL_STAGES}
+              stage={stage}
+              onPick={move}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </li>
     </ol>
   );
 }

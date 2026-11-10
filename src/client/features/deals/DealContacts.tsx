@@ -21,15 +21,15 @@ import type { useDealMutations } from "@/client/features/deals/useDealMutations"
 import { InlineField } from "@/client/features/records/InlineField";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import { useQuickAdd } from "@/client/features/records/recordStack";
-import { SheetSection } from "@/client/features/records/RecordSheet";
+import { SheetAdds, SheetSection } from "@/client/features/records/RecordSheet";
 import { PersonAvatar } from "@/client/features/records/cells";
 import { getFieldError } from "@/client/lib/forms";
 
 type Mutations = ReturnType<typeof useDealMutations>;
 
 /**
- * A deal's Contacts tab: the people from its company who are on it, and
- * their roles. The tab names the list and counts it.
+ * The people from a deal's company who are on it, and their roles. With
+ * nobody on it yet, only the quiet "Add contact".
  */
 export function DealContacts({
   deal,
@@ -43,18 +43,19 @@ export function DealContacts({
   const adding = add === "contact";
   const setAdding = (open: boolean) => setAdd(open ? "contact" : undefined);
   const { detachContact, setContactRole } = mutations;
+  const count = deal.contacts.length;
+  const addButton = (
+    <Button variant="ghost" size="xs" onClick={() => setAdding(true)}>
+      <Plus data-icon="inline-start" />
+      Add contact
+    </Button>
+  );
+  if (count === 0 && !adding) return <SheetAdds>{addButton}</SheetAdds>;
 
   return (
     <SheetSection
-      title={`Contacts · ${deal.contacts.length}`}
-      action={
-        adding ? null : (
-          <Button variant="ghost" size="xs" onClick={() => setAdding(true)}>
-            <Plus data-icon="inline-start" />
-            Add contact
-          </Button>
-        )
-      }
+      title={count > 0 ? `Contacts · ${count}` : "Contacts"}
+      action={adding ? null : addButton}
     >
       {adding ? (
         <AddDealContact
@@ -63,7 +64,7 @@ export function DealContacts({
           onDone={() => setAdding(false)}
         />
       ) : null}
-      {deal.contacts.length === 0 ? null : (
+      {count === 0 ? null : (
         <ul className="-mx-2 divide-y divide-border">
           {deal.contacts.map((contact) => {
             const name = fullName(contact);
@@ -95,7 +96,7 @@ export function DealContacts({
                       setContactRole.variables?.contactId === contact.id
                     }
                     onSave={(role) =>
-                      setContactRole.mutate({
+                      setContactRole.mutateAsync({
                         contactId: contact.id,
                         role: role || null,
                       })

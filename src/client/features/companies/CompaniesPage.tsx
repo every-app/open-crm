@@ -380,7 +380,6 @@ export function CompaniesPage() {
                 ...prev,
                 record: recordKey({ kind: "company", id: company.id }),
                 new: undefined,
-                tab: undefined,
                 add: "deal",
               }),
               replace: true,

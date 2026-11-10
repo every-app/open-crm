@@ -46,18 +46,20 @@ export function useCompanyMutations(
       ),
   });
 
-  const archive = useMutation({
-    mutationFn: () => archiveCompany({ data: { id: companyId } }),
-    onSuccess: async (company) => {
-      toast.success(`${company.name} archived.`);
-      await invalidate();
-    },
-  });
-
   const restore = useMutation({
     mutationFn: () => restoreCompany({ data: { id: companyId } }),
     onSuccess: async (company) => {
       toast.success(`${company.name} restored.`);
+      await invalidate();
+    },
+  });
+
+  const archive = useMutation({
+    mutationFn: () => archiveCompany({ data: { id: companyId } }),
+    onSuccess: async (company) => {
+      toast.success(`${company.name} archived.`, {
+        action: { label: "Undo", onClick: () => restore.mutate() },
+      });
       await invalidate();
     },
   });

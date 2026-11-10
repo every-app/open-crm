@@ -53,18 +53,20 @@ export function useDealMutations(
     onSuccess: () => invalidate({ record }),
   });
 
-  const archive = useMutation({
-    mutationFn: () => archiveDeal({ data: { id: dealId } }),
-    onSuccess: async (deal) => {
-      toast.success(`${deal.name} archived.`);
-      await invalidate();
-    },
-  });
-
   const restore = useMutation({
     mutationFn: () => restoreDeal({ data: { id: dealId } }),
     onSuccess: async (deal) => {
       toast.success(`${deal.name} restored.`);
+      await invalidate();
+    },
+  });
+
+  const archive = useMutation({
+    mutationFn: () => archiveDeal({ data: { id: dealId } }),
+    onSuccess: async (deal) => {
+      toast.success(`${deal.name} archived.`, {
+        action: { label: "Undo", onClick: () => restore.mutate() },
+      });
       await invalidate();
     },
   });

@@ -3,29 +3,19 @@ import { useQuery } from "@tanstack/react-query";
 import { QueryError } from "@/client/components/QueryState";
 import { Badge } from "@/client/components/ui/badge";
 import { CompanyOverview } from "@/client/features/companies/CompanyOverview";
-import {
-  CompanyContacts,
-  CompanyDeals,
-} from "@/client/features/companies/CompanySections";
+import { CompanyRelated } from "@/client/features/companies/CompanySections";
 import { companyQueryOptions } from "@/client/features/companies/companyQueries";
 import {
   formatMoney,
   type Company,
 } from "@/client/features/companies/companyFormat";
 import { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
-import { LocalDay } from "@/client/features/records/LocalDateTime";
+import { CloseDate } from "@/client/features/deals/closeDate";
+import { RecordListsSection } from "@/client/features/lists/RecordListsSection";
 import { RecordActionsMenu } from "@/client/features/records/RecordActionsMenu";
-import {
-  RecordSheetFrame,
-  SheetStat,
-  SheetStats,
-} from "@/client/features/records/RecordSheet";
+import { RecordSheetFrame } from "@/client/features/records/RecordSheet";
 import { useRecordStack } from "@/client/features/records/recordStack";
-import {
-  EmptyValue,
-  EntityLogo,
-  OwnerCell,
-} from "@/client/features/records/cells";
+import { EmptyValue, EntityLogo } from "@/client/features/records/cells";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
 import { safeHttpUrl } from "@/shared/safe-url";
@@ -45,7 +35,6 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 
   return (
     <RecordSheetFrame
-      archivedAt={company?.archivedAt}
       record={{ kind: "company", id: companyId }}
       header={
         company
@@ -91,37 +80,32 @@ export function CompanySheet({ companyId }: { companyId: string }) {
           />
         ) : undefined
       }
-      // Its stats are its pipeline: none while deals are off (the owner is
-      // in its details too).
-      stats={
-        company && dealsEnabled ? <CompanyStats company={company} /> : undefined
-      }
-      overview={
-        company ? (
-          <CompanyOverview company={company} mutations={mutations} />
-        ) : null
-      }
-      lists={
-        company
-          ? [
-              {
-                value: "contacts",
-                content: (
-                  <CompanyContacts company={company} mutations={mutations} />
-                ),
-              },
-              ...(dealsEnabled
-                ? [
-                    {
-                      value: "deals" as const,
-                      content: <CompanyDeals company={company} />,
-                    },
-                  ]
-                : []),
-            ]
+      archived={
+        company?.archivedAt
+          ? {
+              at: company.archivedAt,
+              restoring: mutations.restore.isPending,
+              onRestore: () => mutations.restore.mutate(),
+            }
           : undefined
       }
-    />
+    >
+      {company ? (
+        <>
+          {/* Its pipeline, while it has an open deal (and deals are on). */}
+          {dealsEnabled && company.deals.some((deal) => deal.open) ? (
+            <CompanyPipeline company={company} />
+          ) : null}
+          <RecordListsSection entity="COMPANY" recordId={company.id} />
+          <CompanyOverview company={company} mutations={mutations} />
+          <CompanyRelated
+            company={company}
+            mutations={mutations}
+            dealsEnabled={dealsEnabled}
+          />
+        </>
+      ) : null}
+    </RecordSheetFrame>
   );
 }
 
@@ -169,7 +153,8 @@ function companyNote(company: Company): ReactNode {
   ) : null;
 }
 
-function CompanyStats({ company }: { company: Company }) {
+/** What the company's open deals come to, and when the next should close. */
+function CompanyPipeline({ company }: { company: Company }) {
   const open = company.deals.filter((deal) => deal.open);
   const pipeline = open.reduce((sum, deal) => sum + (deal.baseAmount ?? 0), 0);
   // An amount in a currency with no rate yet isn't in the total.
@@ -182,8 +167,9 @@ function CompanyStats({ company }: { company: Company }) {
       string | null
     >((soonest, date) => (soonest === null || date < soonest ? date : soonest), null);
   return (
-    <SheetStats>
-      <SheetStat label="Open pipeline">
+    // On a phone the pipeline takes the room the other two leave.
+    <dl className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-px border-b border-border bg-border sm:grid-cols-3">
+      <Stat label="Open pipeline">
         <span className="tabular-nums">
           {formatMoney(pipeline, company.reportingCurrency)}
         </span>
@@ -193,17 +179,23 @@ function CompanyStats({ company }: { company: Company }) {
             +{unconverted} unconverted
           </span>
         ) : null}
-      </SheetStat>
-      <SheetStat label="Open deals">
+      </Stat>
+      <Stat label="Open deals">
         <span className="tabular-nums">{open.length}</span>
-      </SheetStat>
-      <SheetStat label="Next close">
-        {nextClose ? <LocalDay date={nextClose} /> : <EmptyValue />}
-      </SheetStat>
-      <SheetStat label="Owner">
-        <OwnerCell owner={company.owner} />
-      </SheetStat>
-    </SheetStats>
+      </Stat>
+      <Stat label="Next close">
+        {nextClose ? <CloseDate date={nextClose} open /> : <EmptyValue />}
+      </Stat>
+    </dl>
+  );
+}
+
+function Stat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 bg-popover px-5 py-2.5">
+      <dt className="truncate text-xs text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 truncate text-sm font-medium">{children}</dd>
+    </div>
   );
 }
 

@@ -10,20 +10,18 @@ import { ContactOverview } from "@/client/features/contacts/ContactOverview";
 import type { Contact } from "@/client/features/contacts/contactFormat";
 import { contactQueryOptions } from "@/client/features/contacts/contactQueries";
 import { useContactMutations } from "@/client/features/contacts/useContactMutations";
+import {
+  AddToFirstList,
+  RecordListsSection,
+} from "@/client/features/lists/RecordListsSection";
 import { RecordActionsMenu } from "@/client/features/records/RecordActionsMenu";
 import { RecordLink } from "@/client/features/records/RecordLink";
 import {
   RecordSheetFrame,
-  SheetStat,
-  SheetStats,
+  SheetAdds,
 } from "@/client/features/records/RecordSheet";
 import { useRecordStack } from "@/client/features/records/recordStack";
-import {
-  EmptyValue,
-  EntityLogo,
-  OwnerCell,
-  PersonAvatar,
-} from "@/client/features/records/cells";
+import { PersonAvatar } from "@/client/features/records/cells";
 import { workspaceQueryOptions } from "@/client/features/workspace/workspaceQueries";
 import { hasOrgPermission } from "@/shared/org-permissions";
 
@@ -42,7 +40,6 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 
   return (
     <RecordSheetFrame
-      archivedAt={contact?.archivedAt}
       record={{ kind: "contact", id: contactId }}
       header={
         contact
@@ -55,7 +52,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
                 />
               ),
               title: fullName(contact),
-              description: metaLine([contact.title, contact.company?.name]),
+              description: contactLine(contact),
               note: contactNote(contact),
               actions: (
                 <ContactActions
@@ -77,23 +74,27 @@ export function ContactSheet({ contactId }: { contactId: string }) {
           />
         ) : undefined
       }
-      stats={contact ? <ContactStats contact={contact} /> : undefined}
-      overview={
-        contact ? (
-          <ContactOverview contact={contact} mutations={mutations} />
-        ) : null
-      }
-      lists={
-        contact && dealsEnabled
-          ? [
-              {
-                value: "deals",
-                content: <ContactDeals contact={contact} />,
-              },
-            ]
+      archived={
+        contact?.archivedAt
+          ? {
+              at: contact.archivedAt,
+              restoring: mutations.restore.isPending,
+              onRestore: () => mutations.restore.mutate(),
+            }
           : undefined
       }
-    />
+    >
+      {contact ? (
+        <>
+          <RecordListsSection entity="CONTACT" recordId={contact.id} />
+          <ContactOverview contact={contact} mutations={mutations} />
+          {dealsEnabled ? <ContactDeals contact={contact} /> : null}
+          <SheetAdds>
+            <AddToFirstList entity="CONTACT" recordId={contact.id} />
+          </SheetAdds>
+        </>
+      ) : null}
+    </RecordSheetFrame>
   );
 }
 
@@ -152,81 +153,41 @@ function ContactActions({
   );
 }
 
-/** "Head of Security · Acme", without blanks. */
-function metaLine(parts: (string | null | undefined)[]): string | null {
-  const shown = parts.flatMap((part) => (part?.trim() ? [part.trim()] : []));
-  return shown.length > 0 ? shown.join(" · ") : null;
-}
-
-/** "Archived" and "Primary contact at Acme". */
-function contactNote(contact: Contact): ReactNode {
-  const archived = contact.archivedAt !== null;
-  const primaryAt = contact.isPrimaryContact ? contact.company?.name : null;
-  if (!archived && !primaryAt) return null;
+/** "Head of Security · Acme", without blanks: the company opens its sheet. */
+function contactLine(contact: Contact): ReactNode {
+  const title = contact.title?.trim();
+  const { company } = contact;
+  if (!title && !company) return null;
   return (
     <>
-      {archived ? <Badge variant="secondary">Archived</Badge> : null}
-      {primaryAt ? (
-        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-          <Star className="size-3 fill-current text-warning" aria-hidden />
-          Primary contact at {primaryAt}
-        </span>
+      {title}
+      {title && company ? " · " : null}
+      {company ? (
+        <RecordLink
+          record={{ kind: "company", id: company.id }}
+          className="text-foreground"
+        >
+          {company.name}
+        </RecordLink>
       ) : null}
     </>
   );
 }
 
-function ContactStats({ contact }: { contact: Contact }) {
-  const { company } = contact;
+/** "Archived" and "Primary contact" (of the company the line above names). */
+function contactNote(contact: Contact): ReactNode {
+  const archived = contact.archivedAt !== null;
+  if (!archived && !contact.isPrimaryContact) return null;
   return (
-    <SheetStats>
-      <SheetStat label="Company">
-        {company ? (
-          <RecordLink
-            record={{ kind: "company", id: company.id }}
-            className="flex items-center gap-2"
-          >
-            <EntityLogo
-              src={company.iconUrl ?? company.logoUrl}
-              darkSrc={company.iconDarkUrl}
-              tone={company.iconTone}
-              name={company.name}
-              size="sm"
-            />
-            <span className="truncate">{company.name}</span>
-          </RecordLink>
-        ) : (
-          <EmptyValue />
-        )}
-      </SheetStat>
-      <SheetStat label="Email">
-        {contact.email ? (
-          <a
-            href={`mailto:${contact.email}`}
-            className="underline-offset-4 hover:underline"
-          >
-            {contact.email}
-          </a>
-        ) : (
-          <EmptyValue />
-        )}
-      </SheetStat>
-      <SheetStat label="Phone">
-        {contact.phone ? (
-          <a
-            href={`tel:${contact.phone}`}
-            className="underline-offset-4 hover:underline"
-          >
-            {contact.phone}
-          </a>
-        ) : (
-          <EmptyValue />
-        )}
-      </SheetStat>
-      <SheetStat label="Owner">
-        <OwnerCell owner={contact.owner} />
-      </SheetStat>
-    </SheetStats>
+    <>
+      {archived ? <Badge variant="secondary">Archived</Badge> : null}
+      {contact.isPrimaryContact ? (
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <Star className="size-3 fill-current text-warning" aria-hidden />
+          Primary contact
+        </span>
+      ) : null}
+    </>
   );
 }
 

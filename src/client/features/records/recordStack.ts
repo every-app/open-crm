@@ -9,19 +9,18 @@ import { z } from "zod";
 import { DEAL_STAGES } from "@/shared/crm-enums";
 import { isLosingStage } from "@/shared/deal-stages";
 import { RECORD_KINDS, type RecordRef } from "@/shared/records";
-import { TaskDue } from "@/types/schemas/activities";
 
 // The record sheets open over whatever page is current, as the CRM opens
-// them: `record` in the URL lists them bottom first ("company:a,contact:b"),
-// and `tab` is the top sheet's tab. A record opened from a sheet stacks on
-// it, and the sheet's Back returns to the one under it. Opening the first
-// adds a history entry, so the browser's back button closes the sheets.
+// them: `record` in the URL lists them bottom first ("company:a,contact:b").
+// A record opened from a sheet stacks on it, and the sheet's Back returns to
+// the one under it. Opening the first adds a history entry, so the browser's
+// back button closes the sheets.
 //
 // The panels opened in a sheet or over the page are in the URL too, under
 // the CRM's keys, so a refresh or a link brings them back:
 //   add                    a company's quick-add form, "contact" or "deal",
 //                          or a deal's Add contact form
-//   timeline               the Activity tab's view; All when absent
+//   timeline               what the timeline shows; everything when absent
 //   emailThread            the email thread open on the timeline
 //   manageFields           the fields sheet, on a kind of record's fields
 //   manageField            the field it edits, by key, or "new"
@@ -40,18 +39,11 @@ declare module "@tanstack/react-router" {
   }
 }
 
-// Record details include related records; Activity holds the timeline.
-export const RECORD_TABS = ["details", "activity"] as const;
-export type RecordTab = (typeof RECORD_TABS)[number];
-
-/**
- * A sheet's add forms, each on the tab of what it adds: a company's quick
- * adds, and a deal's Add contact.
- */
+/** A sheet's add forms: a company's quick adds, and a deal's Add contact. */
 const QUICK_ADDS = ["contact", "deal"] as const;
 type QuickAdd = (typeof QUICK_ADDS)[number];
 
-/** The views of a record's timeline (its Activity tab). */
+/** What a record's timeline shows. */
 export const TIMELINE_VIEWS = [
   "all",
   "notes",
@@ -111,10 +103,8 @@ export const appSearchSchema = z.object({
     .transform((raw) => formatStack(parseStack(raw)))
     .optional()
     .catch(undefined),
-  tab: z.enum(RECORD_TABS).optional().catch(undefined),
   add: z.enum(QUICK_ADDS).optional().catch(undefined),
   timeline: z.enum(TIMELINE_VIEWS).optional().catch(undefined),
-  due: z.enum(TaskDue).optional().catch(undefined),
   emailThread: textParam,
   manageFields: z.enum(RECORD_KINDS).optional().catch(undefined),
   manageField: textParam,
@@ -135,10 +125,8 @@ export const APP_SEARCH_KEYS = appSearchSchema.keyof().options;
 
 /** Every panel closed, as opening or closing a record leaves them. */
 const PANELS_CLOSED = {
-  tab: undefined,
   add: undefined,
   timeline: undefined,
-  due: undefined,
   emailThread: undefined,
   manageFields: undefined,
   manageField: undefined,
@@ -175,7 +163,7 @@ export function useRecordStack() {
   const navigate = useNavigate();
   const stack = parseStack(record);
 
-  /** The URL's search with `next` as the open sheets, on their first tab. */
+  /** The URL's search with `next` as the open sheets, their panels closed. */
   const searchFor =
     (next: RecordRef[]) =>
     <TSearch extends object>(prev: TSearch) => ({
@@ -212,26 +200,6 @@ export function useRecordStack() {
 /** Opens a record's sheet over the current page from code. */
 export function useOpenRecord() {
   return useRecordStack().open;
-}
-
-/**
- * The top sheet's tab, kept in the URL: a quick-add form shows on its own
- * tab. Another tab closes the panels open on this one.
- */
-export function useRecordTab() {
-  const { tab, add } = useAppSearch();
-  const setSearch = useSetAppSearch();
-  return [
-    add ? "details" : (tab ?? "details"),
-    (next: RecordTab) =>
-      setSearch({
-        tab: next === "details" ? undefined : next,
-        add: undefined,
-        timeline: undefined,
-        due: undefined,
-        emailThread: undefined,
-      }),
-  ] as const;
 }
 
 /**
@@ -279,7 +247,6 @@ export function useQuickAdd() {
   const setSearch = useSetAppSearch();
   return [
     add,
-    (next: QuickAdd | undefined) =>
-      setSearch(next ? { add: next, tab: undefined } : { add: next }),
+    (next: QuickAdd | undefined) => setSearch({ add: next }),
   ] as const;
 }

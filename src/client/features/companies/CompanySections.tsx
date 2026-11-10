@@ -11,9 +11,10 @@ import {
 } from "@/client/features/companies/QuickAdd";
 import type { useCompanyMutations } from "@/client/features/companies/useCompanyMutations";
 import { DealStageMenu } from "@/client/features/deals/DealStage";
-import { LocalDay } from "@/client/features/records/LocalDateTime";
+import { Closes } from "@/client/features/deals/closeDate";
+import { AddToFirstList } from "@/client/features/lists/RecordListsSection";
 import { RecordLink } from "@/client/features/records/RecordLink";
-import { SheetSection } from "@/client/features/records/RecordSheet";
+import { SheetAdds, SheetSection } from "@/client/features/records/RecordSheet";
 import { useQuickAdd } from "@/client/features/records/recordStack";
 import {
   EmptyValue,
@@ -21,26 +22,13 @@ import {
   SubListOwner,
 } from "@/client/features/records/cells";
 
-// Related contacts and deals, added without leaving the company details.
+// Related contacts and deals, added without leaving the company's sheet.
 
 type Mutations = ReturnType<typeof useCompanyMutations>;
 
-/** A section's "Add" button: in its header, or (outline) in its empty state. */
-function AddButton({
-  label,
-  variant,
-  onClick,
-}: {
-  label: string;
-  variant: "ghost" | "outline";
-  onClick: () => void;
-}) {
+function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <Button
-      variant={variant}
-      size={variant === "ghost" ? "xs" : "sm"}
-      onClick={onClick}
-    >
+    <Button variant="ghost" size="xs" onClick={onClick}>
       <Plus data-icon="inline-start" />
       {label}
     </Button>
@@ -55,7 +43,42 @@ function quickAddCompany(company: Company) {
   };
 }
 
-export function CompanyContacts({
+/**
+ * A company's contacts and deals, each a section once it has one (or its
+ * add form is open), then the adds for what it has none of yet.
+ */
+export function CompanyRelated({
+  company,
+  mutations,
+  dealsEnabled,
+}: {
+  company: Company;
+  mutations: Mutations;
+  dealsEnabled: boolean;
+}) {
+  const [add, setAdd] = useQuickAdd();
+  const contacts = company.contacts.length > 0 || add === "contact";
+  const deals = dealsEnabled && (company.deals.length > 0 || add === "deal");
+  return (
+    <>
+      {contacts ? (
+        <CompanyContacts company={company} mutations={mutations} />
+      ) : null}
+      {deals ? <CompanyDeals company={company} /> : null}
+      <SheetAdds>
+        <AddToFirstList entity="COMPANY" recordId={company.id} />
+        {contacts ? null : (
+          <AddButton label="Add contact" onClick={() => setAdd("contact")} />
+        )}
+        {dealsEnabled && !deals ? (
+          <AddButton label="Add deal" onClick={() => setAdd("deal")} />
+        ) : null}
+      </SheetAdds>
+    </>
+  );
+}
+
+function CompanyContacts({
   company,
   mutations,
 }: {
@@ -65,28 +88,23 @@ export function CompanyContacts({
   const { setPrimary } = mutations;
   const [add, setAdd] = useQuickAdd();
   const adding = add === "contact";
-  const setAdding = (open: boolean) => setAdd(open ? "contact" : undefined);
-  const empty = company.contacts.length === 0;
+  const count = company.contacts.length;
   return (
     <SheetSection
-      title={`Contacts · ${company.contacts.length}`}
+      title={count > 0 ? `Contacts · ${count}` : "Contacts"}
       action={
         adding ? null : (
-          <AddButton
-            label="Add contact"
-            variant="ghost"
-            onClick={() => setAdding(true)}
-          />
+          <AddButton label="Add contact" onClick={() => setAdd("contact")} />
         )
       }
     >
       {adding ? (
         <QuickAddContact
           company={quickAddCompany(company)}
-          onDone={() => setAdding(false)}
+          onDone={() => setAdd(undefined)}
         />
       ) : null}
-      {empty ? null : (
+      {count === 0 ? null : (
         <ul className="-mx-2 divide-y divide-border">
           {company.contacts.map((contact) => {
             const name = fullName(contact);
@@ -136,31 +154,26 @@ export function CompanyContacts({
   );
 }
 
-export function CompanyDeals({ company }: { company: Company }) {
+function CompanyDeals({ company }: { company: Company }) {
   const [add, setAdd] = useQuickAdd();
   const adding = add === "deal";
-  const setAdding = (open: boolean) => setAdd(open ? "deal" : undefined);
-  const empty = company.deals.length === 0;
+  const count = company.deals.length;
   return (
     <SheetSection
-      title={`Deals · ${company.deals.length}`}
+      title={count > 0 ? `Deals · ${count}` : "Deals"}
       action={
         adding ? null : (
-          <AddButton
-            label="Add deal"
-            variant="ghost"
-            onClick={() => setAdding(true)}
-          />
+          <AddButton label="Add deal" onClick={() => setAdd("deal")} />
         )
       }
     >
       {adding ? (
         <QuickAddDeal
           company={quickAddCompany(company)}
-          onDone={() => setAdding(false)}
+          onDone={() => setAdd(undefined)}
         />
       ) : null}
-      {empty ? null : (
+      {count === 0 ? null : (
         <ul className="-mx-2 divide-y divide-border">
           {company.deals.map((deal) => (
             <li
@@ -174,9 +187,9 @@ export function CompanyDeals({ company }: { company: Company }) {
                 >
                   {deal.name}
                 </RecordLink>
-                {deal.expectedCloseDate ? (
+                {deal.open && deal.expectedCloseDate ? (
                   <p className="text-xs text-muted-foreground">
-                    Closes <LocalDay date={deal.expectedCloseDate} />
+                    <Closes date={deal.expectedCloseDate} />
                   </p>
                 ) : null}
               </div>
