@@ -27,10 +27,6 @@ export const activityKeys = {
   all: ["activities"] as const,
   timeline: (record: RecordRef, filter: TimelineFilter) =>
     ["activities", "timeline", record.kind, record.id, filter] as const,
-  outstanding: (record: RecordRef) =>
-    ["activities", "outstanding", record.kind, record.id] as const,
-  counts: (record: RecordRef) =>
-    ["activities", "counts", record.kind, record.id] as const,
   thread: (id: string) => ["activities", "thread", id] as const,
   meeting: (id: string) => ["activities", "meeting", id] as const,
 };

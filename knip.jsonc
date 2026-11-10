@@ -30,8 +30,5 @@
     // `cloudflare:workers` is a Workers runtime module that Knip reads as the
     // (unused) `cloudflare` npm package.
     "cloudflare",
-    // Linked from an Every App checkout until the SDK is published: Knip
-    // follows the source imports but doesn't credit them as package usage.
-    "@every-app/sdk",
   ],
 }

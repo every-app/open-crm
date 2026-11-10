@@ -1,14 +1,4 @@
-import {
-  and,
-  asc,
-  count,
-  eq,
-  gt,
-  inArray,
-  isNull,
-  notExists,
-  sql,
-} from "drizzle-orm";
+import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { chunk } from "remeda";
 import { db } from "@/db";
 import { runBatch } from "@/db/runBatch";
@@ -277,44 +267,6 @@ async function coverage(
   return { filled: filled?.count ?? 0, total: total?.count ?? 0 };
 }
 
-/**
- * Up to `limit` live records with no value for the field, by id after
- * `after`: page through them by passing the last id back.
- */
-async function missingRecordIds(
-  organizationId: string,
-  entity: FieldEntity,
-  fieldId: string,
-  { after, limit }: { after?: string; limit: number },
-): Promise<string[]> {
-  const record = records(entity);
-  const rows = await db
-    .select({ id: record.id })
-    .from(record.table)
-    .where(
-      and(
-        eq(record.organizationId, organizationId),
-        isNull(record.archivedAt),
-        after === undefined ? undefined : gt(record.id, after),
-        notExists(
-          db
-            .select({ one: sql`1` })
-            .from(fieldValue)
-            .where(
-              and(
-                eq(fieldValue.organizationId, organizationId),
-                eq(fieldValue.fieldId, fieldId),
-                eq(record.valueRecordId, record.id),
-              ),
-            ),
-        ),
-      ),
-    )
-    .orderBy(asc(record.id))
-    .limit(limit);
-  return rows.map((row) => row.id);
-}
-
 export const FieldValueRepository = {
   recordExists,
   listForRecord,
@@ -322,5 +274,4 @@ export const FieldValueRepository = {
   write,
   countForField,
   coverage,
-  missingRecordIds,
 };

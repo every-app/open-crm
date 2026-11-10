@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { deal, workspace, workspaceProfile } from "@/db/schema";
+import { deal, workspace } from "@/db/schema";
 
 // The original CRM's name for a workspace nobody has named yet, which is
 // what a member sees until an owner or admin onboards it.
@@ -49,15 +49,7 @@ async function update(
     .where(eq(workspace.organizationId, organizationId));
 }
 
-async function getProfile(organizationId: string) {
-  const row = await db.query.workspaceProfile.findFirst({
-    where: eq(workspaceProfile.organizationId, organizationId),
-  });
-  return row ?? null;
-}
-
 export const WorkspaceRepository = {
   getOrCreate,
   update,
-  getProfile,
 };

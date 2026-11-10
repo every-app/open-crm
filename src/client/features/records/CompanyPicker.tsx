@@ -67,14 +67,10 @@ export function CompanyPicker({
   id,
   value,
   onChange,
-  placeholder = "Search companies…",
-  disabled = false,
 }: {
   id?: string;
   value: CompanyOption | null;
   onChange: (company: CompanyOption | null) => void;
-  placeholder?: string;
-  disabled?: boolean;
 }) {
   const { query, options, setInput } = useCompanySearch();
 
@@ -88,12 +84,10 @@ export function CompanyPicker({
       isItemEqualToValue={(a, b) => a.id === b.id}
       // The server already matched the search.
       filter={null}
-      disabled={disabled}
     >
       <ComboboxInput
         id={id}
-        placeholder={placeholder}
-        disabled={disabled}
+        placeholder="Search companies…"
         showClear={value !== null}
         className="w-full"
       />

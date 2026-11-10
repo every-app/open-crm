@@ -206,13 +206,11 @@ export function InlineTextArea({
   value,
   onSave,
   saving = false,
-  placeholder,
 }: {
   label: string;
   value: string | null;
   onSave: Save;
   saving?: boolean;
-  placeholder?: string;
 }) {
   const field = useInlineDraft(value, onSave);
   const shown = saving ? field.draft.trim() : (value ?? "");
@@ -223,7 +221,6 @@ export function InlineTextArea({
         aria-label={label}
         {...field.editor}
         value={field.draft}
-        placeholder={placeholder}
         rows={4}
         onChange={(event) => field.setDraft(event.target.value)}
         onBlur={field.commit}

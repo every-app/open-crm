@@ -5,19 +5,10 @@ import { Skeleton } from "@/client/components/ui/skeleton";
 // Loading layouts built from the shadcn Skeleton primitive.
 
 /** A row of stat cards: a small label over a large value. */
-export function SkeletonStatGrid({
-  count = 4,
-  className,
-}: {
-  count?: number;
-  className?: string;
-}) {
+export function SkeletonStatGrid() {
   return (
-    <div
-      className={cn("grid grid-cols-2 gap-3 lg:grid-cols-4", className)}
-      aria-busy
-    >
-      {Array.from({ length: count }, (_, index) => (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy>
+      {Array.from({ length: 4 }, (_, index) => (
         <div
           key={index}
           className="space-y-2 rounded-lg border border-border bg-card p-4"
@@ -63,9 +54,9 @@ export function SkeletonTableRows({
 }
 
 /** A card of table rows, for a section whose data has not arrived. */
-export function SkeletonCard({ className }: { className?: string }) {
+export function SkeletonCard() {
   return (
-    <Card className={className} aria-busy>
+    <Card aria-busy>
       <CardContent>
         <SkeletonTableRows rows={6} columns={4} />
       </CardContent>

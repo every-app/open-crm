@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { trackedDomain, trackingSite } from "@/db/schema";
 import type { DomainScope, TrackingFlag } from "@/shared/tracking";
@@ -87,14 +87,6 @@ async function listDomains(organizationId: string) {
     .orderBy(asc(trackedDomain.createdAt), asc(trackedDomain.host));
 }
 
-async function countDomains(organizationId: string) {
-  const [row] = await db
-    .select({ value: count() })
-    .from(trackedDomain)
-    .where(eq(trackedDomain.organizationId, organizationId));
-  return row?.value ?? 0;
-}
-
 /** Throws a unique violation when the host is already on the list. */
 async function addDomain(
   organizationId: string,
@@ -149,7 +141,6 @@ export const TrackingSiteRepository = {
   setSiteIdIfMissing,
   replaceSiteId,
   listDomains,
-  countDomains,
   addDomain,
   removeDomain,
   recordDomainViews,

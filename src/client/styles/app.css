@@ -7,10 +7,6 @@
 
 @custom-variant dark (&:where([data-theme=openseo-dark], [data-theme=openseo-dark] *));
 
-@theme {
-  --container-8xl: 88rem;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -148,8 +144,6 @@
 :root {
   --trend-grid-color: oklch(56% 0.01 255 / 0.28);
   --trend-axis-color: oklch(42% 0.01 255 / 0.85);
-  --trend-fill-start-opacity: 0.32;
-  --trend-fill-end-opacity: 0.05;
   --trend-tooltip-bg: oklch(99% 0.005 255 / 0.96);
   --trend-tooltip-border: oklch(84% 0.01 255 / 0.7);
   --trend-tooltip-shadow: oklch(0% 0 0 / 0.1);
@@ -187,12 +181,6 @@ select:not([data-slot]) {
   }
 }
 
-/* Row actions that appear on hover. Keyboard focus inside the row and touch
-   screens (no hover) show them too. Put `group` on the row. */
-@utility reveal-on-hover {
-  @apply opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100;
-}
-
 /* Touch device optimizations */
 @media (pointer: coarse) {
   html {
@@ -206,8 +194,6 @@ select:not([data-slot]) {
 html[data-theme="openseo-dark"] {
   --trend-grid-color: oklch(78% 0.01 255 / 0.22);
   --trend-axis-color: oklch(84% 0.01 255 / 0.62);
-  --trend-fill-start-opacity: 0.24;
-  --trend-fill-end-opacity: 0.03;
   --trend-tooltip-bg: oklch(21% 0.01 255 / 0.95);
   --trend-tooltip-border: oklch(40% 0.01 255 / 0.65);
   --trend-tooltip-shadow: oklch(0% 0 0 / 0.35);

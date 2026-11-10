@@ -13,7 +13,6 @@ export function CopyButton({
   value,
   successMessage,
   label = "Copy",
-  onCopy,
   variant = "outline",
   size = "xs",
   className,
@@ -21,7 +20,6 @@ export function CopyButton({
   value: string;
   successMessage: string;
   label?: string;
-  onCopy?: () => void;
   variant?: ButtonProps["variant"];
   size?: ButtonProps["size"];
   className?: string;
@@ -37,11 +35,7 @@ export function CopyButton({
       size={size}
       className={className}
       aria-label={iconOnly ? label : undefined}
-      onClick={() => {
-        void copy(value, successMessage).then((ok) => {
-          if (ok) onCopy?.();
-        });
-      }}
+      onClick={() => void copy(value, successMessage)}
     >
       <Icon
         data-icon={iconOnly ? undefined : "inline-start"}

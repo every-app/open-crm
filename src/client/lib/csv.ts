@@ -2,7 +2,7 @@ import Papa from "papaparse";
 
 export type CsvValue = string | number | boolean | null | undefined;
 
-export type ExportValue = string | number | boolean;
+type ExportValue = string | number | boolean;
 
 export function buildCsv(headers: string[], rows: CsvValue[][]): string {
   const normalizedRows = rows.map((row) =>
@@ -21,7 +21,7 @@ export function buildCsv(headers: string[], rows: CsvValue[][]): string {
   );
 }
 
-export function normalizeExportValue(value: CsvValue): ExportValue {
+function normalizeExportValue(value: CsvValue): ExportValue {
   const normalized =
     typeof value === "number" ? roundExportNumber(value) : value;
   return sanitizeCsvValue(normalized ?? "");

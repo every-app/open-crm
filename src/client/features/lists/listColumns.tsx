@@ -29,13 +29,7 @@ type ListChip = {
 type RowWithLists = { id: string; lists: ListChip[] };
 
 /** A list's name with its color, and its stage there when it has one. */
-function ListChipBadge({
-  chip,
-  showStage = true,
-}: {
-  chip: ListChip;
-  showStage?: boolean;
-}) {
+function ListChipBadge({ chip }: { chip: ListChip }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs">
       <span
@@ -44,7 +38,7 @@ function ListChipBadge({
       />
       <span className="truncate">
         {chip.name}
-        {showStage && chip.stage ? (
+        {chip.stage ? (
           <span className="text-muted-foreground"> · {chip.stage}</span>
         ) : null}
       </span>

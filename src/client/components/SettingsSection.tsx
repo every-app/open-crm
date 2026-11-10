@@ -9,13 +9,11 @@ import { PageHeader } from "@/client/components/PageHeader";
 export function SettingsPage({
   title,
   description,
-  actions,
   backLink,
   children,
 }: {
   title: ReactNode;
   description?: ReactNode;
-  actions?: ReactNode;
   /** The way back from a page one level down, above the title. */
   backLink?: ReactNode;
   children: ReactNode;
@@ -26,7 +24,6 @@ export function SettingsPage({
         <PageHeader
           title={title}
           description={description}
-          actions={actions}
           backLink={backLink}
         />
         {children}
@@ -74,20 +71,9 @@ export function SettingsSection({
 }
 
 /** A card of settings rows, divided by hairlines. */
-export function SettingsCard({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function SettingsCard({ children }: { children: ReactNode }) {
   return (
-    <div
-      className={cn(
-        "divide-y divide-border overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs",
-        className,
-      )}
-    >
+    <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs">
       {children}
     </div>
   );

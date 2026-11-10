@@ -2,7 +2,6 @@ import { and, type SQL } from "drizzle-orm";
 import { sort } from "remeda";
 import {
   DealConversionRepository,
-  countedIn,
   pendingIn,
 } from "@/server/features/currency/repositories/DealConversionRepository";
 import { RatesRepository } from "@/server/features/currency/repositories/RatesRepository";
@@ -184,6 +183,4 @@ export const ConversionService = {
   unconverted,
   rerateAll,
   fillMissing,
-  countedIn,
-  pendingIn,
 };

@@ -4,10 +4,7 @@ import {
   type ListRow,
   type StageRow,
 } from "@/server/features/lists/repositories/ListRepository";
-import {
-  membershipsOf,
-  recordLists,
-} from "@/server/features/lists/services/listMemberships";
+import { recordLists } from "@/server/features/lists/services/listMemberships";
 import { listEntries } from "@/server/features/lists/services/listBoard";
 import { stageWrites } from "@/server/features/lists/services/listStages";
 import { matchingIds } from "@/server/features/lists/services/listMatching";
@@ -406,6 +403,5 @@ export const ListService = {
   removeFromList,
   setStage,
   listEntries,
-  membershipsOf,
   recordLists,
 };

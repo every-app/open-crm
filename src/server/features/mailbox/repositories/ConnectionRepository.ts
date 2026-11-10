@@ -1,11 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { mailboxConnection, user } from "@/db/schema";
-import {
-  grantedSources,
-  type MailboxProvider,
-  type SyncSource,
-} from "@/shared/mailbox";
+import type { MailboxProvider } from "@/shared/mailbox";
 
 // A member's mailbox connections: which mailbox each reads and whether it
 // needs connecting again. The tokens are the Every App gateway's; the CRM
@@ -129,22 +125,6 @@ async function accountEmails(organizationId: string): Promise<string[]> {
   return rows.map((row) => row.email);
 }
 
-/** The sources any member of the organization has connected. */
-async function connectedSources(
-  organizationId: string,
-): Promise<Set<SyncSource>> {
-  const rows = await db
-    .select({
-      provider: mailboxConnection.provider,
-      scopes: mailboxConnection.scopes,
-    })
-    .from(mailboxConnection)
-    .where(eq(mailboxConnection.organizationId, organizationId));
-  return new Set(
-    rows.flatMap((row) => grantedSources(row.provider, row.scopes)),
-  );
-}
-
 export const ConnectionRepository = {
   listForUser,
   find,
@@ -153,5 +133,4 @@ export const ConnectionRepository = {
   markNeedsReconnect,
   remove,
   accountEmails,
-  connectedSources,
 };

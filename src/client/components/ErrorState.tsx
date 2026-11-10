@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { CircleAlert } from "lucide-react";
 import { EmptyState } from "@/client/components/EmptyState";
 import {
@@ -20,7 +19,6 @@ export function ErrorState({
   message,
   onRetry,
   isRetrying = false,
-  action,
   variant = "card",
 }: {
   title?: string;
@@ -28,22 +26,18 @@ export function ErrorState({
   onRetry?: () => void;
   /** Shows the retry button as pending, for example while `isFetching`. */
   isRetrying?: boolean;
-  /** Replaces the retry button, for errors a retry cannot fix. */
-  action?: ReactNode;
   variant?: "inline" | "card" | "page";
 }) {
-  const button =
-    action ??
-    (onRetry ? (
-      <Button
-        variant="outline"
-        size={variant === "page" ? "default" : "sm"}
-        pending={isRetrying}
-        onClick={onRetry}
-      >
-        Try again
-      </Button>
-    ) : null);
+  const button = onRetry ? (
+    <Button
+      variant="outline"
+      size={variant === "page" ? "default" : "sm"}
+      pending={isRetrying}
+      onClick={onRetry}
+    >
+      Try again
+    </Button>
+  ) : null;
 
   if (variant === "page") {
     return (
