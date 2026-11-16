@@ -9,6 +9,7 @@ import {
 } from "@/client/components/SettingsSection";
 import { Button } from "@/client/components/ui/button";
 import { Skeleton } from "@/client/components/ui/skeleton";
+import { EnrichmentSettings } from "@/client/features/enrichment/EnrichmentSettings";
 import { useConnect } from "@/client/features/mailbox/ConnectedMailbox";
 import {
   COPY,
@@ -33,7 +34,8 @@ const PAGES = {
 /**
  * Settings → Connections (the CRM's connections page): the member's own
  * mailboxes first, each with its state and what moves it forward; for
- * owners and admins every member's mailbox under them; then AI clients.
+ * owners and admins every member's mailbox under them; then the enrichment
+ * providers, and AI clients.
  */
 export function ConnectionsOverview() {
   const mailbox = useQuery(connectionsQueryOptions());
@@ -69,6 +71,7 @@ export function ConnectionsOverview() {
         ) : null}
         {canManage ? <MemberMailboxes /> : null}
       </SettingsSection>
+      <EnrichmentSettings />
       <ApiSettings />
     </SettingsPage>
   );

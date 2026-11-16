@@ -1,4 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
+import {
+  EnrichMenuItem,
+  useEnrichSelection,
+} from "@/client/features/enrichment/EnrichSelection";
 import { ListBulkItems } from "@/client/features/lists/ListActions";
 import type { ListSummary } from "@/server/features/lists/services/ListService";
 import {
@@ -46,6 +50,7 @@ export function CompanyBulkActions({
       bulkAssignCompanyOwner({ data: input }),
     ...settled((count) => `${count} reassigned.`),
   });
+  const enrich = useEnrichSelection("company", NOUN, onDone);
   const archive = useMutation({
     mutationFn: (selected: string[]) =>
       bulkArchiveCompanies({ data: { ids: selected } }),
@@ -68,7 +73,7 @@ export function CompanyBulkActions({
       count={ids.length}
       archived={archived}
       canPurge={canPurge}
-      pending={[assign, archive, restore, purge].some(
+      pending={[assign, enrich, archive, restore, purge].some(
         (mutation) => mutation.isPending,
       )}
       onAssignOwner={(ownerId) => assign.mutate({ ids, ownerId })}
@@ -77,6 +82,7 @@ export function CompanyBulkActions({
       onPurge={() => purge.mutate(ids)}
       purgeWarning="This cannot be undone."
     >
+      <EnrichMenuItem kind="company" onClick={() => enrich.mutate(ids)} />
       <ListBulkItems
         entity="COMPANY"
         ids={ids}

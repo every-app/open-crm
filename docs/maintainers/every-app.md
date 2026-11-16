@@ -2,13 +2,14 @@
 
 The CRM runs only behind an [Every App](https://everyapp.com) gateway. The gateway does what each deployment would otherwise set up for itself:
 
-| Concern                                 | Where it lives                                                                                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign-in, sign-out, who may open the CRM | The gateway's users, organizations, roles and per-app access                                                                                |
-| People and the workspace                | Gateway `sub` → `user` row; the organization and role come from the signed identity on every request                                        |
-| Teams, invitations, roles               | The gateway's; the CRM's Members tab only mirrors who has opened it                                                                         |
-| MCP                                     | The gateway's one MCP connector lists the CRM's tools as `crm_<tool>`; the CRM never speaks MCP itself ([mcp.md](mcp.md))                   |
-| Members' mail and calendar              | The gateway holds the Google and Microsoft OAuth clients; the CRM keeps each member's tokens ([mail-and-calendar.md](mail-and-calendar.md)) |
+| Concern                                 | Where it lives                                                                                                                                      |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in, sign-out, who may open the CRM | The gateway's users, organizations, roles and per-app access                                                                                        |
+| People and the workspace                | Gateway `sub` → `user` row; the organization and role come from the signed identity on every request                                                |
+| Teams, invitations, roles               | The gateway's; the CRM's Members tab only mirrors who has opened it                                                                                 |
+| MCP                                     | The gateway's one MCP connector lists the CRM's tools as `crm_<tool>`; the CRM never speaks MCP itself ([mcp.md](mcp.md))                           |
+| Enrichment providers' keys              | The gateway holds `CONTEXT_API_KEY` and `TREG_API_TOKEN` and puts them on the CRM's lookups (`src/server/features/enrichment/providers/gateway.ts`) |
+| Members' mail and calendar              | The gateway holds the Google and Microsoft OAuth clients; the CRM keeps each member's tokens ([mail-and-calendar.md](mail-and-calendar.md))         |
 
 ## One organization per deployment
 
@@ -58,13 +59,15 @@ node ../every-app/packages/cli/bin/everyapp.js deploy
 
 ## Settings
 
-The manifest (`everyapp.config.ts`) groups the settings into three optional features (`features`: `google`, `microsoft`, `erasure`), each with its setup steps and all or nothing: the CRM opens without them, and the feature says what is missing where it is used.
+The manifest (`everyapp.config.ts`) groups the settings into five optional features (`features`: `google`, `microsoft`, `context`, `treg`, `erasure`), each with its setup steps and all or nothing: the CRM opens without them, and the feature says what is missing where it is used.
 
-| Setting                                                        | Held by | Need     | What it unlocks                                                                                                                 | Set with                                                                             |
-| -------------------------------------------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `GOOGLE_WORKSPACE_CLIENT_ID`, `GOOGLE_WORKSPACE_CLIENT_SECRET` | gateway | optional | Members connect Gmail and Google Calendar                                                                                       | `pnpm everyapp secret set GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECRET` |
-| `MICROSOFT_365_CLIENT_ID`, `MICROSOFT_365_CLIENT_SECRET`       | gateway | optional | Members connect Outlook                                                                                                         | `pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET`       |
-| `ERASURE_SECRET`                                               | CRM     | optional | An operator's erasure requests, which it signs; set for the erasure and unset after ([runbook](runbooks/erase-organization.md)) | `pnpm everyapp secret set ERASURE_SECRET --app crm`                                  |
+| Setting                                                        | Held by | Need     | What it unlocks                                                                                                                         | Set with                                                                             |
+| -------------------------------------------------------------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `GOOGLE_WORKSPACE_CLIENT_ID`, `GOOGLE_WORKSPACE_CLIENT_SECRET` | gateway | optional | Members connect Gmail and Google Calendar                                                                                               | `pnpm everyapp secret set GOOGLE_WORKSPACE_CLIENT_ID GOOGLE_WORKSPACE_CLIENT_SECRET` |
+| `MICROSOFT_365_CLIENT_ID`, `MICROSOFT_365_CLIENT_SECRET`       | gateway | optional | Members connect Outlook                                                                                                                 | `pnpm everyapp secret set MICROSOFT_365_CLIENT_ID MICROSOFT_365_CLIENT_SECRET`       |
+| `CONTEXT_API_KEY`                                              | gateway | optional | Enrich with Context.dev: titles, profiles, photos, logos and brand data ([self-hosting](../self-hosting.md#enrichment))                 | `pnpm everyapp secret set CONTEXT_API_KEY`                                           |
+| `TREG_API_TOKEN`                                               | gateway | optional | Enrich with Treg: titles, profiles and company details, paid per lookup; its provider spec is bundled (`.everyapp/providers/treg.json`) | `pnpm everyapp secret set TREG_API_TOKEN`                                            |
+| `ERASURE_SECRET`                                               | CRM     | optional | An operator's erasure requests, which it signs; set for the erasure and unset after ([runbook](runbooks/erase-organization.md))         | `pnpm everyapp secret set ERASURE_SECRET --app crm`                                  |
 
 Where an optional setting is missing, the feature says so: the Google and Microsoft pages under Settings → Connections say, in the gateway's words, what an admin sets, and show owners and admins the command (`src/client/features/mailbox/MailboxConnectionPage.tsx`); without `ERASURE_SECRET`, `/internal/erase-organization` answers 404.
 

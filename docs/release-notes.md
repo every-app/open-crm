@@ -11,7 +11,9 @@ What each release changes for a self-hosted CRM. To upgrade, see [Upgrading](sel
 - The agent's Durable Object (`CrmAgent`) goes, with everything it stored: agent chats and research transcripts. Upgrading an install that had it needs `--allow-delete-durable-object-data` on `pnpm everyapp install` (or `deploy`), which otherwise refuses with `DURABLE_OBJECT_REMOVED`.
 - The agent's tables stay in the database, unread, until a later release drops them.
 
-**Settings:** the CRM no longer reads `TOKEN_ENCRYPTION_KEY`; unset it (`pnpm everyapp secret unset TOKEN_ENCRYPTION_KEY --app crm`). It no longer reads `OPENROUTER_API_KEY`, `CONTEXT_API_KEY`, the gateway's Slack client (`SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`), `GITHUB_TOKEN` or `AGENT_MODEL`. Unset the CRM's own (`pnpm everyapp secret unset GITHUB_TOKEN --app crm`, and `AGENT_MODEL`); the gateway's stay for any other app that uses them.
+**Enrichment is back, without the agent.** Select contacts or companies in a list and choose Enrich in the Actions menu: the CRM looks them up with Context.dev or Treg and fills in what they are missing. It runs only on what a member selects, never in the background, and never overwrites a value. Set up either provider (`CONTEXT_API_KEY`, `TREG_API_TOKEN` on the gateway) and pick which one contacts and companies use in Settings → Connections ([Enrichment](self-hosting.md#enrichment)). Context.dev brings photos and logos; Treg doesn't.
+
+**Settings:** the CRM no longer reads `TOKEN_ENCRYPTION_KEY`; unset it (`pnpm everyapp secret unset TOKEN_ENCRYPTION_KEY --app crm`). It no longer reads `OPENROUTER_API_KEY`, the gateway's Slack client (`SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`), `GITHUB_TOKEN` or `AGENT_MODEL`. Unset the CRM's own (`pnpm everyapp secret unset GITHUB_TOKEN --app crm`, and `AGENT_MODEL`); the gateway's stay for any other app that uses them.
 
 - Companies and Contacts are tabs under Directory. Workspace settings links directly to member management on Every App.
 - Simplified onboarding, dashboard drill-downs, record details and activity filters. Archived records now live in Filters and show their deletion date; retention changes require confirmation.
@@ -25,7 +27,7 @@ What each release changes for a self-hosted CRM. To upgrade, see [Upgrading](sel
 - While deals are off, search, record sheets, Overview, timelines and recent activity leave deals and their stage changes out (the MCP's `search_records`, `list_activities` and `get_timeline_counts` too). Turning deals back on shows them again.
 - Lists: a saved view keeps the search, filters, sort and columns, not the list it was saved in. Edit list saves its details and stages together, and a stage only archived records are at can be removed. A CSV's Stage column sets each row's stage in the list it is imported into.
 
-**Migrations:** `0002_mail_through_gateway` (data only: empties the stored mail tokens and pending connects, and marks every mail connection for reconnecting).
+**Migrations:** `0002_mail_through_gateway` (data only: empties the stored mail tokens and pending connects, and marks every mail connection for reconnecting); `0003_enrichment_providers` (two workspace columns for the preferred enrichment provider).
 
 ## 0.1.0
 

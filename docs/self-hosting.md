@@ -45,6 +45,28 @@ Microsoft client secrets expire after the period you pick when you create one, f
 
 Organizations that let only admins consent send members to an approval page. An admin opens the **Grant admin consent** link on the member's Microsoft page in the CRM, or in Microsoft Entra goes to _Enterprise applications_, the app, _Permissions_, **Grant admin consent**.
 
+## Enrichment
+
+Members can select contacts or companies in a list and choose **Enrich** from the Actions menu. The CRM looks each one up with a data provider and fills in what the record is missing: it never overwrites what someone typed, and it notes what it filled on the record's timeline. Nothing is looked up until a member asks. There is no background research and no agent.
+
+Two providers are supported, and both are optional. Set up either or both:
+
+| Provider                           | Fills in                                                                              | Photos and logos | Cost                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------- |
+| [Context.dev](https://context.dev) | Titles and profiles for contacts; brand, industry, location and socials for companies | Yes              | Credits on your Context.dev plan                        |
+| [Treg](https://treg.to)            | Titles and LinkedIn profiles for contacts; description and industry for companies     | No               | Per lookup from a prepaid balance, at the vendor's rate |
+
+The biggest difference is pictures: Context.dev brings contact photos and company logos, and Treg doesn't. Treg passes each lookup to the cheapest data vendor that has a match, so a lookup usually costs a fraction of a cent to a few cents; the CRM caps one at $0.10 for a contact and $0.05 for a company.
+
+```bash
+pnpm everyapp secret set CONTEXT_API_KEY   # an API key from the Context.dev dashboard
+pnpm everyapp secret set TREG_API_TOKEN    # a team token: treg org agent-new <name>
+```
+
+Treg isn't in the gateway's built-in catalog, so the CRM bundles its provider spec (`.everyapp/providers/treg.json`) and the install asks to register it. With both set up, an owner or admin picks which one contacts use and which one companies use in Settings → Connections → Enrichment. With one, that one does both.
+
+Lookups send a provider what the record holds: a contact's email address, name, LinkedIn profile and employer, or a company's domain. Check that your privacy notice covers it before you turn a provider on.
+
 ## Invite your team
 
 Everyone in your organization on the gateway can open the CRM. Owners and admins invite people on the gateway, under Users → Invite user (`https://<gateway>/admin/users`). If the gateway can't send email, copy the invite link it shows and send it yourself. Settings → Workspace → Members links to that access management page.

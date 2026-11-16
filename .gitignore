@@ -22,7 +22,10 @@ dist/
 
 # everyapp's local state: the dev registry, and the deploy inputs while a
 # deploy builds
-.everyapp/
+.everyapp/*
+# but the spec of a provider the gateway's catalog lacks is committed, so
+# deploys and local runs can register it (Treg, for enrichment).
+!.everyapp/providers/
 
 # Local Claude config (skills are shared)
 .claude/*

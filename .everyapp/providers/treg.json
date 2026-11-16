@@ -1,0 +1,11 @@
+{
+  "id": "treg",
+  "name": "Treg",
+  "description": "People and company data from many vendors through one token, paid per lookup.",
+  "docs": "https://treg.to/docs",
+  "hosts": ["treg.to"],
+  "auth": { "kind": "header", "header": "X-Treg-Token", "secret": "TREG_API_TOKEN" },
+  "access": ["read"],
+  "readMethods": ["GET", "POST"],
+  "hint": "A team token from treg.to (treg org agent-new <name>); the Gateway puts it on every call as X-Treg-Token."
+}

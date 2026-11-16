@@ -23,6 +23,7 @@ import {
   RECORD_SOURCES,
   STAGE_KINDS,
 } from "../shared/crm-enums";
+import { ENRICHMENT_PROVIDERS } from "../shared/enrichment";
 import {
   CONNECTION_STATUSES,
   MAILBOX_PROVIDERS,
@@ -84,6 +85,15 @@ export const workspace = sqliteTable("workspace", {
   dealsEnabled: integer("deals_enabled", { mode: "boolean" })
     .notNull()
     .default(false),
+  // The provider a member's Enrich uses for each kind of record (Settings →
+  // Connections); null until an owner or admin picks, when whichever is set
+  // up is used.
+  contactEnrichmentProvider: text("contact_enrichment_provider", {
+    enum: ENRICHMENT_PROVIDERS,
+  }),
+  companyEnrichmentProvider: text("company_enrichment_provider", {
+    enum: ENRICHMENT_PROVIDERS,
+  }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

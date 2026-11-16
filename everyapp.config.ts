@@ -1,8 +1,8 @@
 /**
  * OpenCRM on an Every App gateway. The gateway signs people in and decides
  * who may open the CRM, serves its tools on the gateway's one MCP connector,
- * and holds each member's Google and Microsoft connections for mail capture,
- * so a deploy needs no settings of its own. Everything it can be given is an
+ * and holds each member's Google and Microsoft connections for mail capture
+ * and the enrichment providers' keys, so a deploy needs no settings of its own. Everything it can be given is an
  * optional feature (`features`, below), with its setup steps: `everyapp
  * configure crm` walks them, and the gateway and `everyapp status` show each
  * one's state. See docs/maintainers/every-app.md.
@@ -48,6 +48,19 @@ export default {
       ],
       why: "Members connect their Outlook mail, read only, so their work conversations are filed on companies and contacts.",
     },
+    // Enrichment (src/server/features/enrichment): a member selects contacts
+    // or companies and asks for what they are missing. Either provider's key
+    // is the gateway's; the CRM works without both. Treg is not in the
+    // gateway's catalog, so its spec is bundled
+    // (.everyapp/providers/treg.json) and registered at deploy.
+    context: {
+      access: "read",
+      why: "Fills in the contacts and companies a member selects: titles and profiles, photos, logos and brand data.",
+    },
+    treg: {
+      access: "read",
+      why: "Fills in the contacts and companies a member selects: titles, profiles and company details.",
+    },
   },
   // Optional, each all or nothing: the CRM opens without any of them, and
   // the feature that needs one says so where it is used.
@@ -71,6 +84,22 @@ export default {
         "Create a client secret. It expires after the period you pick; set a new one before it does.",
       ],
       capabilities: ["microsoft-365"],
+    },
+    context: {
+      name: "Enrichment with Context.dev",
+      why: "Members select contacts and companies to fill in: titles and profiles, and the photos and logos Treg doesn't have.",
+      steps: [
+        "Create an API key in the Context.dev dashboard: https://context.dev/",
+      ],
+      capabilities: ["context"],
+    },
+    treg: {
+      name: "Enrichment with Treg",
+      why: "Members select contacts and companies to fill in: titles, profiles and company details, paid per lookup. No photos or logos.",
+      steps: [
+        "Create a team token on Treg (treg org agent-new <name>): https://treg.to/docs",
+      ],
+      capabilities: ["treg"],
     },
     // docs/maintainers/runbooks/erase-organization.md
     erasure: {

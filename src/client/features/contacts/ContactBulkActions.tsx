@@ -5,6 +5,10 @@ import { Building2 } from "lucide-react";
 import { MenuSearchInput } from "@/client/components/table/FiltersMenu";
 import { ComboboxItem, ComboboxList } from "@/client/components/ui/combobox";
 import { companyOptionsQueryOptions } from "@/client/features/companies/companyQueries";
+import {
+  EnrichMenuItem,
+  useEnrichSelection,
+} from "@/client/features/enrichment/EnrichSelection";
 import { ListBulkItems } from "@/client/features/lists/ListActions";
 import type { ListSummary } from "@/server/features/lists/services/ListService";
 import {
@@ -64,6 +68,7 @@ export function ContactBulkActions({
       bulkSetContactCompany({ data: input }),
     ...settled((count) => `${count} moved.`),
   });
+  const enrich = useEnrichSelection("contact", NOUN, onDone);
   const archive = useMutation({
     mutationFn: (selected: string[]) =>
       bulkArchiveContacts({ data: { ids: selected } }),
@@ -86,7 +91,7 @@ export function ContactBulkActions({
       count={ids.length}
       archived={archived}
       canPurge={canPurge}
-      pending={[assign, move, archive, restore, purge].some(
+      pending={[assign, move, enrich, archive, restore, purge].some(
         (mutation) => mutation.isPending,
       )}
       open={menuOpen}
@@ -109,6 +114,7 @@ export function ContactBulkActions({
           }}
         />
       </BulkSubmenu>
+      <EnrichMenuItem kind="contact" onClick={() => enrich.mutate(ids)} />
       <ListBulkItems
         entity="CONTACT"
         ids={ids}

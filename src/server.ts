@@ -27,8 +27,8 @@ const startHandler = createStartHandler(defaultStreamHandler);
 //   and UI-redress a one-click action (archive a company, purge a contact),
 //   as in OpenSEO;
 // - `img-src`, only what the app shows: its own copies and icons, data: and
-//   blob: URLs, and the hosts of Context.dev pictures that records filled by
-//   the research agent the CRM used to have still point at. Nothing on a
+//   blob: URLs, and the hosts of Context.dev's pictures, which enrichment
+//   leaves on a company when a logo could not be copied. Nothing on a
 //   page can load an image from an address it chose, and so send data out in
 //   its URL;
 // - `script-src`: the app's own scripts, and inline ones only with this

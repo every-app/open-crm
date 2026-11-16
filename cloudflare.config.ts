@@ -36,9 +36,9 @@ export default defineConfig((ctx) => {
       ],
       env: {
         ...worker.env,
-        // Logos and photographs the research agent the CRM used to have
-        // copied so they outlive their source, in a bucket named after the
-        // app's Worker. Records still point at them (src/server/lib/images.ts).
+        // Logos and photographs enrichment copies so they outlive their
+        // source, in a bucket named after the app's Worker
+        // (src/server/lib/images.ts).
         R2: bindings.r2({ name: worker.name }),
       },
     },

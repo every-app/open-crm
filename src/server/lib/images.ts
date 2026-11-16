@@ -1,8 +1,9 @@
 import { resolveUserContextFromHeaders } from "@/middleware/ensure-user/resolve";
+import { getWorkersEnv } from "@/server/lib/runtime-env";
 
-// Logos and photographs the research agent the CRM used to have copied so
-// they outlive their source. Nothing copies new ones; records still point at
-// these. Each organization's images live under its own prefix in the R2
+// Logos and photographs enrichment copies so they outlive their source: the
+// URLs providers hand back expire, and a record that links to them goes
+// blank. Each organization's images live under its own prefix in the R2
 // bucket, and the record stores the path this module serves them at:
 //
 //   /api/images/<organizationId>/<name>-<hash>.<ext>
@@ -12,6 +13,75 @@ import { resolveUserContextFromHeaders } from "@/middleware/ensure-user/resolve"
 // URL, which is why it can be cached for a year.
 
 export const IMAGE_ROUTE_PREFIX = "/api/images/";
+
+const MAX_BYTES = 3 * 1024 * 1024;
+
+const EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
+  "image/svg+xml": "svg",
+  "image/x-icon": "ico",
+  "image/vnd.microsoft.icon": "ico",
+};
+
+/**
+ * Copies the image at `sourceUrl` into the organization's prefix as
+ * `<name>-<hash>.<ext>` and returns the path to store on the record, or null
+ * when it could not be fetched, is not an image, or is too large. The Worker
+ * reaches public addresses only (`global_fetch_strictly_public`).
+ */
+export async function storeImage(
+  organizationId: string,
+  name: string,
+  sourceUrl: string,
+): Promise<string | null> {
+  try {
+    if (new URL(sourceUrl).protocol !== "https:") return null;
+    const bucket: unknown = Reflect.get((await getWorkersEnv()) ?? {}, "R2");
+    if (!isBucket(bucket)) return null;
+    const response = await fetch(sourceUrl, {
+      headers: { accept: "image/*" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const type = response.headers
+      .get("content-type")
+      ?.split(";")[0]
+      ?.trim()
+      .toLowerCase();
+    const extension = type ? EXTENSIONS[type] : undefined;
+    const declared = Number(response.headers.get("content-length") ?? 0);
+    if (!response.ok || !type || !extension || declared > MAX_BYTES) {
+      await response.body?.cancel();
+      return null;
+    }
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength === 0 || bytes.byteLength > MAX_BYTES) return null;
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const hash = [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("")
+      .slice(0, 12);
+    const key = `${organizationId}/${name}-${hash}.${extension}`;
+    await bucket.put(key, bytes, { httpMetadata: { contentType: type } });
+    return `${IMAGE_ROUTE_PREFIX}${key.split("/").map(encodeURIComponent).join("/")}`;
+  } catch (error) {
+    console.warn("[images] could not copy an image", {
+      reason: error instanceof Error ? error.name : typeof error,
+    });
+    return null;
+  }
+}
+
+function isBucket(value: unknown): value is R2Bucket {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "put") === "function"
+  );
+}
 
 /** `<organizationId>/<rest>` from a request path, refusing traversal. */
 function keyFromPath(

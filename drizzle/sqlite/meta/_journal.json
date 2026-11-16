@@ -22,6 +22,13 @@
       "when": 1793671153760,
       "tag": "0002_mail_through_gateway",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794864951983,
+      "tag": "0003_enrichment_providers",
+      "breakpoints": true
     }
   ]
 }
